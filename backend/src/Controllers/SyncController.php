@@ -102,16 +102,33 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 function processSale(PDO $db, array $payload, string $offlineId): void
 {
     $eventId = $payload['event_id'] ?? 1;
-    $total   = $payload['total_amount'] ?? 0;
+    $total   = (float)($payload['total_amount'] ?? 0);
     $items   = $payload['items'] ?? [];
-    $cardId  = $payload['card_id'] ?? null; // Null para vendas sem cartão no momento
+    $cardToken = $payload['card_token'] ?? null; // Null para vendas sem cartão
+
+    // Buscar o ID real do cartão a partir do token (se fornecido)
+    $cardId = null;
+    $card = null;
+    if ($cardToken) {
+        $stmtCardCheck = $db->prepare('SELECT id, balance FROM digital_cards WHERE card_token = ? FOR UPDATE');
+        $stmtCardCheck->execute([$cardToken]);
+        $card = $stmtCardCheck->fetch(PDO::FETCH_ASSOC);
+
+        if (!$card) {
+            throw new Exception("Cartão não encontrado (Token: $cardToken).");
+        }
+        if ($card['balance'] < $total) {
+            throw new Exception("Saldo insuficiente no cartão (Token: $cardToken).");
+        }
+        $cardId = $card['id'];
+    }
 
     // Inserir a venda
     $stmtSale = $db->prepare('
-        INSERT INTO sales (event_id, total_amount, status, is_offline, offline_id, synced_at)
-        VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id
+        INSERT INTO sales (event_id, card_id, total_amount, status, is_offline, offline_id, synced_at)
+        VALUES (?, ?, ?, ?, ?, ?, NOW()) RETURNING id
     ');
-    $stmtSale->execute([$eventId, $total, 'completed', 'true', $offlineId]);
+    $stmtSale->execute([$eventId, $cardId, $total, 'completed', 'true', $offlineId]);
     $saleId = $stmtSale->fetchColumn();
 
     // Inserir os Itens e deduzir estoque
@@ -134,38 +151,29 @@ function processSale(PDO $db, array $payload, string $offlineId): void
             $item['subtotal']
         ]);
 
-        // Só tenta subtrair estoque se houver suficiente, no PDV offline o estoque pode ficar negativo,
-        // mas aqui mantemos simples e só subtraímos se >=. Em um app real, poderíamos ter log de quebra.
         $stmtStock->execute([$item['quantity'], $item['product_id']]);
     }
 
-    // Se a venda usou cartão digital, debita saldo
-    if ($cardId) {
-        $stmtCardCheck = $db->prepare('SELECT balance FROM digital_cards WHERE id = $1 FOR UPDATE');
-        $stmtCardCheck->execute([$cardId]);
-        $card = $stmtCardCheck->fetch();
+    // Se a venda usou cartão digital, debita saldo e gera logs
+    if ($cardId && $card) {
+        $newBalance = $card['balance'] - $total;
+        $stmtCardUpdate = $db->prepare('UPDATE digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?');
+        $stmtCardUpdate->execute([$newBalance, $cardId]);
 
-        if ($card && $card['balance'] >= $total) {
-            $stmtCardUpdate = $db->prepare('UPDATE digital_cards SET balance = balance - $1, updated_at = NOW() WHERE id = $2');
-            $stmtCardUpdate->execute([$total, $cardId]);
-
-            $stmtTx = $db->prepare('
-                INSERT INTO card_transactions (card_id, event_id, sale_id, amount, balance_before, balance_after, type, is_offline, offline_id, synced_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
-            ');
-            $stmtTx->execute([
-                $cardId,
-                $eventId,
-                $saleId,
-                $total,
-                $card['balance'],
-                $card['balance'] - $total,
-                'debit',
-                'true',
-                $offlineId
-            ]);
-        } else {
-            throw new Exception("Saldo insuficiente no cartão ou cartão não encontrado (ID: $cardId).");
-        }
+        $stmtTx = $db->prepare('
+            INSERT INTO card_transactions (card_id, event_id, sale_id, amount, balance_before, balance_after, type, is_offline, offline_id, synced_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        ');
+        $stmtTx->execute([
+            $cardId,
+            $eventId,
+            $saleId,
+            -$total,
+            $card['balance'],
+            $newBalance,
+            'debit',
+            'true',
+            $offlineId
+        ]);
     }
 }

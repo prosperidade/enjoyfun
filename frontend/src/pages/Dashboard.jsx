@@ -74,16 +74,16 @@ export default function Dashboard() {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Sales chart */}
         <div className="card">
-          <h2 className="section-title">Vendas — Últimos 7 dias</h2>
+          <h2 className="section-title">Vendas (Últimas 24 horas)</h2>
           {loading ? (
             <div className="h-48 flex items-center justify-center">
               <div className="spinner w-8 h-8" />
             </div>
           ) : stats?.sales_chart?.length ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {stats.sales_chart.map((row, i) => (
                 <div key={i} className="flex items-center gap-3 text-sm">
-                  <span className="text-gray-500 w-20 flex-shrink-0">{new Date(row.day).toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric' })}</span>
+                  <span className="text-gray-400 w-12 font-medium flex-shrink-0">{row.day}</span>
                   <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
                     <div
                       className="h-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full"

@@ -26,19 +26,53 @@ ob_start();
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 define('BASE_PATH', dirname(__DIR__));
 
+// ── Environment Variables Loader ──────────────────────────────────────────────
+$envFile = BASE_PATH . '/.env';
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (str_starts_with(trim($line), '#')) {
+            continue;
+        }
+        
+        list($name, $value) = explode('=', $line, 2) + [null, null];
+        if ($name !== null && $value !== null) {
+            $name = trim($name);
+            $value = trim($value);
+            
+            // Remove aspas simples e duplas em volta do valor
+            $value = trim($value, '"\''); 
+            
+            if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
+                putenv(sprintf('%s=%s', $name, $value));
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+            }
+        }
+    }
+}
+
 require_once BASE_PATH . '/config/Database.php';
 require_once BASE_PATH . '/src/Helpers/JWT.php';
 require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
 
 // ── Parse URL ─────────────────────────────────────────────────────────────────
-$uri      = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$uri      = preg_replace('#^/api#', '', $uri);                  // strip /api prefix
+$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+// Robustly strip any base path and precisely find '/api/'
+if (($pos = strpos($uri, '/api')) !== false) {
+    $uri = substr($uri, $pos + 4);
+} else {
+    $uri = preg_replace('#^/api#', '', $uri); // fallback
+}
+
 $segments = array_values(array_filter(explode('/', trim($uri, '/'))));
 $method   = $_SERVER['REQUEST_METHOD'];
 
-$resource = $segments[0] ?? '';
-$id       = $segments[1] ?? null;
-$sub      = $segments[2] ?? null;
+$resource = isset($segments[0]) ? preg_replace('/[^a-zA-Z0-9_-]/', '', $segments[0]) : '';
+$id       = isset($segments[1]) ? preg_replace('/[^a-zA-Z0-9_-]/', '', $segments[1]) : null;
+$sub      = isset($segments[2]) ? preg_replace('/[^a-zA-Z0-9_-]/', '', $segments[2]) : null;
+$subId    = isset($segments[3]) ? preg_replace('/[^a-zA-Z0-9_-]/', '', $segments[3]) : null;
 
 // ── JSON body ─────────────────────────────────────────────────────────────────
 $body = [];
@@ -59,6 +93,7 @@ $controllers = [
     'admin'   => BASE_PATH . '/src/Controllers/AdminController.php',
     'users'   => BASE_PATH . '/src/Controllers/UserController.php',
     'health'  => BASE_PATH . '/src/Controllers/HealthController.php',
+    'test-event' => BASE_PATH . '/src/Controllers/EventController.php', // Bypass for testing
 ];
 
 // Health ping (no controller needed)
@@ -81,4 +116,4 @@ if (!file_exists($file)) {
 }
 
 require_once $file;
-dispatch($method, $id, $sub, null, $body, $_GET);
+dispatch($method, $id, $sub, $subId, $body, $_GET);

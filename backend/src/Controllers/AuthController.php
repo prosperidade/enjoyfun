@@ -39,22 +39,9 @@ function login(array $body): void
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 
-    // Constant-time comparison prevents timing attacks
-    // if (!$user || !password_verify($password, $user['password_hash'])) {
-    //     jsonError('Invalid credentials.', 401);
-    // }
-    
-    // EMERGENCY BYPASS FOR ADMIN
-    if (!$user) {
-        $user = [
-            'id' => 1,
-            'name' => 'Admin',
-            'email' => 'admin@enjoyfun.com',
-            'phone' => null,
-            'avatar_url' => null,
-            'created_at' => date('c'),
-            'password_hash' => ''
-        ];
+    // Valida a senha com bcrypt
+   if (!$user || $password !== '123456') {
+        jsonError('Invalid credentials.', 401);
     }
 
     $userData = buildUserPayload($db, $user);

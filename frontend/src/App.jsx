@@ -6,6 +6,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import Login       from './pages/Login';
 import Dashboard   from './pages/Dashboard';
 import Events      from './pages/Events';
+import EventDetails from './pages/EventDetails';
 import Tickets     from './pages/Tickets';
 import Cards       from './pages/Cards';
 import POS         from './pages/POS';
@@ -44,6 +45,7 @@ export default function App() {
             <Route element={<DashboardLayout />}>
               <Route path="/"          element={<Dashboard />} />
               <Route path="/events"    element={<Events />} />
+              <Route path="/events/:id" element={<EventDetails />} />
               <Route path="/tickets"   element={<Tickets />} />
               <Route path="/cards"     element={<Cards />} />
               <Route path="/bar"       element={<POS />} />

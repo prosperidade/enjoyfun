@@ -1,93 +1,52 @@
 <?php
-/**
- * EnjoyFun 2.0 — API Entry Point & Router
- *
- * All requests hit this file via .htaccess rewrite.
- * Route: /api/{resource}/{action?}/{id?}
- *
- * Usage example:
- *   POST /api/auth/login
- *   GET  /api/events
- *   GET  /api/events/1
- *   POST /api/events/1/tickets
- */
-
-// ── Bootstrap ─────────────────────────────────────────────────────────────────
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/config/database.php';
-require_once __DIR__ . '/helpers/JWT.php';
 require_once __DIR__ . '/helpers/Response.php';
-require_once __DIR__ . '/middleware/auth.php';
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
-if (CORS_ORIGINS === '*' || strpos(CORS_ORIGINS, $origin) !== false) {
-    header('Access-Control-Allow-Origin: '   . $origin);
-}
-header('Access-Control-Allow-Credentials: true');
-header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With, X-Device-ID');
-header('Access-Control-Max-Age: 86400');
+// CORS básico
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Content-Type: application/json; charset=utf-8');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
+
+// Captura a URL
+$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$uri = str_replace('/api/', '', $uri); 
+$segments = explode('/', trim($uri, '/'));
+
+$resource = $segments[0] ?? ''; // Ex: events ou admin
+$id = $segments[1] ?? null;       // Ex: 1 ou billing
+$sub = $segments[2] ?? null;      // Ex: stats
+
+// Roteamento Manual Blindado
+if ($resource === 'events' && is_numeric($id)) {
+    require_once __DIR__ . '/controllers/EventController.php';
+    $controller = new EventController();
+    echo $controller->getEventDetails($id); // Ajuste o nome da função se necessário
     exit;
 }
 
-// ── Parse URL ─────────────────────────────────────────────────────────────────
-$basePath  = '/api';          // adjust if your API lives elsewhere
-$uri       = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$uri       = preg_replace('#' . preg_quote($basePath, '#') . '#', '', $uri, 1);
-$segments  = array_values(array_filter(explode('/', trim($uri, '/'))));
-$method    = $_SERVER['REQUEST_METHOD'];
-
-// Segment map:  /resource/id/sub-resource/sub-id
-$resource    = $segments[0] ?? '';
-$id          = $segments[1] ?? null;
-$subResource = $segments[2] ?? null;
-$subId       = $segments[3] ?? null;
-
-// JSON body parsing
-$body = [];
-$raw  = file_get_contents('php://input');
-if ($raw) {
-    $decoded = json_decode($raw, true);
-    if (json_last_error() === JSON_ERROR_NONE) {
-        $body = $decoded;
+if ($resource === 'admin') {
+    require_once __DIR__ . '/controllers/AdminController.php';
+    if ($id === 'billing' && $sub === 'stats') {
+        require_once __DIR__ . '/src/Services/AIBillingService.php';
+        $controller = new AdminController();
+        echo $controller->billingStats();
+        exit;
+    }
+    if ($id === 'dashboard') {
+        $controller = new AdminController();
+        echo $controller->getDashboardStats();
+        exit;
     }
 }
 
-// ── Route Table ───────────────────────────────────────────────────────────────
-$controllerPath = __DIR__ . '/controllers/';
-
-$routes = [
-    'auth'        => 'AuthController.php',
-    'events'      => 'EventController.php',
-    'tickets'     => 'TicketController.php',
-    'cards'       => 'CardController.php',
-    'credits'     => 'CreditController.php',
-    'bar'         => 'BarController.php',
-    'products'    => 'BarController.php',
-    'sales'       => 'BarController.php',
-    'parking'     => 'ParkingController.php',
-    'whatsapp'    => 'WhatsAppController.php',
-    'sync'        => 'SyncController.php',
-    'admin'       => 'AdminController.php',
-    'users'       => 'UserController.php',
-    'health'      => 'HealthController.php',   // GET /api/health/db → PostgreSQL check
-];
-
-if (!isset($routes[$resource])) {
-    Response::error("Route '$resource' not found.", 404);
+// Se não caiu em nada acima, tenta o dispatch padrão do agente
+if (file_exists(__DIR__ . "/controllers/" . ucfirst($resource) . "Controller.php")) {
+    require_once __DIR__ . "/controllers/" . ucfirst($resource) . "Controller.php";
+    // Aqui você chama o dispatch original se preferir
+} else {
+    echo json_encode(["error" => "Rota nao encontrada: $uri"]);
 }
-
-$controllerFile = $controllerPath . $routes[$resource];
-if (!file_exists($controllerFile)) {
-    Response::error("Controller not implemented yet.", 501);
-}
-
-require_once $controllerFile;
-
-// Dispatch — each controller defines a dispatch() function
-// to keep things simple without a class-based autoloader.
-dispatch($method, $id, $subResource, $subId, $body, $_GET);

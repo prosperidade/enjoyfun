@@ -15,6 +15,11 @@ export default function Bar() {
   const [offlineQueue, setOfflineQueue] = useState([]);
   const [processingSale, setProcessingSale] = useState(false);
 
+  // New product form states
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [savingProduct, setSavingProduct] = useState(false);
+  const [prodForm, setProdForm] = useState({ name: '', price: '', stock_qty: '' });
+
   // Online/offline detection
   useEffect(() => {
     const onOnline  = () => { setIsOffline(false); syncQueue(); };
@@ -26,14 +31,16 @@ export default function Bar() {
 
   useEffect(() => { api.get('/events').then(r => setEvents(r.data.data || [])).catch(() => {}); }, []);
 
-  useEffect(() => {
+  const loadProducts = () => {
     if (!eventId) return;
     setLoading(true);
     api.get(`/bar/products?event_id=${eventId}`)
        .then(r => setProducts(r.data.data || []))
        .catch(() => toast.error('Erro ao carregar produtos.'))
        .finally(() => setLoading(false));
-  }, [eventId]);
+  };
+
+  useEffect(() => { loadProducts(); }, [eventId]);
 
   const addToCart = (product) => {
     setCart(c => {
@@ -94,6 +101,23 @@ export default function Bar() {
     setCart([]);
     setCardToken('');
     setProcessingSale(false);
+  };
+
+  const handleAddProduct = async (e) => {
+    e.preventDefault();
+    if (!eventId) { toast.error('Selecione um evento.'); return; }
+    setSavingProduct(true);
+    try {
+      await api.post('/bar/products', { ...prodForm, event_id: parseInt(eventId) });
+      toast.success('Produto cadastrado com sucesso!');
+      setShowAddForm(false);
+      setProdForm({ name: '', price: '', stock_qty: '' });
+      loadProducts();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erro ao cadastrar produto.');
+    } finally {
+      setSavingProduct(false);
+    }
   };
 
   return (
@@ -204,23 +228,58 @@ export default function Bar() {
       )}
 
       {tab === 'stock' && (
-        <div className="card">
-          <p className="text-gray-400 text-sm">Gerenciamento de estoque — selecione um produto para ajustar quantidades.</p>
-          {products.map(p => (
-            <div key={p.id} className="flex items-center gap-4 py-3 border-b border-gray-800/50 last:border-0">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-white">{p.name}</p>
-                <p className="text-xs text-gray-500">{p.category_name || 'Sem categoria'}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {p.stock_qty <= p.low_stock_threshold && <AlertTriangle size={14} className="text-yellow-500" />}
-                <span className={`badge ${p.stock_qty <= p.low_stock_threshold ? 'badge-yellow' : 'badge-green'}`}>
-                  {p.stock_qty} {p.unit}
-                </span>
-              </div>
-              <p className="text-gray-400 text-sm">R$ {parseFloat(p.price).toFixed(2)}</p>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center bg-gray-900 border border-gray-800 p-4 rounded-xl">
+             <p className="text-gray-400 text-sm">Gerenciamento de estoque — selecione um evento primeiro para visualizar ou adicionar itens.</p>
+             <button onClick={() => setShowAddForm(!showAddForm)} disabled={!eventId} className="btn-primary text-sm whitespace-nowrap">
+                <Plus size={16} /> Novo Produto
+             </button>
+          </div>
+
+          {showAddForm && (
+            <div className="card border-purple-800/40">
+              <h3 className="section-title text-sm mb-4">Cadastrar Novo Produto</h3>
+              <form onSubmit={handleAddProduct} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="input-label text-xs">Nome da Cerveja/Item</label>
+                  <input className="input text-sm" required placeholder="Ex: Cerveja IPA 500ml" value={prodForm.name} onChange={e => setProdForm({ ...prodForm, name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="input-label text-xs">Preço de Venda (R$)</label>
+                  <input className="input text-sm" type="number" step="0.01" required placeholder="Ex: 15.00" value={prodForm.price} onChange={e => setProdForm({ ...prodForm, price: e.target.value })} />
+                </div>
+                <div>
+                  <label className="input-label text-xs">Estoque Inicial (Unidades)</label>
+                  <input className="input text-sm" type="number" required placeholder="Ex: 100" value={prodForm.stock_qty} onChange={e => setProdForm({ ...prodForm, stock_qty: e.target.value })} />
+                </div>
+                <div className="sm:col-span-3 flex justify-end gap-2 mt-2">
+                  <button type="button" onClick={() => setShowAddForm(false)} className="btn-ghost text-xs">Cancelar</button>
+                  <button type="submit" disabled={savingProduct} className="btn-primary flexitems-center gap-2 text-xs">
+                    {savingProduct ? <span className="spinner w-4 h-4" /> : <><Check size={14} /> Salvar Produto</>}
+                  </button>
+                </div>
+              </form>
             </div>
-          ))}
+          )}
+
+          <div className="card">
+            {!products.length && eventId && <div className="text-center py-8 text-gray-500 text-sm">Nenhum produto cadastrado neste evento.</div>}
+            {products.map(p => (
+              <div key={p.id} className="flex items-center gap-4 py-3 border-b border-gray-800/50 last:border-0">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-white">{p.name}</p>
+                  <p className="text-xs text-gray-500">{p.category_name || 'Sem categoria'}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {p.stock_qty <= (p.low_stock_threshold || 10) && <AlertTriangle size={14} className="text-yellow-500" />}
+                  <span className={`badge ${p.stock_qty <= (p.low_stock_threshold || 10) ? 'badge-yellow' : 'badge-green'}`}>
+                    {p.stock_qty} un.
+                  </span>
+                </div>
+                <p className="text-gray-400 text-sm">R$ {parseFloat(p.price).toFixed(2)}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

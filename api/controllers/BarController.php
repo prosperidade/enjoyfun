@@ -130,6 +130,11 @@ function createSale(PDO $db, array $body): void
         $stmt->execute([$pid]);
         $product = $stmt->fetch();
         if (!$product) Response::error("Product $pid not found or unavailable.", 422);
+
+        if ($product['stock_qty'] < $qty) {
+            Response::error("Estoque Insuficiente. O produto ID {$pid} possui apenas {$product['stock_qty']} unidades.", 400);
+        }
+
         $sub = round($product['price'] * $qty, 2);
         $total += $sub;
         $itemRows[] = ['product' => $product, 'qty' => $qty, 'price' => $product['price'], 'sub' => $sub];
