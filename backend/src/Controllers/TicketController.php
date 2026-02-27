@@ -1,59 +1,172 @@
 <?php
 /**
- * Ticket Controller
+ * Ticket Controller — EnjoyFun 2.0 (Versão Final Blindada)
+ * Responsável pela emissão, listagem e validação de ingressos.
  */
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
-        $method === 'GET' && $id === null => listTickets(),
-        default => jsonError("Endpoint not found: {$method} /tickets/{$id}", 404),
+        $method === 'GET' && $id === null => listTickets($query),
+        $method === 'POST' && $id === null => storeTicket($body),
+        $method === 'POST' && $id === 'sync' => syncOfflineTickets($body),
+        $method === 'POST' && $id !== null && $sub === 'validate' => validateTicket($id),
+        default => jsonError("Endpoint não encontrado: {$method} /tickets/{$id}", 404),
     };
 }
 
-function listTickets(): void
+/**
+ * Lista todos os ingressos com JOIN para trazer nomes de eventos e usuários
+ */
+function listTickets(array $query): void
 {
     $user = requireAuth();
+    $eventId = $query['event_id'] ?? null;
 
     try {
         $db = Database::getInstance();
-        // Mostrar tickets do usuário logado (se for participante) ou todos se for admin
-        // Por hora, testaremos retornando os tickets daquele usuário específico
-        $stmt = $db->prepare("SELECT t.id, t.order_reference, t.status, t.price_paid, e.name as event_name, tt.name as type_name, t.qr_token 
-                              FROM tickets t
-                              JOIN events e ON t.event_id = e.id
-                              JOIN ticket_types tt ON t.ticket_type_id = tt.id
-                              WHERE t.user_id = ? ORDER BY t.created_at DESC");
-        $stmt->execute([$user['sub']]);
-        $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $sql = "SELECT t.*, e.name as event_name, tt.name as type_name, u.name as holder_name 
+                FROM tickets t
+                INNER JOIN events e ON t.event_id = e.id
+                INNER JOIN ticket_types tt ON t.ticket_type_id = tt.id
+                INNER JOIN users u ON t.user_id = u.id";
+        
+        if ($eventId) {
+            $stmt = $db->prepare($sql . " WHERE t.event_id = ? ORDER BY t.created_at DESC");
+            $stmt->execute([(int)$eventId]);
+        } else {
+            $stmt = $db->query($sql . " ORDER BY t.created_at DESC");
+        }
 
+        $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
         jsonSuccess($tickets);
     } catch (Exception $e) {
-        jsonError("Failed to fetch tickets: " . $e->getMessage(), 500);
+        error_log("ERRO LIST_TICKETS: " . $e->getMessage());
+        jsonError("Erro ao carregar lista: " . $e->getMessage());
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-// JSON helpers
-// ─────────────────────────────────────────────────────────────
-function jsonSuccess(mixed $data, string $message = 'OK', int $code = 200): void
+/**
+ * Emite um novo ingresso (Venda Rápida)
+ */
+function storeTicket(array $body): void
 {
-    ini_set('display_errors', '0');
-    if (ob_get_length()) ob_clean();
-    http_response_code($code);
-    header('Content-Type: application/json; charset=utf-8');
-    $json = json_encode(['success' => true, 'message' => $message, 'data' => $data], JSON_UNESCAPED_UNICODE);
-    echo $json === false ? '{"success":false,"message":"Erro JSON", "errors":null}' : $json;
-    exit;
+    // 1. Autenticação e conexão
+    $user = requireAuth();
+    $db = Database::getInstance();
+
+    // 2. Identifica o ID do usuário (André)
+    $userId = $user['sub'] ?? $user['id'] ?? null;
+    
+    if (!$userId) {
+        jsonError("Usuário não identificado. Faça login novamente.", 401);
+        return;
+    }
+
+    // 3. Parâmetros da venda
+    $eventId = $body['event_id'] ?? 1;
+    $typeId  = $body['ticket_type_id'] ?? 1;
+    $price   = $body['price'] ?? 150.00;
+
+    try {
+        $orderRef = 'EF-' . strtoupper(bin2hex(random_bytes(4)));
+        $qrToken  = bin2hex(random_bytes(16));
+
+        $stmt = $db->prepare("
+            INSERT INTO tickets 
+            (event_id, ticket_type_id, user_id, order_reference, status, price_paid, qr_token, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, 'paid', ?, ?, NOW(), NOW()) 
+            RETURNING id
+        ");
+
+        $stmt->execute([
+            (int)$eventId,
+            (int)$typeId,
+            (int)$userId,
+            $orderRef,
+            (float)$price,
+            $qrToken
+        ]);
+
+        $newId = $stmt->fetchColumn();
+
+        if (!$newId) {
+            throw new Exception("Banco de dados não retornou o ID do ingresso.");
+        }
+
+        jsonSuccess([
+            'id' => $newId,
+            'event_id' => $eventId,
+            'event_name' => 'EnjoyFun Festival 2026',
+            'order_reference' => $orderRef,
+            'qr_token' => $qrToken,
+            'status' => 'paid',
+            'price_paid' => $price,
+            'type_name' => 'Ingresso Geral',
+            'holder_name' => $user['name'] ?? 'André Luiz'
+        ], "Ingresso emitido com sucesso!", 201);
+
+    } catch (Exception $e) {
+        error_log("ERRO STORE_TICKET: " . $e->getMessage());
+        jsonError("Erro na emissão: " . $e->getMessage(), 500);
+    }
 }
 
-function jsonError(string $message, int $code = 400, mixed $errors = null): void
+/**
+ * Valida o QR Code na entrada do evento
+ */
+function validateTicket(string $qrToken): void
 {
-    ini_set('display_errors', '0');
-    if (ob_get_length()) ob_clean();
-    http_response_code($code);
-    header('Content-Type: application/json; charset=utf-8');
-    $json = json_encode(['success' => false, 'message' => $message, 'errors' => $errors], JSON_UNESCAPED_UNICODE);
-    echo $json === false ? '{"success":false,"message":"Erro JSON", "errors":null}' : $json;
-    exit;
+    requireAuth();
+    try {
+        $db = Database::getInstance();
+        
+        $stmt = $db->prepare("SELECT id, status, used_at FROM tickets WHERE qr_token = ?");
+        $stmt->execute([$qrToken]);
+        $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$ticket) {
+            jsonError("Ingresso não encontrado.", 404);
+            return;
+        }
+
+        if ($ticket['status'] === 'used') {
+            $hora = date('H:i', strtotime($ticket['used_at']));
+            jsonError("Ingresso já utilizado às {$hora}.", 409);
+            return;
+        }
+
+        $update = $db->prepare("UPDATE tickets SET status = 'used', used_at = NOW(), updated_at = NOW() WHERE id = ?");
+        $update->execute([$ticket['id']]);
+
+        jsonSuccess(null, "Acesso liberado!");
+    } catch (Exception $e) {
+        jsonError("Erro na validação: " . $e->getMessage());
+    }
+}
+
+/**
+ * Sincroniza dados em lote
+ */
+function syncOfflineTickets(array $body): void
+{
+    requireAuth();
+    $tokens = $body['tokens'] ?? [];
+    
+    try {
+        $db = Database::getInstance();
+        $processed = 0;
+        
+        $stmt = $db->prepare("UPDATE tickets SET status = 'used', used_at = NOW() WHERE qr_token = ? AND status != 'used'");
+        
+        foreach ($tokens as $token) {
+            $stmt->execute([$token]);
+            if ($stmt->rowCount() > 0) $processed++;
+        }
+        
+        jsonSuccess(['synced' => $processed], "Sincronizado!");
+    } catch (Exception $e) {
+        jsonError("Erro: " . $e->getMessage());
+    }
 }

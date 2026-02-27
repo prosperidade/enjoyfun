@@ -1,26 +1,22 @@
 <?php
 /**
  * EnjoyFun 2.0 — Backend Entry Point
- *
- * All requests are routed here via Apache mod_rewrite (.htaccess).
+ * * All requests are routed here via Apache mod_rewrite (.htaccess).
  * Structure: /api/{resource}/{id?}/{sub?}
  */
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
-// Allow all origins (tighten in production by replacing * with your domain)
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Device-ID');
 header('Access-Control-Max-Age: 86400');
 header('Content-Type: application/json; charset=utf-8');
 
-// Pre-flight OPTIONS — browsers send this before CORS requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
 
-// Iniciar buffer de saída para podermos limpar (ob_clean) depois se houver errors antes do JSON
 ob_start();
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
@@ -31,18 +27,11 @@ $envFile = BASE_PATH . '/.env';
 if (file_exists($envFile)) {
     $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
-        if (str_starts_with(trim($line), '#')) {
-            continue;
-        }
-        
+        if (str_starts_with(trim($line), '#')) continue;
         list($name, $value) = explode('=', $line, 2) + [null, null];
         if ($name !== null && $value !== null) {
             $name = trim($name);
-            $value = trim($value);
-            
-            // Remove aspas simples e duplas em volta do valor
-            $value = trim($value, '"\''); 
-            
+            $value = trim(trim($value), '"\''); 
             if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
                 putenv(sprintf('%s=%s', $name, $value));
                 $_ENV[$name] = $value;
@@ -52,18 +41,39 @@ if (file_exists($envFile)) {
     }
 }
 
+// ── Imports Essenciais ────────────────────────────────────────────────────────
 require_once BASE_PATH . '/config/Database.php';
 require_once BASE_PATH . '/src/Helpers/JWT.php';
 require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
 
+// ── Funções Globais de Resposta (Blindagem contra erros 500) ──────────────────
+function jsonSuccess($data = null, $message = '', $code = 200) {
+    if (ob_get_length()) ob_clean();
+    http_response_code($code);
+    echo json_encode([
+        'success' => true, 
+        'data' => $data, 
+        'message' => $message
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+function jsonError($message = '', $code = 400) {
+    if (ob_get_length()) ob_clean();
+    http_response_code($code);
+    echo json_encode([
+        'success' => false, 
+        'message' => $message
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 // ── Parse URL ─────────────────────────────────────────────────────────────────
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-
-// Robustly strip any base path and precisely find '/api/'
 if (($pos = strpos($uri, '/api')) !== false) {
     $uri = substr($uri, $pos + 4);
 } else {
-    $uri = preg_replace('#^/api#', '', $uri); // fallback
+    $uri = preg_replace('#^/api#', '', $uri);
 }
 
 $segments = array_values(array_filter(explode('/', trim($uri, '/'))));
@@ -93,26 +103,19 @@ $controllers = [
     'admin'   => BASE_PATH . '/src/Controllers/AdminController.php',
     'users'   => BASE_PATH . '/src/Controllers/UserController.php',
     'health'  => BASE_PATH . '/src/Controllers/HealthController.php',
-    'test-event' => BASE_PATH . '/src/Controllers/EventController.php', // Bypass for testing
 ];
 
-// Health ping (no controller needed)
 if ($resource === '' || $resource === 'ping') {
-    echo json_encode(['success' => true, 'message' => 'EnjoyFun API v2.0 — running.']);
-    exit;
+    jsonSuccess(null, 'EnjoyFun API v2.0 — running.');
 }
 
 if (!array_key_exists($resource, $controllers)) {
-    http_response_code(404);
-    echo json_encode(['success' => false, 'message' => "Route '/{$resource}' not found."]);
-    exit;
+    jsonError("Route '/{$resource}' not found.", 404);
 }
 
 $file = $controllers[$resource];
 if (!file_exists($file)) {
-    http_response_code(501);
-    echo json_encode(['success' => false, 'message' => 'Controller not implemented yet.']);
-    exit;
+    jsonError('Controller not implemented yet.', 501);
 }
 
 require_once $file;
