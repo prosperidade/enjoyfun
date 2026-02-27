@@ -48,37 +48,4 @@ function patchUser(string $id, array $body): void
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-// JSON helpers
-// ─────────────────────────────────────────────────────────────
-function jsonSuccess(mixed $data, string $message = 'OK', int $code = 200): void
-{
-    ini_set('display_errors', '0');
-    if (ob_get_length()) ob_clean();
 
-    http_response_code($code);
-    header('Content-Type: application/json; charset=utf-8');
-    $json = json_encode(['success' => true, 'message' => $message, 'data' => $data], JSON_UNESCAPED_UNICODE);
-    if ($json === false) {
-        echo '{"success":false,"message":"Erro de serialização JSON", "errors":null}';
-    } else {
-        echo $json;
-    }
-    exit;
-}
-
-function jsonError(string $message, int $code = 400, mixed $errors = null): void
-{
-    ini_set('display_errors', '0');
-    if (ob_get_length()) ob_clean();
-
-    http_response_code($code);
-    header('Content-Type: application/json; charset=utf-8');
-    $json = json_encode(['success' => false, 'message' => $message, 'errors' => $errors], JSON_UNESCAPED_UNICODE);
-    if ($json === false) {
-        echo '{"success":false,"message":"Erro de serialização JSON", "errors":null}';
-    } else {
-        echo $json;
-    }
-    exit;
-}

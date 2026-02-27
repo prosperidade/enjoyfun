@@ -1,7 +1,7 @@
 <?php
 /**
  * EnjoyFun 2.0 — Backend Entry Point
- * * All requests are routed here via Apache mod_rewrite (.htaccess).
+ * All requests are routed here via Apache mod_rewrite (.htaccess).
  * Structure: /api/{resource}/{id?}/{sub?}
  */
 
@@ -28,10 +28,10 @@ if (file_exists($envFile)) {
     $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
         if (str_starts_with(trim($line), '#')) continue;
-        list($name, $value) = explode('=', $line, 2) + [null, null];
-        if ($name !== null && $value !== null) {
-            $name = trim($name);
-            $value = trim(trim($value), '"\''); 
+        $parts = explode('=', $line, 2);
+        if (count($parts) === 2) {
+            $name = trim($parts[0]);
+            $value = trim(trim($parts[1]), '"\''); 
             if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
                 putenv(sprintf('%s=%s', $name, $value));
                 $_ENV[$name] = $value;
@@ -115,8 +115,9 @@ if (!array_key_exists($resource, $controllers)) {
 
 $file = $controllers[$resource];
 if (!file_exists($file)) {
-    jsonError('Controller not implemented yet.', 501);
+    jsonError("Controller for '{$resource}' not implemented yet.", 501);
 }
 
 require_once $file;
+// Invoca o controller correspondente
 dispatch($method, $id, $sub, $subId, $body, $_GET);

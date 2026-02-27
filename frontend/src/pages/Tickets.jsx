@@ -40,10 +40,9 @@ export default function Tickets() {
   const [scanResult, setScanResult] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
-
-  // Relógio Anti-fraude
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Relógio Anti-fraude
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -57,7 +56,7 @@ export default function Tickets() {
       .catch(() => console.error("Erro ao carregar eventos"));
   }, []);
 
-  // Busca de ingressos com cache local
+  // Busca de ingressos
   const fetchTickets = useCallback(() => {
     setLoading(true);
     const params = { per_page: 50 };
@@ -89,27 +88,20 @@ export default function Tickets() {
   // Venda Rápida
   const handleQuickSale = async () => {
     const targetEventId = eventId || (events[0] ? events[0].id : null);
-
-    if (!targetEventId) {
-      return toast.error("Selecione um evento primeiro!");
-    }
+    if (!targetEventId) return toast.error("Selecione um evento primeiro!");
 
     const loadId = toast.loading("Emitindo ingresso...");
-
     try {
       const payload = {
         event_id: targetEventId,
         ticket_type_id: 1,
         price: 150.0,
       };
-
       const { data } = await api.post("/tickets", payload);
-
       if (data.success) {
         toast.success("Ingresso gerado!", { id: loadId });
         setTickets((prev) => [data.data, ...prev]);
         setSelectedTicket(data.data);
-        setScanMode(false);
       }
     } catch (err) {
       toast.error(err.response?.data?.message || "Erro na conexão.", {
@@ -118,25 +110,29 @@ export default function Tickets() {
     }
   };
 
+  // Validação (Scan ou Manual)
   const handleScan = async (e) => {
-    e.preventDefault();
-    if (!qrInput.trim()) return;
+    if (e) e.preventDefault();
+    const token = qrInput.trim();
+    if (!token) return;
+
     setScanning(true);
     setScanResult(null);
+
     try {
-      const { data } = await api.post(`/tickets/${qrInput.trim()}/validate`, {
-        gate: "Principal",
-      });
+      // O backend agora aceita tanto o QR Token quanto a Referência EF-...
+      const { data } = await api.post(`/tickets/${token}/validate`);
       setScanResult(data);
+
       if (data.success) {
         toast.success("✅ Acesso liberado!");
-        fetchTickets(); // Atualiza a lista para mostrar como 'Utilizado'
-      } else {
-        toast.error("❌ Ingresso inválido.");
+        setQrInput(""); // Limpa para o próximo scan
+        fetchTickets(); // Atualiza a lista
       }
-      setQrInput("");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Erro ao validar.");
+      const msg = err.response?.data?.message || "Erro ao validar.";
+      toast.error(msg);
+      setScanResult({ success: false, message: msg });
     } finally {
       setScanning(false);
     }
@@ -175,7 +171,7 @@ export default function Tickets() {
           <form onSubmit={handleScan} className="flex gap-3">
             <input
               className="input flex-1"
-              placeholder="Digite o token..."
+              placeholder="Escaneie ou digite a referência (EF-...)"
               value={qrInput}
               onChange={(e) => setQrInput(e.target.value)}
               autoFocus
@@ -184,7 +180,6 @@ export default function Tickets() {
               {scanning ? <span className="spinner w-4 h-4" /> : "Validar"}
             </button>
           </form>
-
           {scanResult && (
             <div
               className={`mt-4 rounded-xl p-4 border flex items-start gap-3 ${scanResult.success ? "bg-green-900/20 border-green-800" : "bg-red-900/20 border-red-800"}`}
@@ -250,7 +245,7 @@ export default function Tickets() {
                   <td>{t.event_name}</td>
                   <td>
                     <span className="badge-purple">
-                      {t.type_name || t.ticket_type}
+                      {t.type_name || "Geral"}
                     </span>
                   </td>
                   <td>R$ {parseFloat(t.price_paid || 0).toFixed(2)}</td>
@@ -276,8 +271,8 @@ export default function Tickets() {
 
       {selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
-          <div className="card max-w-sm w-full border-purple-500/50 text-center space-y-6 p-8 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent shadow-[0_0_15px_rgba(168,85,247,0.5)]"></div>
+          <div className="card max-w-sm w-full border-purple-500/50 text-center space-y-6 p-8 relative overflow-hidden shadow-2xl">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent"></div>
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2 text-purple-400">
                 <Clock size={16} className="animate-pulse" />
@@ -292,27 +287,37 @@ export default function Tickets() {
                 <XCircle size={24} />
               </button>
             </div>
+
             <div className="space-y-2">
               <h3 className="text-xl font-bold text-white uppercase tracking-tight">
                 Ingresso Oficial
               </h3>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-400 italic">
                 Válido apenas com relógio em movimento
               </p>
             </div>
-            <div className="bg-white p-3 rounded-xl inline-block mx-auto">
-              <QRCodeCanvas
-                value={selectedTicket.qr_token}
-                size={220}
-                level={"H"}
-              />
+
+            <div className="bg-white p-3 rounded-xl inline-block mx-auto shadow-inner">
+              {selectedTicket?.qr_token ? (
+                <QRCodeCanvas
+                  value={selectedTicket.qr_token}
+                  size={200}
+                  level={"H"}
+                  includeMargin={true}
+                />
+              ) : (
+                <div className="w-[200px] h-[200px] flex items-center justify-center text-gray-400 italic bg-gray-100 rounded-lg">
+                  Gerando QR Code...
+                </div>
+              )}
             </div>
+
             <div className="space-y-1">
-              <p className="text-white font-bold text-2xl">
+              <p className="text-white font-bold text-2xl truncate px-2">
                 {selectedTicket.holder_name || "Participante"}
               </p>
               <p className="text-purple-400 font-semibold">
-                {selectedTicket.type_name || selectedTicket.ticket_type}
+                {selectedTicket.type_name || "Geral"}
               </p>
               <div className="pt-2">
                 <span className="bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[10px] font-mono text-gray-400 uppercase">
@@ -320,6 +325,7 @@ export default function Tickets() {
                 </span>
               </div>
             </div>
+
             <button
               onClick={() => setSelectedTicket(null)}
               className="btn-primary w-full py-4 text-lg font-bold"

@@ -1,6 +1,7 @@
 <?php
 /**
- * Bar Controller
+ * Bar Controller — EnjoyFun 2.0
+ * Gestão de Produtos, Vendas, BI e Insights com Gemini AI
  */
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
@@ -16,10 +17,22 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'POST' && $id === 'insights' => requestGeminiInsight($body),
         default => die(http_response_code(404) . json_encode(['success' => false, 'message' => "Endpoint not found: {$method}"])),
     };
-}
 
 function listProducts(): void
 {
+    requireAuth();
+
+    try {
+        $db = Database::getInstance();
+        // ADICIONAMOS 'sector' na busca:
+        $stmt = $db->query("SELECT id, name, price, stock_qty as stock, stock_qty, sector FROM products ORDER BY name ASC");
+        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode(['success' => true, 'data' => $products]); exit;
+    } catch (Exception $e) {
+        http_response_code(500); echo json_encode(['success' => false, 'message' => "Failed to fetch products: " . $e->getMessage()]); exit;
+    }
+}
     requireAuth();
 
     try {
@@ -212,18 +225,78 @@ function deleteProduct(int $productId): void
         $stmt->execute([$productId]);
         echo json_encode(['success' => true, 'message' => "Produto removido com sucesso!", 'data' => null]); exit;
     } catch (Exception $e) {
-        // Exceção gerada devido a chave estrangeira em sales_items (ON DELETE RESTRICT no postgres default se não for explícito CASCADE)
         http_response_code(400); echo json_encode(['success' => false, 'message' => "Não é possível excluir: produto possui vendas registradas."]); exit;
     }
 }
-
 function checkout(array $body): void
 {
-    $user = requireAuth();
+    $operator = requireAuth();
+    $db = Database::getInstance();
+    
     $eventId = $body['event_id'] ?? 1;
     $total = (float)($body['total_amount'] ?? 0);
     $items = $body['items'] ?? [];
-    $cardToken = $body['card_token'] ?? null;
+    $qrToken = $body['qr_token'] ?? $body['card_token'] ?? null;
+
+    if (empty($items)) jsonError("Carrinho vazio.");
+
+    try {
+        $db->beginTransaction();
+
+        // 1. Identificar Cliente e Travar Saldo
+        $stmtUser = $db->prepare('SELECT id, balance FROM users WHERE qr_token = ? FOR UPDATE');
+        $stmtUser->execute([$qrToken]);
+        $user = $stmtUser->fetch(PDO::FETCH_ASSOC);
+        if (!$user || $user['balance'] < $total) throw new Exception("Saldo insuficiente ou cliente não encontrado.");
+
+        // 2. Pegar informações do Fornecedor (Vendor) do primeiro item (assumindo um fornecedor por venda)
+        $stmtVendor = $db->prepare('SELECT v.id, v.commission_rate FROM vendors v JOIN products p ON p.vendor_id = v.id WHERE p.id = ?');
+        $stmtVendor->execute([$items[0]['product_id']]);
+        $vendor = $stmtVendor->fetch(PDO::FETCH_ASSOC);
+        
+        $vendorId = $vendor['id'] ?? null;
+        $rate = (float)($vendor['commission_rate'] ?? 0);
+        
+        // CÁLCULO DE COMISSÃO (Ex: Enjoy Fun 5,00 | Porcão 25,00)
+        $appCommission = ($total * $rate) / 100;
+        $vendorPayout = $total - $appCommission;
+
+        // 3. Registrar Venda com a divisão financeira
+        $stmtSale = $db->prepare("
+            INSERT INTO sales (event_id, vendor_id, total_amount, app_commission, vendor_payout, status, created_at) 
+            VALUES (?, ?, ?, ?, ?, 'completed', NOW()) RETURNING id
+        ");
+        $stmtSale->execute([$eventId, $vendorId, $total, $appCommission, $vendorPayout]);
+        $saleId = $stmtSale->fetchColumn();
+
+        // 4. Baixar Estoque e Registrar Itens
+        foreach ($items as $item) {
+            $db->prepare('INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)')
+               ->execute([$saleId, $item['product_id'], $item['quantity'], $item['unit_price'], $item['subtotal']]);
+            
+            $db->prepare('UPDATE products SET stock_qty = stock_qty - ? WHERE id = ? AND stock_qty >= ?')
+               ->execute([$item['quantity'], $item['product_id'], $item['quantity']]);
+        }
+
+        // 5. Débito Final e Log de Transação
+        $newBalance = $user['balance'] - $total;
+        $db->prepare('UPDATE users SET balance = ? WHERE id = ?')->execute([$newBalance, $user['id']]);
+        
+        $db->prepare('INSERT INTO transactions (user_id, amount, type, description, operator_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())')
+           ->execute([$user['id'], -$total, 'consumption', "Venda #$saleId em " . ($vendor['name'] ?? 'Setor'), $operator['id']]);
+
+        $db->commit();
+        jsonSuccess(['sale_id' => $saleId, 'new_balance' => $newBalance], "Venda processada!");
+    } catch (Exception $e) {
+        if ($db->inTransaction()) $db->rollBack();
+        jsonError($e->getMessage());
+    }
+}
+    $operator = requireAuth();
+    $eventId = $body['event_id'] ?? 1;
+    $total = (float)($body['total_amount'] ?? 0);
+    $items = $body['items'] ?? [];
+    $cardToken = $body['card_token'] ?? $body['qr_token'] ?? null;
     $offlineId = $body['offline_id'] ?? uniqid('online_');
 
     if (empty($items)) { http_response_code(400); echo json_encode(['success' => false, 'message' => "Carrinho vazio."]); exit; }
@@ -232,82 +305,75 @@ function checkout(array $body): void
         $db = Database::getInstance();
         $db->beginTransaction();
 
+        $userId = null;
         $cardId = null;
-        if ($cardToken) {
-            $stmtCard = $db->prepare('SELECT id, balance FROM digital_cards WHERE card_token = ? FOR UPDATE');
-            $stmtCard->execute([$cardToken]);
-            $card = $stmtCard->fetch(PDO::FETCH_ASSOC);
+        $currentBalance = 0;
 
-            if (!$card) throw new Exception("Cartão não encontrado.");
-            if ($card['balance'] < $total) throw new Exception("Saldo insuficiente no cartão. Saldo atual: R$ " . number_format($card['balance'], 2, ',', '.'));
-            
-            $cardId = $card['id'];
+        if ($cardToken) {
+            // VERIFICAÇÃO DUPLA: Tenta Usuário (Cashless Novo) ou Cartão (Legado)
+            $stmtUser = $db->prepare('SELECT id, balance FROM users WHERE qr_token = ? FOR UPDATE');
+            $stmtUser->execute([$cardToken]);
+            $user = $stmtUser->fetch(PDO::FETCH_ASSOC);
+
+            if ($user) {
+                if ($user['balance'] < $total) throw new Exception("Saldo insuficiente no usuário.");
+                $userId = $user['id'];
+                $currentBalance = $user['balance'];
+            } else {
+                $stmtCard = $db->prepare('SELECT id, balance FROM digital_cards WHERE card_token = ? FOR UPDATE');
+                $stmtCard->execute([$cardToken]);
+                $card = $stmtCard->fetch(PDO::FETCH_ASSOC);
+
+                if (!$card) throw new Exception("QR Code ou Cartão não encontrado.");
+                if ($card['balance'] < $total) throw new Exception("Saldo insuficiente no cartão.");
+                $cardId = $card['id'];
+                $currentBalance = $card['balance'];
+            }
         }
 
-        // Criar venda (apenas colunas existentes na tabela sales: event_id, total_amount, status, is_offline, offline_id, synced_at)
         $stmtSale = $db->prepare("INSERT INTO sales (event_id, total_amount, status, is_offline, offline_id, synced_at) VALUES (?, ?, ?, ?, ?, NOW()) RETURNING id");
         $stmtSale->execute([$eventId, $total, 'completed', 'false', $offlineId]);
         $saleId = $stmtSale->fetchColumn();
 
-        // Inserir itens e deduzir estoque
         $stmtItem = $db->prepare('INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)');
         $stmtStock = $db->prepare('UPDATE products SET stock_qty = stock_qty - ? WHERE id = ? AND stock_qty >= ?');
 
         foreach ($items as $item) {
             $stmtItem->execute([$saleId, $item['product_id'], $item['quantity'], $item['unit_price'], $item['subtotal']]);
             $stmtStock->execute([$item['quantity'], $item['product_id'], $item['quantity']]);
-            
-            if ($stmtStock->rowCount() === 0) {
-                throw new Exception("Estoque insuficiente para completar a venda.");
-            }
+            if ($stmtStock->rowCount() === 0) throw new Exception("Estoque insuficiente para " . $item['name']);
         }
 
-        // Modificar saldo do cartão e gerar log
-        if ($cardId) {
-            $newBalance = $card['balance'] - $total;
-            $stmtCardUpdate = $db->prepare('UPDATE digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?');
-            $stmtCardUpdate->execute([$newBalance, $cardId]);
-
+        // DÉBITO E LOGS
+        $newBalance = $currentBalance - $total;
+        if ($userId) {
+            $db->prepare('UPDATE users SET balance = ?, updated_at = NOW() WHERE id = ?')->execute([$newBalance, $userId]);
+            $stmtTx = $db->prepare('INSERT INTO transactions (user_id, amount, type, description, operator_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())');
+            $stmtTx->execute([$userId, -$total, 'consumption', "Venda Bar #$saleId", $operator['id'] ?? null]);
+        } elseif ($cardId) {
+            $db->prepare('UPDATE digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?')->execute([$newBalance, $cardId]);
             $stmtTx = $db->prepare('INSERT INTO card_transactions (card_id, event_id, sale_id, amount, balance_before, balance_after, type) VALUES (?, ?, ?, ?, ?, ?, ?)');
-            $stmtTx->execute([$cardId, $eventId, $saleId, -$total, $card['balance'], $newBalance, 'debit']);
+            $stmtTx->execute([$cardId, $eventId, $saleId, -$total, $currentBalance, $newBalance, 'debit']);
         }
 
         $db->commit();
-        echo json_encode(['success' => true, 'message' => "Venda concluída com sucesso!", 'data' => ['sale_id' => $saleId]]); exit;
+        echo json_encode(['success' => true, 'message' => "Venda concluída!", 'data' => ['sale_id' => $saleId, 'new_balance' => $newBalance]]); exit;
     } catch (Exception $e) {
-        if (isset($db) && $db->inTransaction()) {
-            $db->rollBack();
-        }
-        $code = str_contains($e->getMessage(), 'Saldo insuficiente') || str_contains($e->getMessage(), 'Cartão não') || str_contains($e->getMessage(), 'Estoque insuficiente') ? 400 : 500;
-        http_response_code($code); echo json_encode(['success' => false, 'message' => $e->getMessage()]); exit;
+        if (isset($db) && $db->inTransaction()) $db->rollBack();
+        http_response_code(400); echo json_encode(['success' => false, 'message' => $e->getMessage()]); exit;
     }
 }
 
-// ─────────────────────────────────────────────────────────────
 function requestGeminiInsight(array $body): void
 {
     requireAuth();
     $eventId = isset($_GET['event_id']) && is_numeric($_GET['event_id']) ? (int)$_GET['event_id'] : 1;
     $timeFilter = isset($_GET['filter']) ? $_GET['filter'] : '24h';
-    $userQuestion = trim($body['question'] ?? 'Faça uma análise preditiva e veja se algo vai faltar.');
+    $userQuestion = trim($body['question'] ?? 'Análise preditiva de estoque.');
 
     try {
         $db = Database::getInstance();
-        
-        $sqlRecent = "
-            SELECT 
-                TO_CHAR(s.created_at, 'HH24:MI:SS') as time, 
-                s.total_amount,
-                (
-                    SELECT json_agg(json_build_object('name', p.name, 'qty', si2.quantity))
-                    FROM sale_items si2
-                    JOIN products p ON p.id = si2.product_id
-                    WHERE si2.sale_id = s.id
-                ) as items
-            FROM sales s
-            WHERE s.status = 'completed' AND s.event_id = ? AND DATE(s.created_at) = CURRENT_DATE
-            ORDER BY s.created_at DESC
-        ";
+        $sqlRecent = "SELECT TO_CHAR(s.created_at, 'HH24:MI:SS') as time, s.total_amount, (SELECT json_agg(json_build_object('name', p.name, 'qty', si2.quantity)) FROM sale_items si2 JOIN products p ON p.id = si2.product_id WHERE si2.sale_id = s.id) as items FROM sales s WHERE s.status = 'completed' AND s.event_id = ? AND DATE(s.created_at) = CURRENT_DATE ORDER BY s.created_at DESC";
         $stmtRecent = $db->prepare($sqlRecent);
         $stmtRecent->execute([$eventId]);
         $lastSales = $stmtRecent->fetchAll(PDO::FETCH_ASSOC);
@@ -318,14 +384,8 @@ function requestGeminiInsight(array $body): void
         $currentStock = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 
         $insight = \EnjoyFun\Services\GeminiService::generateBarInsight($lastSales, $currentStock, $timeFilter, $userQuestion);
-
-        echo json_encode(['success' => true, 'data' => [
-            'insight' => $insight
-        ]]); exit;
-        
+        echo json_encode(['success' => true, 'data' => ['insight' => $insight]]); exit;
     } catch (Exception $e) {
-        http_response_code(500); echo json_encode(['success' => false, 'message' => "Erro interno no serviço de IA: " . $e->getMessage()]); exit;
+        http_response_code(500); echo json_encode(['success' => false, 'message' => "Erro IA: " . $e->getMessage()]); exit;
     }
 }
-
- 

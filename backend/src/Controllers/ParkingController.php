@@ -28,28 +28,3 @@ function listParking(): void
         jsonError("Failed to fetch parking: " . $e->getMessage(), 500);
     }
 }
-
-// ─────────────────────────────────────────────────────────────
-// JSON helpers
-// ─────────────────────────────────────────────────────────────
-function jsonSuccess(mixed $data, string $message = 'OK', int $code = 200): void
-{
-    ini_set('display_errors', '0');
-    if (ob_get_length()) ob_clean();
-    http_response_code($code);
-    header('Content-Type: application/json; charset=utf-8');
-    $json = json_encode(['success' => true, 'message' => $message, 'data' => $data], JSON_UNESCAPED_UNICODE);
-    echo $json === false ? '{"success":false,"message":"Erro JSON", "errors":null}' : $json;
-    exit;
-}
-
-function jsonError(string $message, int $code = 400, mixed $errors = null): void
-{
-    ini_set('display_errors', '0');
-    if (ob_get_length()) ob_clean();
-    http_response_code($code);
-    header('Content-Type: application/json; charset=utf-8');
-    $json = json_encode(['success' => false, 'message' => $message, 'errors' => $errors], JSON_UNESCAPED_UNICODE);
-    echo $json === false ? '{"success":false,"message":"Erro JSON", "errors":null}' : $json;
-    exit;
-}

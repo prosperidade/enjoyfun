@@ -52,11 +52,9 @@ function listTickets(array $query): void
  */
 function storeTicket(array $body): void
 {
-    // 1. Autenticação e conexão
     $user = requireAuth();
     $db = Database::getInstance();
 
-    // 2. Identifica o ID do usuário (André)
     $userId = $user['sub'] ?? $user['id'] ?? null;
     
     if (!$userId) {
@@ -64,7 +62,6 @@ function storeTicket(array $body): void
         return;
     }
 
-    // 3. Parâmetros da venda
     $eventId = $body['event_id'] ?? 1;
     $typeId  = $body['ticket_type_id'] ?? 1;
     $price   = $body['price'] ?? 150.00;
@@ -114,20 +111,21 @@ function storeTicket(array $body): void
 }
 
 /**
- * Valida o QR Code na entrada do evento
+ * Valida o QR Code ou Referência na entrada do evento
  */
-function validateTicket(string $qrToken): void
+function validateTicket(string $input): void
 {
     requireAuth();
     try {
         $db = Database::getInstance();
         
-        $stmt = $db->prepare("SELECT id, status, used_at FROM tickets WHERE qr_token = ?");
-        $stmt->execute([$qrToken]);
+        // CORREÇÃO: Agora busca tanto pelo qr_token quanto pela order_reference (EF-...)
+        $stmt = $db->prepare("SELECT id, status, used_at FROM tickets WHERE qr_token = ? OR order_reference = ?");
+        $stmt->execute([$input, $input]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$ticket) {
-            jsonError("Ingresso não encontrado.", 404);
+            jsonError("Ingresso não encontrado (404). Verifique o código.", 404);
             return;
         }
 
@@ -140,7 +138,7 @@ function validateTicket(string $qrToken): void
         $update = $db->prepare("UPDATE tickets SET status = 'used', used_at = NOW(), updated_at = NOW() WHERE id = ?");
         $update->execute([$ticket['id']]);
 
-        jsonSuccess(null, "Acesso liberado!");
+        jsonSuccess(null, "✅ Acesso liberado!");
     } catch (Exception $e) {
         jsonError("Erro na validação: " . $e->getMessage());
     }
