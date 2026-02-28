@@ -11,7 +11,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
     };
 }
 
-function sector(): string { return 'bar'; }
+function sector(): string { return 'food'; }
 
 function notFound(string $method): void
 {
