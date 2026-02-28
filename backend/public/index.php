@@ -1,8 +1,7 @@
 <?php
 /**
  * EnjoyFun 2.0 — Backend Entry Point
- * All requests are routed here via Apache mod_rewrite (.htaccess).
- * Structure: /api/{resource}/{id?}/{sub?}
+ * Todas as requisições são roteadas para aqui via servidor embutido ou .htaccess
  */
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
@@ -43,10 +42,11 @@ if (file_exists($envFile)) {
 
 // ── Imports Essenciais ────────────────────────────────────────────────────────
 require_once BASE_PATH . '/config/Database.php';
-require_once BASE_PATH . '/src/Helpers/JWT.php';
+// Nota: Verifique se os nomes dos arquivos abaixo batem exatamente (Maiúsculas/Minúsculas)
+require_once BASE_PATH . '/src/Helpers/JWT.php'; 
 require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
 
-// ── Funções Globais de Resposta (Blindagem contra erros 500) ──────────────────
+// ── Funções Globais de Resposta ───────────────────────────────────────────────
 function jsonSuccess($data = null, $message = '', $code = 200) {
     if (ob_get_length()) ob_clean();
     http_response_code($code);
@@ -91,13 +91,15 @@ if ($raw && ($decoded = json_decode($raw, true)) !== null) {
     $body = $decoded;
 }
 
-// ── Router ────────────────────────────────────────────────────────────────────
+// ── Router Corrigido ──────────────────────────────────────────────────────────
 $controllers = [
     'auth'    => BASE_PATH . '/src/Controllers/AuthController.php',
     'events'  => BASE_PATH . '/src/Controllers/EventController.php',
     'tickets' => BASE_PATH . '/src/Controllers/TicketController.php',
     'cards'   => BASE_PATH . '/src/Controllers/CardController.php',
     'bar'     => BASE_PATH . '/src/Controllers/BarController.php',
+    'food'    => BASE_PATH . '/src/Controllers/FoodController.php', // ADICIONADO E CORRIGIDO
+    'shop'    => BASE_PATH . '/src/Controllers/ShopController.php', // ADICIONADO E CORRIGIDO
     'parking' => BASE_PATH . '/src/Controllers/ParkingController.php',
     'sync'    => BASE_PATH . '/src/Controllers/SyncController.php',
     'admin'   => BASE_PATH . '/src/Controllers/AdminController.php',
@@ -109,15 +111,21 @@ if ($resource === '' || $resource === 'ping') {
     jsonSuccess(null, 'EnjoyFun API v2.0 — running.');
 }
 
+// Validação da Rota
 if (!array_key_exists($resource, $controllers)) {
-    jsonError("Route '/{$resource}' not found.", 404);
+    jsonError("Rota '/{$resource}' não encontrada no sistema EnjoyFun.", 404);
 }
 
 $file = $controllers[$resource];
 if (!file_exists($file)) {
-    jsonError("Controller for '{$resource}' not implemented yet.", 501);
+    jsonError("O Controller para '{$resource}' ainda não foi implementado fisicamente.", 501);
 }
 
 require_once $file;
-// Invoca o controller correspondente
-dispatch($method, $id, $sub, $subId, $body, $_GET);
+
+// Invocação dinâmica (Certifique-se que cada Controller tenha a função dispatch)
+if (function_exists('dispatch')) {
+    dispatch($method, $id, $sub, $subId, $body, $_GET);
+} else {
+    jsonError("Erro interno: Função dispatch não encontrada no Controller '{$resource}'.", 500);
+}
