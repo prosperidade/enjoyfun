@@ -35,11 +35,29 @@ function login(array $body): void
 
     // Validação temporária com '123456' conforme seu código original
     if (!$user || $password !== '123456') {
+        AuditService::logFailure(
+            AuditService::USER_LOGIN_FAILED,
+            'user',
+            null,
+            'Credenciais inválidas',
+            null,
+            ['metadata' => ['email_tentado' => $email]]
+        );
         jsonError('Credenciais inválidas.', 401);
     }
 
     $userData = buildUserPayload($db, $user);
     $tokens   = issueTokens($db, $userData);
+
+   AuditService::log(
+    AuditService::USER_LOGIN,
+    'user',
+    $userData['id'],
+    null,
+    ['email' => $userData['email'], 'roles' => $userData['roles']],
+    ['sub' => $userData['id'], 'email' => $userData['email']],
+    'success'
+);
 
     jsonSuccess([
         'user'          => $userData,

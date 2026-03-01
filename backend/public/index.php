@@ -45,7 +45,7 @@ require_once BASE_PATH . '/config/Database.php';
 // Nota: Verifique se os nomes dos arquivos abaixo batem exatamente (Maiúsculas/Minúsculas)
 require_once BASE_PATH . '/src/Helpers/JWT.php'; 
 require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
-
+require_once BASE_PATH . '/src/Services/AuditService.php';
 // ── Funções Globais de Resposta ───────────────────────────────────────────────
 function jsonSuccess($data = null, $message = '', $code = 200) {
     if (ob_get_length()) ob_clean();
