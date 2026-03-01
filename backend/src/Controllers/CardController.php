@@ -65,7 +65,7 @@ function listTransactions(string $cardId): void
 
 function topupCard(string $cardId, array $body): void
 {
-    requireAuth();
+    $userPayload = requireAuth();
 
     $amount = (float)($body['amount'] ?? 0);
     if ($amount <= 0) {
@@ -83,10 +83,18 @@ function topupCard(string $cardId, array $body): void
 
         if (!$card) {
             $db->rollBack();
+            AuditService::logFailure(
+                AuditService::CARD_RECHARGE,
+                'card',
+                $cardId,
+                'Cartão não encontrado',
+                $userPayload
+            );
             jsonError("Cartão não encontrado: " . $cardId, 404);
         }
 
-        $newBalance = (float)$card['balance'] + $amount;
+        $previousBalance = (float)$card['balance'];
+        $newBalance      = $previousBalance + $amount;
 
         $stmtUp = $db->prepare("UPDATE public.digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?::uuid");
         $stmtUp->execute([$newBalance, $cardId]);
@@ -100,11 +108,28 @@ function topupCard(string $cardId, array $body): void
 
         $db->commit();
 
+        AuditService::log(
+            AuditService::CARD_RECHARGE,
+            'card',
+            $cardId,
+            ['balance' => $previousBalance],
+            ['balance' => $newBalance, 'recharge_amount' => $amount],
+            $userPayload,
+            'success'
+        );
+
         jsonSuccess(['balance' => $newBalance], "Recarga de R$ {$amount} efetuada com sucesso!");
     } catch (Exception $e) {
         if ($db && $db->inTransaction()) {
             $db->rollBack();
         }
+        AuditService::logFailure(
+            AuditService::CARD_RECHARGE,
+            'card',
+            $cardId,
+            $e->getMessage(),
+            $userPayload
+        );
         jsonError("Falha na recarga: " . $e->getMessage(), 500);
     }
 }

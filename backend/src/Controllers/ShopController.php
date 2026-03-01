@@ -127,7 +127,6 @@ function listRecentSales(): void
         exit;
     }
 }
-
 function checkout(array $body): void
 {
     $operator = requireAuth();
@@ -139,41 +138,96 @@ function checkout(array $body): void
 
     try {
         $db->beginTransaction();
-        $cardId = null; $currentBalance = 0;
+        $userId = null; $cardId = null; $currentBalance = 0;
 
-        if (!$token) throw new Exception("Identificação do cartão é obrigatória.");
+        if ($token) {
+            $stmtUser = $db->prepare('SELECT id, balance FROM users WHERE qr_token = ? FOR UPDATE');
+            $stmtUser->execute([$token]);
+            $user = $stmtUser->fetch(PDO::FETCH_ASSOC);
 
-        // BUSCA PELO ID (UUID) na tabela digital_cards (Padronizado com Bar/Food)
-        $stmtCard = $db->prepare('SELECT id, balance FROM public.digital_cards WHERE id = ?::uuid FOR UPDATE');
-        $stmtCard->execute([$token]);
-        $card = $stmtCard->fetch(PDO::FETCH_ASSOC);
+            if ($user) {
+                if ($user['balance'] < $total) {
+                    AuditService::logFailure(
+                        AuditService::SALE_CHECKOUT,
+                        'user',
+                        $user['id'],
+                        'Saldo insuficiente',
+                        $operator,
+                        ['metadata' => ['saldo' => $user['balance'], 'total' => $total, 'sector' => 'shop']]
+                    );
+                    throw new Exception("Saldo insuficiente.");
+                }
+                $userId = $user['id'];
+                $currentBalance = (float)$user['balance'];
+            } else {
+                $stmtCard = $db->prepare('SELECT id, balance FROM public.digital_cards WHERE id = ?::uuid FOR UPDATE');
+                $stmtCard->execute([$token]);
+                $card = $stmtCard->fetch(PDO::FETCH_ASSOC);
 
-        if (!$card) throw new Exception("Cartão não encontrado no sistema.");
-        if ($card['balance'] < $total) throw new Exception("Saldo insuficiente.");
-        
-        $cardId = $card['id']; 
-        $currentBalance = (float)$card['balance'];
+                if (!$card) {
+                    AuditService::logFailure(
+                        AuditService::SALE_CHECKOUT,
+                        'card',
+                        $token,
+                        'Cartão ou QR não encontrado',
+                        $operator,
+                        ['metadata' => ['sector' => 'shop']]
+                    );
+                    throw new Exception("Cartão ou QR não encontrado: " . $token);
+                }
+                if ($card['balance'] < $total) {
+                    AuditService::logFailure(
+                        AuditService::SALE_CHECKOUT,
+                        'card',
+                        $card['id'],
+                        'Saldo insuficiente no cartão',
+                        $operator,
+                        ['metadata' => ['saldo' => $card['balance'], 'total' => $total, 'sector' => 'shop']]
+                    );
+                    throw new Exception("Saldo insuficiente no cartão.");
+                }
+                $cardId = $card['id'];
+                $currentBalance = (float)$card['balance'];
+            }
+        } else {
+            throw new Exception("Nenhum cartão selecionado para o pagamento.");
+        }
 
         $stmtSale = $db->prepare("INSERT INTO sales (event_id, total_amount, status, created_at) VALUES (?, ?, 'completed', NOW()) RETURNING id");
         $stmtSale->execute([$eventId, $total]);
         $saleId = $stmtSale->fetchColumn();
 
         foreach ($items as $item) {
-            $db->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)")->execute([$saleId, $item['product_id'], $item['quantity'], $item['unit_price'], $item['subtotal']]);
-            $stmtStock = $db->prepare("UPDATE products SET stock_qty = stock_qty - ? WHERE id = ? AND stock_qty >= ?");
-            $stmtStock->execute([$item['quantity'], $item['product_id'], $item['quantity']]);
-            if ($stmtStock->rowCount() === 0) throw new Exception("Estoque insuficiente.");
+            $db->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)")
+               ->execute([$saleId, $item['product_id'], $item['quantity'], $item['unit_price'], $item['subtotal']]);
+            $db->prepare("UPDATE products SET stock_qty = stock_qty - ? WHERE id = ?")
+               ->execute([$item['quantity'], $item['product_id']]);
         }
 
         $newBalance = $currentBalance - $total;
-        $db->prepare("UPDATE public.digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?::uuid")->execute([$newBalance, $cardId]);
+        $db->prepare("UPDATE public.digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?::uuid")
+           ->execute([$newBalance, $cardId]);
 
         $db->commit();
+
+        AuditService::log(
+            AuditService::SALE_CHECKOUT,
+            'sale',
+            $saleId,
+            ['card_balance' => $currentBalance],
+            ['card_balance' => $newBalance, 'total' => $total, 'items_count' => count($items)],
+            $operator,
+            'success',
+            ['event_id' => $eventId, 'metadata' => ['sector' => 'shop']]
+        );
+
         echo json_encode(['success' => true, 'data' => ['sale_id' => $saleId, 'new_balance' => $newBalance]]);
         exit;
     } catch (Exception $e) {
         if ($db->inTransaction()) $db->rollBack();
-        http_response_code(400); echo json_encode(['success' => false, 'message' => $e->getMessage()]); exit;
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        exit;
     }
 }
 

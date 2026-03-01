@@ -165,10 +165,31 @@ function checkout(array $body): void
         $stmtCard->execute([$token]);
         $card = $stmtCard->fetch(PDO::FETCH_ASSOC);
 
-        if (!$card) throw new Exception("Cartão não encontrado no sistema (Bar).");
-        if ($card['balance'] < $total) throw new Exception("Saldo insuficiente no cartão.");
-        
-        $cardId = $card['id']; 
+        if (!$card) {
+            AuditService::logFailure(
+                AuditService::SALE_CHECKOUT,
+                'card',
+                $token,
+                'Cartão não encontrado no sistema (Bar)',
+                $operator,
+                ['metadata' => ['event_id' => $eventId, 'total' => $total]]
+            );
+            throw new Exception("Cartão não encontrado no sistema (Bar).");
+        }
+
+        if ($card['balance'] < $total) {
+            AuditService::logFailure(
+                AuditService::SALE_CHECKOUT,
+                'card',
+                $card['id'],
+                'Saldo insuficiente',
+                $operator,
+                ['metadata' => ['saldo' => $card['balance'], 'total' => $total, 'event_id' => $eventId]]
+            );
+            throw new Exception("Saldo insuficiente no cartão.");
+        }
+
+        $cardId = $card['id'];
         $currentBalance = (float)$card['balance'];
 
         // Registrar Venda
@@ -180,7 +201,7 @@ function checkout(array $body): void
         foreach ($items as $item) {
             $db->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)")
                ->execute([$saleId, $item['product_id'], $item['quantity'], $item['unit_price'], $item['subtotal']]);
-            
+
             $db->prepare("UPDATE products SET stock_qty = stock_qty - ? WHERE id = ?")
                ->execute([$item['quantity'], $item['product_id']]);
         }
@@ -191,11 +212,25 @@ function checkout(array $body): void
            ->execute([$newBalance, $cardId]);
 
         $db->commit();
+
+        AuditService::log(
+            AuditService::SALE_CHECKOUT,
+            'sale',
+            $saleId,
+            ['card_balance' => $currentBalance],
+            ['card_balance' => $newBalance, 'total' => $total, 'items_count' => count($items)],
+            $operator,
+            'success',
+            ['event_id' => $eventId, 'pdv_id' => $operator['sub'] ?? null, 'metadata' => ['sector' => 'bar']]
+        );
+
         echo json_encode(['success' => true, 'data' => ['sale_id' => $saleId, 'new_balance' => $newBalance]]);
         exit;
     } catch (Exception $e) {
         if ($db->inTransaction()) $db->rollBack();
-        http_response_code(400); echo json_encode(['success' => false, 'message' => $e->getMessage()]); exit;
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        exit;
     }
 }
 function requestGeminiInsight(array $body): void
