@@ -193,16 +193,16 @@ function buildUserPayload(PDO $db, array $user): array
 
 function issueTokens(PDO $db, array $user): array
 {
-    $expiry  = (int)(getenv('JWT_EXPIRY')   ?: 3600);
-    $refresh = (int)(getenv('JWT_REFRESH')  ?: 2592000);
-    $secret  =       getenv('JWT_SECRET')    ?: 'change-me-in-production!';
+    $expiry  = (int)(getenv('JWT_EXPIRY')  ?: 3600);
+    $refresh = (int)(getenv('JWT_REFRESH') ?: 2592000);
 
+    // RS256: a chave privada é carregada dentro do JWT::encode
     $access = JWT::encode([
         'sub'   => $user['id'],
         'name'  => $user['name'],
         'email' => $user['email'],
         'roles' => $user['roles'],
-    ], $secret, $expiry);
+    ], $expiry);
 
     $rawRefresh  = bin2hex(random_bytes(32));
     $hashRefresh = hash('sha256', $rawRefresh);

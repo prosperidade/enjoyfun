@@ -1,10 +1,10 @@
 <?php
 /**
- * EnjoyFun 2.0 — Auth Middleware
+ * EnjoyFun — Auth Middleware (RS256)
  *
- * requireAuth()   → aborts with 401 if no valid JWT; returns payload array
- * optionalAuth()  → returns payload array or null silently
- * requireRole()   → calls requireAuth() then checks roles
+ * requireAuth()  → aborta com 401 se não houver JWT válido; retorna payload
+ * optionalAuth() → retorna payload ou null silenciosamente
+ * requireRole()  → chama requireAuth() e verifica roles
  */
 
 function requireAuth(): array
@@ -12,16 +12,15 @@ function requireAuth(): array
     $token = JWT::fromHeader();
     if (!$token) {
         http_response_code(401);
-        echo json_encode(['success' => false, 'message' => 'Authentication required.']);
+        echo json_encode(['success' => false, 'message' => 'Autenticação necessária.']);
         exit;
     }
 
-    $secret  = getenv('JWT_SECRET') ?: 'change-me-in-production!';
-    $payload = JWT::decode($token, $secret);
+    $payload = JWT::decode($token);
 
     if (!$payload) {
         http_response_code(401);
-        echo json_encode(['success' => false, 'message' => 'Token invalid or expired.']);
+        echo json_encode(['success' => false, 'message' => 'Token inválido ou expirado.']);
         exit;
     }
 
@@ -33,19 +32,17 @@ function optionalAuth(): ?array
     $token = JWT::fromHeader();
     if (!$token) return null;
 
-    $secret = getenv('JWT_SECRET') ?: 'change-me-in-production!';
-    return JWT::decode($token, $secret);  // null if invalid/expired
+    return JWT::decode($token);
 }
 
 function requireRole(array $allowedRoles): array
 {
-    $payload = requireAuth();
+    $payload   = requireAuth();
     $userRoles = $payload['roles'] ?? [];
 
-    $hasRole = !empty(array_intersect($allowedRoles, $userRoles));
-    if (!$hasRole) {
+    if (empty(array_intersect($allowedRoles, $userRoles))) {
         http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Access denied. Insufficient role.']);
+        echo json_encode(['success' => false, 'message' => 'Acesso negado. Permissão insuficiente.']);
         exit;
     }
 

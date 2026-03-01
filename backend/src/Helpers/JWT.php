@@ -1,31 +1,56 @@
 <?php
 /**
- * EnjoyFun 2.0 — JWT Helper (pure PHP, no Composer)
- * Algorithm: HS256
+ * EnjoyFun — JWT Helper (RS256)
+ *
+ * Migração de HS256 → RS256:
+ * - Chave PRIVADA: apenas o servidor assina tokens
+ * - Chave PÚBLICA: verifica tokens (pode ficar nos PDVs sem risco)
  */
 class JWT
 {
-    public static function encode(array $payload, string $secret, int $ttlSeconds = 3600): string
+    public static function encode(array $payload, int $ttlSeconds = 3600): string
     {
         $now     = time();
         $payload = array_merge($payload, ['iat' => $now, 'exp' => $now + $ttlSeconds]);
 
-        $header  = self::b64url(json_encode(['alg' => 'HS256', 'typ' => 'JWT']));
-        $body    = self::b64url(json_encode($payload));
-        $sig     = self::b64url(hash_hmac('sha256', "$header.$body", $secret, true));
+        $header = self::b64url(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
+        $body   = self::b64url(json_encode($payload));
 
-        return "$header.$body.$sig";
+        $privateKey = self::getPrivateKey();
+        $key = openssl_pkey_get_private($privateKey);
+        if (!$key) {
+            throw new \RuntimeException('JWT: chave privada inválida.');
+        }
+
+        $signature = '';
+        openssl_sign("$header.$body", $signature, $key, OPENSSL_ALGO_SHA256);
+
+        return "$header.$body." . self::b64url($signature);
     }
 
-    public static function decode(string $token, string $secret): ?array
+    public static function decode(string $token): ?array
     {
         $parts = explode('.', $token);
         if (count($parts) !== 3) return null;
 
         [$header, $body, $sig] = $parts;
-        $expected = self::b64url(hash_hmac('sha256', "$header.$body", $secret, true));
 
-        if (!hash_equals($expected, $sig)) return null;
+        // Verifica algoritmo
+        $headerData = json_decode(self::b64urlDecode($header), true);
+        if (($headerData['alg'] ?? '') !== 'RS256') return null;
+
+        $publicKey = self::getPublicKey();
+        $key = openssl_pkey_get_public($publicKey);
+        if (!$key) return null;
+
+        $valid = openssl_verify(
+            "$header.$body",
+            self::b64urlDecode($sig),
+            $key,
+            OPENSSL_ALGO_SHA256
+        );
+
+        if ($valid !== 1) return null;
 
         $payload = json_decode(self::b64urlDecode($body), true);
         if (!$payload || $payload['exp'] < time()) return null;
@@ -38,6 +63,24 @@ class JWT
         $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
         if (preg_match('/Bearer\s+(.+)/i', $auth, $m)) return $m[1];
         return null;
+    }
+
+    public static function getPrivateKey(): string
+    {
+        $path = getenv('JWT_PRIVATE_KEY_PATH') ?: __DIR__ . '/../../../secrets/jwt_private.pem';
+        if (!file_exists($path)) {
+            throw new \RuntimeException("JWT: chave privada não encontrada em '$path'.");
+        }
+        return file_get_contents($path);
+    }
+
+    public static function getPublicKey(): string
+    {
+        $path = getenv('JWT_PUBLIC_KEY_PATH') ?: __DIR__ . '/../../../secrets/jwt_public.pem';
+        if (!file_exists($path)) {
+            throw new \RuntimeException("JWT: chave pública não encontrada em '$path'.");
+        }
+        return file_get_contents($path);
     }
 
     private static function b64url(string $data): string
