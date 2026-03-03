@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "otplib": "^13.3.0",
-    "qrcode.react": "^4.2.0"
-  }
-}
