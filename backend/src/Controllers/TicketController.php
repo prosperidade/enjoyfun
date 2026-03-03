@@ -26,12 +26,11 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 // ── Listagem de Ingressos ─────────────────────────────────────────────────────
 function listTickets(array $query): void
 {
-    $user    = requireAuth(['admin', 'organizer', 'staff']);
+    requireAuth(['admin', 'organizer', 'staff']);
     $db      = Database::getInstance();
     $eventId = isset($query['event_id']) ? (int)$query['event_id'] : null;
 
     try {
-        // CORREÇÃO: alias 'type_name' bate com t.type_name no Tickets.jsx
         $sql = "
             SELECT
                 t.id,
@@ -50,18 +49,21 @@ function listTickets(array $query): void
             FROM tickets t
             INNER JOIN ticket_types tt ON tt.id = t.ticket_type_id
             INNER JOIN events e        ON e.id  = t.event_id
+            WHERE 1=1
         ";
 
+        $params = [];
+
         if ($eventId) {
-            $stmt = $db->prepare($sql . " WHERE t.event_id = ? ORDER BY t.created_at DESC");
-            $stmt->execute([$eventId]);
-        } else {
-            $stmt = $db->query($sql . " ORDER BY t.created_at DESC");
+            $sql .= " AND t.event_id = ?";
+            $params[] = $eventId;
         }
+
+        $stmt = $db->prepare($sql . " ORDER BY t.created_at DESC");
+        $stmt->execute($params);
 
         $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Envelope { success: true, data: [...] } — exatamente o que r.data.data espera no React
         jsonSuccess($tickets);
 
     } catch (Exception $e) {
@@ -96,6 +98,7 @@ function storeTicket(array $body): void
     $db     = Database::getInstance();
     // JWT payload usa 'sub' como ID do usuário
     $userId = $user['sub'] ?? null;
+    if (!$userId) jsonError("Usuário autenticado inválido.", 401);
 
     $eventId = (int)($body['event_id']      ?? 1);
     $typeId  = (int)($body['ticket_type_id'] ?? 1);
