@@ -25,7 +25,9 @@ function notFound(string $method): void
 
 function listProducts(): void
 {
-    requireAuth();
+    $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     $eventId = $_GET['event_id'] ?? 1;
     try {
         $db = Database::getInstance();
@@ -33,10 +35,10 @@ function listProducts(): void
         $stmt = $db->prepare("
             SELECT id, event_id, name, CAST(price AS FLOAT) as price, stock_qty, sector, low_stock_threshold
             FROM public.products
-            WHERE event_id = ? AND (sector = 'bar' OR sector IS NULL)
+            WHERE event_id = ? AND organizer_id = ? AND (sector = 'bar' OR sector IS NULL)
             ORDER BY name ASC
         ");
-        $stmt->execute([$eventId]);
+        $stmt->execute([$eventId, $organizerId]);
         $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (ob_get_length()) ob_clean();
@@ -111,7 +113,9 @@ function deleteProduct(int $id): void
 
 function listRecentSales(): void
 {
-    requireAuth();
+    $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     $eventId = isset($_GET['event_id']) && is_numeric($_GET['event_id']) ? (int)$_GET['event_id'] : 1;
     $timeFilter = $_GET['filter'] ?? '24h';
     $whereTime = "AND created_at >= NOW() - INTERVAL '24 hours'";
@@ -127,14 +131,14 @@ function listRecentSales(): void
                 (SELECT json_agg(json_build_object('name', p.name, 'qty', si2.quantity, 'subtotal', si2.subtotal))
                  FROM sale_items si2 JOIN products p ON p.id = si2.product_id WHERE si2.sale_id = s.id) as items_detail
             FROM sales s LEFT JOIN sale_items si ON si.sale_id = s.id
-            WHERE s.event_id = ? GROUP BY s.id ORDER BY s.created_at DESC LIMIT 10
+            WHERE s.event_id = ? AND s.organizer_id = ? GROUP BY s.id ORDER BY s.created_at DESC LIMIT 10
         ";
         $stmt = $db->prepare($sql);
-        $stmt->execute([$eventId]);
+        $stmt->execute([$eventId, $organizerId]);
         $sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $stmtSum = $db->prepare("SELECT COALESCE(SUM(total_amount),0) FROM sales WHERE event_id = ? AND status = 'completed' $whereTime");
-        $stmtSum->execute([$eventId]);
+        $stmtSum = $db->prepare("SELECT COALESCE(SUM(total_amount),0) FROM sales WHERE event_id = ? AND organizer_id = ? AND status = 'completed' $whereTime");
+        $stmtSum->execute([$eventId, $organizerId]);
         $totalRevenue = (float) $stmtSum->fetchColumn();
 
         echo json_encode(['success' => true, 'data' => ['recent_sales' => $sales, 'report' => ['total_revenue' => $totalRevenue]]]);
@@ -148,6 +152,8 @@ function listRecentSales(): void
 function checkout(array $body): void
 {
     $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     $db = Database::getInstance();
     $eventId = $body['event_id'] ?? 1;
     $total = (float)($body['total_amount'] ?? 0);
@@ -191,8 +197,8 @@ function checkout(array $body): void
         $currentBalance = (float)$card['balance'];
 
         // Registrar Venda
-        $stmtSale = $db->prepare("INSERT INTO sales (event_id, total_amount, status, created_at) VALUES (?, ?, 'completed', NOW()) RETURNING id");
-        $stmtSale->execute([$eventId, $total]);
+        $stmtSale = $db->prepare("INSERT INTO sales (event_id, organizer_id, total_amount, status, created_at) VALUES (?, ?, ?, 'completed', NOW()) RETURNING id");
+        $stmtSale->execute([$eventId, $organizerId, $total]);
         $saleId = $stmtSale->fetchColumn();
 
         // Itens e Estoque

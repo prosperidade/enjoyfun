@@ -23,17 +23,19 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
 function listProducts(): void
 {
-    requireAuth();
+    $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     $eventId = $_GET['event_id'] ?? 1;
     try {
         $db = Database::getInstance();
         $stmt = $db->prepare("
             SELECT id, event_id, name, CAST(price AS FLOAT) as price, stock_qty, sector, low_stock_threshold
             FROM public.products
-            WHERE event_id = ? AND sector = 'shop'
+            WHERE event_id = ? AND organizer_id = ? AND sector = 'shop'
             ORDER BY name ASC
         ");
-        $stmt->execute([$eventId]);
+        $stmt->execute([$eventId, $organizerId]);
         $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         header('Content-Type: application/json');
@@ -107,7 +109,9 @@ function deleteProduct(int $id): void
 
 function listRecentSales(): void
 {
-    requireAuth();
+    $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     $eventId = (int)($_GET['event_id'] ?? 1);
     try {
         $db = Database::getInstance();
@@ -115,10 +119,10 @@ function listRecentSales(): void
             SELECT s.*, 
                 (SELECT json_agg(json_build_object('name', p.name, 'qty', si.quantity)) 
                  FROM sale_items si JOIN products p ON p.id = si.product_id WHERE si.sale_id = s.id AND p.sector = 'shop') as items_detail
-            FROM sales s WHERE s.event_id = ? ORDER BY s.created_at DESC LIMIT 15
+            FROM sales s WHERE s.event_id = ? AND s.organizer_id = ? ORDER BY s.created_at DESC LIMIT 15
         ";
         $stmt = $db->prepare($sql);
-        $stmt->execute([$eventId]);
+        $stmt->execute([$eventId, $organizerId]);
         echo json_encode(['success' => true, 'data' => ['recent_sales' => $stmt->fetchAll(PDO::FETCH_ASSOC)]]);
         exit;
     } catch (Exception $e) {
@@ -130,6 +134,8 @@ function listRecentSales(): void
 function checkout(array $body): void
 {
     $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     $db = Database::getInstance();
     $eventId = $body['event_id'] ?? 1;
     $total = (float)($body['total_amount'] ?? 0);
@@ -193,8 +199,8 @@ function checkout(array $body): void
             throw new Exception("Nenhum cartão selecionado para o pagamento.");
         }
 
-        $stmtSale = $db->prepare("INSERT INTO sales (event_id, total_amount, status, created_at) VALUES (?, ?, 'completed', NOW()) RETURNING id");
-        $stmtSale->execute([$eventId, $total]);
+        $stmtSale = $db->prepare("INSERT INTO sales (event_id, organizer_id, total_amount, status, created_at) VALUES (?, ?, ?, 'completed', NOW()) RETURNING id");
+        $stmtSale->execute([$eventId, $organizerId, $total]);
         $saleId = $stmtSale->fetchColumn();
 
         foreach ($items as $item) {
