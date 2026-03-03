@@ -14,11 +14,13 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 {
     date_default_timezone_set('UTC');
     match (true) {
-        $method === 'POST' && $id === 'validate' => validateDynamicTicket($body),
-        $method === 'GET'  && $id === null       => listTickets($query),
-        $method === 'POST' && $id === null       => storeTicket($body),
-        $method === 'GET'  && $id !== null       => getTicket($id),
-        default => jsonError('Rota não encontrada nos Ingressos', 404),
+        $method === 'GET'  && $id === null                                        => listTickets($query),
+        $method === 'POST' && $id === null                                        => storeTicket($body),
+        $method === 'POST' && $id === 'validate'        => validateDynamicTicket($body),
+        $method === 'POST' && $sub === 'transfer'                                 => transferTicket((int)$id, $body),
+        $method === 'POST' && $id === 'sync'                                      => syncOfflineTickets($body),
+        $method === 'GET'  && $id !== null                                        => getTicket($id),
+        default                                                                    => jsonError("Endpoint não encontrado.", 404),
     };
 }
 
@@ -233,6 +235,9 @@ function verifyTOTP(string $secret, string $code): bool
     // Decodifica a base32 simulada (ou hex no nosso caso, dependendo do seed)
     // O secret gerado no banco foi feito com bin2hex, então usamos hex2bin.
     $key = hex2bin($secret);
+    if ($key === false) {
+        return false;
+    }
 
     for ($i = -$window; $i <= $window; $i++) {
         $timeSlot = $timestamp + $i;

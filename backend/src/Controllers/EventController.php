@@ -21,13 +21,17 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
 function listEvents(): void
 {
-    requireAuth();
+    $user = requireAuth();
+    $organizerId = $user['organizer_id'] ?? null;
+
+    if (!$organizerId) {
+        jsonError("Usuário não possui organizer_id vinculado.", 403);
+    }
 
     try {
         $db = Database::getInstance();
-        // Nota: Removido banner_url e venue_name se não existirem no banco, 
-        // mas mantido conforme seu original. Se der erro de coluna, me avise.
-        $stmt = $db->query("SELECT id, name, slug, description, starts_at, status FROM events ORDER BY starts_at ASC");
+        $stmt = $db->prepare("SELECT id, name, slug, description, starts_at, status FROM events WHERE organizer_id = ? ORDER BY starts_at ASC");
+        $stmt->execute([$organizerId]);
         $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         jsonSuccess($events);
@@ -38,7 +42,12 @@ function listEvents(): void
 
 function createEvent(array $body): void
 {
-    requireAuth();
+    $user = requireAuth();
+    $organizerId = $user['organizer_id'] ?? null;
+
+    if (!$organizerId) {
+        jsonError("Usuário não possui organizer_id vinculado.", 403);
+    }
     
     $name = trim($body['name'] ?? '');
     $startsAt = $body['starts_at'] ?? ''; 
@@ -53,14 +62,14 @@ function createEvent(array $body): void
     try {
         $db = Database::getInstance();
         $stmt = $db->prepare("
-            INSERT INTO events (name, slug, description, starts_at, status)
-            VALUES (?, ?, ?, ?, ?) RETURNING id
+            INSERT INTO events (name, slug, description, starts_at, status, organizer_id)
+            VALUES (?, ?, ?, ?, ?, ?) RETURNING id
         ");
         
         $desc = $body['description'] ?? '';
         $status = 'published';
         
-        $stmt->execute([$name, $slug, $desc, $startsAt, $status]);
+        $stmt->execute([$name, $slug, $desc, $startsAt, $status, $organizerId]);
         $id = $stmt->fetchColumn();
 
         jsonSuccess(['id' => $id], "Evento criado com sucesso!", 201);
@@ -71,14 +80,23 @@ function createEvent(array $body): void
 
 function getEventDetails(int $id, bool $checkAuth = true): void
 {
+    $organizerId = null;
     if ($checkAuth) {
-        optionalAuth(); 
+        $user = requireAuth();
+        $organizerId = $user['organizer_id'] ?? null;
     }
 
     try {
         $db = Database::getInstance();
-        $stmt = $db->prepare("SELECT id, name, slug, description, starts_at, status FROM events WHERE id = ?");
-        $stmt->execute([$id]);
+
+        if ($organizerId) {
+            $stmt = $db->prepare("SELECT id, name, slug, description, starts_at, status FROM events WHERE id = ? AND organizer_id = ?");
+            $stmt->execute([$id, $organizerId]);
+        } else {
+            $stmt = $db->prepare("SELECT id, name, slug, description, starts_at, status FROM events WHERE id = ?");
+            $stmt->execute([$id]);
+        }
+
         $event = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$event) {
