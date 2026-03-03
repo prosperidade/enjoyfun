@@ -149,15 +149,16 @@ function validateDynamicTicket(array $body): void
         // Formato dinâmico: "qrtoken.otpcode"
         $tokenParts = explode('.', $receivedToken);
         $otpCode = null;
-        $qrToken = $receivedToken;
+        $qrToken = $receivedToken; // Aqui o $qrToken pode ser o token gigante OU o código curto (EF-...)
 
         if (count($tokenParts) === 2 && ctype_digit($tokenParts[1])) {
             $qrToken = $tokenParts[0];
             $otpCode = $tokenParts[1];
         }
 
-        $stmt = $db->prepare("SELECT * FROM tickets WHERE qr_token = ? LIMIT 1");
-        $stmt->execute([$qrToken]);
+        // CORREÇÃO: Busca tanto pelo QR Token oculto quanto pela Referência do Pedido digitada
+        $stmt = $db->prepare("SELECT * FROM tickets WHERE qr_token = ? OR order_reference = ? LIMIT 1");
+        $stmt->execute([$qrToken, $qrToken]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$ticket)                          jsonError("Ingresso não encontrado.", 404);
