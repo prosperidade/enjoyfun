@@ -16,17 +16,21 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 function getDashboardStats(): void
 {
     requireAuth();
-    $eventId = isset($_GET['event_id']) && is_numeric($_GET['event_id']) ? (int)$_GET['event_id'] : 1;
+    $eventId = isset($_GET['event_id']) && is_numeric($_GET['event_id']) ? (int)$_GET['event_id'] : null;
 
     try {
         $db = Database::getInstance();
         
         // Cláusula opcional de filtro de Evento
-        $whereEventSales   = " AND s.event_id = $eventId";
-        $whereEventTickets = " AND event_id = $eventId";
+        $whereEventSales   = $eventId ? " AND s.event_id = :event_id" : "";
+        $whereEventTickets = $eventId ? " AND event_id = :event_id" : "";
         
         // Tickets Vendidos
-        $stmtTickets = $db->query("SELECT COUNT(id) FROM tickets WHERE status = 'valid'" . $whereEventTickets);
+        $stmtTickets = $db->prepare("SELECT COUNT(id) FROM tickets WHERE status = 'paid'" . $whereEventTickets);
+        if ($eventId) {
+            $stmtTickets->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+        }
+        $stmtTickets->execute();
         $totalTickets = (int) $stmtTickets->fetchColumn();
 
         // Usuários Totais
@@ -34,7 +38,11 @@ function getDashboardStats(): void
         $totalUsers = (int) $stmtUsers->fetchColumn();
 
         // Vendas PDV (Bar/Lojas) - Receita Total
-        $stmtSalesTotal = $db->query("SELECT COALESCE(SUM(total_amount), 0) FROM sales s WHERE s.status = 'completed'" . $whereEventSales);
+        $stmtSalesTotal = $db->prepare("SELECT COALESCE(SUM(total_amount), 0) FROM sales s WHERE s.status = 'completed'" . $whereEventSales);
+        if ($eventId) {
+            $stmtSalesTotal->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+        }
+        $stmtSalesTotal->execute();
         $salesTotal = (float) $stmtSalesTotal->fetchColumn();
 
         // Créditos em Float (Digital Cards sem uso total)
@@ -42,7 +50,11 @@ function getDashboardStats(): void
         $totalFloat = (float) $stmtFloat->fetchColumn();
 
         // Carros no Estacionamento (Tickets ativos sem saída)
-        $stmtPark = $db->query("SELECT COUNT(id) FROM parking_records WHERE exit_at IS NULL" . $whereEventTickets);
+        $stmtPark = $db->prepare("SELECT COUNT(id) FROM parking_records WHERE exit_at IS NULL" . $whereEventTickets);
+        if ($eventId) {
+            $stmtPark->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+        }
+        $stmtPark->execute();
         $totalPark = (int) $stmtPark->fetchColumn();
 
         // Gráfico de Vendas (Últimas 24 horas - agrupadas por hora)
@@ -53,7 +65,12 @@ function getDashboardStats(): void
             GROUP BY DATE_TRUNC('hour', created_at) 
             ORDER BY DATE_TRUNC('hour', created_at) ASC
         ";
-        $salesChart = $db->query($sqlChart)->fetchAll(PDO::FETCH_ASSOC);
+        $stmtChart = $db->prepare($sqlChart);
+        if ($eventId) {
+            $stmtChart->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+        }
+        $stmtChart->execute();
+        $salesChart = $stmtChart->fetchAll(PDO::FETCH_ASSOC);
 
         // Top Produtos (Itens que mais deram receita)
         $sqlTop = "
@@ -66,7 +83,12 @@ function getDashboardStats(): void
             ORDER BY revenue DESC
             LIMIT 6
         ";
-        $topProducts = $db->query($sqlTop)->fetchAll(PDO::FETCH_ASSOC);
+        $stmtTop = $db->prepare($sqlTop);
+        if ($eventId) {
+            $stmtTop->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+        }
+        $stmtTop->execute();
+        $topProducts = $stmtTop->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode(['success' => true, 'data' => [
             'summary' => [
@@ -130,7 +152,6 @@ function getBillingStats(): void
         exit;
     }
 }
-
 
 
 

@@ -179,57 +179,37 @@ function checkout(array $body): void
 
     try {
         $db->beginTransaction();
-        $userId = null; $cardId = null; $currentBalance = 0;
+        $cardId = null; $currentBalance = 0;
 
         if ($token) {
-            $stmtUser = $db->prepare('SELECT id, balance FROM users WHERE qr_token = ? FOR UPDATE');
-            $stmtUser->execute([$token]);
-            $user = $stmtUser->fetch(PDO::FETCH_ASSOC);
+            $card = findDigitalCardForCheckout($db, $token);
 
-            if ($user) {
-                if ($user['balance'] < $total) {
-                    AuditService::logFailure(
-                        AuditService::SALE_CHECKOUT,
-                        'user',
-                        $user['id'],
-                        'Saldo insuficiente',
-                        $operator,
-                        ['metadata' => ['saldo' => $user['balance'], 'total' => $total, 'sector' => 'food']]
-                    );
-                    throw new Exception("Saldo insuficiente.");
-                }
-                $userId = $user['id'];
-                $currentBalance = (float)$user['balance'];
-            } else {
-                $stmtCard = $db->prepare('SELECT id, balance FROM public.digital_cards WHERE id = ?::uuid FOR UPDATE');
-                $stmtCard->execute([$token]);
-                $card = $stmtCard->fetch(PDO::FETCH_ASSOC);
-
-                if (!$card) {
-                    AuditService::logFailure(
-                        AuditService::SALE_CHECKOUT,
-                        'card',
-                        $token,
-                        'Cartão ou QR não encontrado',
-                        $operator,
-                        ['metadata' => ['sector' => 'food']]
-                    );
-                    throw new Exception("Cartão ou QR não encontrado: " . $token);
-                }
-                if ($card['balance'] < $total) {
-                    AuditService::logFailure(
-                        AuditService::SALE_CHECKOUT,
-                        'card',
-                        $card['id'],
-                        'Saldo insuficiente no cartão',
-                        $operator,
-                        ['metadata' => ['saldo' => $card['balance'], 'total' => $total, 'sector' => 'food']]
-                    );
-                    throw new Exception("Saldo insuficiente no cartão.");
-                }
-                $cardId = $card['id'];
-                $currentBalance = (float)$card['balance'];
+            if (!$card) {
+                AuditService::logFailure(
+                    AuditService::SALE_CHECKOUT,
+                    'card',
+                    $token,
+                    'Cartão ou QR não encontrado',
+                    $operator,
+                    ['metadata' => ['sector' => 'food']]
+                );
+                throw new Exception("Cartão ou QR não encontrado: " . $token);
             }
+
+            if ($card['balance'] < $total) {
+                AuditService::logFailure(
+                    AuditService::SALE_CHECKOUT,
+                    'card',
+                    $card['id'],
+                    'Saldo insuficiente no cartão',
+                    $operator,
+                    ['metadata' => ['saldo' => $card['balance'], 'total' => $total, 'sector' => 'food']]
+                );
+                throw new Exception("Saldo insuficiente no cartão.");
+            }
+
+            $cardId = $card['id'];
+            $currentBalance = (float)$card['balance'];
         } else {
             throw new Exception("Nenhum cartão selecionado para o pagamento.");
         }
@@ -246,7 +226,7 @@ function checkout(array $body): void
         }
 
         $newBalance = $currentBalance - $total;
-        $db->prepare("UPDATE public.digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?::uuid")
+        $db->prepare("UPDATE public.digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?")
            ->execute([$newBalance, $cardId]);
 
         $db->commit();
@@ -270,6 +250,37 @@ function checkout(array $body): void
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         exit;
     }
+}
+
+function findDigitalCardForCheckout(PDO $db, string $token): array|false
+{
+    $token = trim($token);
+
+    // Caminho padrão: token é o próprio UUID do cartão
+    $stmtById = $db->prepare('SELECT id, balance FROM public.digital_cards WHERE id::text = ? FOR UPDATE');
+    $stmtById->execute([$token]);
+    $card = $stmtById->fetch(PDO::FETCH_ASSOC);
+    if ($card) {
+        return $card;
+    }
+
+    // Compatibilidade: alguns fluxos usam card_token em vez de id
+    $stmtHasCardToken = $db->query("SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'digital_cards' AND column_name = 'card_token'
+    )");
+
+    if ((bool)$stmtHasCardToken->fetchColumn()) {
+        $stmtByToken = $db->prepare('SELECT id, balance FROM public.digital_cards WHERE card_token = ? FOR UPDATE');
+        $stmtByToken->execute([$token]);
+        $card = $stmtByToken->fetch(PDO::FETCH_ASSOC);
+        if ($card) {
+            return $card;
+        }
+    }
+
+    return false;
 }
 
 function requestGeminiInsight(array $body): void

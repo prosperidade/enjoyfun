@@ -160,10 +160,8 @@ function checkout(array $body): void
 
         if (!$token) throw new Exception("Token do cartão é obrigatório.");
 
-        // BUSCA PELO ID (UUID) na tabela digital_cards
-        $stmtCard = $db->prepare('SELECT id, balance FROM public.digital_cards WHERE id = ?::uuid FOR UPDATE');
-        $stmtCard->execute([$token]);
-        $card = $stmtCard->fetch(PDO::FETCH_ASSOC);
+        // Busca cartão na tabela correta (digital_cards) por UUID ou card_token
+        $card = findBarDigitalCardForCheckout($db, $token);
 
         if (!$card) {
             AuditService::logFailure(
@@ -208,7 +206,7 @@ function checkout(array $body): void
 
         // Atualizar Saldo do Cartão
         $newBalance = $currentBalance - $total;
-        $db->prepare("UPDATE public.digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?::uuid")
+        $db->prepare("UPDATE public.digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?")
            ->execute([$newBalance, $cardId]);
 
         $db->commit();
@@ -233,6 +231,36 @@ function checkout(array $body): void
         exit;
     }
 }
+
+function findBarDigitalCardForCheckout(PDO $db, string $token): array|false
+{
+    $token = trim($token);
+
+    $stmtById = $db->prepare('SELECT id, balance FROM public.digital_cards WHERE id::text = ? FOR UPDATE');
+    $stmtById->execute([$token]);
+    $card = $stmtById->fetch(PDO::FETCH_ASSOC);
+    if ($card) {
+        return $card;
+    }
+
+    $stmtHasCardToken = $db->query("SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'digital_cards' AND column_name = 'card_token'
+    )");
+
+    if ((bool)$stmtHasCardToken->fetchColumn()) {
+        $stmtByToken = $db->prepare('SELECT id, balance FROM public.digital_cards WHERE card_token = ? FOR UPDATE');
+        $stmtByToken->execute([$token]);
+        $card = $stmtByToken->fetch(PDO::FETCH_ASSOC);
+        if ($card) {
+            return $card;
+        }
+    }
+
+    return false;
+}
+
 function requestGeminiInsight(array $body): void
 {
     requireAuth();
