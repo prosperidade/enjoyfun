@@ -13,13 +13,13 @@
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
-        $method === 'GET'  && $id === null              => listTickets($query),
-        $method === 'POST' && $id === null              => storeTicket($body),
-        $method === 'POST' && $sub === 'transfer'       => transferTicket((int)$id, $body),
+        $method === 'GET'  && $id === null                                        => listTickets($query),
+        $method === 'POST' && $id === null                                        => storeTicket($body),
         $method === 'POST' && $id === 'validate'        => validateDynamicTicket($body),
-        $method === 'POST' && $id === 'sync'            => syncOfflineTickets($body),
-        $method === 'GET'  && $id !== null              => getTicket($id),
-        default                                         => jsonError("Endpoint não encontrado.", 404),
+        $method === 'POST' && $sub === 'transfer'                                 => transferTicket((int)$id, $body),
+        $method === 'POST' && $id === 'sync'                                      => syncOfflineTickets($body),
+        $method === 'GET'  && $id !== null                                        => getTicket($id),
+        default                                                                    => jsonError("Endpoint não encontrado.", 404),
     };
 }
 
