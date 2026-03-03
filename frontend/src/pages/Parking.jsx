@@ -117,6 +117,7 @@ export default function Parking() {
           holder: res.data.data?.license_plate, // Exibe a Placa do veículo
           type: res.data.data?.vehicle_type === 'car' ? 'CARRO' : 'MOTO',
           event: res.data.data?.event_name,
+          current_status: res.data.data?.current_status,
         });
         
         setTicketInput("");
@@ -428,16 +429,59 @@ export default function Parking() {
           </div>
 
           {validationResult && (
-            <div className={`card border ${validationResult.ok ? "border-green-500/40 bg-green-900/10" : "border-red-500/40 bg-red-900/10"}`}>
-              <div className="flex items-center gap-3">
-                {validationResult.ok ? <CheckCircle size={32} className="text-green-400" /> : <XCircle size={32} className="text-red-400" />}
-                <div>
-                  <p className={`font-bold text-lg ${validationResult.ok ? "text-green-400" : "text-red-400"}`}>{validationResult.message}</p>
+            <div className={`card border ${
+              !validationResult.ok
+                ? "border-red-500/40 bg-red-900/10"
+                : validationResult.current_status === "parked"
+                  ? "border-green-500/40 bg-green-900/10" // Entrada = Verde
+                  : "border-blue-500/40 bg-blue-900/10"   // Saída = Azul
+            }`}>
+              <div className="flex items-start gap-4">
+                {!validationResult.ok ? (
+                  <XCircle size={40} className="text-red-400 flex-shrink-0" />
+                ) : validationResult.current_status === "parked" ? (
+                  <div className="flex flex-col items-center justify-center bg-green-500/20 text-green-400 p-3 rounded-lg flex-shrink-0">
+                    <CheckCircle size={32} />
+                    <span className="text-xs font-bold mt-1 uppercase">Entrada</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center bg-blue-500/20 text-blue-400 p-3 rounded-lg flex-shrink-0">
+                    <CheckCircle size={32} />
+                    <span className="text-xs font-bold mt-1 uppercase">Saída</span>
+                  </div>
+                )}
+
+                <div className="flex-1">
+                  <p className={`font-bold text-xl mb-2 ${
+                    !validationResult.ok
+                      ? "text-red-400"
+                      : validationResult.current_status === "parked"
+                        ? "text-green-400"
+                        : "text-blue-400"
+                  }`}>
+                    {validationResult.message}
+                  </p>
+
                   {validationResult.ok && (
-                    <div className="text-sm text-gray-300 mt-1 space-y-0.5">
-                      {validationResult.holder && <p>👤 {validationResult.holder}</p>}
-                      {validationResult.type && <p>🎫 {validationResult.type}</p>}
-                      {validationResult.event && <p>📍 {validationResult.event}</p>}
+                    <div className="grid grid-cols-2 gap-2 text-sm text-gray-300 bg-black/20 p-3 rounded">
+                      {validationResult.holder && (
+                        <div>
+                          <span className="text-gray-500 text-xs block uppercase">Placa</span>
+                          <span className="font-mono font-bold text-white text-lg">{validationResult.holder}</span>
+                        </div>
+                      )}
+                      {validationResult.type && (
+                        <div>
+                          <span className="text-gray-500 text-xs block uppercase">Veículo</span>
+                          <span className="font-semibold">{validationResult.type}</span>
+                        </div>
+                      )}
+                      {validationResult.event && (
+                        <div className="col-span-2 mt-1 pt-2 border-t border-white/5">
+                          <span className="text-gray-500 text-xs block uppercase">Evento</span>
+                          <span className="font-semibold">{validationResult.event}</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
