@@ -139,6 +139,7 @@ function validateDynamicTicket(array $body): void
     requireAuth(['admin', 'organizer', 'staff']);
     // Aceita tanto 'dynamic_token' (formato token.otp) quanto 'qr_token' simples
     $receivedToken = $body['dynamic_token'] ?? $body['qr_token'] ?? '';
+    $receivedToken = normalizeScannedToken($receivedToken);
 
     if (!$receivedToken) jsonError("Token não informado.", 422);
 
@@ -146,9 +147,14 @@ function validateDynamicTicket(array $body): void
         $db = Database::getInstance();
 
         // Formato dinâmico: "qrtoken.otpcode"
-        $parts   = explode('.', $receivedToken);
-        $qrToken = $parts[0];
-        $otpCode = $parts[1] ?? null;
+        $tokenParts = explode('.', $receivedToken);
+        $otpCode = null;
+        $qrToken = $receivedToken;
+
+        if (count($tokenParts) === 2 && ctype_digit($tokenParts[1])) {
+            $qrToken = $tokenParts[0];
+            $otpCode = $tokenParts[1];
+        }
 
         $stmt = $db->prepare("SELECT * FROM tickets WHERE qr_token = ? LIMIT 1");
         $stmt->execute([$qrToken]);
@@ -174,6 +180,46 @@ function validateDynamicTicket(array $body): void
     } catch (Exception $e) {
         jsonError("Erro na validação: " . $e->getMessage(), 500);
     }
+}
+
+function normalizeScannedToken(mixed $rawToken): string
+{
+    if (!is_string($rawToken)) {
+        return '';
+    }
+
+    $token = trim($rawToken, " \t\n\r\0\x0B\"'");
+    if ($token === '') {
+        return '';
+    }
+
+    // Scanner pode enviar JSON completo ao invés de somente o valor do token
+    if (str_starts_with($token, '{') && str_ends_with($token, '}')) {
+        $decoded = json_decode($token, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            foreach (['dynamic_token', 'qr_token', 'token', 'code'] as $key) {
+                if (!empty($decoded[$key]) && is_string($decoded[$key])) {
+                    $token = trim($decoded[$key]);
+                    break;
+                }
+            }
+        }
+    }
+
+    // Alguns leitores retornam URL completa com query string
+    if (filter_var($token, FILTER_VALIDATE_URL)) {
+        $query = parse_url($token, PHP_URL_QUERY) ?: '';
+        if ($query !== '') {
+            parse_str($query, $params);
+            foreach (['dynamic_token', 'qr_token', 'token', 'code'] as $key) {
+                if (!empty($params[$key]) && is_string($params[$key])) {
+                    return trim($params[$key]);
+                }
+            }
+        }
+    }
+
+    return $token;
 }
 
 // ── Transferência Nominal ─────────────────────────────────────────────────────
