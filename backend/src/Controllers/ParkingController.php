@@ -6,13 +6,13 @@
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
+    date_default_timezone_set('UTC');
     match (true) {
-        $method === 'GET'  && $id === null         => listParking($query),
-        $method === 'POST' && $id === null         => registerEntry($body),
-        // Rota de Scanner: POST /parking/validate
-        $method === 'POST' && $id === 'validate'   => validateParkingTicket($body),
-        $method === 'POST' && $sub === 'exit'      => registerExit((int)$id),
-        default => jsonError("Endpoint não encontrado: {$method} /parking/{$id}", 404),
+        $method === 'POST' && $id === 'validate' => validateParkingTicket($body),
+        $method === 'GET'  && $id === null       => listParking($query),
+        $method === 'POST' && $id === null       => registerEntry($body),
+        $method === 'POST' && $sub === 'exit'     => registerExit((int)$id),
+        default => jsonError('Rota não encontrada no Estacionamento', 404),
     };
 }
 

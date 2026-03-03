@@ -12,14 +12,13 @@
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
+    date_default_timezone_set('UTC');
     match (true) {
-        $method === 'GET'  && $id === null                                        => listTickets($query),
-        $method === 'POST' && $id === null                                        => storeTicket($body),
-        $method === 'POST' && $id === 'validate'        => validateDynamicTicket($body),
-        $method === 'POST' && $sub === 'transfer'                                 => transferTicket((int)$id, $body),
-        $method === 'POST' && $id === 'sync'                                      => syncOfflineTickets($body),
-        $method === 'GET'  && $id !== null                                        => getTicket($id),
-        default                                                                    => jsonError("Endpoint não encontrado.", 404),
+        $method === 'POST' && $id === 'validate' => validateDynamicTicket($body),
+        $method === 'GET'  && $id === null       => listTickets($query),
+        $method === 'POST' && $id === null       => storeTicket($body),
+        $method === 'GET'  && $id !== null       => getTicket($id),
+        default => jsonError('Rota não encontrada nos Ingressos', 404),
     };
 }
 
@@ -225,10 +224,33 @@ function syncOfflineTickets(array $body): void
     jsonSuccess(['synced' => 0], "Sincronização recebida.");
 }
 
-// ── TOTP Stub (substitua por biblioteca real em produção) ─────────────────────
+// ── TOTP Real ─────────────────────────────────────────────────────────────────
 function verifyTOTP(string $secret, string $code): bool
 {
-    // Em produção: use OTPHP/TOTP ou spomky-labs/otphp
-    // Por ora valida se o código tem 6 dígitos numéricos
-    return preg_match('/^\d{6}$/', $code) === 1;
+    $window = 1; // Permite -1, 0, +1 (30s de tolerância para trás e para frente)
+    $timestamp = floor(time() / 30);
+
+    // Decodifica a base32 simulada (ou hex no nosso caso, dependendo do seed)
+    // O secret gerado no banco foi feito com bin2hex, então usamos hex2bin.
+    $key = hex2bin($secret);
+
+    for ($i = -$window; $i <= $window; $i++) {
+        $timeSlot = $timestamp + $i;
+        $timePacked = pack('N*', 0) . pack('N*', $timeSlot);
+
+        $hash = hash_hmac('sha1', $timePacked, $key, true);
+        $offset = ord(substr($hash, -1)) & 0x0F;
+
+        $value = unpack('N', substr($hash, $offset, 4));
+        $value = $value[1] & 0x7FFFFFFF;
+
+        $otp = str_pad($value % 1000000, 6, '0', STR_PAD_LEFT);
+
+        // Proteção contra timing attacks
+        if (hash_equals($otp, $code)) {
+            return true;
+        }
+    }
+
+    return false;
 }
