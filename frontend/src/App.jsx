@@ -20,6 +20,7 @@ import Parking from "./pages/Parking";
 import WhatsApp from "./pages/WhatsApp";
 import AIAgents from "./pages/AIAgents";
 import Users from "./pages/Users";
+import Settings from "./pages/Settings";
 
 function NotFound() {
   return (
@@ -71,18 +72,7 @@ export default function App() {
               <Route path="/whatsapp" element={<WhatsApp />} />
               <Route path="/ai" element={<AIAgents />} />
               <Route path="/users" element={<Users />} />
-              <Route
-                path="/settings"
-                element={
-                  <div className="card max-w-md mx-auto mt-8">
-                    <h1 className="page-title mb-4">⚙️ Configurações</h1>
-                    <p className="text-gray-400 text-sm">
-                      Configurações da rede e plataforma serão implementadas na
-                      Fase 4.
-                    </p>
-                  </div>
-                }
-              />
+              <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>
 
