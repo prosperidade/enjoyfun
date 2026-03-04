@@ -1,6 +1,6 @@
 <?php
 /**
- * Card Controller — EnjoyFun 2.0
+ * Card Controller — EnjoyFun 2.0 (Multi-tenant)
  */
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
@@ -15,13 +15,15 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
 function listCards(array $query): void
 {
-    requireAuth();
+    // 1. Pega os dados do crachá do organizador
+    $operator = requireAuth();
+    $organizerId = $operator['organizer_id'];
 
     try {
         $db = Database::getInstance();
-        // CORREÇÃO: Removemos filtros complexos e garantimos que o UUID seja lido como string
-        // O LEFT JOIN com users pode estar ocultando cartões que não tem dono (user_id nulo)
-        $stmt = $db->query("
+        
+        // 2. O CADEADO: Traz apenas os cartões deste organizador
+        $stmt = $db->prepare("
             SELECT 
                 c.id::text as id, 
                 c.id::text as card_token, 
@@ -31,8 +33,10 @@ function listCards(array $query): void
                 'Evento Geral' as event_name
             FROM public.digital_cards c
             LEFT JOIN public.users u ON c.user_id = u.id
+            WHERE c.organizer_id = ?
             ORDER BY c.created_at DESC
         ");
+        $stmt->execute([$organizerId]);
         $cards = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         jsonSuccess($cards);
@@ -43,18 +47,21 @@ function listCards(array $query): void
 
 function listTransactions(string $cardId): void
 {
-    requireAuth();
+    $operator = requireAuth();
+    $organizerId = $operator['organizer_id'];
 
     try {
         $db = Database::getInstance();
-        // Ajustado para bater com a tabela de transações cashless
+        
+        // 2. O CADEADO: Garante que as transações são de um cartão pertencente a este organizador
         $stmt = $db->prepare("
-            SELECT id, type, CAST(amount AS FLOAT) as amount, created_at, description
-            FROM public.card_transactions
-            WHERE card_id = ?::uuid
-            ORDER BY created_at DESC
+            SELECT t.id, t.type, CAST(t.amount AS FLOAT) as amount, t.created_at, t.description
+            FROM public.card_transactions t
+            JOIN public.digital_cards c ON t.card_id = c.id
+            WHERE t.card_id = ?::uuid AND c.organizer_id = ?
+            ORDER BY t.created_at DESC
         ");
-        $stmt->execute([$cardId]);
+        $stmt->execute([$cardId, $organizerId]);
         $txs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         jsonSuccess($txs);
@@ -66,6 +73,7 @@ function listTransactions(string $cardId): void
 function topupCard(string $cardId, array $body): void
 {
     $userPayload = requireAuth();
+    $organizerId = $userPayload['organizer_id'];
 
     $amount = (float)($body['amount'] ?? 0);
     if ($amount <= 0) {
@@ -76,9 +84,9 @@ function topupCard(string $cardId, array $body): void
         $db = Database::getInstance();
         $db->beginTransaction();
 
-        // Buscando pelo ID (UUID) que vimos no banco
-        $stmt = $db->prepare("SELECT balance FROM public.digital_cards WHERE id = ?::uuid FOR UPDATE");
-        $stmt->execute([$cardId]);
+        // 2. O CADEADO: Trava a linha (FOR UPDATE) apenas se o cartão pertencer ao organizador
+        $stmt = $db->prepare("SELECT balance FROM public.digital_cards WHERE id = ?::uuid AND organizer_id = ? FOR UPDATE");
+        $stmt->execute([$cardId, $organizerId]);
         $card = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$card) {
@@ -87,10 +95,10 @@ function topupCard(string $cardId, array $body): void
                 AuditService::CARD_RECHARGE,
                 'card',
                 $cardId,
-                'Cartão não encontrado',
+                'Cartão não encontrado ou pertence a outro organizador',
                 $userPayload
             );
-            jsonError("Cartão não encontrado: " . $cardId, 404);
+            jsonError("Cartão não encontrado ou acesso negado.", 404);
         }
 
         $previousBalance = (float)$card['balance'];

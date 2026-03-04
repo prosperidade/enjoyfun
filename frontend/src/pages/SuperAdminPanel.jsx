@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'; // <-- Adicionamos o useCallback aqui
+import React, { useState, useEffect, useCallback } from 'react';
 
 export default function SuperAdminPanel() {
     const [organizers, setOrganizers] = useState([]);
@@ -12,33 +12,51 @@ export default function SuperAdminPanel() {
         password: ''
     });
 
-    const token = localStorage.getItem('token');
+    // CORREÇÃO: Buscando a chave exata que o AuthContext salva no login
+    const token = localStorage.getItem('access_token');
 
-    // CORREÇÃO 2: Envolvemos a função no useCallback para acalmar o ESLint
+    // useCallback garante que a função não mude a cada renderização
     const fetchOrganizers = useCallback(async () => {
         try {
             const response = await fetch('/api/superadmin/organizers', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            const data = await response.json();
-            
-            if (data.success) {
-                setOrganizers(data.data.organizers || []);
+
+            // Verificamos se a resposta é JSON antes de tentar o .json()
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                const data = await response.json();
+                if (data.success) {
+                    setOrganizers(data.data.organizers || []);
+                }
+            } else {
+                // Se cair aqui, o PHP enviou um erro HTML
+                const errorText = await response.text();
+                console.error('Resposta inválida do servidor (HTML detectado):', errorText);
             }
         } catch (error) {
             console.error('Erro ao buscar organizadores:', error);
         } finally {
             setLoading(false);
         }
-    }, [token]); // Dizemos ao React que essa função depende do token
+    }, [token]);
 
-    // O useEffect agora fica feliz porque colocamos a função na lista de dependências
     useEffect(() => {
-        fetchOrganizers();
-    }, [fetchOrganizers]); 
+        if (token) {
+            fetchOrganizers();
+        } else {
+            setLoading(false);
+            console.error("Token de acesso não encontrado no localStorage.");
+        }
+    }, [fetchOrganizers, token]); 
 
+    // Atualização de estado blindada
     const handleInputChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
     };
 
     const handleSubmit = async (e) => {
@@ -56,17 +74,22 @@ export default function SuperAdminPanel() {
                 body: JSON.stringify(formData)
             });
             
-            const data = await response.json();
-
-            if (data.success) {
-                setMessage({ type: 'success', text: 'Organizador criado e isolado com sucesso!' });
-                setFormData({ name: '', email: '', password: '' });
-                fetchOrganizers(); 
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                const data = await response.json();
+                if (data.success) {
+                    setMessage({ type: 'success', text: 'Organizador criado e isolado com sucesso!' });
+                    setFormData({ name: '', email: '', password: '' });
+                    fetchOrganizers(); 
+                } else {
+                    setMessage({ type: 'error', text: data.message || 'Erro ao criar organizador.' });
+                }
             } else {
-                setMessage({ type: 'error', text: data.message || 'Erro ao criar organizador.' });
+                const errorText = await response.text();
+                console.error("Erro no servidor (HTML):", errorText);
+                setMessage({ type: 'error', text: 'Erro interno no servidor (PHP disparou um aviso).' });
             }
         } catch (error) {
-            // CORREÇÃO 1: Usamos a variável 'error' no console para o ESLint parar de reclamar
             console.error("Erro no envio:", error); 
             setMessage({ type: 'error', text: 'Erro de conexão com o servidor.' });
         } finally {
@@ -91,16 +114,20 @@ export default function SuperAdminPanel() {
                 
                 <div className="bg-white p-6 rounded-lg shadow-md md:col-span-1 h-fit">
                     <h2 className="text-xl font-semibold mb-4 text-gray-800">Novo Organizador</h2>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* autoComplete="off" para evitar conflito com credenciais do SuperAdmin */}
+                    <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Nome da Empresa</label>
+                            {/* CORREÇÃO VISUAL: Forçando cor e fundo para não sumir */}
                             <input 
                                 type="text" 
                                 name="name"
-                                value={formData.name}
+                                value={formData.name || ''}
                                 onChange={handleInputChange}
                                 required
-                                className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                                autoComplete="new-name"
+                                className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                                style={{ color: '#111827' }}
                             />
                         </div>
                         <div>
@@ -108,10 +135,12 @@ export default function SuperAdminPanel() {
                             <input 
                                 type="email" 
                                 name="email"
-                                value={formData.email}
+                                value={formData.email || ''}
                                 onChange={handleInputChange}
                                 required
-                                className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                                autoComplete="new-email"
+                                className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                                style={{ color: '#111827' }}
                             />
                         </div>
                         <div>
@@ -119,11 +148,13 @@ export default function SuperAdminPanel() {
                             <input 
                                 type="password" 
                                 name="password"
-                                value={formData.password}
+                                value={formData.password || ''}
                                 onChange={handleInputChange}
                                 required
                                 minLength="6"
-                                className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                                autoComplete="new-password"
+                                className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                                style={{ color: '#111827' }}
                             />
                         </div>
                         <button 
@@ -160,7 +191,7 @@ export default function SuperAdminPanel() {
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{org.name}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{org.email}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {new Date(org.created_at).toLocaleDateString('pt-BR')}
+                                                    {org.created_at ? new Date(org.created_at).toLocaleDateString('pt-BR') : '-'}
                                                 </td>
                                             </tr>
                                         ))

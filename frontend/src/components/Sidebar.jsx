@@ -15,7 +15,7 @@ import {
   ChevronDown,
   UtensilsCrossed,
   Store,
-  Shield, // <-- Ícone do Super Admin adicionado
+  Shield, 
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -27,7 +27,7 @@ const nav = [
     label: "Dashboard",
     roles: ["admin", "organizer"],
   },
-  // 👇 NOVA ROTA: Apenas o Super Admin ('admin') consegue ver e acessar
+  // Apenas o Super Admin ('admin') consegue ver e acessar
   { 
     to: "/superadmin", 
     icon: Shield, 
@@ -58,7 +58,8 @@ const nav = [
     to: "/parking",
     icon: ParkingSquare,
     label: "Estacionamento",
-    roles: ["admin", "parking_staff", "staff"],
+    // CORREÇÃO: Adicionado 'organizer' aqui para o botão voltar a aparecer!
+    roles: ["admin", "organizer", "parking_staff", "staff"],
   },
   {
     to: "/whatsapp",
@@ -72,7 +73,12 @@ const nav = [
     label: "Agentes de IA",
     roles: ["admin", "organizer"],
   },
-  { to: "/users", icon: Users, label: "Usuários", roles: ["admin", "organizer"] }, // Adicionado organizer para ele gerenciar a equipe dele
+  { 
+    to: "/users", 
+    icon: Users, 
+    label: "Usuários", 
+    roles: ["admin", "organizer"] 
+  },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {

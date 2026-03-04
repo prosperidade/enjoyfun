@@ -211,8 +211,16 @@ function checkout(array $body): void
         }
 
         $newBalance = $currentBalance - $total;
-        $db->prepare("UPDATE public.digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?::uuid")
-           ->execute([$newBalance, $cardId]);
+
+        if ($userId) {
+            // Se foi pagamento via saldo de usuário
+            $db->prepare("UPDATE public.users SET balance = ?, updated_at = NOW() WHERE id = ?")
+               ->execute([$newBalance, $userId]);
+        } else {
+            // Se foi pagamento via cartão digital (Pulseira)
+            $db->prepare("UPDATE public.digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?")
+               ->execute([$newBalance, $cardId]);
+        }
 
         $db->commit();
 

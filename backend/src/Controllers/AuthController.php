@@ -29,12 +29,12 @@ function login(array $body): void
     }
 
     $db   = Database::getInstance();
-    // Como usamos SELECT *, o organizer_id já vem embutido na variável $user
+    // Puxamos todos os dados, incluindo as novas colunas `role` e `organizer_id`
     $stmt = $db->prepare('SELECT * FROM users WHERE email = ? AND is_active = TRUE LIMIT 1');
     $stmt->execute([$email]);
-    $user = $stmt->fetch();
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Validação temporária com '123456' conforme seu código original
+    // Validação temporária com '123456' conforme seu código original (ou use password_verify)
     if (!$user || $password !== '123456') {
         AuditService::logFailure(
             AuditService::USER_LOGIN_FAILED,
@@ -55,7 +55,7 @@ function login(array $body): void
         'user',
         $userData['id'],
         null,
-        ['email' => $userData['email'], 'roles' => $userData['roles']],
+        ['email' => $userData['email'], 'role' => $userData['role']],
         ['sub' => $userData['id'], 'email' => $userData['email']],
         'success'
     );
@@ -93,13 +93,12 @@ function register(array $body): void
 
     $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
 
-    $stmt = $db->prepare('INSERT INTO users (name, email, phone, password_hash) VALUES (?, ?, ?, ?) RETURNING id');
-    $stmt->execute([$name, $email, $phone ?: null, $hash]);
+    // Insere o cliente comum diretamente com a role 'customer' na coluna nova
+    $stmt = $db->prepare('INSERT INTO users (name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?) RETURNING id');
+    $stmt->execute([$name, $email, $phone ?: null, $hash, 'customer']);
     $userId = (int) $stmt->fetchColumn();
 
-    $db->prepare('INSERT INTO user_roles (user_id, role_id) VALUES (?, 6)')->execute([$userId]);
-
-    $userData = buildUserPayload($db, ['id' => $userId, 'name' => $name, 'email' => $email]);
+    $userData = buildUserPayload($db, ['id' => $userId, 'name' => $name, 'email' => $email, 'role' => 'customer']);
     $tokens   = issueTokens($db, $userData);
 
     jsonSuccess([
@@ -122,7 +121,7 @@ function refresh(array $body): void
     $db   = Database::getInstance();
     $stmt = $db->prepare('SELECT * FROM refresh_tokens WHERE token_hash = ? AND expires_at > NOW() LIMIT 1');
     $stmt->execute([$hash]);
-    $stored = $stmt->fetch();
+    $stored = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$stored) jsonError('Token de atualização inválido ou expirado.', 401);
 
@@ -160,16 +159,15 @@ function me(): void
     $payload = requireAuth();
     $db      = Database::getInstance();
 
-    // ADICIONADO: Puxa também o organizer_id para o frontend saber de quem é esse usuário
-    $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, is_active, organizer_id, created_at FROM users WHERE id = ? LIMIT 1');
-    $stmt->execute([$payload['id']]); // Ajustado para 'id' que é o retorno do nosso novo middleware
-    $user = $stmt->fetch();
+    // Puxa as colunas novas: role e organizer_id
+    $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, is_active, organizer_id, role, created_at FROM users WHERE id = ? LIMIT 1');
+    $stmt->execute([$payload['id']]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$user) jsonError('Usuário não encontrado.', 404);
 
-    $stmt = $db->prepare('SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ?');
-    $stmt->execute([$payload['id']]);
-    $user['roles'] = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    // Mantém o array 'roles' para compatibilidade com o frontend antigo, mas usando a coluna real
+    $user['roles'] = [$user['role']];
 
     jsonSuccess($user);
 }
@@ -179,21 +177,19 @@ function me(): void
 // ─────────────────────────────────────────────────────────────
 function buildUserPayload(PDO $db, array $user): array
 {
-    if (!isset($user['name'])) {
-        // ADICIONADO: Puxar o organizer_id quando recria o payload (ex: no Refresh Token)
-        $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, organizer_id, created_at FROM users WHERE id = ? LIMIT 1');
+    // Se faltarem dados essenciais, busca no banco
+    if (!isset($user['name']) || !isset($user['role'])) {
+        $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, organizer_id, role, created_at FROM users WHERE id = ? LIMIT 1');
         $stmt->execute([$user['id']]);
-        $user = $stmt->fetch();
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    $stmt = $db->prepare('SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ?');
-    $stmt->execute([$user['id']]);
-    $user['roles'] = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    
-    // Define a role principal singular (ajuda o AuthMiddleware e o React)
-    $user['role'] = $user['roles'][0] ?? 'customer'; 
+    // A role vem direto da coluna `role` da tabela `users`
+    $user['role'] = $user['role'] ?? 'customer'; 
+    $user['roles'] = [$user['role']]; // Backwards compatibility com React
 
-    unset($user['password_hash']); 
+    unset($user['password_hash']);
+    unset($user['password']);
 
     return $user;
 }
@@ -209,8 +205,8 @@ function issueTokens(PDO $db, array $user): array
         'name'         => $user['name'],
         'email'        => $user['email'],
         'roles'        => $user['roles'],
-        'role'         => $user['role'], // Adicionado para bater perfeitamente com o Middleware
-        'organizer_id' => $user['organizer_id'] ?? null, // <-- A CHAVE MESTRA DO WHITE LABEL!
+        'role'         => $user['role'],
+        'organizer_id' => $user['organizer_id'] ?? null, // A CHAVE MESTRA DO WHITE LABEL!
     ], $expiry);
 
     $rawRefresh  = bin2hex(random_bytes(32));

@@ -1,11 +1,11 @@
 <?php
 /**
- * Event Controller - Corrigido (Removido redeclaração de JSON helpers)
+ * Event Controller - Corrigido e Blindado (Multi-tenant)
  */
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
-    // Bypass request via /api/test-event/1
+    // Bypass request via /api/test-event/1 (Para página pública do evento)
     if (strpos($_SERVER['REQUEST_URI'], 'test-event') !== false) {
         getEventDetails((int)$id, false);
         return;
@@ -21,13 +21,16 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
 function listEvents(): void
 {
-    requireAuth();
+    // 1. Pega os dados de quem está logado
+    $user = requireAuth();
+    $organizerId = $user['organizer_id'];
 
     try {
         $db = Database::getInstance();
-        // Nota: Removido banner_url e venue_name se não existirem no banco, 
-        // mas mantido conforme seu original. Se der erro de coluna, me avise.
-        $stmt = $db->query("SELECT id, name, slug, description, starts_at, status FROM events ORDER BY starts_at ASC");
+        
+        // 2. O CADEADO: Lista apenas os eventos deste organizador
+        $stmt = $db->prepare("SELECT id, name, slug, description, starts_at, status FROM events WHERE organizer_id = ? ORDER BY starts_at ASC");
+        $stmt->execute([$organizerId]);
         $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         jsonSuccess($events);
@@ -38,7 +41,9 @@ function listEvents(): void
 
 function createEvent(array $body): void
 {
-    requireAuth();
+    // 1. Pega os dados de quem está logado
+    $user = requireAuth();
+    $organizerId = $user['organizer_id'];
     
     $name = trim($body['name'] ?? '');
     $startsAt = $body['starts_at'] ?? ''; 
@@ -52,15 +57,17 @@ function createEvent(array $body): void
 
     try {
         $db = Database::getInstance();
+        
+        // 2. O CADEADO: Salva o evento carimbado com o ID do dono
         $stmt = $db->prepare("
-            INSERT INTO events (name, slug, description, starts_at, status)
-            VALUES (?, ?, ?, ?, ?) RETURNING id
+            INSERT INTO events (name, slug, description, starts_at, status, organizer_id)
+            VALUES (?, ?, ?, ?, ?, ?) RETURNING id
         ");
         
         $desc = $body['description'] ?? '';
         $status = 'published';
         
-        $stmt->execute([$name, $slug, $desc, $startsAt, $status]);
+        $stmt->execute([$name, $slug, $desc, $startsAt, $status, $organizerId]);
         $id = $stmt->fetchColumn();
 
         jsonSuccess(['id' => $id], "Evento criado com sucesso!", 201);
@@ -71,18 +78,31 @@ function createEvent(array $body): void
 
 function getEventDetails(int $id, bool $checkAuth = true): void
 {
+    $organizerId = null;
+
+    // Se estiver no painel (checkAuth = true), pega o ID do dono para blindar
     if ($checkAuth) {
-        optionalAuth(); 
+        $user = requireAuth();
+        $organizerId = $user['organizer_id'];
     }
 
     try {
         $db = Database::getInstance();
-        $stmt = $db->prepare("SELECT id, name, slug, description, starts_at, status FROM events WHERE id = ?");
-        $stmt->execute([$id]);
+        
+        if ($organizerId) {
+            // Busca restrita (Painel do Organizador)
+            $stmt = $db->prepare("SELECT id, name, slug, description, starts_at, status FROM events WHERE id = ? AND organizer_id = ?");
+            $stmt->execute([$id, $organizerId]);
+        } else {
+            // Busca pública (Página de Vendas para o cliente final)
+            $stmt = $db->prepare("SELECT id, name, slug, description, starts_at, status FROM events WHERE id = ?");
+            $stmt->execute([$id]);
+        }
+        
         $event = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$event) {
-            jsonError("Evento não encontrado.", 404);
+            jsonError("Evento não encontrado ou acesso negado.", 404);
         }
 
         jsonSuccess($event);

@@ -13,34 +13,33 @@ function requireAuth(?array $allowedRoles = null): array
     $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
 
     if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
-        jsonError("Token não fornecido ou malformado", 401);
+        jsonError("Token não fornecido", 401);
     }
 
     $token = str_replace('Bearer ', '', $authHeader);
-    $payload = decodeJWT($token); // Sua função que decodifica o JWT
+    
+    // CORREÇÃO AQUI: Usando o método estático correto da sua classe JWT
+    $payload = JWT::decode($token);
 
     if (!$payload) {
-        jsonError("Token inválido ou expirado", 401);
+        jsonError("Sessão inválida ou expirada", 401);
     }
 
-    // AQUI ESTÁ O PULO DO GATO:
-    // Pegamos a role do payload. No seu log ela aparece como 'role'
-    $userRole = $payload['role'] ?? ($payload['roles'][0] ?? 'organizer');
-
-    // Se a rota pedir uma role específica (como 'admin')
-    if ($allowedRoles !== null) {
-        if (!in_array($userRole, $allowedRoles)) {
-            jsonError("Acesso negado: você não tem permissão de " . implode(',', $allowedRoles), 403);
-        }
-    }
-
-    // Retornamos os dados para o Controller usar (incluindo o organizer_id)
-    return [
-        'sub' => $payload['sub'],
-        'name' => $payload['name'],
-        'role' => $userRole,
+    // ADICIONADO 'name' e 'email' no retorno para os controllers usarem
+    $user = [
+        'id'           => $payload['sub'],
+        'sub'          => $payload['sub'], // Mantido para compatibilidade
+        'name'         => $payload['name'] ?? 'Usuário',
+        'email'        => $payload['email'] ?? '',
+        'role'         => $payload['role'] ?? ($payload['roles'][0] ?? 'organizer'),
         'organizer_id' => $payload['organizer_id'] ?? null
     ];
+
+    if ($allowedRoles !== null && !in_array($user['role'], $allowedRoles)) {
+        jsonError("Acesso negado", 403);
+    }
+
+    return $user;
 }
 
 function optionalAuth(): ?array
@@ -54,9 +53,10 @@ function optionalAuth(): ?array
 function requireRole(array $allowedRoles): array
 {
     $payload   = requireAuth();
-    $userRoles = $payload['roles'] ?? [];
+    // CORREÇÃO: Pegando a 'role' limpa que o requireAuth já mapeou
+    $userRole  = $payload['role'] ?? '';
 
-    if (empty(array_intersect($allowedRoles, $userRoles))) {
+    if (!in_array($userRole, $allowedRoles)) {
         http_response_code(403);
         echo json_encode(['success' => false, 'message' => 'Acesso negado. Permissão insuficiente.']);
         exit;

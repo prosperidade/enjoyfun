@@ -6,6 +6,7 @@
  * 1. FIX CORS: Porta 3001 definida como padrão para o React.
  * 2. FIX 404: Novo Parse de URL robusto para garantir que /validate seja reconhecido.
  * 3. SECURITY: Mantida a arquitetura JWT sem session_start.
+ * 4. DEBUG: Adicionado Escudo Global (Try/Catch) para evitar erros HTML.
  */
 
 // ── CORS (AJUSTADO PARA PORTA 3001) ──────────────────────────────────────────
@@ -91,39 +92,49 @@ if ($raw && ($decoded = json_decode($raw, true)) !== null) {
 
 // ── Roteador Completo ─────────────────────────────────────────────────────────
 $controllers = [
-    'auth'     => BASE_PATH . '/src/Controllers/AuthController.php',
-    'events'   => BASE_PATH . '/src/Controllers/EventController.php',
-    'tickets'  => BASE_PATH . '/src/Controllers/TicketController.php',
-    'parking'  => BASE_PATH . '/src/Controllers/ParkingController.php',
-    'users'    => BASE_PATH . '/src/Controllers/UserController.php',
-    'admin'    => BASE_PATH . '/src/Controllers/AdminController.php',
-    'cards'    => BASE_PATH . '/src/Controllers/CardController.php',
-    'bar'      => BASE_PATH . '/src/Controllers/BarController.php',
-    'food'     => BASE_PATH . '/src/Controllers/FoodController.php',
-    'shop'     => BASE_PATH . '/src/Controllers/ShopController.php',
-    'sync'     => BASE_PATH . '/src/Controllers/SyncController.php',
-    'health'   => BASE_PATH . '/src/Controllers/HealthController.php',
-    'whatsapp' => BASE_PATH . '/src/Controllers/WhatsAppController.php',
-    'superadmin' => BASE_PATH . '/src/Controllers/SuperAdminController.php',
+    'auth'       => BASE_PATH . '/src/Controllers/AuthController.php',
+    'events'     => BASE_PATH . '/src/Controllers/EventController.php',
+    'tickets'    => BASE_PATH . '/src/Controllers/TicketController.php',
+    'parking'    => BASE_PATH . '/src/Controllers/ParkingController.php',
+    'users'      => BASE_PATH . '/src/Controllers/UserController.php',
+    'admin'      => BASE_PATH . '/src/Controllers/AdminController.php',
+    'cards'      => BASE_PATH . '/src/Controllers/CardController.php',
+    'bar'        => BASE_PATH . '/src/Controllers/BarController.php',
+    'food'       => BASE_PATH . '/src/Controllers/FoodController.php',
+    'shop'       => BASE_PATH . '/src/Controllers/ShopController.php',
+    'sync'       => BASE_PATH . '/src/Controllers/SyncController.php',
+    'health'     => BASE_PATH . '/src/Controllers/HealthController.php',
+    'whatsapp'   => BASE_PATH . '/src/Controllers/WhatsAppController.php',
+    'superadmin' => BASE_PATH . '/src/Controllers/SuperAdminController.php', 
 ];
 
 if ($resource === '' || $resource === 'ping') {
     jsonSuccess(['version' => '2.0', 'status' => 'running'], 'EnjoyFun API v2.0');
 }
 
-if (!array_key_exists($resource, $controllers)) {
+if (!isset($controllers[$resource])) {
     jsonError("Rota '/{$resource}' não encontrada no index principal.", 404);
 }
 
 $file = $controllers[$resource];
 if (!file_exists($file)) {
-    jsonError("Controller '{$resource}' ainda não implementado.", 501);
+    jsonError("Arquivo do Controller '{$resource}' não encontrado no servidor.", 501);
 }
 
-require_once $file;
+// Limpa qualquer lixo que algum include possa ter gerado (espaços em branco, warnings)
+if (ob_get_length()) ob_clean();
 
-if (function_exists('dispatch')) {
-    dispatch($method, $id, $sub, $subId, $body, $_GET);
-} else {
-    jsonError("Função dispatch() não encontrada no controller '{$resource}'.", 500);
+// ── ESCUDO GLOBAL ANTI-HTML ───────────────────────────────────────────────────
+try {
+    require_once $file;
+
+    if (function_exists('dispatch')) {
+        dispatch($method, $id, $sub, $subId, $body, $_GET);
+    } else {
+        jsonError("Erro Fatal: Função dispatch() ausente em '{$resource}'.", 500);
+    }
+} catch (\Throwable $e) {
+    // Transforma o erro fatal em JSON para o React conseguir ler
+    $erroReal = "PHP Error: " . $e->getMessage() . " | Arquivo: " . basename($e->getFile()) . " | Linha: " . $e->getLine();
+    jsonError($erroReal, 500);
 }

@@ -1,7 +1,7 @@
 <?php
 /**
  * Parking Controller — EnjoyFun
- * Motor independente para controle de fluxo de milhares de veículos.
+ * Motor independente para controle de fluxo com isolamento Multi-tenant.
  */
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
@@ -18,10 +18,12 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
 /**
  * Validação por Scanner (Check-in/Check-out Automático)
+ * Blindagem: Verifica se o registro pertence ao organizer_id do operador.
  */
 function validateParkingTicket(array $body): void
 {
     $operator = requireAuth();
+    $organizerId = $operator['organizer_id'];
     $token = trim($body['qr_token'] ?? '');
 
     if (!$token) {
@@ -31,27 +33,24 @@ function validateParkingTicket(array $body): void
     try {
         $db = Database::getInstance();
 
-        // Busca o registro vinculado ao QR Code
+        // Busca o registro vinculado ao QR Code filtrando pelo ORGANIZER
         $stmt = $db->prepare("
             SELECT p.*, e.name as event_name 
             FROM parking_records p
             JOIN events e ON p.event_id = e.id
-            WHERE p.qr_token = ?
+            WHERE p.qr_token = ? AND e.organizer_id = ?
             LIMIT 1
         ");
-        $stmt->execute([$token]);
+        $stmt->execute([$token, $organizerId]);
         $record = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$record) {
-            jsonError("Ticket de estacionamento não reconhecido.", 404);
+            jsonError("Ticket não reconhecido ou pertence a outra organização.", 404);
         }
 
         $id = $record['id'];
         $plate = $record['license_plate'];
 
-        // Lógica de Portaria Independente: 
-        // Se status NÃO é 'parked', ele está ENTRANDO.
-        // Se status É 'parked', ele está SAINDO.
         if ($record['status'] !== 'parked') {
             $stmt = $db->prepare("
                 UPDATE parking_records 
@@ -72,7 +71,6 @@ function validateParkingTicket(array $body): void
             $type = 'exit';
         }
 
-        // Log de Auditoria Independente
         AuditService::log("parking.scan.$type", "parking", $id, null, ['plate' => $plate], $operator);
 
         jsonSuccess([
@@ -88,21 +86,26 @@ function validateParkingTicket(array $body): void
 }
 
 /**
- * Listagem com limites para alta performance
+ * Listagem com filtro por Organizer
  */
 function listParking(array $query): void
 {
-    requireAuth();
+    $operator = requireAuth();
+    $organizerId = $operator['organizer_id'];
+
     try {
         $db = Database::getInstance();
         $eventId = $query['event_id'] ?? null;
         $status  = $query['status']   ?? null;
 
-        $where = []; $params = [];
+        // Filtro base: SEMPRE restringir ao organizer_id
+        $where = ['e.organizer_id = ?']; 
+        $params = [$organizerId];
+
         if ($eventId) { $where[] = 'p.event_id = ?'; $params[] = (int)$eventId; }
         if ($status)  { $where[] = 'p.status = ?'; $params[] = $status; }
 
-        $whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+        $whereClause = 'WHERE ' . implode(' AND ', $where);
 
         $stmt = $db->prepare("
             SELECT p.id, p.license_plate, p.vehicle_type, p.entry_at, p.exit_at, p.status, p.qr_token,
@@ -121,11 +124,13 @@ function listParking(array $query): void
 }
 
 /**
- * Registro de Entrada (Venda na Portaria) com geração de Token Único
+ * Registro de Entrada (Venda na Portaria)
+ * Blindagem: Salva o organizer_id no registro.
  */
 function registerEntry(array $body): void
 {
     $operator = requireAuth();
+    $organizerId = $operator['organizer_id'];
     $licensePlate = strtoupper(trim($body['license_plate'] ?? ''));
     $vehicleType  = $body['vehicle_type'] ?? 'car';
     $eventId      = $body['event_id']     ?? null;
@@ -137,15 +142,21 @@ function registerEntry(array $body): void
     try {
         $db = Database::getInstance();
 
-        // Geração de Token Blindado (PRK + DATA + RANDOM)
+        // Validação extra: O evento informado pertence ao organizador logado?
+        $stmtCheck = $db->prepare("SELECT id FROM events WHERE id = ? AND organizer_id = ?");
+        $stmtCheck->execute([$eventId, $organizerId]);
+        if (!$stmtCheck->fetch()) {
+            jsonError("Evento inválido ou permissão negada.", 403);
+        }
+
         $qrToken = 'PRK-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
 
         $stmt = $db->prepare("
-            INSERT INTO parking_records (event_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
-            VALUES (?, ?, ?, NOW(), 'parked', ?, NOW())
+            INSERT INTO parking_records (event_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at, organizer_id)
+            VALUES (?, ?, ?, NOW(), 'parked', ?, NOW(), ?)
             RETURNING id, license_plate, qr_token, status
         ");
-        $stmt->execute([(int)$eventId, $licensePlate, $vehicleType, $qrToken]);
+        $stmt->execute([(int)$eventId, $licensePlate, $vehicleType, $qrToken, $organizerId]);
         $record = $stmt->fetch(PDO::FETCH_ASSOC);
 
         jsonSuccess($record, "Venda Portaria: Veículo $licensePlate registrado.", 201);
@@ -160,18 +171,22 @@ function registerEntry(array $body): void
 function registerExit(int $recordId): void
 {
     $operator = requireAuth();
+    $organizerId = $operator['organizer_id'];
+
     try {
         $db = Database::getInstance();
+        
+        // UPDATE blindado: só atualiza se o registro pertencer ao organizador
         $stmt = $db->prepare("
             UPDATE parking_records 
             SET exit_at = NOW(), status = 'exited', updated_at = NOW() 
-            WHERE id = ? 
+            WHERE id = ? AND organizer_id = ?
             RETURNING id, license_plate, status
         ");
-        $stmt->execute([$recordId]);
+        $stmt->execute([$recordId, $organizerId]);
         $updated = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$updated) jsonError("Registro não encontrado.", 404);
+        if (!$updated) jsonError("Registro não encontrado ou acesso negado.", 404);
 
         jsonSuccess($updated, "Saída manual registrada.");
     } catch (Exception $e) {

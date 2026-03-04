@@ -7,32 +7,19 @@
  * 2. Adicionado organizer_id no INSERT de storeTicket.
  * 3. Mantida TODA a lógica de normalização de scanner e TOTP.
  */
-
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     date_default_timezone_set('UTC');
 
-    if ($method === 'POST' && $id === 'validate') {
-        validateDynamicTicket($body);
-        return;
-    }
-    
-    if ($method === 'GET' && $id === null) {
-        listTickets($query);
-        return;
-    }
-    
-    if ($method === 'POST' && $id === null) {
-        storeTicket($body);
-        return;
-    }
-    
-    if ($method === 'GET' && $id !== null) {
-        getTicket($id);
-        return;
-    }
-
-    jsonError("Rota interna Ingressos: Comando '{$id}' não reconhecido para o método {$method}.", 404);
+    match (true) {
+        $method === 'POST' && $id === 'validate' => validateDynamicTicket($body),
+        $method === 'GET'  && $id === null       => listTickets($query),
+        $method === 'POST' && $id === null       => storeTicket($body),
+        // CORREÇÃO DA ROTA ÓRFÃ:
+        $method === 'POST' && $sub === 'transfer' => transferTicket((int)$id, $body), 
+        $method === 'GET'  && $id !== null       => getTicket($id),
+        default => jsonError("Rota não encontrada.", 404),
+    };
 }
 
 // ── Listagem de Ingressos (Blindada por Organizer) ───────────────────────────
