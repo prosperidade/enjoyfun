@@ -1,13 +1,11 @@
 <?php
 /**
- * EnjoyFun 2.0 — Ticket Controller (CORRIGIDO)
+ * EnjoyFun 2.0 — Ticket Controller (COMPLETO + WHITE LABEL)
  *
  * MUDANÇAS:
- * 1. listTickets() agora usa jsonSuccess() em vez de Response::paginated()
- *    → garante o envelope { success: true, data: [...] } que o React espera em r.data.data
- * 2. SQL retorna 'tt.name AS type_name' (antes era 'ticket_type') para bater com t.type_name no JSX
- * 3. transferTicket usa $owner['sub'] em vez de $owner['id'] para bater com o payload JWT
- * 4. validateDynamicTicket aceita tanto 'dynamic_token' quanto 'qr_token' do body
+ * 1. Injetado organizer_id em listTickets, getTicket e validateDynamicTicket.
+ * 2. Adicionado organizer_id no INSERT de storeTicket.
+ * 3. Mantida TODA a lógica de normalização de scanner e TOTP.
  */
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
@@ -34,15 +32,15 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         return;
     }
 
-    // Erro customizado para provar que o roteador não é o culpado
     jsonError("Rota interna Ingressos: Comando '{$id}' não reconhecido para o método {$method}.", 404);
 }
 
-// ── Listagem de Ingressos ─────────────────────────────────────────────────────
+// ── Listagem de Ingressos (Blindada por Organizer) ───────────────────────────
 function listTickets(array $query): void
 {
-    requireAuth(['admin', 'organizer', 'staff']);
-    $db      = Database::getInstance();
+    $user = requireAuth(['admin', 'organizer', 'staff']);
+    $organizerId = $user['organizer_id']; 
+    $db = Database::getInstance();
     $eventId = isset($query['event_id']) ? (int)$query['event_id'] : null;
 
     try {
@@ -64,10 +62,10 @@ function listTickets(array $query): void
             FROM tickets t
             INNER JOIN ticket_types tt ON tt.id = t.ticket_type_id
             INNER JOIN events e        ON e.id  = t.event_id
-            WHERE 1=1
+            WHERE t.organizer_id = ?
         ";
 
-        $params = [];
+        $params = [$organizerId];
 
         if ($eventId) {
             $sql .= " AND t.event_id = ?";
@@ -86,10 +84,12 @@ function listTickets(array $query): void
     }
 }
 
-// ── Buscar Ingresso Individual ────────────────────────────────────────────────
+// ── Buscar Ingresso Individual (Blindada por Organizer) ───────────────────────
 function getTicket(string $idOrToken): void
 {
-    $db  = Database::getInstance();
+    $user = requireAuth();
+    $organizerId = $user['organizer_id'];
+    $db = Database::getInstance();
     $col = is_numeric($idOrToken) ? 't.id' : 't.qr_token';
 
     $stmt = $db->prepare("
@@ -97,22 +97,23 @@ function getTicket(string $idOrToken): void
         FROM tickets t
         JOIN ticket_types tt ON tt.id = t.ticket_type_id
         JOIN events e        ON e.id  = t.event_id
-        WHERE $col = ? LIMIT 1
+        WHERE $col = ? AND t.organizer_id = ? LIMIT 1
     ");
-    $stmt->execute([$idOrToken]);
+    $stmt->execute([$idOrToken, $organizerId]);
     $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$ticket) jsonError("Ingresso não encontrado.", 404);
+    if (!$ticket) jsonError("Ingresso não encontrado nesta organização.", 404);
     jsonSuccess($ticket);
 }
 
-// ── Emitir Ingresso ───────────────────────────────────────────────────────────
+// ── Emitir Ingresso (Inserindo Organizer) ─────────────────────────────────────
 function storeTicket(array $body): void
 {
     $user   = requireAuth();
+    $organizerId = $user['organizer_id'];
     $db     = Database::getInstance();
-    // JWT payload usa 'sub' como ID do usuário
     $userId = $user['sub'] ?? null;
+    
     if (!$userId) jsonError("Usuário autenticado inválido.", 401);
 
     $eventId = (int)($body['event_id']      ?? 1);
@@ -120,7 +121,6 @@ function storeTicket(array $body): void
     $price   = (float)($body['price']       ?? 150.00);
 
     try {
-        // Verifica se o ticket_type existe
         $stmt = $db->prepare("SELECT * FROM ticket_types WHERE id = ? LIMIT 1");
         $stmt->execute([$typeId]);
         $type = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -134,12 +134,12 @@ function storeTicket(array $body): void
         $stmt = $db->prepare("
             INSERT INTO tickets
                 (event_id, ticket_type_id, user_id, order_reference, status,
-                 price_paid, qr_token, totp_secret, holder_name, purchased_at, created_at)
-            VALUES (?, ?, ?, ?, 'paid', ?, ?, ?, ?, NOW(), NOW())
+                 price_paid, qr_token, totp_secret, holder_name, purchased_at, created_at, organizer_id)
+            VALUES (?, ?, ?, ?, 'paid', ?, ?, ?, ?, NOW(), NOW(), ?)
         ");
         $stmt->execute([
             $eventId, $typeId, $userId, $orderRef,
-            $price, $qrToken, $totpSecret, $holderName
+            $price, $qrToken, $totpSecret, $holderName, $organizerId
         ]);
 
         jsonSuccess(['order_reference' => $orderRef, 'qr_token' => $qrToken], "Ingresso emitido!", 201);
@@ -149,11 +149,12 @@ function storeTicket(array $body): void
     }
 }
 
-// ── Validação de QR Dinâmico (Anti-Print) ────────────────────────────────────
+// ── Validação de QR Dinâmico (Blindada por Organizer) ────────────────────────
 function validateDynamicTicket(array $body): void
 {
-    requireAuth(['admin', 'organizer', 'staff']);
-    // Aceita tanto 'dynamic_token' (formato token.otp) quanto 'qr_token' simples
+    $user = requireAuth(['admin', 'organizer', 'staff']);
+    $organizerId = $user['organizer_id'];
+    
     $receivedToken = $body['dynamic_token'] ?? $body['qr_token'] ?? '';
     $receivedToken = normalizeScannedToken($receivedToken);
 
@@ -162,26 +163,23 @@ function validateDynamicTicket(array $body): void
     try {
         $db = Database::getInstance();
 
-        // Formato dinâmico: "qrtoken.otpcode"
         $tokenParts = explode('.', $receivedToken);
         $otpCode = null;
-        $qrToken = $receivedToken; // Aqui o $qrToken pode ser o token gigante OU o código curto (EF-...)
+        $qrToken = $receivedToken;
 
         if (count($tokenParts) === 2 && ctype_digit($tokenParts[1])) {
             $qrToken = $tokenParts[0];
             $otpCode = $tokenParts[1];
         }
 
-        // CORREÇÃO: Busca tanto pelo QR Token oculto quanto pela Referência do Pedido digitada
-        $stmt = $db->prepare("SELECT * FROM tickets WHERE qr_token = ? OR order_reference = ? LIMIT 1");
-        $stmt->execute([$qrToken, $qrToken]);
+        $stmt = $db->prepare("SELECT * FROM tickets WHERE (qr_token = ? OR order_reference = ?) AND organizer_id = ? LIMIT 1");
+        $stmt->execute([$qrToken, $qrToken, $organizerId]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$ticket)                          jsonError("Ingresso não encontrado.", 404);
-        if ($ticket['status'] === 'used')      jsonError("Ingresso já utilizado.", 409);
-        if ($ticket['status'] === 'cancelled') jsonError("Ingresso cancelado.", 409);
+        if (!$ticket)                                   jsonError("Ingresso não encontrado.", 404);
+        if ($ticket['status'] === 'used')               jsonError("Ingresso já utilizado.", 409);
+        if ($ticket['status'] === 'cancelled')          jsonError("Ingresso cancelado.", 409);
 
-        // Verifica TOTP apenas se o código foi enviado (modo dinâmico)
         if ($otpCode && !verifyTOTP($ticket['totp_secret'], $otpCode)) {
             jsonError("QR Code expirado (impressão detectada). Peça para atualizar a tela.", 403);
         }
@@ -210,7 +208,6 @@ function normalizeScannedToken(mixed $rawToken): string
         return '';
     }
 
-    // Scanner pode enviar JSON completo ao invés de somente o valor do token
     if (str_starts_with($token, '{') && str_ends_with($token, '}')) {
         $decoded = json_decode($token, true);
         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
@@ -223,7 +220,6 @@ function normalizeScannedToken(mixed $rawToken): string
         }
     }
 
-    // Alguns leitores retornam URL completa com query string
     if (filter_var($token, FILTER_VALIDATE_URL)) {
         $query = parse_url($token, PHP_URL_QUERY) ?: '';
         if ($query !== '') {
@@ -239,11 +235,9 @@ function normalizeScannedToken(mixed $rawToken): string
     return $token;
 }
 
-// ── Transferência Nominal ─────────────────────────────────────────────────────
 function transferTicket(int $ticketId, array $body): void
 {
     $owner    = requireAuth();
-    // CORREÇÃO: JWT usa 'sub' como user_id, não 'id'
     $ownerId  = $owner['sub'] ?? null;
     $newEmail = strtolower(trim($body['new_owner_email'] ?? ''));
     $newName  = trim($body['new_holder_name'] ?? '');
@@ -279,41 +273,28 @@ function transferTicket(int $ticketId, array $body): void
     }
 }
 
-// ── Sync Offline ──────────────────────────────────────────────────────────────
 function syncOfflineTickets(array $body): void
 {
     requireAuth(['admin', 'organizer', 'staff']);
-    // TODO: implementar sync de validações offline
     jsonSuccess(['synced' => 0], "Sincronização recebida.");
 }
 
-// ── TOTP Real ─────────────────────────────────────────────────────────────────
 function verifyTOTP(string $secret, string $code): bool
 {
-    $window = 1; // Permite -1, 0, +1 (30s de tolerância para trás e para frente)
+    $window = 1;
     $timestamp = floor(time() / 30);
-
-    // Decodifica a base32 simulada (ou hex no nosso caso, dependendo do seed)
-    // O secret gerado no banco foi feito com bin2hex, então usamos hex2bin.
     $key = hex2bin($secret);
+    if ($key === false) return false;
 
     for ($i = -$window; $i <= $window; $i++) {
         $timeSlot = $timestamp + $i;
         $timePacked = pack('N*', 0) . pack('N*', $timeSlot);
-
         $hash = hash_hmac('sha1', $timePacked, $key, true);
         $offset = ord(substr($hash, -1)) & 0x0F;
-
         $value = unpack('N', substr($hash, $offset, 4));
         $value = $value[1] & 0x7FFFFFFF;
-
         $otp = str_pad($value % 1000000, 6, '0', STR_PAD_LEFT);
-
-        // Proteção contra timing attacks
-        if (hash_equals($otp, $code)) {
-            return true;
-        }
+        if (hash_equals($otp, $code)) return true;
     }
-
     return false;
 }

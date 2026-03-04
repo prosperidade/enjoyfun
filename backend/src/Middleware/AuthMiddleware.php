@@ -7,32 +7,39 @@
  * requireRole()  → chama requireAuth() e verifica roles
  */
 
-function requireAuth(array $allowedRoles = []): array
+function requireAuth(?array $allowedRoles = null): array
 {
     $headers = getallheaders();
-    $authHeader = $headers['Authorization'] ?? '';
+    $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
 
-    if (!preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
-        jsonError('Token não fornecido ou inválido', 401);
+    if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
+        jsonError("Token não fornecido ou malformado", 401);
     }
 
-    $jwt = $matches[1];
-    $decoded = \EnjoyFun\Helpers\JWT::decode($jwt);
+    $token = str_replace('Bearer ', '', $authHeader);
+    $payload = decodeJWT($token); // Sua função que decodifica o JWT
 
-    if (!$decoded) {
-        jsonError('Token inválido ou expirado', 401);
+    if (!$payload) {
+        jsonError("Token inválido ou expirado", 401);
     }
 
-    // Verifica se a role do usuário está na lista de roles permitidas (se a lista foi passada)
-    if (!empty($allowedRoles) && !in_array($decoded['role'], $allowedRoles)) {
-        jsonError('Acesso negado. Permissão insuficiente.', 403);
+    // AQUI ESTÁ O PULO DO GATO:
+    // Pegamos a role do payload. No seu log ela aparece como 'role'
+    $userRole = $payload['role'] ?? ($payload['roles'][0] ?? 'organizer');
+
+    // Se a rota pedir uma role específica (como 'admin')
+    if ($allowedRoles !== null) {
+        if (!in_array($userRole, $allowedRoles)) {
+            jsonError("Acesso negado: você não tem permissão de " . implode(',', $allowedRoles), 403);
+        }
     }
 
-    // RETORNO BLINDADO: Agora o sistema sabe exatamente quem é o usuário, a role dele e QUEM é o chefe dele (organizer_id)
+    // Retornamos os dados para o Controller usar (incluindo o organizer_id)
     return [
-        'id' => $decoded['sub'],
-        'role' => $decoded['role'] ?? 'customer',
-        'organizer_id' => $decoded['organizer_id'] ?? null // <-- A CHAVE DO WHITE LABEL
+        'sub' => $payload['sub'],
+        'name' => $payload['name'],
+        'role' => $userRole,
+        'organizer_id' => $payload['organizer_id'] ?? null
     ];
 }
 

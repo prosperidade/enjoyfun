@@ -1,6 +1,6 @@
 # CLAUDE.md — EnjoyFun Platform
 ## Guia Completo para IA: Arquitetura, Estado Real e Visão de Negócio
-### Atualizado: 2026-03-03
+### Atualizado: 2026-03-04
 
 ---
 
@@ -35,56 +35,53 @@ super_admin / admin (André)
 
 ---
 
-## 🔐 SEGURANÇA — ESTADO REAL E VERIFICADO
+## 🔐 SEGURANÇA — ESTADO REAL E VERIFICADO (2026-03-04)
 
 ### ✅ IMPLEMENTADO E FUNCIONANDO
 
 | Recurso | Arquivo | Detalhe |
 |---------|---------|---------|
-| **JWT RS256 assimétrico** | `backend/src/Helpers/JWT.php` | Chave privada assina, pública verifica. PDVs nunca precisam da chave privada |
-| **organizer_id no JWT** | `backend/src/Controllers/AuthController.php` | Payload carrega `organizer_id` — isolamento multi-tenant no próprio token |
-| **Auth Middleware RS256** | `backend/src/Middleware/AuthMiddleware.php` | Valida RS256, extrai `organizer_id`, retorna payload blindado |
-| **Refresh Tokens** | `backend/src/Controllers/AuthController.php` | Token hash SHA-256 no banco, expiração configurável |
-| **Audit Log imutável** | `database/schema_real.sql` | Tabela append-only com trigger `trg_audit_log_immutable` — bloqueia UPDATE e DELETE |
-| **AuditService** | `backend/src/Services/AuditService.php` | Loga todas as ações com user, IP, entity, before/after |
-| **pgcrypto (AES-256)** | PostgreSQL | Extensão ativa no banco |
-| **TOTP anti-print** | `backend/src/Controllers/TicketController.php` | Algoritmo HMAC-SHA1 real com janela ±30s e `hash_equals` anti-timing attack |
-| **Transações ACID** | Todos os checkouts | `beginTransaction` / `commit` / `rollBack` em Bar, Food, Shop, Cards |
-| **Isolamento multi-tenant** | Bar, Food, Shop, Parking | Queries filtram por `organizer_id` do JWT |
-| **Architecture Stateless** | Todo o backend | Zero `session_start` — 100% JWT |
-| **Health Check** | `backend/src/Controllers/HealthController.php` | Verifica DB, openssl, pdo_pgsql |
+| **JWT RS256 assimétrico** | `backend/src/Helpers/JWT.php` | Chave privada assina, pública verifica |
+| **organizer_id no JWT** | `backend/src/Controllers/AuthController.php` | Isolamento multi-tenant no próprio token |
+| **Auth Middleware RS256** | `backend/src/Middleware/AuthMiddleware.php` | Valida RS256, extrai organizer_id |
+| **Refresh Tokens** | `backend/src/Controllers/AuthController.php` | Hash SHA-256, expiração configurável |
+| **Audit Log imutável** | `database/schema_real.sql` | Trigger bloqueia UPDATE e DELETE |
+| **AuditService** | `backend/src/Services/AuditService.php` | Loga ações com user, IP, entity, before/after |
+| **pgcrypto (AES-256)** | PostgreSQL | Extensão ativa |
+| **TOTP anti-print** | `backend/src/Controllers/TicketController.php` | ✅ HMAC-SHA1 real, janela ±30s, hash_equals |
+| **otplib no frontend** | `frontend/package.json` | ✅ Declarado e instalado corretamente |
+| **Transações ACID** | Bar, Food, Shop, Cards | beginTransaction/commit/rollBack |
+| **Architecture Stateless** | Todo backend | Zero session_start — 100% JWT |
+| **Parking ENTRADA/SAÍDA** | `frontend/src/pages/Parking.jsx` | ✅ Feedback visual verde/azul implementado |
 
-### ⚠️ IMPLEMENTADO MAS COM BUG CONHECIDO
+### 🔴 BUGS CONFIRMADOS PELO CODEX (prioridade para amanhã)
 
-| Recurso | Problema | Arquivo |
-|---------|---------|---------|
-| **TOTP backend** | Algoritmo real está implementado MAS havia versão mockada — confirmar se corrigido | `TicketController.php` ~linha 236 |
-| **AuditService nos PDVs** | Bar, Food, Parking chamam `requireAuth()` mas nem sempre passam o operador para o log | Controllers de PDV |
-| **Parking feedback visual** | Backend retorna status correto mas `Parking.jsx` não exibe ENTRADA/SAÍDA claramente | `frontend/src/pages/Parking.jsx` |
+| # | Bug | Arquivo | Impacto |
+|---|-----|---------|---------|
+| 1 | **holder_name sempre 'Participante'** | `AuthMiddleware.php` não retorna `name` | Ingressos salvos sem nome real do comprador |
+| 2 | **Rota transfer órfã** | `TicketController.php` dispatch() | Transferência P2P de ingressos não funciona |
+| 3 | **Shop: cardId null no débito** | `ShopController.php` branch de users | Crash silencioso no pagamento por usuário |
+| 4 | **Tickets sem filtro organizer_id** | `TicketController.php` listTickets/getTicket | Vazamento multi-tenant — org A vê tickets org B |
+| 5 | **Parking sem filtro organizer_id** | `ParkingController.php` | Vazamento multi-tenant no estacionamento |
+| 6 | **AuditService payload incorreto** | `AuthMiddleware` retorna `id`, AuditService espera `sub` | user_id fica null no audit log |
 
-### ❌ NÃO IMPLEMENTADO (apenas no blueprint)
+### ❌ NÃO IMPLEMENTADO (para produção)
 
-| Recurso | Impacto | Quando fazer |
-|---------|---------|-------------|
-| Redis rate limiting | Sem proteção contra força bruta | Pré-produção |
-| Cloudflare WAF | Sem proteção DDoS | No deploy |
-| Credenciais em .env | Senha do banco está no código | No deploy |
-| HashiCorp Vault | Gestão enterprise de segredos | Pós-MVP |
-| Validação JWT offline nos PDVs | PDVs consultam servidor para validar | App PWA |
-| Lista negra de UUIDs em cache | Sem sync nos validadores offline | App PWA |
+| Recurso | Quando fazer |
+|---------|-------------|
+| Redis rate limiting | Pré-produção |
+| Cloudflare WAF | No deploy |
+| Credenciais em .env | No deploy |
+| Validação JWT offline nos PDVs | App PWA |
 
 ---
 
-## 📊 BANCO DE DADOS — ESTADO REAL
+## 📊 BANCO DE DADOS
 
 **PostgreSQL 18.2 | DB: `enjoyfun` | host: 127.0.0.1:5432 | user: postgres**
 
 ### Tabelas com `organizer_id` (multi-tenant ativo):
 `events` · `products` · `sales` · `tickets` · `ticket_types` · `digital_cards` · `parking_records` · `users`
-
-### Campos novos recentes:
-- `tickets`: `holder_email`, `holder_phone`, `purchased_at`
-- `sales`: `sector`
 
 ### Regra de Ouro — NUNCA violar:
 ```sql
@@ -93,154 +90,159 @@ super_admin / admin (André)
 SELECT * FROM events WHERE organizer_id = {jwt.organizer_id} AND id = ?
 ```
 
-### Como o organizer_id funciona:
-```sql
--- O organizer_id do Organizador é o próprio id dele em users
--- Quando André cria João (id=5): organizer_id = 5
--- Super Admin (André) tem organizer_id = NULL no JWT
-```
-
 ---
 
-## 📁 ESTRUTURA REAL DO PROJETO
+## 📁 ESTRUTURA DO PROJETO
 
 ```
 enjoyfun/
 ├── frontend/                          # React.js + Vite + TailwindCSS
 │   └── src/
 │       ├── pages/
-│       │   ├── Dashboard.jsx          ✅ Implementado
-│       │   ├── Events.jsx             ✅ Implementado
-│       │   ├── Tickets.jsx            ✅ Com TOTP + QR dinâmico (otplib)
-│       │   ├── Cards.jsx              ✅ Cartão Digital Cashless
-│       │   ├── Bar.jsx                ✅ PDV Bar offline-first
-│       │   ├── Food.jsx               ✅ PDV Alimentação
-│       │   ├── Shop.jsx               ✅ PDV Loja
-│       │   ├── Parking.jsx            ✅ Estacionamento (bug visual conhecido)
-│       │   ├── WhatsApp.jsx           ✅ Bot Evolution API
-│       │   ├── AIAgents.jsx           ✅ UI dos 6 agentes (Gemini + Claude)
-│       │   ├── Users.jsx              ✅ Gestão de usuários
-│       │   ├── Settings.jsx           ✅ Configurações básicas
-│       │   └── SuperAdminPanel.jsx    ✅ Painel White Label
+│       │   ├── Dashboard.jsx          ✅
+│       │   ├── Events.jsx             ✅
+│       │   ├── Tickets.jsx            ✅ TOTP + QR dinâmico
+│       │   ├── Cards.jsx              ✅ Cashless
+│       │   ├── Bar.jsx                ✅ PDV offline-first
+│       │   ├── Food.jsx               ✅ PDV
+│       │   ├── Shop.jsx               ✅ PDV
+│       │   ├── Parking.jsx            ✅ Feedback ENTRADA/SAÍDA ok
+│       │   ├── WhatsApp.jsx           ✅ Evolution API
+│       │   ├── AIAgents.jsx           ✅ UI 6 agentes
+│       │   ├── Users.jsx              ✅
+│       │   ├── Settings.jsx           ✅
+│       │   └── SuperAdminPanel.jsx    ✅ White Label
 │       └── components/
-│           ├── Sidebar.jsx            ✅ Navegação com controle de roles
-│           └── AuthContext.jsx        ✅ JWT + roles no contexto React
+│           ├── Sidebar.jsx            ✅ Roles + SuperAdmin
+│           └── AuthContext.jsx        ✅
 │
-├── backend/                           # PHP 8.2 sem framework pesado
-│   ├── public/
-│   │   └── index.php                  ✅ Roteador central (14 rotas)
-│   ├── src/
-│   │   ├── Controllers/
-│   │   │   ├── AuthController.php     ✅ Login, logout, refresh, /me
-│   │   │   ├── EventController.php    ✅ CRUD de eventos
-│   │   │   ├── TicketController.php   ✅ Emissão, validação, transferência P2P
-│   │   │   ├── CardController.php     ✅ Saldo, recarga, transações
-│   │   │   ├── BarController.php      ✅ PDV Bar (produtos, checkout, Gemini)
-│   │   │   ├── FoodController.php     ✅ PDV Alimentação
-│   │   │   ├── ShopController.php     ✅ PDV Loja
-│   │   │   ├── ParkingController.php  ✅ Entrada/saída/validação
-│   │   │   ├── UserController.php     ✅ CRUD de usuários
-│   │   │   ├── AdminController.php    ✅ Dashboard stats + billing IA
-│   │   │   ├── SyncController.php     ✅ Sync offline queue
-│   │   │   ├── WhatsAppController.php ✅ Envio + histórico + config
-│   │   │   ├── HealthController.php   ✅ Status DB + extensões
-│   │   │   └── SuperAdminController.php ✅ Cria/lista Organizadores
-│   │   ├── Helpers/
-│   │   │   ├── JWT.php                ✅ RS256 completo (encode/decode)
-│   │   │   └── Response.php           ✅ jsonSuccess / jsonError
-│   │   ├── Middleware/
-│   │   │   └── AuthMiddleware.php     ✅ requireAuth / requireRole / optionalAuth
-│   │   └── Services/
-│   │       ├── AuditService.php       ✅ Log imutável de todas as ações
-│   │       ├── GeminiService.php      ✅ Insights por setor (Bar/Food/Shop)
-│   │       └── AIBillingService.php   ✅ Log de tokens e custo por agente
+├── backend/
+│   ├── public/index.php               ✅ Roteador 14 controllers
+│   └── src/
+│       ├── Controllers/
+│       │   ├── AuthController.php     ✅
+│       │   ├── EventController.php    ✅
+│       │   ├── TicketController.php   🔴 bugs: transfer órfã, sem organizer_id filter
+│       │   ├── CardController.php     ✅
+│       │   ├── BarController.php      ⚠️ AuditService payload incorreto
+│       │   ├── FoodController.php     ⚠️ AuditService payload incorreto
+│       │   ├── ShopController.php     🔴 bug: cardId null no débito por users
+│       │   ├── ParkingController.php  🔴 sem organizer_id filter
+│       │   ├── UserController.php     ✅
+│       │   ├── AdminController.php    ✅
+│       │   ├── SyncController.php     ✅
+│       │   ├── WhatsAppController.php ✅
+│       │   ├── HealthController.php   ✅
+│       │   └── SuperAdminController.php ✅
+│       ├── Helpers/
+│       │   ├── JWT.php                ✅ RS256
+│       │   └── Response.php           ✅
+│       ├── Middleware/
+│       │   └── AuthMiddleware.php     🔴 não retorna 'name' e 'email' no payload
+│       └── Services/
+│           ├── AuditService.php       ⚠️ espera 'sub' mas recebe 'id'
+│           ├── GeminiService.php      ✅
+│           └── AIBillingService.php   ✅
 │
 ├── database/
-│   └── schema_real.sql                ✅ Dump real atualizado 2026-03-03
-│
-└── docs/
-    └── diagnostico_sistema.md         ✅ Bugs e inconsistências documentados
+│   └── schema_real.sql                ✅ Atualizado 2026-03-03
+├── docs/
+│   └── diagnostico_sistema.md         ✅ Atualizado pelo Codex 2026-03-04
+└── CLAUDE.md                          ✅ Este arquivo
 ```
 
 ---
 
-## ✅ O QUE ESTÁ FEITO (REAL)
+## 🐛 BUGS DETALHADOS — COMO CORRIGIR
 
-### Backend — 14 Controllers ativos
-- [x] JWT RS256 com chaves PEM (privada/pública)
-- [x] organizer_id no payload JWT
-- [x] Refresh tokens SHA-256
-- [x] CRUD completo de eventos com isolamento por organizer_id
-- [x] Ingressos: emissão, validação TOTP, transferência P2P
-- [x] Cartão Digital: saldo, recarga, histórico
-- [x] PDV Bar, Food, Shop: checkout cashless com transação ACID
-- [x] Insights Gemini por setor com billing de tokens
-- [x] Estacionamento: entrada, saída, validação de voucher
-- [x] Sync de offline queue
-- [x] WhatsApp: envio, histórico, configuração Evolution API
-- [x] Audit Log imutável com trigger no banco
-- [x] AuditService registrando ações de venda
-- [x] SuperAdminController: cria organizador com organizer_id isolado
-- [x] Health check
+### Bug 1 — holder_name sempre 'Participante'
+```php
+// AuthMiddleware.php — adicionar 'name' e 'email' no retorno:
+return [
+    'id'           => $decoded['sub'],
+    'name'         => $decoded['name'] ?? null,   // ← ADICIONAR
+    'email'        => $decoded['email'] ?? null,  // ← ADICIONAR
+    'role'         => $decoded['role'] ?? 'customer',
+    'organizer_id' => $decoded['organizer_id'] ?? null
+];
+```
 
-### Frontend — 13 páginas implementadas
-- [x] Dashboard, Eventos, Ingressos (TOTP + QR dinâmico), Cartão Digital
-- [x] PDV Bar, Food, Shop, Estacionamento
-- [x] WhatsApp, Agentes de IA (6 agentes na UI), Usuários, Configurações
-- [x] SuperAdminPanel (lista e cria organizadores)
-- [x] Sidebar com rota /superadmin protegida por role admin
+### Bug 2 — Rota transfer órfã
+```php
+// TicketController.php — adicionar no dispatch():
+if ($method === 'POST' && is_numeric($id) && $sub === 'transfer') {
+    transferTicket((int)$id, $body);
+    return;
+}
+```
 
-### Banco de Dados
-- [x] PostgreSQL 18.2 com pgcrypto e uuid-ossp
-- [x] organizer_id em todas as tabelas principais
-- [x] Trigger imutável no audit_log
-- [x] Schema multi-tenant completo
+### Bug 3 — Shop cardId null
+```php
+// ShopController.php — corrigir branch de pagamento por users
+// Garantir que $cardId nunca seja null antes do UPDATE em digital_cards
+```
+
+### Bug 4 e 5 — Vazamento multi-tenant (CRÍTICO)
+```php
+// TicketController.php — listTickets() e getTicket()
+// ParkingController.php — validateParkingTicket() e listParking()
+// Adicionar em TODAS as queries:
+$operator = requireAuth();
+$organizerId = $operator['organizer_id'];
+// ... WHERE organizer_id = ? AND ...
+```
+
+### Bug 6 — AuditService payload
+```php
+// AuditService espera $userPayload['sub'] e $userPayload['email']
+// AuthMiddleware retorna $payload['id']
+// Solução: alinhar para usar 'id' em ambos, ou adicionar 'sub' no retorno do middleware
+```
 
 ---
 
-## 🚧 O QUE FALTA CONSTRUIR (PRIORIZADO)
+## 🚧 ROADMAP — O QUE FALTA CONSTRUIR
 
-### P1 — Bugs para fechar agora
-- [ ] Confirmar `verifyTOTP` no `TicketController` (real vs mockado)
-- [ ] Confirmar `otplib` no `package.json` do frontend
-- [ ] Estacionamento: feedback visual ENTRADA/SAÍDA no `Parking.jsx`
-- [ ] PDVs: passar operador do JWT para o AuditService
+### P1 — Fechar bugs (AMANHÃ PRIMEIRO)
+- [ ] Bug 1: `name` e `email` no retorno do `AuthMiddleware`
+- [ ] Bug 2: Rota transfer no dispatch do `TicketController`
+- [ ] Bug 3: `cardId null` no `ShopController`
+- [ ] Bug 4: organizer_id filter em `TicketController`
+- [ ] Bug 5: organizer_id filter em `ParkingController`
+- [ ] Bug 6: Alinhar payload `AuthMiddleware` ↔ `AuditService`
 
 ### P2 — White Label Visual
 - [ ] Tabela `organizer_settings` (logo, cores, subdomínio, app_name)
 - [ ] Tela de configuração visual para o Organizador
 - [ ] Theming dinâmico no frontend via CSS variables
-- [ ] Subdomínio por organizador (Nginx + Cloudflare wildcard)
+- [ ] Subdomínio por organizador
 
 ### P3 — Gateways de Pagamento Multi-tenant
-- [ ] Tabela `organizer_payment_gateways` (gateway, api_key criptografada, split)
-- [ ] Integração Asaas com split 1%/99%
-- [ ] Integração Mercado Pago
-- [ ] Integração Pagar.me (fallback)
+- [ ] Tabela `organizer_payment_gateways`
+- [ ] Asaas + Mercado Pago + Pagar.me com split 1%/99%
 - [ ] Circuit Breaker entre gateways
-- [ ] Tela para Organizador cadastrar suas credenciais
+- [ ] Tela para Organizador cadastrar credenciais
 
 ### P4 — Apps PWA Offline-First
-- [ ] App PDV Tablet (Bar, Food, Shop, Estacionamento) — PWA + IndexedDB + Workbox
-- [ ] App Validador de Portaria — scan offline, lista negra em cache
-- [ ] App do Participante — React Native + Expo (iOS + Android)
+- [ ] App PDV Tablet (Bar, Food, Shop, Estacionamento)
+- [ ] App Validador de Portaria
+- [ ] App do Participante (React Native + Expo)
 
 ### P5 — IA Configurável pelo Organizador
-- [ ] Tabela `organizer_ai_config` (claude_key, gemini_key, agentes ativos)
-- [ ] Tela de configuração: cola API key, ativa agentes com 1 clique
-- [ ] Suporte à Claude API no GeminiService
-- [ ] Agentes com Function Calling real (Revenue Manager, Anomalias, Relatórios)
+- [ ] Tabela `organizer_ai_config`
+- [ ] Suporte Claude API + Gemini no mesmo service
+- [ ] Agentes com Function Calling real
 - [ ] Bot WhatsApp com IA
 
 ### P6 — Billing da Plataforma
-- [ ] Dashboard Super Admin com métricas globais e comissões a receber
-- [ ] Cálculo e cobrança de mensalidade
+- [ ] Dashboard Super Admin com comissões
+- [ ] Cobrança automática de mensalidade
 
-### P7 — Deploy e Infraestrutura
-- [ ] Arquivo `.env` no servidor (tirar senhas do código)
+### P7 — Deploy
+- [ ] `.env` no servidor
 - [ ] Redis rate limiting
 - [ ] Cloudflare WAF
-- [ ] Wildcard SSL para subdomínios
+- [ ] Wildcard SSL subdomínios
 
 ---
 
@@ -248,30 +250,18 @@ enjoyfun/
 
 | Camada | Tecnologia | Status |
 |--------|-----------|--------|
-| Frontend Web | React.js + Vite + TailwindCSS | ✅ Ativo |
-| App Mobile | React Native + Expo | 🚧 A fazer |
-| App PDV/Validador | PWA offline-first | 🚧 A fazer |
-| Backend | PHP 8.2 (sem framework) | ✅ Ativo |
-| Banco | PostgreSQL 18.2 + pgcrypto | ✅ Ativo |
-| Auth | JWT RS256 (RSA assimétrico) | ✅ Ativo |
-| Cache/Rate Limit | Redis 7 | ❌ A implementar |
-| IA Principal | Claude API (Anthropic) | 🟡 UI pronta, integração pendente |
-| IA Secundária | Gemini SDK (Google) | ✅ Ativo nos PDVs |
-| WhatsApp | Evolution API | ✅ Ativo |
-| Gateways | Asaas + Mercado Pago + Pagar.me | ❌ A implementar |
-| Infra | Nginx + Cloudflare WAF | ❌ No deploy |
-| Offline PDV | IndexedDB + Workbox | 🚧 App PWA |
-| Auditoria | Audit Log append-only | ✅ Ativo |
-
----
-
-## 🐛 BUGS CONHECIDOS (ver docs/diagnostico_sistema.md)
-
-1. **🔴 TOTP mockado** — `verifyTOTP` pode aceitar qualquer código de 6 dígitos
-2. **🔴 otplib no package.json** — verificar se está declarado (está no lock)
-3. **🟡 AuditService incompleto nos PDVs** — operador não registrado no log
-4. **🟡 Parking sem feedback visual** — ENTRADA/SAÍDA não fica claro na tela
-5. **🟡 holder_name fallback** — se `name` não estiver no JWT, salva 'Participante'
+| Frontend Web | React.js + Vite + TailwindCSS | ✅ |
+| App Mobile | React Native + Expo | 🚧 |
+| App PDV/Validador | PWA offline-first | 🚧 |
+| Backend | PHP 8.2 | ✅ |
+| Banco | PostgreSQL 18.2 + pgcrypto | ✅ |
+| Auth | JWT RS256 | ✅ |
+| Cache | Redis 7 | ❌ |
+| IA | Claude API + Gemini SDK | 🟡 Gemini ativo |
+| WhatsApp | Evolution API | ✅ |
+| Gateways | Asaas + MercadoPago + Pagar.me | ❌ |
+| Infra | Nginx + Cloudflare | ❌ no deploy |
+| Auditoria | Audit Log append-only | ✅ |
 
 ---
 
@@ -283,11 +273,10 @@ Leia o CLAUDE.md na raiz do projeto ANTES de qualquer tarefa.
 Arquivos críticos:
 - CLAUDE.md (leia sempre primeiro)
 - database/schema_real.sql
+- docs/diagnostico_sistema.md (bugs confirmados e pendentes)
 - backend/src/Helpers/JWT.php
 - backend/src/Middleware/AuthMiddleware.php
-- backend/src/Controllers/SuperAdminController.php
 - backend/src/Services/AuditService.php
-- docs/diagnostico_sistema.md (bugs conhecidos)
 
 REGRAS INVIOLÁVEIS:
 1. organizer_id vem SEMPRE do JWT — nunca do body
@@ -295,10 +284,10 @@ REGRAS INVIOLÁVEIS:
 3. API keys sempre criptografadas com pgcrypto
 4. Toda ação relevante → AuditService
 5. Todo checkout → transação ACID
+6. TODA query de listagem/busca DEVE filtrar por organizer_id
 ```
 
 ---
 
 *EnjoyFun Platform v2.0 — SaaS White Label Multi-tenant*
-*PHP 8.2 · PostgreSQL 18.2 · React.js · JWT RS256 · Gemini SDK · Evolution API*
-*Atualizado: 2026-03-03*
+*Atualizado: 2026-03-04*
