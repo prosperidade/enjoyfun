@@ -3,9 +3,6 @@
 /**
  * AuditService — EnjoyFun
  * Registra ações críticas no audit_log imutável.
- *
- * Uso:
- *   AuditService::log('card.recharge', 'card', $cardId, $valorAntes, $valorDepois);
  */
 class AuditService
 {
@@ -50,7 +47,8 @@ class AuditService
                     :event_id, :pdv_id, :metadata, :result
                 )
             ")->execute([
-                ':user_id'        => $userPayload['sub']   ?? null,
+                // CORREÇÃO: Lê o 'id' que o requireAuth passa (e usa 'sub' como backup)
+                ':user_id'        => $userPayload['id'] ?? $userPayload['sub'] ?? null,
                 ':user_email'     => $userPayload['email'] ?? null,
                 ':session_id'     => $userPayload['jti']   ?? null,
                 ':ip_address'     => self::getIp(),

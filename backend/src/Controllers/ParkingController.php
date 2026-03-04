@@ -11,14 +11,13 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'POST' && $id === 'validate' => validateParkingTicket($body),
         $method === 'GET'  && $id === null       => listParking($query),
         $method === 'POST' && $id === null       => registerEntry($body),
-        $method === 'POST' && $sub === 'exit'     => registerExit((int)$id),
+        $method === 'POST' && $sub === 'exit'    => registerExit((int)$id),
         default => jsonError('Rota não encontrada no Estacionamento', 404),
     };
 }
 
 /**
  * Validação por Scanner (Check-in/Check-out Automático)
- * Blindagem: Verifica se o registro pertence ao organizer_id do operador.
  */
 function validateParkingTicket(array $body): void
 {
@@ -33,7 +32,7 @@ function validateParkingTicket(array $body): void
     try {
         $db = Database::getInstance();
 
-        // Busca o registro vinculado ao QR Code filtrando pelo ORGANIZER
+        // CADEADO: Busca o registro via JOIN para garantir que o evento pertence ao organizador
         $stmt = $db->prepare("
             SELECT p.*, e.name as event_name 
             FROM parking_records p
@@ -50,34 +49,39 @@ function validateParkingTicket(array $body): void
 
         $id = $record['id'];
         $plate = $record['license_plate'];
+        $status = $record['status'];
+        $message = '';
+        $type = '';
 
-        if ($record['status'] !== 'parked') {
-            $stmt = $db->prepare("
+        if ($status !== 'parked') {
+            $stmtUpdate = $db->prepare("
                 UPDATE parking_records 
                 SET status = 'parked', entry_at = NOW(), exit_at = NULL, updated_at = NOW() 
                 WHERE id = ?
             ");
-            $stmt->execute([$id]);
+            $stmtUpdate->execute([$id]);
             $message = "🚗 ENTRADA: Veículo {$plate} liberado.";
             $type = 'entry';
+            $status = 'parked'; // update local para o JSON de retorno
         } else {
-            $stmt = $db->prepare("
+            $stmtUpdate = $db->prepare("
                 UPDATE parking_records 
                 SET status = 'exited', exit_at = NOW(), updated_at = NOW() 
                 WHERE id = ?
             ");
-            $stmt->execute([$id]);
+            $stmtUpdate->execute([$id]);
             $message = "✅ SAÍDA: Veículo {$plate} registrado com sucesso.";
             $type = 'exit';
+            $status = 'exited'; // update local
         }
 
         AuditService::log("parking.scan.$type", "parking", $id, null, ['plate' => $plate], $operator);
 
         jsonSuccess([
-            'license_plate' => $plate,
-            'event_name'    => $record['event_name'],
-            'vehicle_type'  => $record['vehicle_type'],
-            'current_status'=> ($record['status'] === 'parked' ? 'exited' : 'parked')
+            'license_plate'  => $plate,
+            'event_name'     => $record['event_name'],
+            'vehicle_type'   => $record['vehicle_type'],
+            'current_status' => $status
         ], $message);
 
     } catch (Exception $e) {
@@ -95,15 +99,21 @@ function listParking(array $query): void
 
     try {
         $db = Database::getInstance();
-        $eventId = $query['event_id'] ?? null;
-        $status  = $query['status']   ?? null;
+        $eventId = isset($query['event_id']) ? (int)$query['event_id'] : null;
+        $status  = $query['status'] ?? null;
 
-        // Filtro base: SEMPRE restringir ao organizer_id
+        // CADEADO BASE: O evento da tabela parking_records deve pertencer ao organizador logado
         $where = ['e.organizer_id = ?']; 
         $params = [$organizerId];
 
-        if ($eventId) { $where[] = 'p.event_id = ?'; $params[] = (int)$eventId; }
-        if ($status)  { $where[] = 'p.status = ?'; $params[] = $status; }
+        if ($eventId) { 
+            $where[] = 'p.event_id = ?'; 
+            $params[] = $eventId; 
+        }
+        if ($status) { 
+            $where[] = 'p.status = ?'; 
+            $params[] = $status; 
+        }
 
         $whereClause = 'WHERE ' . implode(' AND ', $where);
 
@@ -117,32 +127,34 @@ function listParking(array $query): void
             LIMIT 100
         ");
         $stmt->execute($params);
-        jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC));
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        jsonSuccess($records);
     } catch (Exception $e) {
-        jsonError("Erro ao listar: " . $e->getMessage(), 500);
+        jsonError("Erro ao listar estacionamento: " . $e->getMessage(), 500);
     }
 }
 
 /**
  * Registro de Entrada (Venda na Portaria)
- * Blindagem: Salva o organizer_id no registro.
  */
 function registerEntry(array $body): void
 {
     $operator = requireAuth();
     $organizerId = $operator['organizer_id'];
+    
     $licensePlate = strtoupper(trim($body['license_plate'] ?? ''));
     $vehicleType  = $body['vehicle_type'] ?? 'car';
-    $eventId      = $body['event_id']     ?? null;
+    $eventId      = $body['event_id'] ?? null;
 
     if (!$licensePlate || !$eventId) {
-        jsonError('Dados insuficientes.', 422);
+        jsonError('Placa do veículo e Evento são obrigatórios.', 422);
     }
 
     try {
         $db = Database::getInstance();
 
-        // Validação extra: O evento informado pertence ao organizador logado?
+        // CADEADO: Garante que o evento informado para a portaria pertence ao organizador
         $stmtCheck = $db->prepare("SELECT id FROM events WHERE id = ? AND organizer_id = ?");
         $stmtCheck->execute([$eventId, $organizerId]);
         if (!$stmtCheck->fetch()) {
@@ -151,12 +163,13 @@ function registerEntry(array $body): void
 
         $qrToken = 'PRK-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
 
+        // Removido organizer_id do insert, pois já está implícito no event_id
         $stmt = $db->prepare("
-            INSERT INTO parking_records (event_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at, organizer_id)
-            VALUES (?, ?, ?, NOW(), 'parked', ?, NOW(), ?)
+            INSERT INTO parking_records (event_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
+            VALUES (?, ?, ?, NOW(), 'parked', ?, NOW())
             RETURNING id, license_plate, qr_token, status
         ");
-        $stmt->execute([(int)$eventId, $licensePlate, $vehicleType, $qrToken, $organizerId]);
+        $stmt->execute([(int)$eventId, $licensePlate, $vehicleType, $qrToken]);
         $record = $stmt->fetch(PDO::FETCH_ASSOC);
 
         jsonSuccess($record, "Venda Portaria: Veículo $licensePlate registrado.", 201);
@@ -176,17 +189,27 @@ function registerExit(int $recordId): void
     try {
         $db = Database::getInstance();
         
-        // UPDATE blindado: só atualiza se o registro pertencer ao organizador
+        // CADEADO: Só permite sair se o registro pertencer a um evento deste organizador
+        $stmtCheck = $db->prepare("
+            SELECT p.id 
+            FROM parking_records p
+            JOIN events e ON p.event_id = e.id
+            WHERE p.id = ? AND e.organizer_id = ?
+        ");
+        $stmtCheck->execute([$recordId, $organizerId]);
+        
+        if (!$stmtCheck->fetch()) {
+            jsonError("Registro não encontrado ou acesso negado.", 404);
+        }
+
         $stmt = $db->prepare("
             UPDATE parking_records 
             SET exit_at = NOW(), status = 'exited', updated_at = NOW() 
-            WHERE id = ? AND organizer_id = ?
+            WHERE id = ?
             RETURNING id, license_plate, status
         ");
-        $stmt->execute([$recordId, $organizerId]);
+        $stmt->execute([$recordId]);
         $updated = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$updated) jsonError("Registro não encontrado ou acesso negado.", 404);
 
         jsonSuccess($updated, "Saída manual registrada.");
     } catch (Exception $e) {

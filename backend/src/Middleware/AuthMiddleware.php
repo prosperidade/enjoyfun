@@ -1,10 +1,7 @@
 <?php
 /**
  * EnjoyFun — Auth Middleware (RS256)
- *
- * requireAuth()  → aborta com 401 se não houver JWT válido; retorna payload
- * optionalAuth() → retorna payload ou null silenciosamente
- * requireRole()  → chama requireAuth() e verifica roles
+ * SaaS Multi-tenant Ready
  */
 
 function requireAuth(?array $allowedRoles = null): array
@@ -18,17 +15,17 @@ function requireAuth(?array $allowedRoles = null): array
 
     $token = str_replace('Bearer ', '', $authHeader);
     
-    // CORREÇÃO AQUI: Usando o método estático correto da sua classe JWT
-    $payload = JWT::decode($token);
+    // Forçamos o cast para (array) para garantir que possamos ler as chaves com []
+    $payload = (array) JWT::decode($token);
 
     if (!$payload) {
         jsonError("Sessão inválida ou expirada", 401);
     }
 
-    // ADICIONADO 'name' e 'email' no retorno para os controllers usarem
+    // Retorno 100% alinhado com o AuditService e TicketController
     $user = [
-        'id'           => $payload['sub'],
-        'sub'          => $payload['sub'], // Mantido para compatibilidade
+        'id'           => $payload['sub'] ?? null,
+        'sub'          => $payload['sub'] ?? null, 
         'name'         => $payload['name'] ?? 'Usuário',
         'email'        => $payload['email'] ?? '',
         'role'         => $payload['role'] ?? ($payload['roles'][0] ?? 'organizer'),
@@ -47,13 +44,12 @@ function optionalAuth(): ?array
     $token = JWT::fromHeader();
     if (!$token) return null;
 
-    return JWT::decode($token);
+    return (array) JWT::decode($token);
 }
 
 function requireRole(array $allowedRoles): array
 {
     $payload   = requireAuth();
-    // CORREÇÃO: Pegando a 'role' limpa que o requireAuth já mapeou
     $userRole  = $payload['role'] ?? '';
 
     if (!in_array($userRole, $allowedRoles)) {
