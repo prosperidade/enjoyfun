@@ -8,7 +8,7 @@ import {
   X,
   Clock, // Adicionado para o relógio
 } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import api from "../lib/api";
 import toast from "react-hot-toast";
@@ -32,6 +32,9 @@ export default function Parking() {
   const [ticketInput, setTicketInput] = useState("");
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
+  const [entryScanInput, setEntryScanInput] = useState("");
+  const [scanningEntry, setScanningEntry] = useState(false);
+  const entryScannerRef = useRef(null);
 
   // Atualização do Relógio Anti-fraude
   useEffect(() => {
@@ -86,6 +89,51 @@ export default function Parking() {
       toast.error(err.response?.data?.message || "Erro ao registrar entrada.");
     }
   };
+
+  const handleScannerEntry = useCallback(async () => {
+    const scannedPlate = entryScanInput.trim().toUpperCase();
+
+    if (!scannedPlate || scanningEntry) return;
+
+    if (!form.event_id) {
+      toast.error("Selecione um evento para registrar a entrada via scanner.");
+      setEntryScanInput("");
+      return;
+    }
+
+    setScanningEntry(true);
+    try {
+      await api.post("/parking", {
+        event_id: form.event_id,
+        vehicle_type: form.vehicle_type,
+        license_plate: scannedPlate,
+      });
+      toast.success("Entrada registrada!");
+      setEntryScanInput("");
+      setForm((f) => ({ ...f, license_plate: "" }));
+      fetchRecords();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Erro ao registrar entrada.");
+    } finally {
+      setScanningEntry(false);
+      entryScannerRef.current?.focus();
+    }
+  }, [entryScanInput, scanningEntry, form.event_id, form.vehicle_type, fetchRecords]);
+
+  useEffect(() => {
+    if (tab !== "parking" || !showForm) return;
+
+    const focusScanner = () => {
+      if (entryScannerRef.current && document.activeElement !== entryScannerRef.current) {
+        entryScannerRef.current.focus();
+      }
+    };
+
+    focusScanner();
+    const focusInterval = setInterval(focusScanner, 600);
+
+    return () => clearInterval(focusInterval);
+  }, [tab, showForm]);
 
   const handleExit = async (id) => {
     try {
@@ -262,6 +310,25 @@ export default function Parking() {
           {showForm && (
             <div className="card border-cyan-800/40 max-w-lg">
               <h2 className="section-title">Registrar Entrada de Veículo</h2>
+              <input
+                ref={entryScannerRef}
+                value={entryScanInput}
+                onChange={(e) => setEntryScanInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleScannerEntry();
+                  }
+                }}
+                onBlur={() => {
+                  if (tab === "parking" && showForm) {
+                    requestAnimationFrame(() => entryScannerRef.current?.focus());
+                  }
+                }}
+                className="absolute opacity-0 pointer-events-none"
+                tabIndex={-1}
+                aria-hidden="true"
+              />
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="input-label">Evento *</label>
