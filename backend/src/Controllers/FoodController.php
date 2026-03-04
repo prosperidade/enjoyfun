@@ -38,7 +38,9 @@ function notFound(string $method, ?string $id): void
 
 function listProducts(): void
 {
-    requireAuth();
+    $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     // Pega o event_id da URL ou do body
     $eventId = $_GET['event_id'] ?? 1;
     
@@ -47,10 +49,10 @@ function listProducts(): void
         $stmt = $db->prepare("
             SELECT id, event_id, name, CAST(price AS FLOAT) as price, stock_qty, sector, low_stock_threshold
             FROM public.products
-            WHERE event_id = ? AND sector = 'food'
+            WHERE event_id = ? AND organizer_id = ? AND sector = 'food'
             ORDER BY name ASC
         ");
-        $stmt->execute([$eventId]);
+        $stmt->execute([$eventId, $organizerId]);
         $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         header('Content-Type: application/json');
@@ -130,7 +132,9 @@ function deleteProduct(int $id): void
 
 function listRecentSales(): void
 {
-    requireAuth();
+    $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     $eventId = $_GET['event_id'] ?? 1;
     $timeFilter = $_GET['filter'] ?? '24h';
     
@@ -147,11 +151,11 @@ function listRecentSales(): void
                  JOIN products p ON p.id = si.product_id 
                  WHERE si.sale_id = s.id AND p.sector = 'food') as items_detail
             FROM sales s 
-            WHERE s.event_id = ? $whereTime 
+            WHERE s.event_id = ? AND s.organizer_id = ? $whereTime 
             ORDER BY s.created_at DESC LIMIT 10
         ";
         $stmt = $db->prepare($sql);
-        $stmt->execute([$eventId]);
+        $stmt->execute([$eventId, $organizerId]);
         
         echo json_encode([
             'success' => true, 
@@ -171,6 +175,8 @@ function listRecentSales(): void
 function checkout(array $body): void
 {
     $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     $db = Database::getInstance();
     $eventId = $body['event_id'] ?? 1;
     $total = (float)($body['total_amount'] ?? 0);
@@ -181,41 +187,41 @@ function checkout(array $body): void
         $db->beginTransaction();
         $cardId = null; $currentBalance = 0;
 
-        if (!$token) throw new Exception("Token do cartão é obrigatório.");
+        if ($token) {
+            $card = findDigitalCardForCheckout($db, $token);
 
-        // CORREÇÃO: Busca cartão de forma robusta na tabela digital_cards
-        $card = findFoodDigitalCardForCheckout($db, $token);
+            if (!$card) {
+                AuditService::logFailure(
+                    AuditService::SALE_CHECKOUT,
+                    'card',
+                    $token,
+                    'Cartão ou QR não encontrado',
+                    $operator,
+                    ['metadata' => ['sector' => 'food']]
+                );
+                throw new Exception("Cartão ou QR não encontrado: " . $token);
+            }
 
-        if (!$card) {
-            AuditService::logFailure(
-                AuditService::SALE_CHECKOUT,
-                'card',
-                $token,
-                'Cartão ou QR não encontrado (Food)',
-                $operator,
-                ['metadata' => ['sector' => 'food']]
-            );
-            throw new Exception("Cartão ou QR não encontrado.");
+            if ($card['balance'] < $total) {
+                AuditService::logFailure(
+                    AuditService::SALE_CHECKOUT,
+                    'card',
+                    $card['id'],
+                    'Saldo insuficiente no cartão',
+                    $operator,
+                    ['metadata' => ['saldo' => $card['balance'], 'total' => $total, 'sector' => 'food']]
+                );
+                throw new Exception("Saldo insuficiente no cartão.");
+            }
+
+            $cardId = $card['id'];
+            $currentBalance = (float)$card['balance'];
+        } else {
+            throw new Exception("Nenhum cartão selecionado para o pagamento.");
         }
 
-        if ($card['balance'] < $total) {
-            AuditService::logFailure(
-                AuditService::SALE_CHECKOUT,
-                'card',
-                $card['id'],
-                'Saldo insuficiente no cartão',
-                $operator,
-                ['metadata' => ['saldo' => $card['balance'], 'total' => $total, 'sector' => 'food']]
-            );
-            throw new Exception("Saldo insuficiente no cartão.");
-        }
-
-        $cardId = $card['id'];
-        $currentBalance = (float)$card['balance'];
-
-        // Registrar Venda (Mantendo compatibilidade de colunas)
-        $stmtSale = $db->prepare("INSERT INTO sales (event_id, total_amount, status, created_at) VALUES (?, ?, 'completed', NOW()) RETURNING id");
-        $stmtSale->execute([$eventId, $total]);
+        $stmtSale = $db->prepare("INSERT INTO sales (event_id, organizer_id, total_amount, status, created_at) VALUES (?, ?, ?, 'completed', NOW()) RETURNING id");
+        $stmtSale->execute([$eventId, $organizerId, $total]);
         $saleId = $stmtSale->fetchColumn();
 
         foreach ($items as $item) {
@@ -225,7 +231,6 @@ function checkout(array $body): void
                ->execute([$item['quantity'], $item['product_id']]);
         }
 
-        // Atualizar Saldo na tabela digital_cards
         $newBalance = $currentBalance - $total;
         $db->prepare("UPDATE public.digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?")
            ->execute([$newBalance, $cardId]);
@@ -253,26 +258,32 @@ function checkout(array $body): void
     }
 }
 
-/**
- * Função Auxiliar robusta integrada para não precisar de arquivos externos
- */
-function findFoodDigitalCardForCheckout(PDO $db, string $token): array|false
+function findDigitalCardForCheckout(PDO $db, string $token): array|false
 {
-    $token = trim($token, " \t\n\r\0\x0B\"'");
+    $token = trim($token);
 
-    // 1. Busca por UUID (id)
+    // Caminho padrão: token é o próprio UUID do cartão
     $stmtById = $db->prepare('SELECT id, balance FROM public.digital_cards WHERE id::text = ? FOR UPDATE');
     $stmtById->execute([$token]);
     $card = $stmtById->fetch(PDO::FETCH_ASSOC);
-    if ($card) return $card;
+    if ($card) {
+        return $card;
+    }
 
-    // 2. Busca por card_token (fallback)
-    $stmtHasCardToken = $db->query("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'digital_cards' AND column_name = 'card_token')");
+    // Compatibilidade: alguns fluxos usam card_token em vez de id
+    $stmtHasCardToken = $db->query("SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'digital_cards' AND column_name = 'card_token'
+    )");
+
     if ((bool)$stmtHasCardToken->fetchColumn()) {
         $stmtByToken = $db->prepare('SELECT id, balance FROM public.digital_cards WHERE card_token = ? FOR UPDATE');
         $stmtByToken->execute([$token]);
         $card = $stmtByToken->fetch(PDO::FETCH_ASSOC);
-        if ($card) return $card;
+        if ($card) {
+            return $card;
+        }
     }
 
     return false;
