@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../lib/api"; 
 import {
   LayoutDashboard,
   CalendarDays,
@@ -27,7 +28,6 @@ const nav = [
     label: "Dashboard",
     roles: ["admin", "organizer"],
   },
-  // Apenas o Super Admin ('admin') consegue ver e acessar
   { 
     to: "/superadmin", 
     icon: Shield, 
@@ -42,7 +42,6 @@ const nav = [
     roles: ["admin", "organizer", "staff"],
   },
   { to: "/cards", icon: CreditCard, label: "Cartão Digital", roles: [] },
-  // Agrupador de PDV
   {
     label: "Vendas (PDV)",
     icon: ShoppingCart,
@@ -58,7 +57,6 @@ const nav = [
     to: "/parking",
     icon: ParkingSquare,
     label: "Estacionamento",
-    // CORREÇÃO: Adicionado 'organizer' aqui para o botão voltar a aparecer!
     roles: ["admin", "organizer", "parking_staff", "staff"],
   },
   {
@@ -90,6 +88,40 @@ export default function Sidebar({ isOpen, onClose }) {
       location.pathname.includes("shop"),
   );
 
+  // ── ESTADOS DO WHITE LABEL ──
+  const [tenantInfo, setTenantInfo] = useState({ name: 'EnjoyFun', logo: null, color: '#7C3AED' });
+
+  // ── BUSCA CONFIGURAÇÕES (Lógica corrigida para satisfazer o ESLint) ──
+  useEffect(() => {
+    // Definimos a função dentro para que o ESLint entenda que ela pertence a este efeito
+    const loadTenantData = async () => {
+      try {
+        const res = await api.get('/settings');
+        if (res.data.success && res.data.data) {
+          const data = res.data.data;
+          setTenantInfo({
+            name: data.app_name || 'EnjoyFun',
+            logo: data.logo_url,
+            color: data.primary_color || '#7C3AED'
+          });
+          // Aplica a cor na variável CSS global
+          document.documentElement.style.setProperty('--color-primary', data.primary_color);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar White Label:", err);
+      }
+    };
+
+    // Chamada inicial
+    loadTenantData();
+
+    // Ouvinte de evento para atualizar em tempo real quando salvar no Settings.jsx
+    const handleUpdate = () => loadTenantData();
+    window.addEventListener('tenantSettingsUpdated', handleUpdate);
+    
+    return () => window.removeEventListener('tenantSettingsUpdated', handleUpdate);
+  }, []); // Efeito roda apenas uma vez no mount
+
   const visibleNav = nav.filter(
     (n) => n.roles.length === 0 || n.roles.some((r) => hasRole(r)),
   );
@@ -110,13 +142,21 @@ export default function Sidebar({ isOpen, onClose }) {
         ${isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full lg:translate-x-0"}
       `}
       >
+        {/* ── CABEÇALHO COM LOGO DINÂMICA ── */}
         <div className="h-16 px-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-[0_0_12px_rgba(124,58,237,0.4)]">
-              <Zap size={16} className="text-white" />
-            </div>
-            <span className="font-bold text-white text-lg tracking-tight">
-              EnjoyFun
+            {tenantInfo.logo ? (
+                <img src={tenantInfo.logo} alt="Logo" className="w-8 h-8 rounded object-contain bg-white p-0.5" />
+            ) : (
+                <div 
+                  className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg"
+                  style={{ backgroundColor: tenantInfo.color }}
+                >
+                  <Zap size={16} className="text-white" />
+                </div>
+            )}
+            <span className="font-bold text-white text-lg tracking-tight truncate max-w-[140px]">
+              {tenantInfo.name}
             </span>
           </div>
           <button
@@ -161,7 +201,7 @@ export default function Sidebar({ isOpen, onClose }) {
                           onClick={onClose}
                           className={({ isActive }) => `
                             flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all
-                            ${isActive ? "text-purple-400 bg-purple-600/5" : "text-gray-500 hover:text-gray-300"}
+                            ${isActive ? "text-[var(--color-primary)] bg-[var(--color-primary)]/5 font-bold" : "text-gray-500 hover:text-gray-300"}
                           `}
                         >
                           <span>{sub.label}</span>
@@ -182,7 +222,7 @@ export default function Sidebar({ isOpen, onClose }) {
                   flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group
                   ${
                     isActive
-                      ? "bg-purple-600/10 text-purple-400 font-semibold relative before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:bg-purple-500 before:rounded-r-md"
+                      ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-semibold relative before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:bg-[var(--color-primary)] before:rounded-r-md"
                       : "text-gray-400 hover:text-white hover:bg-gray-800/50"
                   }
                 `}
@@ -202,7 +242,7 @@ export default function Sidebar({ isOpen, onClose }) {
               to="/settings"
               className={({ isActive }) => `
                 flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
-                ${isActive ? "bg-purple-600/10 text-purple-400 font-semibold" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}
+                ${isActive ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-semibold" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}
               `}
               onClick={onClose}
             >
@@ -214,7 +254,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
         <div className="p-6 border-t border-gray-800/50">
           <p className="text-[10px] text-center text-gray-600 font-medium uppercase tracking-widest">
-            EnjoyFun v2.0
+            {tenantInfo.name} v2.0
           </p>
         </div>
       </aside>

@@ -106,6 +106,7 @@ $controllers = [
     'health'     => BASE_PATH . '/src/Controllers/HealthController.php',
     'whatsapp'   => BASE_PATH . '/src/Controllers/WhatsAppController.php',
     'superadmin' => BASE_PATH . '/src/Controllers/SuperAdminController.php', 
+    'settings'   => BASE_PATH . '/src/Controllers/OrganizerSettingsController.php',
 ];
 
 if ($resource === '' || $resource === 'ping') {

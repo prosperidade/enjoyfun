@@ -9,9 +9,9 @@ import Events from "./pages/Events";
 import EventDetails from "./pages/EventDetails";
 import Tickets from "./pages/Tickets";
 import Cards from "./pages/Cards";
-import SuperAdminPanel from "./pages/SuperAdminPanel"; // <-- Essa linha salva a pátria!
+import SuperAdminPanel from "./pages/SuperAdminPanel";
 
-// Nossos 3 arquivos pontes (Wrappers)
+// Nossos arquivos pontes (Wrappers)
 import Bar from "./pages/Bar";
 import Food from "./pages/Food";
 import Shop from "./pages/Shop";
@@ -20,6 +20,9 @@ import Parking from "./pages/Parking";
 import WhatsApp from "./pages/WhatsApp";
 import AIAgents from "./pages/AIAgents";
 import Users from "./pages/Users";
+
+// MUDANÇA AQUI: Importando a nova tela de Configurações (White Label)
+import Settings from "./pages/Settings";
 
 function NotFound() {
   return (
@@ -62,7 +65,6 @@ export default function App() {
               <Route path="/cards" element={<Cards />} />
               <Route path="/superadmin" element={<SuperAdminPanel />} />
 
-              {/* MUDANÇA AQUI: Agora usamos os arquivos independentes */}
               <Route path="/bar" element={<Bar />} />
               <Route path="/food" element={<Food />} />
               <Route path="/shop" element={<Shop />} />
@@ -71,18 +73,9 @@ export default function App() {
               <Route path="/whatsapp" element={<WhatsApp />} />
               <Route path="/ai" element={<AIAgents />} />
               <Route path="/users" element={<Users />} />
-              <Route
-                path="/settings"
-                element={
-                  <div className="card max-w-md mx-auto mt-8">
-                    <h1 className="page-title mb-4">⚙️ Configurações</h1>
-                    <p className="text-gray-400 text-sm">
-                      Configurações da rede e plataforma serão implementadas na
-                      Fase 4.
-                    </p>
-                  </div>
-                }
-              />
+              
+              {/* MUDANÇA AQUI: Rota atualizada para apontar para o nosso novo arquivo */}
+              <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>
 
