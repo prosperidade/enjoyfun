@@ -9,6 +9,7 @@ import Events from "./pages/Events";
 import EventDetails from "./pages/EventDetails";
 import Tickets from "./pages/Tickets";
 import Cards from "./pages/Cards";
+import SuperAdminPanel from "./pages/SuperAdminPanel"; // <-- Essa linha salva a pátria!
 
 // Nossos 3 arquivos pontes (Wrappers)
 import Bar from "./pages/Bar";
@@ -59,6 +60,7 @@ export default function App() {
               <Route path="/events/:id" element={<EventDetails />} />
               <Route path="/tickets" element={<Tickets />} />
               <Route path="/cards" element={<Cards />} />
+              <Route path="/superadmin" element={<SuperAdminPanel />} />
 
               {/* MUDANÇA AQUI: Agora usamos os arquivos independentes */}
               <Route path="/bar" element={<Bar />} />

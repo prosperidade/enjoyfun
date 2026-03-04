@@ -15,6 +15,7 @@ import {
   ChevronDown,
   UtensilsCrossed,
   Store,
+  Shield, // <-- Ícone do Super Admin adicionado
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -25,6 +26,13 @@ const nav = [
     icon: LayoutDashboard,
     label: "Dashboard",
     roles: ["admin", "organizer"],
+  },
+  // 👇 NOVA ROTA: Apenas o Super Admin ('admin') consegue ver e acessar
+  { 
+    to: "/superadmin", 
+    icon: Shield, 
+    label: "Super Admin (SaaS)", 
+    roles: ["admin"] 
   },
   { to: "/events", icon: CalendarDays, label: "Eventos", roles: [] },
   {
@@ -64,7 +72,7 @@ const nav = [
     label: "Agentes de IA",
     roles: ["admin", "organizer"],
   },
-  { to: "/users", icon: Users, label: "Usuários", roles: ["admin"] },
+  { to: "/users", icon: Users, label: "Usuários", roles: ["admin", "organizer"] }, // Adicionado organizer para ele gerenciar a equipe dele
 ];
 
 export default function Sidebar({ isOpen, onClose }) {

@@ -1,6 +1,6 @@
 <?php
 /**
- * EnjoyFun 2.0 — Auth Controller
+ * EnjoyFun 2.0 — Auth Controller (White Label Ready)
  * Routes handled (dispatched from public/index.php)
  */
 
@@ -11,7 +11,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'POST' && $id === 'register' => register($body),
         $method === 'POST' && $id === 'refresh'  => refresh($body),
         $method === 'POST' && $id === 'logout'   => doLogout($body),
-        $method === 'GET'  && $id === 'me'        => me(),
+        $method === 'GET'  && $id === 'me'       => me(),
         default => jsonError("Auth endpoint not found: {$method} /auth/{$id}", 404),
     };
 }
@@ -29,6 +29,7 @@ function login(array $body): void
     }
 
     $db   = Database::getInstance();
+    // Como usamos SELECT *, o organizer_id já vem embutido na variável $user
     $stmt = $db->prepare('SELECT * FROM users WHERE email = ? AND is_active = TRUE LIMIT 1');
     $stmt->execute([$email]);
     $user = $stmt->fetch();
@@ -49,15 +50,15 @@ function login(array $body): void
     $userData = buildUserPayload($db, $user);
     $tokens   = issueTokens($db, $userData);
 
-   AuditService::log(
-    AuditService::USER_LOGIN,
-    'user',
-    $userData['id'],
-    null,
-    ['email' => $userData['email'], 'roles' => $userData['roles']],
-    ['sub' => $userData['id'], 'email' => $userData['email']],
-    'success'
-);
+    AuditService::log(
+        AuditService::USER_LOGIN,
+        'user',
+        $userData['id'],
+        null,
+        ['email' => $userData['email'], 'roles' => $userData['roles']],
+        ['sub' => $userData['id'], 'email' => $userData['email']],
+        'success'
+    );
 
     jsonSuccess([
         'user'          => $userData,
@@ -159,14 +160,15 @@ function me(): void
     $payload = requireAuth();
     $db      = Database::getInstance();
 
-    $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, is_active, created_at FROM users WHERE id = ? LIMIT 1');
-    $stmt->execute([$payload['sub']]);
+    // ADICIONADO: Puxa também o organizer_id para o frontend saber de quem é esse usuário
+    $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, is_active, organizer_id, created_at FROM users WHERE id = ? LIMIT 1');
+    $stmt->execute([$payload['id']]); // Ajustado para 'id' que é o retorno do nosso novo middleware
     $user = $stmt->fetch();
 
     if (!$user) jsonError('Usuário não encontrado.', 404);
 
     $stmt = $db->prepare('SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ?');
-    $stmt->execute([$payload['sub']]);
+    $stmt->execute([$payload['id']]);
     $user['roles'] = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
     jsonSuccess($user);
@@ -178,7 +180,8 @@ function me(): void
 function buildUserPayload(PDO $db, array $user): array
 {
     if (!isset($user['name'])) {
-        $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, created_at FROM users WHERE id = ? LIMIT 1');
+        // ADICIONADO: Puxar o organizer_id quando recria o payload (ex: no Refresh Token)
+        $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, organizer_id, created_at FROM users WHERE id = ? LIMIT 1');
         $stmt->execute([$user['id']]);
         $user = $stmt->fetch();
     }
@@ -186,6 +189,10 @@ function buildUserPayload(PDO $db, array $user): array
     $stmt = $db->prepare('SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ?');
     $stmt->execute([$user['id']]);
     $user['roles'] = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    // Define a role principal singular (ajuda o AuthMiddleware e o React)
+    $user['role'] = $user['roles'][0] ?? 'customer'; 
+
     unset($user['password_hash']); 
 
     return $user;
@@ -198,10 +205,12 @@ function issueTokens(PDO $db, array $user): array
 
     // RS256: a chave privada é carregada dentro do JWT::encode
     $access = JWT::encode([
-        'sub'   => $user['id'],
-        'name'  => $user['name'],
-        'email' => $user['email'],
-        'roles' => $user['roles'],
+        'sub'          => $user['id'],
+        'name'         => $user['name'],
+        'email'        => $user['email'],
+        'roles'        => $user['roles'],
+        'role'         => $user['role'], // Adicionado para bater perfeitamente com o Middleware
+        'organizer_id' => $user['organizer_id'] ?? null, // <-- A CHAVE MESTRA DO WHITE LABEL!
     ], $expiry);
 
     $rawRefresh  = bin2hex(random_bytes(32));

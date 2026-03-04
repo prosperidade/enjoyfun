@@ -7,24 +7,33 @@
  * requireRole()  → chama requireAuth() e verifica roles
  */
 
-function requireAuth(): array
+function requireAuth(array $allowedRoles = []): array
 {
-    $token = JWT::fromHeader();
-    if (!$token) {
-        http_response_code(401);
-        echo json_encode(['success' => false, 'message' => 'Autenticação necessária.']);
-        exit;
+    $headers = getallheaders();
+    $authHeader = $headers['Authorization'] ?? '';
+
+    if (!preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
+        jsonError('Token não fornecido ou inválido', 401);
     }
 
-    $payload = JWT::decode($token);
+    $jwt = $matches[1];
+    $decoded = \EnjoyFun\Helpers\JWT::decode($jwt);
 
-    if (!$payload) {
-        http_response_code(401);
-        echo json_encode(['success' => false, 'message' => 'Token inválido ou expirado.']);
-        exit;
+    if (!$decoded) {
+        jsonError('Token inválido ou expirado', 401);
     }
 
-    return $payload;
+    // Verifica se a role do usuário está na lista de roles permitidas (se a lista foi passada)
+    if (!empty($allowedRoles) && !in_array($decoded['role'], $allowedRoles)) {
+        jsonError('Acesso negado. Permissão insuficiente.', 403);
+    }
+
+    // RETORNO BLINDADO: Agora o sistema sabe exatamente quem é o usuário, a role dele e QUEM é o chefe dele (organizer_id)
+    return [
+        'id' => $decoded['sub'],
+        'role' => $decoded['role'] ?? 'customer',
+        'organizer_id' => $decoded['organizer_id'] ?? null // <-- A CHAVE DO WHITE LABEL
+    ];
 }
 
 function optionalAuth(): ?array
