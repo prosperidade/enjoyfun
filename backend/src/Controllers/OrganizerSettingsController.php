@@ -7,9 +7,10 @@
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
-        $method === 'GET' && $id === null => getSettings(),
-        $method === 'PUT' && $id === null => updateSettings($body),
-        $method === 'POST' && $id === 'logo' => uploadLogo(),
+        $method === 'GET'  && $id === null        => getSettings(),
+        $method === 'PUT'  && $id === null        => updateSettings($body),
+        $method === 'POST' && $id === 'logo'      => uploadLogo(),
+        $method === 'POST' && $id === 'messaging' => saveMessagingSettings($body),
         default => jsonError('Organizer settings endpoint não encontrado.', 404),
     };
 }
@@ -23,20 +24,35 @@ function getSettings(): void
 
     $organizerId = resolveOrganizerId($user);
 
-    $stmt = $db->prepare('SELECT organizer_id, app_name, primary_color, secondary_color, logo_url, updated_at FROM organizer_settings WHERE organizer_id = ? LIMIT 1');
+    $stmt = $db->prepare('
+        SELECT organizer_id, app_name, primary_color, secondary_color, logo_url, updated_at,
+               resend_api_key, email_sender, wa_api_url, wa_token, wa_instance
+        FROM organizer_settings
+        WHERE organizer_id = ?
+        LIMIT 1
+    ');
     $stmt->execute([$organizerId]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$row) {
         $row = [
-            'organizer_id' => $organizerId,
-            'app_name' => 'EnjoyFun',
-            'primary_color' => '#7c3aed',
-            'secondary_color' => '#db2777',
-            'logo_url' => null,
-            'updated_at' => null,
+            'organizer_id'   => $organizerId,
+            'app_name'       => 'EnjoyFun',
+            'primary_color'  => '#7c3aed',
+            'secondary_color'=> '#db2777',
+            'logo_url'       => null,
+            'updated_at'     => null,
+            'resend_api_key' => null,
+            'email_sender'   => null,
+            'wa_api_url'     => null,
+            'wa_token'       => null,
+            'wa_instance'    => null,
         ];
     }
+
+    // Oculta a API Key completa — envia apenas se configurado (bool)
+    $row['wa_configured']    = !empty($row['wa_api_url'])     && !empty($row['wa_token']);
+    $row['email_configured'] = !empty($row['resend_api_key']);
 
     jsonSuccess($row);
 }
@@ -136,6 +152,49 @@ function uploadLogo(): void
     jsonSuccess(['logo_url' => $logoUrl], 'Logo atualizada com sucesso.');
 }
 
+// ─────────────────────────────────────────────────────────────
+// POST /api/organizer-settings/messaging — Salva credenciais WA + Resend
+// ─────────────────────────────────────────────────────────────
+function saveMessagingSettings(array $body): void
+{
+    $user = requireAuth(['admin', 'organizer']);
+    $db   = Database::getInstance();
+
+    ensureOrganizerSettingsTable($db);
+
+    $organizerId = resolveOrganizerId($user);
+
+    // Aceita qualquer combinação dos 5 campos (parcial update)
+    $fields = [
+        'resend_api_key' => trim($body['resend_api_key'] ?? ''),
+        'email_sender'   => trim($body['email_sender']   ?? ''),
+        'wa_api_url'     => rtrim(trim($body['wa_api_url'] ?? ''), '/'),
+        'wa_token'       => trim($body['wa_token']       ?? ''),
+        'wa_instance'    => trim($body['wa_instance']    ?? ''),
+    ];
+
+    $db->prepare("
+        INSERT INTO organizer_settings (organizer_id, resend_api_key, email_sender, wa_api_url, wa_token, wa_instance, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, NOW())
+        ON CONFLICT (organizer_id) DO UPDATE SET
+            resend_api_key = COALESCE(NULLIF(EXCLUDED.resend_api_key, ''), organizer_settings.resend_api_key),
+            email_sender   = COALESCE(NULLIF(EXCLUDED.email_sender, ''),   organizer_settings.email_sender),
+            wa_api_url     = COALESCE(NULLIF(EXCLUDED.wa_api_url, ''),     organizer_settings.wa_api_url),
+            wa_token       = COALESCE(NULLIF(EXCLUDED.wa_token, ''),       organizer_settings.wa_token),
+            wa_instance    = COALESCE(NULLIF(EXCLUDED.wa_instance, ''),    organizer_settings.wa_instance),
+            updated_at     = NOW()
+    ")->execute([
+        $organizerId,
+        $fields['resend_api_key'],
+        $fields['email_sender'],
+        $fields['wa_api_url'],
+        $fields['wa_token'],
+        $fields['wa_instance'],
+    ]);
+
+    jsonSuccess($fields, 'Configurações de mensageria salvas com sucesso.');
+}
+
 function resolveOrganizerId(array $user): int
 {
     if (($user['role'] ?? '') === 'admin') {
@@ -169,6 +228,7 @@ function buildPublicAssetUrl(string $path): string
 
 function ensureOrganizerSettingsTable(PDO $db): void
 {
+    // Cria a tabela base se não existir
     $db->exec(
         "CREATE TABLE IF NOT EXISTS organizer_settings (
             id BIGSERIAL PRIMARY KEY,
@@ -181,4 +241,22 @@ function ensureOrganizerSettingsTable(PDO $db): void
             updated_at TIMESTAMP NULL
         )"
     );
+
+    // Adiciona colunas de mensageria se ainda não existirem (idempotente)
+    $messagingCols = [
+        'resend_api_key TEXT NULL',
+        'email_sender   VARCHAR(320) NULL',
+        'wa_api_url     TEXT NULL',
+        'wa_token       TEXT NULL',
+        'wa_instance    VARCHAR(120) NULL',
+    ];
+    foreach ($messagingCols as $colDef) {
+        $colName = strtok($colDef, ' ');
+        try {
+            $db->exec("ALTER TABLE organizer_settings ADD COLUMN IF NOT EXISTS {$colDef}");
+        } catch (\Throwable $e) {
+            // Coluna já existe em alguns drivers que não suportam IF NOT EXISTS
+            error_log("[OrgSettings] Coluna '{$colName}' já existe ou erro: " . $e->getMessage());
+        }
+    }
 }

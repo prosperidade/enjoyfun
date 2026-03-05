@@ -42,7 +42,7 @@ const nav = [
   },
   // 🚀 AGORA COM 'organizer' NO ARRAY DE ROLES:
   { to: "/parking", icon: ParkingSquare, label: "Estacionamento", roles: ["admin", "organizer", "parking_staff", "staff"] },
-  { to: "/whatsapp", icon: MessageCircle, label: "WhatsApp", roles: ["admin", "organizer"] },
+  { to: "/messaging", icon: MessageCircle, label: "Mensageria", roles: ["admin", "organizer"] },
   { to: "/ai", icon: Bot, label: "Agentes de IA", roles: ["admin", "organizer"] },
   { to: "/users", icon: Users, label: "Usuários", roles: ["admin", "organizer"] },
 ];

@@ -102,9 +102,12 @@ $controllers = [
     'shop'               => BASE_PATH . '/src/Controllers/ShopController.php',
     'sync'               => BASE_PATH . '/src/Controllers/SyncController.php',
     'health'             => BASE_PATH . '/src/Controllers/HealthController.php',
-    'whatsapp'           => BASE_PATH . '/src/Controllers/WhatsAppController.php',
-    'superadmin'         => BASE_PATH . '/src/Controllers/SuperAdminController.php', 
+    // messaging e whatsapp apontam para o mesmo controller unificado
+    'messaging'          => BASE_PATH . '/src/Controllers/MessagingController.php',
+    'whatsapp'           => BASE_PATH . '/src/Controllers/MessagingController.php',
+    'superadmin'         => BASE_PATH . '/src/Controllers/SuperAdminController.php',
     'organizer-settings' => BASE_PATH . '/src/Controllers/OrganizerSettingsController.php',
+    'customer'           => BASE_PATH . '/src/Controllers/CustomerController.php',
 ];
 
 if ($resource === '' || $resource === 'ping') {

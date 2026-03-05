@@ -16,10 +16,13 @@ import Bar from "./pages/Bar";
 import Food from "./pages/Food";
 import Shop from "./pages/Shop";
 import Parking from "./pages/Parking";
-import WhatsApp from "./pages/WhatsApp";
+import Messaging from "./pages/Messaging";
 import AIAgents from "./pages/AIAgents";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
+import CustomerLogin from "./pages/CustomerApp/CustomerLogin";
+import CustomerDashboard from "./pages/CustomerApp/CustomerDashboard";
+import CustomerRecharge from "./pages/CustomerApp/CustomerRecharge";
 
 function NotFound() {
   return (
@@ -53,6 +56,11 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
 
+          {/* ── Rotas Públicas do Cliente (WebApp Mobile) ───────────── */}
+          <Route path="/app/:slug"          element={<CustomerLogin />} />
+          <Route path="/app/:slug/home"     element={<CustomerDashboard />} />
+          <Route path="/app/:slug/recharge" element={<CustomerRecharge />} />
+
           <Route element={<PrivateRoute />}>
             <Route element={<DashboardLayout />}>
               <Route path="/" element={<Dashboard />} />
@@ -68,7 +76,7 @@ export default function App() {
               <Route path="/shop" element={<Shop />} />
 
               <Route path="/parking" element={<Parking />} />
-              <Route path="/whatsapp" element={<WhatsApp />} />
+              <Route path="/messaging" element={<Messaging />} />
               <Route path="/ai" element={<AIAgents />} />
               <Route path="/users" element={<Users />} />
               

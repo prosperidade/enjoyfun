@@ -28,7 +28,28 @@ export async function loginApi(email, password) {
  * @returns {Promise<{user, access_token, refresh_token, expires_in}>}
  */
 export async function registerApi({ name, email, password, phone = '', cpf = '' }) {
-  const { data } = await api.post('/auth/register', { name, email, password, phone, cpf });
+  const { data } = await api.post('/auth/register', { name, email, password, phone, cpf, account_type: 'organizer' });
+  return data.data;
+}
+
+// ── Passwordless OTP ───────────────────────────────────────────────────────
+/**
+ * @param {string} identifier  - e-mail ou número WhatsApp
+ * @param {number} organizer_id
+ */
+export async function requestCodeApi(identifier, organizer_id) {
+  const { data } = await api.post('/auth/request-code', { identifier, organizer_id });
+  return data;
+}
+
+/**
+ * @param {string} identifier
+ * @param {string} code        - 6-digit OTP
+ * @param {number} organizer_id
+ * @returns {Promise<{user, access_token, refresh_token, expires_in}>}
+ */
+export async function verifyCodeApi(identifier, code, organizer_id) {
+  const { data } = await api.post('/auth/verify-code', { identifier, code, organizer_id });
   return data.data;
 }
 
