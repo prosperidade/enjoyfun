@@ -8,7 +8,7 @@ import {
   X,
   Clock, // Adicionado para o relógio
 } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react"; // useRef adicionado para o scanner
 import { QRCodeCanvas } from "qrcode.react";
 import api from "../lib/api";
 import toast from "react-hot-toast";
@@ -32,6 +32,11 @@ export default function Parking() {
   const [ticketInput, setTicketInput] = useState("");
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
+
+  // 🚀 ADIÇÃO CIRÚRGICA: Estados do Scanner de Entrada
+  const [entryScanInput, setEntryScanInput] = useState("");
+  const [scanningEntry, setScanningEntry] = useState(false);
+  const entryScannerRef = useRef(null);
 
   // Atualização do Relógio Anti-fraude
   useEffect(() => {
@@ -73,6 +78,55 @@ export default function Parking() {
       active = false;
     };
   }, [eventId]);
+
+  // 🚀 ADIÇÃO CIRÚRGICA: Função de envio via Scanner (Automático)
+  const handleScannerEntry = useCallback(async () => {
+    const scannedPlate = entryScanInput.trim().toUpperCase();
+
+    if (!scannedPlate || scanningEntry) return;
+
+    if (!form.event_id) {
+      toast.error("Selecione um evento antes de bipar o ingresso/placa.");
+      setEntryScanInput("");
+      return;
+    }
+
+    setScanningEntry(true);
+    try {
+      await api.post("/parking", {
+        event_id: form.event_id,
+        vehicle_type: form.vehicle_type,
+        license_plate: scannedPlate,
+      });
+      toast.success("Entrada via scanner registrada!");
+      setEntryScanInput("");
+      fetchRecords();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Erro ao registrar entrada.");
+      setEntryScanInput("");
+    } finally {
+      setScanningEntry(false);
+    }
+  }, [entryScanInput, scanningEntry, form.event_id, form.vehicle_type, fetchRecords]);
+
+  // 🚀 ADIÇÃO CIRÚRGICA: Foco Inteligente (NÃO trava digitação manual)
+  useEffect(() => {
+    if (tab !== "parking" || !showForm) return;
+
+    const focusScanner = () => {
+      // Se o usuário clicou no campo manual de placa ou no select de evento, aborta o foco no scanner
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      if (activeTag === 'input' || activeTag === 'select' || activeTag === 'textarea') return;
+      
+      if (entryScannerRef.current && document.activeElement !== entryScannerRef.current) {
+        entryScannerRef.current.focus();
+      }
+    };
+
+    focusScanner();
+    const focusInterval = setInterval(focusScanner, 600);
+    return () => clearInterval(focusInterval);
+  }, [tab, showForm]);
 
   const handleEntry = async (e) => {
     e.preventDefault();
@@ -260,8 +314,25 @@ export default function Parking() {
       {tab === "parking" && (
         <>
           {showForm && (
-            <div className="card border-cyan-800/40 max-w-lg">
+            <div className="card border-cyan-800/40 max-w-lg relative">
               <h2 className="section-title">Registrar Entrada de Veículo</h2>
+
+              {/* 🚀 ADIÇÃO CIRÚRGICA: Input Invisível para capturar o Scanner */}
+              <input
+                ref={entryScannerRef}
+                value={entryScanInput}
+                onChange={(e) => setEntryScanInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleScannerEntry();
+                  }
+                }}
+                className="absolute opacity-0 pointer-events-none"
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="input-label">Evento *</label>
@@ -281,7 +352,7 @@ export default function Parking() {
                   </select>
                 </div>
                 <div>
-                  <label className="input-label">Placa *</label>
+                  <label className="input-label">Placa * (Ou bip aqui)</label>
                   <input
                     className="input uppercase"
                     placeholder="ABC1234"
@@ -311,7 +382,7 @@ export default function Parking() {
                 </div>
                 <div className="col-span-2 flex gap-3">
                   <button onClick={handleEntry} className="btn-primary flex-1">
-                    Registrar
+                    Registrar Manual
                   </button>
                   <button
                     onClick={() => setShowForm(false)}
@@ -375,8 +446,11 @@ export default function Parking() {
                           {r.exit_at ? new Date(r.exit_at).toLocaleString("pt-BR") : "—"}
                         </td>
                         <td>
-                          <span className={r.status === "parked" ? "badge-green" : "badge-gray"}>
-                            {r.status === "parked" ? "No local" : "Saiu"}
+                          <span className={
+                            r.status === "pending" ? "badge-yellow" : 
+                            r.status === "parked" ? "badge-green" : "badge-gray"
+                          }>
+                           {r.status === "pending" ? "Aguardando Bip" : r.status === "parked" ? "No local" : "Saiu"}
                           </span>
                         </td>
                         <td>

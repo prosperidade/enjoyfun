@@ -1,12 +1,11 @@
 <?php
 /**
  * EnjoyFun 2.0 — Backend Entry Point (VERSÃO FINAL BLINDADA)
- *
- * MUDANÇAS APLICADAS:
- * 1. FIX CORS: Porta 3001 definida como padrão para o React.
- * 2. FIX 404: Novo Parse de URL robusto para garantir que /validate seja reconhecido.
- * 3. SECURITY: Mantida a arquitetura JWT sem session_start.
- * 4. DEBUG: Adicionado Escudo Global (Try/Catch) para evitar erros HTML.
+ * * MUDANÇAS APLICADAS:
+ * 1. FIX CORS: Alinhado para porta 3001 (React).
+ * 2. ROUTE ALIGNMENT: Rota 'organizer-settings' adicionada para White Label.
+ * 3. ANTI-HTML SHIELD: Try/Catch global para garantir respostas apenas em JSON.
+ * 4. ROBUST PARSE: Sistema de captura de ID e Sub-rotas (ex: /tickets/1/transfer).
  */
 
 // ── CORS (AJUSTADO PARA PORTA 3001) ──────────────────────────────────────────
@@ -47,12 +46,11 @@ if (file_exists($envFile)) {
 require_once BASE_PATH . '/config/Database.php';
 require_once BASE_PATH . '/src/Helpers/JWT.php';
 require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/src/Helpers/Response.php'; 
 
 $auditFile = BASE_PATH . '/src/Services/AuditService.php';
 if (file_exists($auditFile)) require_once $auditFile;
 
-// ── Funções Globais de Resposta ───────────────────────────────────────────────
+// ── Funções Globais de Resposta (Anti-Lixo) ───────────────────────────────────
 function jsonSuccess($data = null, $message = '', $code = 200): never {
     if (ob_get_length()) ob_clean();
     http_response_code($code);
@@ -92,21 +90,21 @@ if ($raw && ($decoded = json_decode($raw, true)) !== null) {
 
 // ── Roteador Completo ─────────────────────────────────────────────────────────
 $controllers = [
-    'auth'       => BASE_PATH . '/src/Controllers/AuthController.php',
-    'events'     => BASE_PATH . '/src/Controllers/EventController.php',
-    'tickets'    => BASE_PATH . '/src/Controllers/TicketController.php',
-    'parking'    => BASE_PATH . '/src/Controllers/ParkingController.php',
-    'users'      => BASE_PATH . '/src/Controllers/UserController.php',
-    'admin'      => BASE_PATH . '/src/Controllers/AdminController.php',
-    'cards'      => BASE_PATH . '/src/Controllers/CardController.php',
-    'bar'        => BASE_PATH . '/src/Controllers/BarController.php',
-    'food'       => BASE_PATH . '/src/Controllers/FoodController.php',
-    'shop'       => BASE_PATH . '/src/Controllers/ShopController.php',
-    'sync'       => BASE_PATH . '/src/Controllers/SyncController.php',
-    'health'     => BASE_PATH . '/src/Controllers/HealthController.php',
-    'whatsapp'   => BASE_PATH . '/src/Controllers/WhatsAppController.php',
-    'superadmin' => BASE_PATH . '/src/Controllers/SuperAdminController.php', 
-    'settings'   => BASE_PATH . '/src/Controllers/OrganizerSettingsController.php',
+    'auth'               => BASE_PATH . '/src/Controllers/AuthController.php',
+    'events'             => BASE_PATH . '/src/Controllers/EventController.php',
+    'tickets'            => BASE_PATH . '/src/Controllers/TicketController.php',
+    'parking'            => BASE_PATH . '/src/Controllers/ParkingController.php',
+    'users'              => BASE_PATH . '/src/Controllers/UserController.php',
+    'admin'              => BASE_PATH . '/src/Controllers/AdminController.php',
+    'cards'              => BASE_PATH . '/src/Controllers/CardController.php',
+    'bar'                => BASE_PATH . '/src/Controllers/BarController.php',
+    'food'               => BASE_PATH . '/src/Controllers/FoodController.php',
+    'shop'               => BASE_PATH . '/src/Controllers/ShopController.php',
+    'sync'               => BASE_PATH . '/src/Controllers/SyncController.php',
+    'health'             => BASE_PATH . '/src/Controllers/HealthController.php',
+    'whatsapp'           => BASE_PATH . '/src/Controllers/WhatsAppController.php',
+    'superadmin'         => BASE_PATH . '/src/Controllers/SuperAdminController.php', 
+    'organizer-settings' => BASE_PATH . '/src/Controllers/OrganizerSettingsController.php',
 ];
 
 if ($resource === '' || $resource === 'ping') {
@@ -122,11 +120,11 @@ if (!file_exists($file)) {
     jsonError("Arquivo do Controller '{$resource}' não encontrado no servidor.", 501);
 }
 
-// Limpa qualquer lixo que algum include possa ter gerado (espaços em branco, warnings)
-if (ob_get_length()) ob_clean();
-
 // ── ESCUDO GLOBAL ANTI-HTML ───────────────────────────────────────────────────
 try {
+    // Limpa qualquer buffer antes de carregar o controller
+    if (ob_get_length()) ob_clean();
+
     require_once $file;
 
     if (function_exists('dispatch')) {
@@ -135,7 +133,7 @@ try {
         jsonError("Erro Fatal: Função dispatch() ausente em '{$resource}'.", 500);
     }
 } catch (\Throwable $e) {
-    // Transforma o erro fatal em JSON para o React conseguir ler
+    // Transforma erros do PHP em JSON legível
     $erroReal = "PHP Error: " . $e->getMessage() . " | Arquivo: " . basename($e->getFile()) . " | Linha: " . $e->getLine();
     jsonError($erroReal, 500);
 }

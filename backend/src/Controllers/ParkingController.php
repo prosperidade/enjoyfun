@@ -166,7 +166,7 @@ function registerEntry(array $body): void
         // Removido organizer_id do insert, pois já está implícito no event_id
         $stmt = $db->prepare("
             INSERT INTO parking_records (event_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
-            VALUES (?, ?, ?, NOW(), 'parked', ?, NOW())
+            VALUES (?, ?, ?, NULL, 'pending', ?, NOW())
             RETURNING id, license_plate, qr_token, status
         ");
         $stmt->execute([(int)$eventId, $licensePlate, $vehicleType, $qrToken]);

@@ -1,6 +1,7 @@
 <?php
 /**
- * Organizer Settings Controller — EnjoyFun 2.0 (White Label)
+ * Organizer Settings Controller
+ * White-label settings por organizer (nome do app, cores e logo).
  */
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
@@ -9,136 +10,175 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'GET' && $id === null => getSettings(),
         $method === 'PUT' && $id === null => updateSettings($body),
         $method === 'POST' && $id === 'logo' => uploadLogo(),
-        default => jsonError("Endpoint de configurações não encontrado.", 404),
+        default => jsonError('Organizer settings endpoint não encontrado.', 404),
     };
 }
 
 function getSettings(): void
 {
-    $operator = requireAuth();
-    $organizerId = $operator['organizer_id'];
+    $user = requireAuth(['admin', 'organizer']);
+    $db = Database::getInstance();
 
-    try {
-        $db = Database::getInstance();
-        $stmt = $db->prepare("SELECT * FROM organizer_settings WHERE organizer_id = ? LIMIT 1");
-        $stmt->execute([$organizerId]);
-        $settings = $stmt->fetch(PDO::FETCH_ASSOC);
+    ensureOrganizerSettingsTable($db);
 
-        if (!$settings) {
-            // Retorna um padrão se o organizador for novo e ainda não configurou nada
-            $settings = [
-                'app_name' => 'EnjoyFun',
-                'primary_color' => '#7C3AED',
-                'secondary_color' => '#4F46E5',
-                'logo_url' => null,
-                'support_email' => $operator['email'] ?? '',
-                'support_whatsapp' => ''
-            ];
-        }
+    $organizerId = resolveOrganizerId($user);
 
-        jsonSuccess($settings);
-    } catch (Exception $e) {
-        jsonError("Erro ao buscar configurações: " . $e->getMessage(), 500);
+    $stmt = $db->prepare('SELECT organizer_id, app_name, primary_color, secondary_color, logo_url, updated_at FROM organizer_settings WHERE organizer_id = ? LIMIT 1');
+    $stmt->execute([$organizerId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$row) {
+        $row = [
+            'organizer_id' => $organizerId,
+            'app_name' => 'EnjoyFun',
+            'primary_color' => '#7c3aed',
+            'secondary_color' => '#db2777',
+            'logo_url' => null,
+            'updated_at' => null,
+        ];
     }
+
+    jsonSuccess($row);
 }
 
 function updateSettings(array $body): void
 {
-    $operator = requireAuth();
-    $organizerId = $operator['organizer_id'];
+    $user = requireAuth(['admin', 'organizer']);
+    $db = Database::getInstance();
 
-    $appName = trim($body['app_name'] ?? 'EnjoyFun');
-    $primaryColor = trim($body['primary_color'] ?? '#7C3AED');
-    $secondaryColor = trim($body['secondary_color'] ?? '#4F46E5');
-    $supportEmail = trim($body['support_email'] ?? '');
-    $supportWhatsapp = trim($body['support_whatsapp'] ?? '');
-    $subdomain = trim($body['subdomain'] ?? '');
+    ensureOrganizerSettingsTable($db);
 
-    try {
-        $db = Database::getInstance();
+    $organizerId = resolveOrganizerId($user);
+    $appName = trim((string)($body['app_name'] ?? 'EnjoyFun'));
+    $primaryColor = normalizeHexColor((string)($body['primary_color'] ?? '#7c3aed'));
+    $secondaryColor = normalizeHexColor((string)($body['secondary_color'] ?? '#db2777'));
 
-        // Verifica se o subdomínio já existe para OUTRO organizador
-        if ($subdomain) {
-            $stmtCheck = $db->prepare("SELECT organizer_id FROM organizer_settings WHERE subdomain = ? AND organizer_id != ?");
-            $stmtCheck->execute([$subdomain, $organizerId]);
-            if ($stmtCheck->fetch()) {
-                jsonError("Este subdomínio já está em uso por outro evento.", 409);
-            }
-        }
-
-        // UPSERT: Insere se não existir, Atualiza se já existir (PostgreSQL ON CONFLICT)
-        $sql = "
-            INSERT INTO organizer_settings (organizer_id, app_name, primary_color, secondary_color, support_email, support_whatsapp, subdomain, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-            ON CONFLICT (organizer_id) 
-            DO UPDATE SET 
-                app_name = EXCLUDED.app_name,
-                primary_color = EXCLUDED.primary_color,
-                secondary_color = EXCLUDED.secondary_color,
-                support_email = EXCLUDED.support_email,
-                support_whatsapp = EXCLUDED.support_whatsapp,
-                subdomain = EXCLUDED.subdomain,
-                updated_at = NOW()
-        ";
-        
-        $stmt = $db->prepare($sql);
-        $stmt->execute([$organizerId, $appName, $primaryColor, $secondaryColor, $supportEmail, $supportWhatsapp, $subdomain ?: null]);
-
-        jsonSuccess(null, "Configurações visuais atualizadas com sucesso!");
-    } catch (Exception $e) {
-        jsonError("Erro ao atualizar configurações: " . $e->getMessage(), 500);
+    if (!$appName) {
+        jsonError('app_name é obrigatório.', 422);
     }
+
+    $stmt = $db->prepare(
+        "INSERT INTO organizer_settings (organizer_id, app_name, primary_color, secondary_color, updated_at)
+         VALUES (?, ?, ?, ?, NOW())
+         ON CONFLICT (organizer_id)
+         DO UPDATE SET app_name = EXCLUDED.app_name,
+                       primary_color = EXCLUDED.primary_color,
+                       secondary_color = EXCLUDED.secondary_color,
+                       updated_at = NOW()"
+    );
+    $stmt->execute([$organizerId, $appName, $primaryColor, $secondaryColor]);
+
+    jsonSuccess([
+        'organizer_id' => $organizerId,
+        'app_name' => $appName,
+        'primary_color' => $primaryColor,
+        'secondary_color' => $secondaryColor,
+    ], 'Configurações visuais salvas com sucesso.');
 }
 
 function uploadLogo(): void
 {
-    $operator = requireAuth();
-    $organizerId = $operator['organizer_id'];
+    $user = requireAuth(['admin', 'organizer']);
+    $db = Database::getInstance();
 
-    if (!isset($_FILES['logo']) || $_FILES['logo']['error'] !== UPLOAD_ERR_OK) {
-        jsonError("Nenhum arquivo de imagem válido enviado.", 400);
+    ensureOrganizerSettingsTable($db);
+
+    if (empty($_FILES['logo'])) {
+        jsonError('Arquivo de logo não enviado.', 422);
     }
 
     $file = $_FILES['logo'];
-    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-    $allowedExts = ['jpg', 'jpeg', 'png', 'svg', 'webp'];
-
-    if (!in_array($ext, $allowedExts)) {
-        jsonError("Formato de imagem não permitido. Use JPG, PNG, SVG ou WEBP.", 415);
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        jsonError('Falha no upload da logo.', 400);
     }
 
-    // Cria a pasta de uploads automaticamente se ela não existir
-    $uploadDir = BASE_PATH . '/public/uploads/logos/';
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0755, true);
+    $allowed = [
+        'image/png' => 'png',
+        'image/jpeg' => 'jpg',
+        'image/webp' => 'webp',
+        'image/svg+xml' => 'svg',
+    ];
+
+    $mime = mime_content_type($file['tmp_name']) ?: '';
+    if (!isset($allowed[$mime])) {
+        jsonError('Formato inválido. Use PNG, JPG, WEBP ou SVG.', 422);
     }
 
-    $filename = "logo_org_{$organizerId}_" . time() . ".{$ext}";
-    $destination = $uploadDir . $filename;
+    $organizerId = resolveOrganizerId($user);
+    $ext = $allowed[$mime];
 
-    if (move_uploaded_file($file['tmp_name'], $destination)) {
-        // Monta a URL pública (usando a porta do PHP)
-        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
-        $domain = $_SERVER['HTTP_HOST'];
-        
-        // CORREÇÃO: Adicionado o /public/ logo após o domínio para o localhost conseguir achar a foto
-        $publicUrl = "{$protocol}://{$domain}/public/uploads/logos/{$filename}";
+    $publicDir = BASE_PATH . '/public';
+    $targetDir = $publicDir . '/uploads/logos';
 
-        try {
-            $db = Database::getInstance();
-            $sql = "
-                INSERT INTO organizer_settings (organizer_id, logo_url, updated_at)
-                VALUES (?, ?, NOW())
-                ON CONFLICT (organizer_id) 
-                DO UPDATE SET logo_url = EXCLUDED.logo_url, updated_at = NOW()
-            ";
-            $db->prepare($sql)->execute([$organizerId, $publicUrl]);
-
-            jsonSuccess(['logo_url' => $publicUrl], "Logo enviada e salva com sucesso!");
-        } catch (Exception $e) {
-            jsonError("Erro ao salvar logo no banco: " . $e->getMessage(), 500);
-        }
-    } else {
-        jsonError("Falha ao salvar o arquivo no servidor.", 500);
+    if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+        jsonError('Não foi possível criar pasta de uploads.', 500);
     }
+
+    $filename = sprintf('org_%d_%s.%s', $organizerId, bin2hex(random_bytes(6)), $ext);
+    $targetPath = $targetDir . '/' . $filename;
+
+    if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+        jsonError('Não foi possível salvar a logo no servidor.', 500);
+    }
+
+    $logoPath = '/uploads/logos/' . $filename;
+    $logoUrl = buildPublicAssetUrl($logoPath);
+
+    $stmt = $db->prepare(
+        "INSERT INTO organizer_settings (organizer_id, logo_url, updated_at)
+         VALUES (?, ?, NOW())
+         ON CONFLICT (organizer_id)
+         DO UPDATE SET logo_url = EXCLUDED.logo_url,
+                       updated_at = NOW()"
+    );
+    $stmt->execute([$organizerId, $logoUrl]);
+
+    jsonSuccess(['logo_url' => $logoUrl], 'Logo atualizada com sucesso.');
+}
+
+function resolveOrganizerId(array $user): int
+{
+    if (($user['role'] ?? '') === 'admin') {
+        // fallback para admin operar no próprio id caso não tenha organizer_id
+        return (int)($user['organizer_id'] ?? $user['id'] ?? 0);
+    }
+
+    return (int)($user['organizer_id'] ?? 0);
+}
+
+function normalizeHexColor(string $color): string
+{
+    $color = trim($color);
+    if (!preg_match('/^#([A-Fa-f0-9]{6})$/', $color)) {
+        jsonError('Cor inválida. Use formato hexadecimal #RRGGBB.', 422);
+    }
+
+    return strtoupper($color);
+}
+
+function buildPublicAssetUrl(string $path): string
+{
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+
+    // Normaliza barras para ambiente Windows/Linux
+    $path = '/' . ltrim(str_replace('\\', '/', $path), '/');
+
+    return $scheme . '://' . $host . $path;
+}
+
+function ensureOrganizerSettingsTable(PDO $db): void
+{
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS organizer_settings (
+            id BIGSERIAL PRIMARY KEY,
+            organizer_id BIGINT NOT NULL UNIQUE,
+            app_name VARCHAR(120) NOT NULL DEFAULT 'EnjoyFun',
+            primary_color VARCHAR(7) NOT NULL DEFAULT '#7C3AED',
+            secondary_color VARCHAR(7) NOT NULL DEFAULT '#DB2777',
+            logo_url TEXT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NULL
+        )"
+    );
 }

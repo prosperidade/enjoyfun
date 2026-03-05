@@ -11,17 +11,14 @@ import Tickets from "./pages/Tickets";
 import Cards from "./pages/Cards";
 import SuperAdminPanel from "./pages/SuperAdminPanel";
 
-// Nossos arquivos pontes (Wrappers)
+// Nossos arquivos independentes
 import Bar from "./pages/Bar";
 import Food from "./pages/Food";
 import Shop from "./pages/Shop";
-
 import Parking from "./pages/Parking";
 import WhatsApp from "./pages/WhatsApp";
 import AIAgents from "./pages/AIAgents";
 import Users from "./pages/Users";
-
-// MUDANÇA AQUI: Importando a nova tela de Configurações (White Label)
 import Settings from "./pages/Settings";
 
 function NotFound() {
@@ -65,6 +62,7 @@ export default function App() {
               <Route path="/cards" element={<Cards />} />
               <Route path="/superadmin" element={<SuperAdminPanel />} />
 
+              {/* PDVs Independentes */}
               <Route path="/bar" element={<Bar />} />
               <Route path="/food" element={<Food />} />
               <Route path="/shop" element={<Shop />} />
@@ -74,7 +72,7 @@ export default function App() {
               <Route path="/ai" element={<AIAgents />} />
               <Route path="/users" element={<Users />} />
               
-              {/* MUDANÇA AQUI: Rota atualizada para apontar para o nosso novo arquivo */}
+              {/* Rota de Configurações Final */}
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>
