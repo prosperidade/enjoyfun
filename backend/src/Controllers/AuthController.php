@@ -29,13 +29,11 @@ function login(array $body): void
     }
 
     $db   = Database::getInstance();
-    // Puxamos todos os dados, incluindo as novas colunas `role` e `organizer_id`
     $stmt = $db->prepare('SELECT * FROM users WHERE email = ? AND is_active = TRUE LIMIT 1');
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Validação temporária com '123456' conforme seu código original (ou use password_verify)
-    if (!$user || $password !== '123456') {
+    if (!$user || !password_verify($password, $user['password'] ?? '')) {
         AuditService::logFailure(
             AuditService::USER_LOGIN_FAILED,
             'user',
@@ -77,12 +75,15 @@ function register(array $body): void
     $email    = trim($body['email']    ?? '');
     $password =      $body['password'] ?? '';
     $phone    = trim($body['phone']    ?? '');
+    $cpf      = trim($body['cpf']      ?? '');
 
     $errors = [];
     if (!$name) $errors['name'] = 'Nome é obrigatório.';
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Email inválido.';
     if (strlen($password) < 8) $errors['password'] = 'A senha deve ter pelo menos 8 caracteres.';
-    
+    if (!$phone) $errors['phone'] = 'Telefone é obrigatório.';
+    if (!$cpf)   $errors['cpf']   = 'CPF é obrigatório.';
+
     if ($errors) jsonError('Falha na validação.', 422, $errors);
 
     $db = Database::getInstance();
@@ -93,12 +94,16 @@ function register(array $body): void
 
     $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
 
-    // Insere o cliente comum diretamente com a role 'customer' na coluna nova
-    $stmt = $db->prepare('INSERT INTO users (name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?) RETURNING id');
-    $stmt->execute([$name, $email, $phone ?: null, $hash, 'customer']);
+    // Organizer: auto-registro público cria conta como 'organizer'
+    $stmt = $db->prepare('
+        INSERT INTO users (name, email, phone, cpf, password, role, is_active, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, true, NOW())
+        RETURNING id
+    ');
+    $stmt->execute([$name, $email, $phone, $cpf, $hash, 'organizer']);
     $userId = (int) $stmt->fetchColumn();
 
-    $userData = buildUserPayload($db, ['id' => $userId, 'name' => $name, 'email' => $email, 'role' => 'customer']);
+    $userData = buildUserPayload($db, ['id' => $userId, 'name' => $name, 'email' => $email, 'role' => 'organizer']);
     $tokens   = issueTokens($db, $userData);
 
     jsonSuccess([

@@ -24,11 +24,11 @@ export async function loginApi(email, password) {
 
 // ── Register ───────────────────────────────────────────────────────────────
 /**
- * @param {{ name, email, password, phone? }} payload
+ * @param {{ name, email, password, phone, cpf }} payload
  * @returns {Promise<{user, access_token, refresh_token, expires_in}>}
  */
-export async function registerApi({ name, email, password, phone = '' }) {
-  const { data } = await api.post('/auth/register', { name, email, password, phone });
+export async function registerApi({ name, email, password, phone = '', cpf = '' }) {
+  const { data } = await api.post('/auth/register', { name, email, password, phone, cpf });
   return data.data;
 }
 

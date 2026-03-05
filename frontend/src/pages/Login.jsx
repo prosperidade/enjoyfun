@@ -16,7 +16,7 @@ export default function Login() {
   const [tab, setTab]         = useState('login');
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw]   = useState(false);
-  const [form, setForm]       = useState({ name: '', email: '', password: '', phone: '' });
+  const [form, setForm]       = useState({ name: '', email: '', password: '', phone: '', cpf: '' });
   const [errors, setErrors]   = useState({});
 
   if (user) return <Navigate to="/" replace />;
@@ -31,6 +31,8 @@ export default function Login() {
     if (tab === 'register' && !form.name.trim())         e.name     = 'Nome obrigatório.';
     if (!form.email || !/\S+@\S+\.\S+/.test(form.email)) e.email    = 'E-mail inválido.';
     if (form.password.length < (tab === 'register' ? 8 : 1)) e.password = tab === 'register' ? 'Mínimo 8 caracteres.' : 'Senha obrigatória.';
+    if (tab === 'register' && !form.cpf.trim())          e.cpf      = 'CPF obrigatório.';
+    if (tab === 'register' && !form.phone.trim())        e.phone    = 'Telefone obrigatório.';
     return e;
   };
 
@@ -47,7 +49,7 @@ export default function Login() {
         await login(form.email, form.password);
         toast.success('Bem-vindo de volta! 🎉');
       } else {
-        await register({ name: form.name, email: form.email, password: form.password, phone: form.phone });
+        await register({ name: form.name, email: form.email, password: form.password, phone: form.phone, cpf: form.cpf });
         toast.success('Conta criada! Bem-vindo ao EnjoyFun! 🚀');
       }
     } catch (err) {
@@ -182,8 +184,14 @@ export default function Login() {
             </Field>
 
             {tab === 'register' && (
-              <Field label="WhatsApp (opcional)" error={errors.phone}>
-                <input className={input(errors.phone)} type="tel" placeholder="+55 11 99999-0000" value={form.phone} onChange={set('phone')} />
+              <Field label="CPF *" error={errors.cpf}>
+                <input className={input(errors.cpf)} type="text" placeholder="000.000.000-00" required value={form.cpf} onChange={set('cpf')} />
+              </Field>
+            )}
+
+            {tab === 'register' && (
+              <Field label="WhatsApp / Telefone *" error={errors.phone}>
+                <input className={input(errors.phone)} type="tel" placeholder="+55 11 99999-0000" required value={form.phone} onChange={set('phone')} />
               </Field>
             )}
 
