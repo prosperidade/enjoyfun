@@ -3,12 +3,20 @@
  * Card Controller — EnjoyFun 2.0 (Multi-tenant)
  */
 
+function generateUuidV4(): string {
+    $data = random_bytes(16);
+    $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
+    $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+}
+
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
+        $method === 'POST' && $id === null => createCard($body),
         $method === 'GET' && $id === null => listCards($query),
         $method === 'GET' && $id !== null && $sub === 'transactions' => listTransactions($id),
-        $method === 'POST' && $id !== null && $sub === 'topup' => topupCard($id, $body),
+        $method === 'POST' && $id !== null && ($sub === 'credit' || $sub === 'topup') => addCredit($id, $body),
         default => jsonError("Endpoint not found: {$method} /cards/{$id}/{$sub}", 404),
     };
 }
@@ -70,7 +78,37 @@ function listTransactions(string $cardId): void
     }
 }
 
-function topupCard(string $cardId, array $body): void
+function createCard(array $body): void
+{
+    $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido', 403);
+    }
+
+    $db = Database::getInstance();
+    $uuid = generateUuidV4();
+    $userId = !empty($body['user_id']) ? (int)$body['user_id'] : null;
+
+    try {
+        $stmt = $db->prepare("
+            INSERT INTO public.digital_cards (id, user_id, balance, is_active, organizer_id, created_at)
+            VALUES (?::uuid, ?, 0, true, ?, NOW())
+        ");
+        $stmt->execute([$uuid, $userId, $organizerId]);
+
+        jsonSuccess([
+            'card_id' => $uuid,
+            'balance' => 0,
+            'is_active' => true
+        ], 'Cartão Cashless gerado com sucesso.', 201);
+    } catch (Exception $e) {
+        error_log("Erro ao criar cartão: " . $e->getMessage());
+        jsonError('Erro interno ao gerar o cartão.', 500);
+    }
+}
+
+function addCredit(string $cardId, array $body): void
 {
     $userPayload = requireAuth();
     $organizerId = $userPayload['organizer_id'];

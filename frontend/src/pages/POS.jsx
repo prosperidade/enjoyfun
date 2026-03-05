@@ -74,6 +74,19 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+const getProductIcon = (name, sector) => {
+  if (!name) return sector === "food" ? "🍔" : sector === "shop" ? "👕" : "🍻";
+  const n = String(name).toLowerCase();
+  if (n.includes("vodka") || n.includes("combo")) return "🍾";
+  if (n.includes("whisky") || n.includes("old par")) return "🥃";
+  if (n.includes("pizza")) return "🍕";
+  if (n.includes("xeque mate") || n.includes("mate")) return "🧉";
+  if (n.includes("agua") || n.includes("água")) return "💧";
+  if (n.includes("gatorade") || n.includes("energetico") || n.includes("energético")) return "⚡";
+  if (n.includes("hamburguer") || n.includes("burger")) return "🍔";
+  return sector === "food" ? "🍔" : sector === "shop" ? "👕" : "🍻";
+};
+
 export default function POS({ fixedSector = "bar" }) {
   const navigate = useNavigate(); // ADICIONADO
   const { syncOfflineData } = useNetwork();
@@ -192,8 +205,7 @@ export default function POS({ fixedSector = "bar" }) {
           res.data.data.map((p) => ({
             ...p,
             price: parseFloat(p.price),
-            icon:
-              p.sector === "food" ? "🍔" : p.sector === "shop" ? "👕" : "🍻",
+            icon: getProductIcon(p.name, p.sector),
           })),
         );
       }
@@ -215,6 +227,7 @@ export default function POS({ fixedSector = "bar" }) {
           setReportData(res.data.data.report);
         } else {
           setRecentSales(res.data.data);
+          setReportData(null);
         }
       }
     } catch (err) {
@@ -387,23 +400,73 @@ export default function POS({ fixedSector = "bar" }) {
     setChatHistory((prev) => [...prev, { role: "user", content: q }]);
     setLoadingInsight(true);
     try {
-      const res = await api.post(
+      // Passo 1: busca dados analíticos do backend
+      const dataRes = await api.post(
         `/${currentSector}/insights?filter=${timeFilter}`,
-        {
-          event_id: eventId,
-          question: q,
-        },
+        { event_id: eventId, question: q },
       );
-      if (res.data?.data?.insight) {
-        setChatHistory((prev) => [
-          ...prev,
-          { role: "ai", content: res.data.data.insight },
-        ]);
+
+      const ctx = dataRes.data?.data?.context;
+      let insight = "";
+
+      if (ctx) {
+        // Passo 2: chama Gemini diretamente do browser com os dados do backend
+        const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!geminiKey) {
+          throw new Error("VITE_GEMINI_API_KEY não configurada no frontend.");
+        }
+
+        const prompt = `PERÍODO: ${ctx.time_filter}
+FATURAMENTO TOTAL: R$ ${ctx.total_revenue}
+ITENS VENDIDOS: ${ctx.total_items} und
+TOP PRODUTOS (JSON): ${JSON.stringify(ctx.top_products)}
+ESTOQUE CRÍTICO (JSON): ${JSON.stringify(ctx.stock_levels)}
+
+TAREFAS:
+1. Avalie o ritmo de vendas e saúde do faturamento.
+2. Destaque os campeões de venda.
+3. Alerte sobre itens perto do limite crítico de estoque.
+4. Sugira 2 ações práticas de alta conversão.
+
+PERGUNTA DO OPERADOR: ${q}`;
+
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              system_instruction: {
+                parts: [{ text: "Você é a IA Consultora do EnjoyFun, especialista em eventos. Forneça insights executivos de vendas em português, usando emojis para estruturar." }],
+              },
+              contents: [{ role: "user", parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.4 },
+            }),
+          },
+        );
+        const geminiJson = await geminiRes.json();
+        if (!geminiRes.ok) {
+          if (geminiRes.status === 429) {
+            throw new Error("⏳ Limite de requisições atingido. Aguarde 30 segundos e tente novamente.");
+          }
+          throw new Error(geminiJson?.error?.message ?? `Erro da API Gemini (${geminiRes.status})`);
+        }
+        insight = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text
+          ?? "Nenhum insight retornado pela IA.";
+      } else if (dataRes.data?.data?.insight) {
+        // Fallback: caso o backend retorne o insight direto
+        insight = dataRes.data.data.insight;
       }
-    } catch {
+
       setChatHistory((prev) => [
         ...prev,
-        { role: "ai", content: "Erro na conexão com IA." },
+        { role: "ai", content: insight || "Sem resposta da IA." },
+      ]);
+    } catch (err) {
+      console.error("Erro na IA:", err);
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "ai", content: `Erro na conexão com IA: ${err.message}` },
       ]);
     } finally {
       setLoadingInsight(false);
@@ -873,13 +936,13 @@ export default function POS({ fixedSector = "bar" }) {
                 </div>
               )}
 
-              <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
-                <h3 className="text-white font-bold mb-4">
-                  Timeline de Vendas
-                </h3>
-                {reportData?.sales_chart?.length ? (
-                  <div className="h-72">
-                    <ResponsiveContainer width="100%" height="100%">
+              <div className="flex flex-col gap-8 w-full">
+                <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
+                  <h3 className="text-white font-bold mb-4">
+                    Timeline de Vendas
+                  </h3>
+                  {reportData?.sales_chart?.length ? (
+                    <ResponsiveContainer width="100%" height={320}>
                       <AreaChart data={reportData.sales_chart}>
                         <defs>
                           <linearGradient
@@ -922,12 +985,37 @@ export default function POS({ fixedSector = "bar" }) {
                         />
                       </AreaChart>
                     </ResponsiveContainer>
-                  </div>
-                ) : (
-                  <p className="text-center text-gray-600 text-sm py-20">
-                    Sem dados históricos.
-                  </p>
-                )}
+                  ) : (
+                    <p className="text-center text-gray-600 text-sm py-20">
+                      Sem dados históricos.
+                    </p>
+                  )}
+                </div>
+
+                <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
+                  <h3 className="text-white font-bold mb-4">
+                    Mix de Produtos
+                  </h3>
+                  {reportData?.mix_chart?.length ? (
+                    <ResponsiveContainer width="100%" height={320}>
+                      <BarChart data={reportData.mix_chart} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
+                        <XAxis type="number" stroke="#9ca3af" fontSize={10} />
+                        <YAxis dataKey="name" type="category" stroke="#9ca3af" fontSize={10} width={100} />
+                        <RechartsTooltip 
+                          cursor={{fill: '#1f2937'}}
+                          contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }}
+                          itemStyle={{ color: '#a855f7' }}
+                        />
+                        <RechartsBar dataKey="qty" fill="#a855f7" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-center text-gray-600 text-sm py-20">
+                      Sem dados do mix.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}

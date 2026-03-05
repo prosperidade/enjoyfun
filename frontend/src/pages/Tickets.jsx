@@ -189,32 +189,38 @@ export default function Tickets() {
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
+      {/* HEADER CORRIGIDO: Botões alinhados e responsivos */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="page-title flex items-center gap-2">
-            <Ticket size={22} className="text-purple-400" /> Ingressos
+            <Ticket size={22} className="text-brand" /> Ingressos
           </h1>
           <p className="text-gray-500 text-sm mt-1">{tickets.length} ingressos ativos</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={handleQuickSale} className="btn-primary flex items-center gap-2">
-            <Plus size={16} /> Venda Rápida
+        <div className="flex flex-wrap gap-3 w-full sm:w-auto">
+          <button onClick={handleQuickSale} className="btn-primary flex-1 sm:flex-none justify-center">
+            <Plus size={18} /> Venda Rápida
           </button>
-          <button onClick={() => setScanMode(!scanMode)} className={scanMode ? "btn-secondary" : "btn-outline"}>
-            <QrCode size={16} /> {scanMode ? "Fechar Scanner" : "Scanner QR"}
+          <button onClick={() => setScanMode(!scanMode)} className={`flex-1 sm:flex-none justify-center ${scanMode ? "btn-secondary" : "btn-outline"}`}>
+            <QrCode size={18} /> {scanMode ? "Fechar Scanner" : "Scanner QR"}
           </button>
         </div>
       </div>
 
-      {/* ÁREA DO SCANNER (PORTARIA) */}
+      {/* ÁREA DO SCANNER (PORTARIA) CORRIGIDA: Input e botão na mesma altura */}
       {scanMode && (
-        <div className="card border-purple-800/40 animate-in zoom-in duration-300">
+        <div className="card border-brand/40 animate-in zoom-in duration-300">
           <h2 className="section-title">🔍 Validar Portaria (Anti-Print)</h2>
-          <form onSubmit={handleScan} className="flex gap-3">
-            <input className="input flex-1" placeholder="Bipe o código aqui..." value={qrInput} onChange={(e) => setQrInput(e.target.value)} autoFocus />
-            <button type="submit" disabled={scanning} className="btn-primary">
-              {scanning ? <span className="spinner w-4 h-4" /> : "Validar"}
+          <form onSubmit={handleScan} className="flex gap-3 w-full">
+            <input 
+              className="input flex-1" 
+              placeholder="Bipe o código aqui..." 
+              value={qrInput} 
+              onChange={(e) => setQrInput(e.target.value)} 
+              autoFocus 
+            />
+            <button type="submit" disabled={scanning} className="btn-primary px-8">
+              {scanning ? <span className="spinner w-5 h-5" /> : "Validar"}
             </button>
           </form>
           {scanResult && (
@@ -264,7 +270,7 @@ export default function Tickets() {
                       {t.status === 'paid' && (
                         <button onClick={() => handleTransfer(t.id)} title="Transferir Titularidade" className="p-2 hover:bg-white/10 rounded-lg text-gray-400 transition-all"><Send size={18} /></button>
                       )}
-                      <button onClick={() => setSelectedTicket(t)} className="p-2 hover:bg-purple-500/20 rounded-lg text-purple-400 transition-all"><Eye size={20} /></button>
+                      <button onClick={() => setSelectedTicket(t)} className="p-2 hover:text-brand hover:bg-brand-soft rounded-lg text-gray-400 transition-all"><Eye size={20} /></button>
                     </div>
                   </td>
                 </tr>
@@ -274,13 +280,13 @@ export default function Tickets() {
         </div>
       )}
 
-      {/* MODAL DO INGRESSO DINÂMICO (VIVO) */}
+      {/* MODAL DO INGRESSO DINÂMICO (VIVO) - CORRIGIDO O BOTÃO FECHAR */}
       {selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-          <div className="card max-w-sm w-full border-purple-500/50 text-center space-y-6 p-8 relative overflow-hidden shadow-2xl">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent"></div>
+          <div className="card max-w-sm w-full border-brand/50 text-center space-y-6 p-8 relative overflow-hidden shadow-2xl">
+            <div className="absolute top-0 left-0 w-full h-1 bg-brand-gradient"></div>
             <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2 text-purple-400">
+              <div className="flex items-center gap-2 text-brand">
                 <Clock size={16} className="animate-pulse" />
                 <span className="text-xs font-mono">{currentTime.toLocaleTimeString("pt-BR")}</span>
               </div>
@@ -289,22 +295,27 @@ export default function Tickets() {
 
             <div className="space-y-1">
               <h3 className="text-xl font-bold text-white uppercase tracking-tight">Ingresso Oficial</h3>
-              <p className="text-[10px] text-purple-400 animate-pulse font-bold">ATUALIZA EM {timeLeft}s</p>
+              <p className="text-[10px] text-brand animate-pulse font-bold">ATUALIZA EM {timeLeft}s</p>
             </div>
 
-            <div className="bg-white p-3 rounded-xl inline-block mx-auto shadow-inner border-4 border-purple-500">
+            <div className="bg-white p-3 rounded-xl inline-block mx-auto shadow-inner border-4 border-brand">
                 <QRCodeCanvas value={dynamicToken} size={200} level={"H"} includeMargin={true} />
             </div>
 
             <div className="space-y-1">
               <p className="text-white font-bold text-2xl truncate px-2">{selectedTicket.holder_name || "Participante"}</p>
-              <p className="text-purple-400 font-semibold uppercase">{selectedTicket.type_name || "Ingresso Geral"}</p>
+              <p className="text-brand font-semibold uppercase">{selectedTicket.type_name || "Ingresso Geral"}</p>
               <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] py-1 px-2 rounded mt-2 font-bold uppercase">
-                 Prints e Fotos são inválidos nesta portaria
+                  Prints e Fotos são inválidos nesta portaria
               </div>
             </div>
 
-            <button onClick={() => setSelectedTicket(null)} className="btn-primary w-full py-4 text-lg font-bold">VOLTAR</button>
+            {/* BOTÃO CORRIGIDO: "FECHAR" com espaçamento correto */}
+            <div className="pt-4 mt-4 border-t border-gray-800">
+              <button onClick={() => setSelectedTicket(null)} className="btn-primary w-full py-3 text-lg font-bold tracking-widest">
+                FECHAR
+              </button>
+            </div>
           </div>
         </div>
       )}

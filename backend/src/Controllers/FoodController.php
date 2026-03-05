@@ -67,19 +67,32 @@ function listProducts(): void
 
 function createProduct(array $body): void
 {
-    requireAuth();
+    $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) jsonError('Organizer inválido', 403);
+    
     try {
         $db = Database::getInstance();
+        $eventId = (int)($body['event_id'] ?? 1);
+        
+        // Bloqueio de Duplicatas
+        $stmtCheck = $db->prepare("SELECT id FROM public.products WHERE LOWER(name) = LOWER(?) AND event_id = ? AND organizer_id = ? AND sector = 'food'");
+        $stmtCheck->execute([trim($body['name']), $eventId, $organizerId]);
+        if ($stmtCheck->fetchColumn()) {
+            jsonError('Produto já cadastrado neste setor.', 409);
+        }
+
         $stmt = $db->prepare("
-            INSERT INTO public.products (event_id, name, price, stock_qty, sector, low_stock_threshold) 
-            VALUES (?, ?, ?, ?, 'food', ?) RETURNING id
+            INSERT INTO public.products (event_id, organizer_id, name, price, stock_qty, sector, low_stock_threshold) 
+            VALUES (?, ?, ?, ?, ?, 'food', ?) RETURNING id
         ");
         $stmt->execute([
-            $body['event_id'] ?? 1,
-            $body['name'],
+            $eventId,
+            $organizerId,
+            trim($body['name']),
             (float)$body['price'],
             (int)$body['stock_qty'],
-            (int)($body['low_stock_threshold'] ?? 5)
+            (int)($body['min_stock'] ?? $body['low_stock_threshold'] ?? 5)
         ]);
         echo json_encode(['success' => true, 'data' => ['id' => $stmt->fetchColumn()]]);
         exit;
@@ -92,20 +105,17 @@ function createProduct(array $body): void
 
 function updateProduct(int $id, array $body): void
 {
-    requireAuth();
+    $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     try {
         $db = Database::getInstance();
+        $minStock = (int)($body['min_stock'] ?? $body['low_stock_threshold'] ?? 5);
         $stmt = $db->prepare("
             UPDATE public.products SET name = ?, price = ?, stock_qty = ?, low_stock_threshold = ?, updated_at = NOW() 
-            WHERE id = ? AND sector = 'food'
+            WHERE id = ? AND organizer_id = ?
         ");
-        $stmt->execute([
-            $body['name'], 
-            (float)$body['price'], 
-            (int)$body['stock_qty'], 
-            (int)($body['low_stock_threshold'] ?? 5), 
-            $id
-        ]);
+        $stmt->execute([$body['name'], (float)$body['price'], (int)$body['stock_qty'], $minStock, $id, $organizerId]);
         echo json_encode(['success' => true]);
         exit;
     } catch (Exception $e) {
@@ -138,30 +148,83 @@ function listRecentSales(): void
     $eventId = $_GET['event_id'] ?? 1;
     $timeFilter = $_GET['filter'] ?? '24h';
     
-    $whereTime = "AND created_at >= NOW() - INTERVAL '24 hours'";
-    if ($timeFilter === '1h') $whereTime = "AND created_at >= NOW() - INTERVAL '1 hour'";
+    $whereTime = "AND s.created_at >= NOW() - INTERVAL '24 hours'";
+    if ($timeFilter === '1h') $whereTime = "AND s.created_at >= NOW() - INTERVAL '1 hour'";
     elseif ($timeFilter === 'total') $whereTime = "";
 
     try {
         $db = Database::getInstance();
+        // Busca as 10 vendas recentes usando apenas colunas reais da tabela sales
         $sql = "
-            SELECT s.*, 
-                (SELECT json_agg(json_build_object('name', p.name, 'qty', si.quantity)) 
-                 FROM sale_items si 
-                 JOIN products p ON p.id = si.product_id 
-                 WHERE si.sale_id = s.id AND p.sector = 'food') as items_detail
+            SELECT s.id, s.total_amount, s.created_at, s.status,
+                COALESCE((SELECT SUM(quantity) FROM sale_items WHERE sale_id = s.id), 0) as total_items,
+                (SELECT json_agg(json_build_object('name', p.name, 'qty', si2.quantity))
+                 FROM sale_items si2 JOIN products p ON p.id = si2.product_id
+                 WHERE si2.sale_id = s.id AND p.sector = 'food') as items_detail
             FROM sales s 
             WHERE s.event_id = ? AND s.organizer_id = ? $whereTime 
             ORDER BY s.created_at DESC LIMIT 10
         ";
         $stmt = $db->prepare($sql);
         $stmt->execute([$eventId, $organizerId]);
-        
+        $recentSales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $stmtSum = $db->prepare("
+            SELECT COALESCE(SUM(si.subtotal), 0) 
+            FROM sale_items si 
+            JOIN sales s ON si.sale_id = s.id 
+            JOIN products p ON p.id = si.product_id
+            WHERE s.event_id = ? AND s.organizer_id = ? AND s.status = 'completed' AND p.sector = 'food' $whereTime
+        ");
+        $stmtSum->execute([$eventId, $organizerId]);
+        $totalRevenue = (float) $stmtSum->fetchColumn();
+
+        $stmtItems = $db->prepare("
+            SELECT COALESCE(SUM(si.quantity), 0) 
+            FROM sale_items si 
+            JOIN sales s ON si.sale_id = s.id 
+            JOIN products p ON p.id = si.product_id
+            WHERE s.event_id = ? AND s.organizer_id = ? AND s.status = 'completed' AND p.sector = 'food' $whereTime
+        ");
+        $stmtItems->execute([$eventId, $organizerId]);
+        $totalItems = (int) $stmtItems->fetchColumn();
+
+        $sqlChart = "
+            SELECT TO_CHAR(s.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') as time, SUM(si.subtotal) as revenue 
+            FROM sale_items si
+            JOIN sales s ON si.sale_id = s.id
+            JOIN products p ON p.id = si.product_id
+            WHERE s.event_id = ? AND s.organizer_id = ? AND s.status = 'completed' AND p.sector = 'food' $whereTime
+            GROUP BY TO_CHAR(s.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI')
+            ORDER BY min(s.created_at) ASC
+        ";
+        $stmtChart = $db->prepare($sqlChart);
+        $stmtChart->execute([$eventId, $organizerId]);
+        $salesChart = $stmtChart->fetchAll(PDO::FETCH_ASSOC);
+
+        $sqlMix = "
+            SELECT p.name, SUM(si.quantity) as qty
+            FROM sale_items si 
+            JOIN sales s ON si.sale_id = s.id 
+            JOIN products p ON si.product_id = p.id 
+            WHERE s.event_id = ? AND s.organizer_id = ? AND s.status = 'completed' AND p.sector = 'food' $whereTime
+            GROUP BY p.name 
+            ORDER BY qty DESC
+        ";
+        $stmtMix = $db->prepare($sqlMix);
+        $stmtMix->execute([$eventId, $organizerId]);
+        $mixChart = $stmtMix->fetchAll(PDO::FETCH_ASSOC);
+
         echo json_encode([
             'success' => true, 
             'data' => [
-                'recent_sales' => $stmt->fetchAll(PDO::FETCH_ASSOC),
-                'report' => ['total_revenue' => 0, 'total_items' => 0] // Placeholder para não quebrar o frontend
+                'recent_sales' => $recentSales,
+                'report' => [
+                    'total_revenue' => $totalRevenue, 
+                    'total_items' => $totalItems,
+                    'sales_chart' => $salesChart,
+                    'mix_chart' => $mixChart
+                ]
             ]
         ]);
         exit;
@@ -177,78 +240,74 @@ function checkout(array $body): void
     $operator = requireAuth();
     $organizerId = (int)($operator['organizer_id'] ?? 0);
     if ($organizerId <= 0) jsonError('Organizer inválido', 403);
+
     $db = Database::getInstance();
-    $eventId = $body['event_id'] ?? 1;
-    $total = (float)($body['total_amount'] ?? 0);
-    $items = $body['items'] ?? [];
-    $token = $body['qr_token'] ?? $body['card_token'] ?? null;
+    $eventId = (int)($body['event_id'] ?? 1);
+    $items   = $body['items'] ?? [];
+    // POS.jsx envia como 'qr_token' — aceitar todos os aliases
+    $cardId  = $body['qr_token'] ?? $body['card_id'] ?? $body['customer_id'] ?? $body['card_token'] ?? null;
+
+    if (empty($items)) jsonError('Carrinho vazio.', 422);
 
     try {
         $db->beginTransaction();
-        $cardId = null; $currentBalance = 0;
 
-        if ($token) {
-            $card = findDigitalCardForCheckout($db, $token);
+        // 1. Cálculo seguro do total (re-lendo preços do banco)
+        $calculatedTotal = 0.0;
+        foreach ($items as $item) {
+            $stmtP = $db->prepare('SELECT price FROM products WHERE id = ? AND event_id = ? AND organizer_id = ?');
+            $stmtP->execute([$item['product_id'], $eventId, $organizerId]);
+            $price = (float)$stmtP->fetchColumn();
+            if ($price <= 0) throw new Exception('Produto não encontrado: ' . $item['product_id']);
+            $calculatedTotal += $price * (int)$item['quantity'];
+        }
+        if ($calculatedTotal <= 0) throw new Exception('Valor total inválido.');
+
+        // 2. Validação Cashless — lógica direta no digital_cards (sem JOIN em users)
+        if ($cardId) {
+            $stmtCard = $db->prepare(
+                'SELECT id, balance FROM digital_cards
+                 WHERE id::text = ? AND organizer_id = ? AND is_active = true
+                 FOR UPDATE'
+            );
+            $stmtCard->execute([$cardId, $organizerId]);
+            $card = $stmtCard->fetch(PDO::FETCH_ASSOC);
 
             if (!$card) {
-                AuditService::logFailure(
-                    AuditService::SALE_CHECKOUT,
-                    'card',
-                    $token,
-                    'Cartão ou QR não encontrado',
-                    $operator,
-                    ['metadata' => ['sector' => 'food']]
-                );
-                throw new Exception("Cartão ou QR não encontrado: " . $token);
+                $db->rollBack();
+                jsonError('Cartão digital inválido ou inativo', 404);
             }
-
-            if ($card['balance'] < $total) {
-                AuditService::logFailure(
-                    AuditService::SALE_CHECKOUT,
-                    'card',
-                    $card['id'],
-                    'Saldo insuficiente no cartão',
-                    $operator,
-                    ['metadata' => ['saldo' => $card['balance'], 'total' => $total, 'sector' => 'food']]
-                );
-                throw new Exception("Saldo insuficiente no cartão.");
+            if ((float)$card['balance'] < $calculatedTotal) {
+                $db->rollBack();
+                jsonError('Saldo insuficiente no cartão', 400);
             }
-
-            $cardId = $card['id'];
-            $currentBalance = (float)$card['balance'];
-        } else {
-            throw new Exception("Nenhum cartão selecionado para o pagamento.");
+            // Débito relativo — mais seguro que gravar valor absoluto
+            $db->prepare('UPDATE digital_cards SET balance = balance - ?, updated_at = NOW() WHERE id::text = ?')
+               ->execute([$calculatedTotal, $cardId]);
         }
 
-        $stmtSale = $db->prepare("INSERT INTO sales (event_id, organizer_id, total_amount, status, created_at) VALUES (?, ?, ?, 'completed', NOW()) RETURNING id");
-        $stmtSale->execute([$eventId, $organizerId, $total]);
+        // 3. Registro da venda (sem payment_method — coluna não existe)
+        $stmtSale = $db->prepare(
+            "INSERT INTO sales (event_id, organizer_id, total_amount, status, created_at)
+             VALUES (?, ?, ?, 'completed', NOW()) RETURNING id"
+        );
+        $stmtSale->execute([$eventId, $organizerId, $calculatedTotal]);
         $saleId = $stmtSale->fetchColumn();
 
+        // 4. Itens e baixa de estoque
         foreach ($items as $item) {
-            $db->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)")
-               ->execute([$saleId, $item['product_id'], $item['quantity'], $item['unit_price'], $item['subtotal']]);
-            $db->prepare("UPDATE products SET stock_qty = stock_qty - ? WHERE id = ?")
+            $stmtP2 = $db->prepare('SELECT price FROM products WHERE id = ?');
+            $stmtP2->execute([$item['product_id']]);
+            $price    = (float)$stmtP2->fetchColumn();
+            $subtotal = $price * (int)$item['quantity'];
+            $db->prepare('INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)')
+               ->execute([$saleId, $item['product_id'], $item['quantity'], $price, $subtotal]);
+            $db->prepare('UPDATE products SET stock_qty = stock_qty - ? WHERE id = ?')
                ->execute([$item['quantity'], $item['product_id']]);
         }
 
-        $newBalance = $currentBalance - $total;
-        $db->prepare("UPDATE public.digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?")
-           ->execute([$newBalance, $cardId]);
-
         $db->commit();
-
-        AuditService::log(
-            AuditService::SALE_CHECKOUT,
-            'sale',
-            $saleId,
-            ['card_balance' => $currentBalance],
-            ['card_balance' => $newBalance, 'total' => $total, 'items_count' => count($items)],
-            $operator,
-            'success',
-            ['event_id' => $eventId, 'metadata' => ['sector' => 'food']]
-        );
-
-        echo json_encode(['success' => true, 'data' => ['sale_id' => $saleId, 'new_balance' => $newBalance]]);
+        echo json_encode(['success' => true, 'message' => 'Venda realizada com sucesso!', 'data' => ['sale_id' => $saleId]]);
         exit;
     } catch (Exception $e) {
         if ($db->inTransaction()) $db->rollBack();
@@ -291,24 +350,71 @@ function findDigitalCardForCheckout(PDO $db, string $token): array|false
 
 function requestGeminiInsight(array $body): void
 {
-    requireAuth();
-    $eventId = (int)($_GET['event_id'] ?? 1);
+    $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) jsonError('Organizer inválido', 403);
+
+    $eventId    = (int)($body['event_id'] ?? $_GET['event_id'] ?? 1);
+    $timeFilter = $body['filter'] ?? $_GET['filter'] ?? '24h';
+
+    $whereTime = "AND s.created_at >= NOW() - INTERVAL '24 hours'";
+    if ($timeFilter === '1h')        $whereTime = "AND s.created_at >= NOW() - INTERVAL '1 hour'";
+    elseif ($timeFilter === '5h')    $whereTime = "AND s.created_at >= NOW() - INTERVAL '5 hours'";
+    elseif ($timeFilter === 'total') $whereTime = '';
+
     try {
         $db = Database::getInstance();
-        $sqlRecent = "SELECT total_amount FROM sales WHERE event_id = ? AND DATE(created_at) = CURRENT_DATE";
-        $stmtRecent = $db->prepare($sqlRecent); 
-        $stmtRecent->execute([$eventId]);
-        
-        $sqlStock = "SELECT name, stock_qty FROM products WHERE event_id = ? AND sector = 'food'";
-        $stmtStock = $db->prepare($sqlStock); 
-        $stmtStock->execute([$eventId]);
 
-        $insight = \EnjoyFun\Services\GeminiService::generateBarInsight($stmtRecent->fetchAll(PDO::FETCH_ASSOC), $stmtStock->fetchAll(PDO::FETCH_ASSOC), '24h', $body['question'] ?? 'Análise Food');
-        echo json_encode(['success' => true, 'data' => ['insight' => $insight]]);
-        exit;
+        $stmtRev = $db->prepare(
+            "SELECT COALESCE(SUM(total_amount), 0) FROM sales s
+             WHERE s.event_id = ? AND s.organizer_id = ? AND s.status = 'completed' $whereTime"
+        );
+        $stmtRev->execute([$eventId, $organizerId]);
+        $totalRevenue = (float)$stmtRev->fetchColumn();
+
+        $stmtQty = $db->prepare(
+            "SELECT COALESCE(SUM(si.quantity), 0) FROM sale_items si
+             JOIN sales s ON si.sale_id = s.id
+             WHERE s.event_id = ? AND s.organizer_id = ? AND s.status = 'completed' $whereTime"
+        );
+        $stmtQty->execute([$eventId, $organizerId]);
+        $totalItems = (int)$stmtQty->fetchColumn();
+
+        // Top produtos exclusivos do setor FOOD
+        $stmtMix = $db->prepare(
+            "SELECT p.name, SUM(si.quantity) AS qty
+             FROM sale_items si
+             JOIN sales s    ON si.sale_id    = s.id
+             JOIN products p ON si.product_id = p.id
+             WHERE s.event_id = ? AND s.organizer_id = ? AND s.status = 'completed'
+               AND p.sector = 'food' $whereTime
+             GROUP BY p.name ORDER BY qty DESC LIMIT 10"
+        );
+        $stmtMix->execute([$eventId, $organizerId]);
+        $topProducts = $stmtMix->fetchAll(PDO::FETCH_ASSOC);
+
+        $stmtStock = $db->prepare(
+            "SELECT name, stock_qty, low_stock_threshold FROM products
+             WHERE event_id = ? AND organizer_id = ? AND sector = 'food'
+             ORDER BY stock_qty ASC LIMIT 10"
+        );
+        $stmtStock->execute([$eventId, $organizerId]);
+        $stockLevels = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
+
+        // Retorna dados para o frontend chamar o Gemini diretamente
+        jsonSuccess([
+            'context' => [
+                'total_revenue' => $totalRevenue,
+                'total_items'   => $totalItems,
+                'top_products'  => $topProducts,
+                'stock_levels'  => $stockLevels,
+                'time_filter'   => $timeFilter,
+                'sector'        => 'food',
+            ]
+        ]);
     } catch (Exception $e) {
-        http_response_code(500); 
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]); 
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         exit;
     }
 }

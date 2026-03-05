@@ -13,18 +13,24 @@ export default function Cards() {
   const [transactions, setTransactions] = useState([]);
   const [topupAmt, setTopupAmt] = useState('');
   const [topping, setTopping] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserCpf, setNewUserCpf] = useState('');
+  const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
 
   useEffect(() => { api.get('/events').then(r => setEvents(r.data.data || [])).catch(() => {}); }, []);
 
-  useEffect(() => {
+  const loadCards = () => {
     setLoading(true);
     const params = eventId ? { event_id: eventId } : {};
     api.get('/cards', { params })
        .then(r => setCards(r.data.data || []))
        .catch(() => toast.error('Erro ao carregar cartões.'))
        .finally(() => setLoading(false));
-  }, [eventId]);
+  };
+
+  useEffect(() => { loadCards(); }, [eventId]);
 
   const viewCard = (card) => {
     setSelected(card);
@@ -33,6 +39,30 @@ export default function Cards() {
        .then(r => setTransactions(r.data.data || []))
        .catch(() => {})
        .finally(() => setTxLoading(false));
+  };
+
+  const handleCreateCard = async (e) => {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      // O backend createCard atualmente aceita user_id, mas para visitantes 
+      // avulsos podemos enviar como user_name/cpf solto ou futuramente integrá-los.
+      const payload = {
+        user_name: newUserName,
+        cpf: newUserCpf,
+        event_id: eventId
+      };
+      const { data } = await api.post('/cards', payload);
+      toast.success(data.message || 'Cartão gerado e vinculado!');
+      setShowAddModal(false);
+      setNewUserName('');
+      setNewUserCpf('');
+      loadCards();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erro ao criar cartão');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleTopup = async (e) => {
@@ -57,16 +87,21 @@ export default function Cards() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="page-title flex items-center gap-2"><CreditCard size={22} className="text-purple-400" /> Cartão Digital</h1>
           <p className="text-gray-500 text-sm mt-1">{cards.length} cartão(ões) emitido(s)</p>
         </div>
-        <select className="select w-auto min-w-[200px]" value={eventId} onChange={e => setEventId(e.target.value)}>
-          <option value="">Todos os eventos</option>
-          {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
-        </select>
+        <div className="flex gap-2">
+          <select className="select w-auto min-w-[200px]" value={eventId} onChange={e => setEventId(e.target.value)}>
+            <option value="">Todos os eventos</option>
+            {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+          </select>
+          <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2">
+            <Plus size={18} /> Novo Cartão
+          </button>
+        </div>
       </div>
 
       <div className="relative">
@@ -171,6 +206,66 @@ export default function Cards() {
           </div>
         )}
       </div>
+
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <CreditCard size={20} className="text-purple-400" />
+                Emitir Novo Cartão
+              </h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleCreateCard} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 mb-1">
+                  Nome do Titular (Opcional)
+                </label>
+                <input
+                  autoFocus
+                  className="input w-full"
+                  placeholder="Ex: João da Silva (Staff / DJ)"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 mb-1">
+                  CPF (Opcional)
+                </label>
+                <input
+                  className="input w-full"
+                  placeholder="Somente números"
+                  value={newUserCpf}
+                  onChange={(e) => setNewUserCpf(e.target.value)}
+                />
+              </div>
+              <div className="pt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="btn-secondary flex-1"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="btn-primary flex-1"
+                >
+                  {creating ? <span className="spinner w-5 h-5" /> : 'Gerar Cartão'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
