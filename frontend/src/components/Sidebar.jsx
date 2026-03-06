@@ -41,12 +41,13 @@ const nav = [
       { to: "/shop", label: "Loja", icon: Store },
     ],
   },
-  // 🚀 AGORA COM 'organizer' NO ARRAY DE ROLES:
   { to: "/parking", icon: ParkingSquare, label: "Estacionamento", roles: ["admin", "organizer", "parking_staff", "staff"] },
   { to: "/messaging", icon: MessageCircle, label: "Mensageria", roles: ["admin", "organizer"] },
   { to: "/ai", icon: Bot, label: "Agentes de IA", roles: ["admin", "organizer"] },
   { to: "/users", icon: Users, label: "Usuários", roles: ["admin", "organizer"] },
-  { to: "/guests", icon: Mail, label: "Convidados", roles: ["admin", "organizer", "staff"] },
+  
+  // 🎟️ ALTERAÇÃO AQUI: Deixando roles vazio [] para garantir que apareça para todos
+  { to: "/guests", icon: Mail, label: "Convidados", roles: [] },
 ];
 
 function applyBrand(settings) {
@@ -106,7 +107,6 @@ export default function Sidebar({ isOpen, onClose }) {
     return () => window.removeEventListener(BRAND_EVENT, onBrandUpdated);
   }, []);
 
-  // Aqui é onde a mágica acontece: ele filtra o que você pode ver
   const visibleNav = nav.filter((n) => n.roles.length === 0 || n.roles.some((r) => hasRole(r)));
 
   return (

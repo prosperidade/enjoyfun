@@ -1,14 +1,9 @@
 <?php
 /**
  * EnjoyFun 2.0 — Backend Entry Point (VERSÃO FINAL BLINDADA)
- * * MUDANÇAS APLICADAS:
- * 1. FIX CORS: Alinhado para porta 3001 (React).
- * 2. ROUTE ALIGNMENT: Rota 'organizer-settings' adicionada para White Label.
- * 3. ANTI-HTML SHIELD: Try/Catch global para garantir respostas apenas em JSON.
- * 4. ROBUST PARSE: Sistema de captura de ID e Sub-rotas (ex: /tickets/1/transfer).
  */
 
-// ── CORS (AJUSTADO PARA PORTA 3001) ──────────────────────────────────────────
+// ── CORS (ALINHADO COM FRONTEND 3001) ────────────────────────────────────────
 header('Access-Control-Allow-Origin: http://localhost:3001');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
@@ -50,7 +45,7 @@ require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
 $auditFile = BASE_PATH . '/src/Services/AuditService.php';
 if (file_exists($auditFile)) require_once $auditFile;
 
-// ── Funções Globais de Resposta (Anti-Lixo) ───────────────────────────────────
+// ── Funções Globais de Resposta ──────────────────────────────────────────────
 function jsonSuccess($data = null, $message = '', $code = 200): never {
     if (ob_get_length()) ob_clean();
     http_response_code($code);
@@ -65,15 +60,19 @@ function jsonError($message = '', $code = 400): never {
     exit;
 }
 
-// ── Parse URL (SISTEMA ROBUSTO ANTI-404) ──────────────────────────────────────
+// ── Parse URL (LIMPEZA PARA SERVIDOR EMBUTIDO) ────────────────────────────────
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-// Localiza o /api/ e pega tudo que vem depois dele
+// Remove "index.php" caso o PHP embutido o force na URL
+$uri = str_replace('/index.php', '', $uri);
+
+// Captura apenas o que vem após /api/
 if (strpos($uri, '/api/') !== false) {
     $uri = substr($uri, strpos($uri, '/api/') + 5);
 }
 
-$segments = array_values(array_filter(explode('/', trim($uri, '/'))));
+$uri = trim($uri, '/');
+$segments = $uri !== '' ? explode('/', $uri) : [];
 $method   = $_SERVER['REQUEST_METHOD'];
 
 $resource = $segments[0] ?? '';
@@ -88,7 +87,7 @@ if ($raw && ($decoded = json_decode($raw, true)) !== null) {
     $body = $decoded;
 }
 
-// ── Roteador Completo ─────────────────────────────────────────────────────────
+// ── Roteador ──────────────────────────────────────────────────────────────────
 $controllers = [
     'auth'               => BASE_PATH . '/src/Controllers/AuthController.php',
     'events'             => BASE_PATH . '/src/Controllers/EventController.php',
@@ -102,7 +101,6 @@ $controllers = [
     'shop'               => BASE_PATH . '/src/Controllers/ShopController.php',
     'sync'               => BASE_PATH . '/src/Controllers/SyncController.php',
     'health'             => BASE_PATH . '/src/Controllers/HealthController.php',
-    // messaging e whatsapp apontam para o mesmo controller unificado
     'messaging'          => BASE_PATH . '/src/Controllers/MessagingController.php',
     'whatsapp'           => BASE_PATH . '/src/Controllers/MessagingController.php',
     'superadmin'         => BASE_PATH . '/src/Controllers/SuperAdminController.php',
@@ -112,32 +110,26 @@ $controllers = [
 ];
 
 if ($resource === '' || $resource === 'ping') {
-    jsonSuccess(['version' => '2.0', 'status' => 'running'], 'EnjoyFun API v2.0');
+    jsonSuccess(['version' => '2.0', 'status' => 'online'], 'EnjoyFun API');
 }
 
 if (!isset($controllers[$resource])) {
-    jsonError("Rota '/{$resource}' não encontrada no index principal.", 404);
+    jsonError("Rota '/{$resource}' nao encontrada no roteador.", 404);
 }
 
 $file = $controllers[$resource];
-if (!file_exists($file)) {
-    jsonError("Arquivo do Controller '{$resource}' não encontrado no servidor.", 501);
-}
 
-// ── ESCUDO GLOBAL ANTI-HTML ───────────────────────────────────────────────────
 try {
-    // Limpa qualquer buffer antes de carregar o controller
     if (ob_get_length()) ob_clean();
+    if (!file_exists($file)) jsonError("Controller nao encontrado.", 501);
 
     require_once $file;
 
     if (function_exists('dispatch')) {
         dispatch($method, $id, $sub, $subId, $body, $_GET);
     } else {
-        jsonError("Erro Fatal: Função dispatch() ausente em '{$resource}'.", 500);
+        jsonError("Funcao dispatch ausente no controller.", 500);
     }
 } catch (\Throwable $e) {
-    // Transforma erros do PHP em JSON legível
-    $erroReal = "PHP Error: " . $e->getMessage() . " | Arquivo: " . basename($e->getFile()) . " | Linha: " . $e->getLine();
-    jsonError($erroReal, 500);
+    jsonError($e->getMessage(), 500);
 }
