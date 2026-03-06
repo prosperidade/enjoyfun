@@ -67,6 +67,7 @@ export default function Guests() {
           limit:    PAGE_SIZE,
         },
       });
+      console.log("DADOS RECEBIDOS:", data);
       setGuests(data.data?.items || []);
       setPagination(data.data?.pagination || { page: 1, total_pages: 1, total: 0, limit: PAGE_SIZE });
     } catch {

@@ -17,6 +17,7 @@ import {
   Store,
   Shield,
   UserCheck, // ícone para Convidados/Guests
+  Scan,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -49,6 +50,12 @@ const nav = [
     icon: UserCheck,
     label: "Convidados",
     roles: [],
+  },
+  {
+    to: "/scanner",
+    icon: Scan,
+    label: "Scanner",
+    roles: ["admin", "organizer", "staff"],
   },
   { to: "/cards", icon: CreditCard, label: "Cartão Digital", roles: [] },
   {

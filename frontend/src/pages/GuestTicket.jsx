@@ -4,7 +4,8 @@ import api from '../lib/api';
 
 export default function GuestTicket() {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token') || '';
+  const rawToken = searchParams.get('token');
+  const token = (rawToken && rawToken !== 'undefined' && rawToken !== 'null') ? rawToken : '';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,7 +36,7 @@ export default function GuestTicket() {
       <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
         <div className="w-full max-w-sm rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-center">
           <p className="text-red-300 font-semibold">Convite inválido</p>
-          <p className="text-red-200/80 text-sm mt-2">Token do convite não informado.</p>
+          <p className="text-red-200/80 text-sm mt-2">Token do convite não informado ou corrompido na URL.</p>
         </div>
       </div>
     );

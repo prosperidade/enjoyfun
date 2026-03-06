@@ -1,10 +1,9 @@
 <?php
 /**
- * EnjoyFun — JWT Helper (RS256)
+ * EnjoyFun — JWT Helper (HS256)
  *
- * Migração de HS256 → RS256:
- * - Chave PRIVADA: apenas o servidor assina tokens
- * - Chave PÚBLICA: verifica tokens (pode ficar nos PDVs sem risco)
+ * Implementação nativa sem dependência da extensão OpenSSL
+ * Ideal para hospedagem em ambiente Windows restrito
  */
 class JWT
 {
@@ -13,17 +12,11 @@ class JWT
         $now     = time();
         $payload = array_merge($payload, ['iat' => $now, 'exp' => $now + $ttlSeconds]);
 
-        $header = self::b64url(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
+        $header = self::b64url(json_encode(['alg' => 'HS256', 'typ' => 'JWT']));
         $body   = self::b64url(json_encode($payload));
 
-        $privateKey = self::getPrivateKey();
-        $key = openssl_pkey_get_private($privateKey);
-        if (!$key) {
-            throw new \RuntimeException('JWT: chave privada inválida.');
-        }
-
-        $signature = '';
-        openssl_sign("$header.$body", $signature, $key, OPENSSL_ALGO_SHA256);
+        $secret = self::getSecretKey();
+        $signature = hash_hmac('sha256', "$header.$body", $secret, true);
 
         return "$header.$body." . self::b64url($signature);
     }
@@ -40,28 +33,20 @@ class JWT
 
         // Verifica algoritmo
         $headerData = json_decode(self::b64urlDecode($header), true);
-        if (($headerData['alg'] ?? '') !== 'RS256') {
+        if (($headerData['alg'] ?? '') !== 'HS256') {
             error_log("❌ [JWT] Algoritmo inválido: " . ($headerData['alg'] ?? 'ausente'));
             return null;
         }
 
         try {
-            $publicKey = self::getPublicKey();
-            $key = openssl_pkey_get_public($publicKey);
-            if (!$key) {
-                error_log("❌ [JWT] Falha ao ler chave pública.");
-                return null;
-            }
+            $secret = self::getSecretKey();
+            
+            // Recalcula a assinatura
+            $expectedSig = hash_hmac('sha256', "$header.$body", $secret, true);
 
-            $valid = openssl_verify(
-                "$header.$body",
-                self::b64urlDecode($sig),
-                $key,
-                OPENSSL_ALGO_SHA256
-            );
-
-            if ($valid !== 1) {
-                error_log("❌ [JWT] Assinatura inválida! OPENSSL CODE: " . openssl_error_string());
+            // Comparação segura contra tempo
+            if (!hash_equals($expectedSig, self::b64urlDecode($sig))) {
+                error_log("❌ [JWT] Assinatura inválida (HS256 recusado)!");
                 return null;
             }
 
@@ -89,22 +74,10 @@ class JWT
         return null;
     }
 
-    public static function getPrivateKey(): string
+    public static function getSecretKey(): string
     {
-        $path = getenv('JWT_PRIVATE_KEY_PATH') ?: __DIR__ . '/../../../secrets/jwt_private.pem';
-        if (!file_exists($path)) {
-            throw new \RuntimeException("JWT: chave privada não encontrada em '$path'.");
-        }
-        return file_get_contents($path);
-    }
-
-    public static function getPublicKey(): string
-    {
-        $path = getenv('JWT_PUBLIC_KEY_PATH') ?: __DIR__ . '/../../../secrets/jwt_public.pem';
-        if (!file_exists($path)) {
-            throw new \RuntimeException("JWT: chave pública não encontrada em '$path'.");
-        }
-        return file_get_contents($path);
+        // Se a ENV não existir, usamos um fallback confiável para a transição
+        return getenv('JWT_SECRET') ?: 'ENJOYFUN_MASTER_SECRET_KEY_PROD_2026_HS256';
     }
 
     private static function b64url(string $data): string

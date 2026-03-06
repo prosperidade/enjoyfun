@@ -7,53 +7,61 @@ class WalletSecurityService
      *
      * @throws RuntimeException
      */
-    public static function processTransaction(PDO $db, int $walletId, float $amount, string $type, array $metadata = []): array
+    public static function processTransaction(PDO $db, string $cardToken, float $amount, string $type, int $organizerId, array $metadata = []): array
     {
-        if ($walletId <= 0) {
-            throw new RuntimeException('Carteira inválida.');
+        if (empty($cardToken)) {
+            throw new RuntimeException('Token do cartão é obrigatório', 400);
         }
 
         if ($amount <= 0) {
-            throw new RuntimeException('Valor da transação inválido.');
+            throw new RuntimeException('Valor da transação inválido.', 400);
         }
 
         if (!in_array($type, ['debit', 'credit'], true)) {
-            throw new RuntimeException('Tipo de transação inválido.');
+            throw new RuntimeException('Tipo de transação inválido.', 400);
         }
 
         try {
-            $db->beginTransaction();
+            // Se já não estivermos numa transação, criamos uma nova (permite reutilizar do Controller)
+            $ownTransaction = false;
+            if (!$db->inTransaction()) {
+                $db->beginTransaction();
+                $ownTransaction = true;
+            }
 
-            $walletStmt = $db->prepare('SELECT id, balance FROM wallets WHERE id = ? FOR UPDATE');
-            $walletStmt->execute([$walletId]);
+            // Lock the row to prevent race conditions
+            $walletStmt = $db->prepare('SELECT id, balance FROM digital_cards WHERE id::text = ? AND organizer_id = ? AND is_active = true FOR UPDATE');
+            $walletStmt->execute([$cardToken, $organizerId]);
             $wallet = $walletStmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$wallet) {
-                $db->rollBack();
-                throw new RuntimeException('Carteira não encontrada.');
+                if ($ownTransaction) $db->rollBack();
+                throw new RuntimeException('Cartão digital não encontrado ou inativo.', 404);
             }
 
+            $cardId = $wallet['id'];
             $currentBalance = (float)$wallet['balance'];
             $nextBalance = $type === 'debit'
                 ? $currentBalance - $amount
                 : $currentBalance + $amount;
 
             if ($type === 'debit' && $nextBalance < 0) {
-                $db->rollBack();
-                throw new RuntimeException('Saldo insuficiente.');
+                if ($ownTransaction) $db->rollBack();
+                throw new RuntimeException('Saldo insuficiente no cartão', 400);
             }
 
-            $updateStmt = $db->prepare('UPDATE wallets SET balance = ?, updated_at = NOW() WHERE id = ?');
-            $updateStmt->execute([$nextBalance, $walletId]);
+            $updateStmt = $db->prepare('UPDATE digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?');
+            $updateStmt->execute([$nextBalance, $cardId]);
 
+            // Grava histórico da transação
             $txStmt = $db->prepare('
-                INSERT INTO wallet_transactions (
-                    wallet_id, type, amount, balance_before, balance_after, metadata, created_at
+                INSERT INTO card_transactions (
+                    card_id, type, amount, balance_before, balance_after, metadata, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?::jsonb, NOW())
                 RETURNING id
             ');
             $txStmt->execute([
-                $walletId,
+                $cardId,
                 $type,
                 $amount,
                 $currentBalance,
@@ -63,18 +71,20 @@ class WalletSecurityService
 
             $transactionId = (int)$txStmt->fetchColumn();
 
-            $db->commit();
+            if ($ownTransaction) {
+                $db->commit();
+            }
 
             return [
                 'transaction_id' => $transactionId,
-                'wallet_id' => $walletId,
+                'card_id' => $cardId,
                 'type' => $type,
                 'amount' => $amount,
                 'balance_before' => $currentBalance,
                 'balance_after' => $nextBalance,
             ];
         } catch (Throwable $e) {
-            if ($db->inTransaction()) {
+            if (isset($ownTransaction) && $ownTransaction && $db->inTransaction()) {
                 $db->rollBack();
             }
             throw $e;
@@ -127,7 +137,7 @@ class WalletSecurityService
         $params[':offset'] = $offset;
 
         $sql = '
-            SELECT g.id, g.name, g.email, g.phone, g.status, g.created_at, e.name AS event_name
+            SELECT g.id, g.name, g.email, g.phone, g.status, g.created_at, g.qr_code_token, e.name AS event_name
             FROM guests g
             JOIN events e ON e.id = g.event_id
             WHERE ' . implode(' AND ', $where) . "

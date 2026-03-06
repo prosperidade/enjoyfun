@@ -259,34 +259,27 @@ function checkout(array $body): void
 
         if ($calculatedTotal <= 0) throw new Exception('Valor total inválido.');
 
-        // 2. Fluxo Cashless: valida e debita a pulseira
+        // 2. Fluxo Cashless: valida e debita a pulseira via WalletSecurityService
+        $newBalance = null;
         if ($cardId) {
-            $stmtCard = $db->prepare(
-                'SELECT id, balance FROM digital_cards
-                 WHERE id::text = ? AND organizer_id = ? AND is_active = true
-                 FOR UPDATE'
-            );
-            $stmtCard->execute([$cardId, $organizerId]);
-            $card = $stmtCard->fetch(PDO::FETCH_ASSOC);
-
-            if (!$card) {
+            try {
+                $txResult = WalletSecurityService::processTransaction(
+                    $db,
+                    $cardId,
+                    $calculatedTotal,
+                    'debit',
+                    $organizerId,
+                    ['sector' => 'bar']
+                );
+                $newBalance = $txResult['balance_after'];
+            } catch (Exception $e) {
                 AuditService::logFailure(AuditService::SALE_CHECKOUT, 'card', $cardId,
-                    'Cartão inválido ou inativo', $operator, ['metadata' => ['sector' => 'bar']]);
-                $db->rollBack();
-                jsonError('Cartão digital inválido ou inativo', 404);
+                    $e->getMessage(), $operator, ['metadata' => ['total' => $calculatedTotal, 'sector' => 'bar']]);
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 400);
             }
-
-            if ((float)$card['balance'] < $calculatedTotal) {
-                AuditService::logFailure(AuditService::SALE_CHECKOUT, 'card', $card['id'],
-                    'Saldo insuficiente', $operator,
-                    ['metadata' => ['saldo' => $card['balance'], 'total' => $calculatedTotal, 'sector' => 'bar']]);
-                $db->rollBack();
-                jsonError('Saldo insuficiente no cartão', 400);
-            }
-
-            // Débito direto pelo UUID — sem JOIN em users
-            $db->prepare('UPDATE digital_cards SET balance = balance - ?, updated_at = NOW() WHERE id::text = ?')
-               ->execute([$calculatedTotal, $cardId]);
         }
 
         // 3. Registro da venda
@@ -324,7 +317,7 @@ function checkout(array $body): void
         echo json_encode([
             'success' => true,
             'message' => 'Venda realizada com sucesso!',
-            'data'    => ['sale_id' => $saleId, 'new_balance' => $card['balance'] - $calculatedTotal ?? null]
+            'data'    => ['sale_id' => $saleId, 'new_balance' => $newBalance]
         ]);
         exit;
     } catch (Exception $e) {

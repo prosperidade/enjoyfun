@@ -44,32 +44,32 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 // ─────────────────────────────────────────────────────────────────────────────
 function getGuestTicket(array $query): void
 {
-    $token = trim($query['token'] ?? '');
-    if (!$token) jsonError("Token do convite não informado.", 422);
+    $token = trim((string)($query['token'] ?? ''));
+    if (!$token || $token === 'undefined' || $token === 'null') {
+        jsonError("Token do convite não informado ou corrompido.", 422);
+    }
 
     try {
         $db = Database::getInstance();
 
         $stmt = $db->prepare("
             SELECT
-                t.id,
-                t.order_reference,
-                t.status,
-                t.qr_token,
-                t.holder_name   AS guest_name,
-                t.holder_email,
-                t.purchased_at,
-                t.used_at,
-                tt.name         AS ticket_type,
+                g.id,
+                'Convite'       AS ticket_type,
+                g.status,
+                g.qr_code_token AS qr_token,
+                g.name          AS guest_name,
+                g.email         AS holder_email,
+                g.created_at    AS purchased_at,
+                g.updated_at    AS used_at,
                 e.name          AS event_name,
                 e.event_date,
                 e.starts_at,
                 e.venue_name,
                 NULL::text      AS logo_url
-            FROM tickets t
-            INNER JOIN ticket_types tt ON tt.id = t.ticket_type_id
-            INNER JOIN events e        ON e.id  = t.event_id
-            WHERE t.qr_token = ?
+            FROM guests g
+            INNER JOIN events e ON e.id = g.event_id
+            WHERE g.qr_code_token = ?
             LIMIT 1
         ");
         $stmt->execute([$token]);
@@ -176,26 +176,22 @@ function createGuest(array $body): void
         $stmt->execute([$eventId, $organizerId]);
         if (!$stmt->fetch()) jsonError("Evento não encontrado ou sem permissão.", 403);
 
-        $orderRef   = 'EF-GUEST-' . strtoupper(bin2hex(random_bytes(4)));
-        $qrToken    = bin2hex(random_bytes(16));
-        $totpSecret = strtoupper(bin2hex(random_bytes(10)));
+        $qrToken  = bin2hex(random_bytes(16));
+        $metadata = json_encode(['source' => 'manual'], JSON_UNESCAPED_UNICODE);
 
         $db->prepare("
-            INSERT INTO tickets
-                (event_id, ticket_type_id, organizer_id, order_reference,
-                 status, price_paid, qr_token, totp_secret,
-                 holder_name, holder_email, purchased_at, created_at)
-            VALUES (?, ?, ?, ?, 'paid', 0.00, ?, ?, ?, ?, NOW(), NOW())
+            INSERT INTO guests
+                (organizer_id, event_id, name, email, status, qr_code_token, metadata, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'esperado', ?, ?::jsonb, NOW(), NOW())
         ")->execute([
-            $eventId, $typeId, $organizerId, $orderRef,
-            $qrToken, $totpSecret, $holderName, $holderEmail ?: null,
+            $organizerId, $eventId, $holderName, $holderEmail ?: null,
+            $qrToken, $metadata
         ]);
 
         jsonSuccess([
-            'order_reference' => $orderRef,
-            'qr_token'        => $qrToken,
-            'holder_name'     => $holderName,
-            'ticket_url'      => "/guest-ticket?token={$qrToken}",
+            'qr_token'    => $qrToken,
+            'holder_name' => $holderName,
+            'ticket_url'  => "/guest-ticket?token={$qrToken}",
         ], "Convite criado para {$holderName}!", 201);
 
     } catch (Exception $e) {
@@ -217,28 +213,30 @@ function checkInGuest(array $body): void
     try {
         $db = Database::getInstance();
 
-        $stmt = $db->prepare("SELECT * FROM tickets WHERE id = ? LIMIT 1");
+        $stmt = $db->prepare("SELECT * FROM guests WHERE id = ? LIMIT 1");
         $stmt->execute([$ticketId]);
-        $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
+        $guest = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$ticket)                          jsonError("Ingresso não encontrado.", 404);
-        if ($ticket['status'] === 'used')      jsonError("Convidado já realizou check-in.", 409);
-        if ($ticket['status'] === 'cancelled') jsonError("Ingresso cancelado.", 409);
+        if (!$guest)                               jsonError("Convidado não encontrado.", 404);
+        if (in_array($guest['status'], ['presente', 'checked-in', 'checked_in', 'utilizado'], true)) {
+            jsonError("Convidado já realizou check-in.", 409);
+        }
+        if ($guest['status'] === 'cancelled')      jsonError("Convite cancelado.", 409);
 
-        $db->prepare("UPDATE tickets SET status = 'used', used_at = NOW() WHERE id = ?")
+        $db->prepare("UPDATE guests SET status = 'presente', updated_at = NOW() WHERE id = ?")
            ->execute([$ticketId]);
 
         AuditService::log(
-            'guest.checkin', 'ticket', $ticketId,
-            ['status' => $ticket['status']],
-            ['status' => 'used'],
+            'guest.checkin', 'guest', $ticketId,
+            ['status' => $guest['status']],
+            ['status' => 'presente'],
             $operator, 'success'
         );
 
         jsonSuccess([
-            'ticket_id'  => $ticketId,
-            'guest_name' => $ticket['holder_name'],
-        ], "✅ Check-in de {$ticket['holder_name']} realizado!");
+            'guest_id'   => $ticketId,
+            'guest_name' => $guest['name'],
+        ], "✅ Check-in de {$guest['name']} realizado!");
 
     } catch (Exception $e) {
         jsonError("Erro no check-in: " . $e->getMessage(), 500);
@@ -303,20 +301,17 @@ function importGuests(): void
         $phoneIdx = $indexOf('phone');
 
         // ── Prepared Statements para performance ─────────────────────────────
-        // Verifica duplicata pela UNIQUE CONSTRAINT (event_id, holder_email)
+        // Verifica duplicata pela UNIQUE CONSTRAINT informal (event_id, email)
         $checkStmt = $db->prepare("
-            SELECT id FROM tickets
-            WHERE event_id = ? AND holder_email = ?
+            SELECT id FROM guests
+            WHERE event_id = ? AND email = ?
             LIMIT 1
         ");
 
         $insertStmt = $db->prepare("
-            INSERT INTO tickets
-                (event_id, ticket_type_id, organizer_id, order_reference,
-                 status, price_paid, qr_token, totp_secret,
-                 holder_name, holder_email, holder_phone,
-                 purchased_at, created_at)
-            VALUES (?, ?, ?, ?, 'paid', 0.00, ?, ?, ?, ?, ?, NOW(), NOW())
+            INSERT INTO guests
+                (organizer_id, event_id, name, email, phone, status, qr_code_token, metadata, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, 'esperado', ?, ?::jsonb, NOW(), NOW())
         ");
 
         $db->beginTransaction();
@@ -355,13 +350,11 @@ function importGuests(): void
             }
 
             // ── Insere novo registro ──────────────────────────────────────────
-            $orderRef   = 'EF-IMP-' . strtoupper(bin2hex(random_bytes(4)));
-            $qrToken    = bin2hex(random_bytes(16));
-            $totpSecret = strtoupper(bin2hex(random_bytes(10)));
+            $qrToken  = bin2hex(random_bytes(16));
+            $metadata = json_encode(['imported_line' => $line, 'source' => 'csv'], JSON_UNESCAPED_UNICODE);
 
             $insertStmt->execute([
-                $eventId, $defaultTypeId, $organizerId, $orderRef,
-                $qrToken, $totpSecret, $name, $email, $phone ?: null,
+                $organizerId, $eventId, $name, $email, $phone ?: null, $qrToken, $metadata
             ]);
 
             $imported++;
@@ -415,12 +408,11 @@ function updateGuest(int $id, array $body): void
     try {
         $db = Database::getInstance();
 
-        // Verifica que o ticket pertence ao organizador e é um convidado
+        // Verifica que o convidado pertence ao organizador
         $stmt = $db->prepare("
-            SELECT id FROM tickets
+            SELECT id FROM guests
             WHERE id = ?
               AND organizer_id = ?
-              AND (order_reference LIKE 'EF-GUEST-%' OR order_reference LIKE 'EF-IMP-%')
             LIMIT 1
         ");
         $stmt->execute([$id, $organizerId]);
@@ -428,18 +420,12 @@ function updateGuest(int $id, array $body): void
             jsonError("Convidado não encontrado ou sem permissão.", 404);
         }
 
-        $db->prepare("
-            UPDATE tickets
-            SET holder_name  = ?,
-                holder_email = ?,
-                holder_phone = ?
+        $updateStmt = $db->prepare("
+            UPDATE guests
+            SET name = ?, email = ?, phone = ?, updated_at = NOW()
             WHERE id = ?
-        ")->execute([
-            $holderName,
-            $holderEmail ?: null,
-            $holderPhone ?: null,
-            $id,
-        ]);
+        ");
+        $updateStmt->execute([$holderName, $holderEmail ?: null, $holderPhone ?: null, $id]);
 
         jsonSuccess([
             'id'          => $id,
@@ -465,24 +451,23 @@ function deleteGuest(int $id): void
     try {
         $db = Database::getInstance();
 
-        // Verifica que o ticket pertence ao organizador e é do tipo convidado
+        // Verifica se o convidado pertence ao organizador
         $stmt = $db->prepare("
-            SELECT id, holder_name FROM tickets
+            SELECT id, name FROM guests
             WHERE id = ?
               AND organizer_id = ?
-              AND (order_reference LIKE 'EF-GUEST-%' OR order_reference LIKE 'EF-IMP-%')
             LIMIT 1
         ");
         $stmt->execute([$id, $organizerId]);
-        $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
+        $guest = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$ticket) {
+        if (!$guest) {
             jsonError("Convidado não encontrado ou sem permissão.", 404);
         }
 
-        $db->prepare("DELETE FROM tickets WHERE id = ?")->execute([$id]);
+        $db->prepare("DELETE FROM guests WHERE id = ? AND organizer_id = ?")->execute([$id, $organizerId]);
 
-        jsonSuccess(['id' => $id], "Convidado {$ticket['holder_name']} removido com sucesso.");
+        jsonSuccess(['id' => $id], "Convidado {$guest['name']} removido com sucesso.");
 
     } catch (Exception $e) {
         jsonError("Erro ao remover convidado: " . $e->getMessage(), 500);

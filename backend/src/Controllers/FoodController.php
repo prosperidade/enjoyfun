@@ -263,27 +263,25 @@ function checkout(array $body): void
         }
         if ($calculatedTotal <= 0) throw new Exception('Valor total inválido.');
 
-        // 2. Validação Cashless — lógica direta no digital_cards (sem JOIN em users)
+        // 2. Validação Cashless — via WalletSecurityService
+        $newBalance = null;
         if ($cardId) {
-            $stmtCard = $db->prepare(
-                'SELECT id, balance FROM digital_cards
-                 WHERE id::text = ? AND organizer_id = ? AND is_active = true
-                 FOR UPDATE'
-            );
-            $stmtCard->execute([$cardId, $organizerId]);
-            $card = $stmtCard->fetch(PDO::FETCH_ASSOC);
-
-            if (!$card) {
-                $db->rollBack();
-                jsonError('Cartão digital inválido ou inativo', 404);
+            try {
+                $txResult = WalletSecurityService::processTransaction(
+                    $db,
+                    $cardId,
+                    $calculatedTotal,
+                    'debit',
+                    $organizerId,
+                    ['sector' => 'food']
+                );
+                $newBalance = $txResult['balance_after'];
+            } catch (Exception $e) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 400);
             }
-            if ((float)$card['balance'] < $calculatedTotal) {
-                $db->rollBack();
-                jsonError('Saldo insuficiente no cartão', 400);
-            }
-            // Débito relativo — mais seguro que gravar valor absoluto
-            $db->prepare('UPDATE digital_cards SET balance = balance - ?, updated_at = NOW() WHERE id::text = ?')
-               ->execute([$calculatedTotal, $cardId]);
         }
 
         // 3. Registro da venda (sem payment_method — coluna não existe)
@@ -307,7 +305,7 @@ function checkout(array $body): void
         }
 
         $db->commit();
-        echo json_encode(['success' => true, 'message' => 'Venda realizada com sucesso!', 'data' => ['sale_id' => $saleId]]);
+        echo json_encode(['success' => true, 'message' => 'Venda realizada com sucesso!', 'data' => ['sale_id' => $saleId, 'new_balance' => $newBalance]]);
         exit;
     } catch (Exception $e) {
         if ($db->inTransaction()) $db->rollBack();
