@@ -108,6 +108,8 @@ $controllers = [
     'superadmin'         => BASE_PATH . '/src/Controllers/SuperAdminController.php',
     'organizer-settings' => BASE_PATH . '/src/Controllers/OrganizerSettingsController.php',
     'customer'           => BASE_PATH . '/src/Controllers/CustomerController.php',
+    'guests'             => BASE_PATH . '/src/Controllers/GuestController.php',
+    'scanner'            => BASE_PATH . '/src/Controllers/ScannerController.php',
 ];
 
 if ($resource === '' || $resource === 'ping') {

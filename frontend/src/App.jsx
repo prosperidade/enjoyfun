@@ -19,10 +19,13 @@ import Parking from "./pages/Parking";
 import Messaging from "./pages/Messaging";
 import AIAgents from "./pages/AIAgents";
 import Users from "./pages/Users";
+import Guests from "./pages/Guests";
 import Settings from "./pages/Settings";
 import CustomerLogin from "./pages/CustomerApp/CustomerLogin";
 import CustomerDashboard from "./pages/CustomerApp/CustomerDashboard";
 import CustomerRecharge from "./pages/CustomerApp/CustomerRecharge";
+import GuestTicket from "./pages/GuestTicket";
+import Scanner from "./pages/Operations/Scanner";
 
 function NotFound() {
   return (
@@ -60,6 +63,7 @@ export default function App() {
           <Route path="/app/:slug"          element={<CustomerLogin />} />
           <Route path="/app/:slug/home"     element={<CustomerDashboard />} />
           <Route path="/app/:slug/recharge" element={<CustomerRecharge />} />
+          <Route path="/invite" element={<GuestTicket />} />
 
           <Route element={<PrivateRoute />}>
             <Route element={<DashboardLayout />}>
@@ -79,7 +83,9 @@ export default function App() {
               <Route path="/messaging" element={<Messaging />} />
               <Route path="/ai" element={<AIAgents />} />
               <Route path="/users" element={<Users />} />
-              
+              <Route path="/guests" element={<Guests />} />
+              <Route path="/scanner" element={<Scanner />} />
+
               {/* Rota de Configurações Final */}
               <Route path="/settings" element={<Settings />} />
             </Route>
