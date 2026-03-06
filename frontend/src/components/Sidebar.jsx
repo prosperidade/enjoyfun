@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -8,7 +8,6 @@ import {
   ParkingSquare,
   MessageCircle,
   Users,
-  Mail,
   Bot,
   Settings,
   X,
@@ -17,18 +16,40 @@ import {
   UtensilsCrossed,
   Store,
   Shield,
+  UserCheck, // ícone para Convidados/Guests
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import api from "../lib/api";
 
-const BRAND_EVENT = "brand-settings-updated";
-
+// roles: []        → visível para TODOS os usuários logados
+// roles: ['admin'] → visível apenas para quem tem aquela role
 const nav = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard", roles: ["admin", "organizer"] },
-  { to: "/superadmin", icon: Shield, label: "Super Admin (SaaS)", roles: ["admin"] },
+  {
+    to: "/",
+    icon: LayoutDashboard,
+    label: "Dashboard",
+    roles: ["admin", "organizer"],
+  },
+  {
+    to: "/superadmin",
+    icon: Shield,
+    label: "Super Admin (SaaS)",
+    roles: ["admin"],
+  },
   { to: "/events", icon: CalendarDays, label: "Eventos", roles: [] },
-  { to: "/tickets", icon: Ticket, label: "Ingressos", roles: ["admin", "organizer", "staff"] },
+  {
+    to: "/tickets",
+    icon: Ticket,
+    label: "Ingressos",
+    roles: ["admin", "organizer", "staff"],
+  },
+  // ✅ ROTA GUESTS — roles: [] significa visível para todos os logados
+  {
+    to: "/guests",
+    icon: UserCheck,
+    label: "Convidados",
+    roles: [],
+  },
   { to: "/cards", icon: CreditCard, label: "Cartão Digital", roles: [] },
   {
     label: "Vendas (PDV)",
@@ -41,97 +62,77 @@ const nav = [
       { to: "/shop", label: "Loja", icon: Store },
     ],
   },
-  { to: "/parking", icon: ParkingSquare, label: "Estacionamento", roles: ["admin", "organizer", "parking_staff", "staff"] },
-  { to: "/messaging", icon: MessageCircle, label: "Mensageria", roles: ["admin", "organizer"] },
-  { to: "/ai", icon: Bot, label: "Agentes de IA", roles: ["admin", "organizer"] },
-  { to: "/users", icon: Users, label: "Usuários", roles: ["admin", "organizer"] },
-  
-  // 🎟️ ALTERAÇÃO AQUI: Deixando roles vazio [] para garantir que apareça para todos
-  { to: "/guests", icon: Mail, label: "Convidados", roles: [] },
+  {
+    to: "/parking",
+    icon: ParkingSquare,
+    label: "Estacionamento",
+    roles: ["admin", "parking_staff", "staff"],
+  },
+  {
+    to: "/whatsapp",
+    icon: MessageCircle,
+    label: "WhatsApp",
+    roles: ["admin", "organizer"],
+  },
+  {
+    to: "/ai",
+    icon: Bot,
+    label: "Agentes de IA",
+    roles: ["admin", "organizer"],
+  },
+  {
+    to: "/users",
+    icon: Users,
+    label: "Usuários",
+    roles: ["admin", "organizer"],
+  },
 ];
 
-function applyBrand(settings) {
-  const root = document.documentElement;
-  root.style.setProperty("--color-primary", settings.primary_color || "#7C3AED");
-  root.style.setProperty("--color-secondary", settings.secondary_color || "#DB2777");
-}
-
 export default function Sidebar({ isOpen, onClose }) {
+  // hasRole é usado no filtro visibleNav — não remover
   const { hasRole } = useAuth();
   const location = useLocation();
-
-  const [pdvOpen, setPdvOpen] = useState(() => 
-    location.pathname.includes("bar") || location.pathname.includes("food") || location.pathname.includes("shop")
+  const [pdvOpen, setPdvOpen] = useState(
+    location.pathname.includes("bar") ||
+      location.pathname.includes("food") ||
+      location.pathname.includes("shop"),
   );
 
-  const [brand, setBrand] = useState(() => {
-    const fromCache = localStorage.getItem("enjoyfun_brand");
-    const defaults = {
-      app_name: "EnjoyFun",
-      logo_url: "",
-      primary_color: "#7C3AED",
-      secondary_color: "#DB2777",
-    };
-    if (fromCache) {
-      try {
-        const parsed = JSON.parse(fromCache);
-        applyBrand(parsed);
-        return { ...defaults, ...parsed };
-      } catch {
-        return defaults;
-      }
-    }
-    return defaults;
-  });
-
-  useEffect(() => {
-    const onBrandUpdated = (event) => {
-      const payload = event.detail || {};
-      setBrand((prev) => ({ ...prev, ...payload }));
-      applyBrand(payload);
-    };
-
-    window.addEventListener(BRAND_EVENT, onBrandUpdated);
-
-    api.get("/organizer-settings")
-      .then(({ data }) => {
-        if (data.success && data.data) {
-          const payload = data.data;
-          setBrand((prev) => ({ ...prev, ...payload }));
-          applyBrand(payload);
-          localStorage.setItem("enjoyfun_brand", JSON.stringify(payload));
-        }
-      })
-      .catch((err) => console.error("Erro API branding", err));
-
-    return () => window.removeEventListener(BRAND_EVENT, onBrandUpdated);
-  }, []);
-
-  const visibleNav = nav.filter((n) => n.roles.length === 0 || n.roles.some((r) => hasRole(r)));
+  // roles: [] → length === 0 → sempre visível
+  // roles: ['x'] → verifica se usuário tem a role
+  const visibleNav = nav.filter(
+    (n) => n.roles.length === 0 || n.roles.some((r) => hasRole(r)),
+  );
 
   return (
     <>
-      {isOpen && <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-40 lg:hidden" onClick={onClose} />}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
 
-      <aside className={`
-        fixed top-0 left-0 h-full w-64 sidebar-bg sidebar-border border-r border-gray-800 flex flex-col z-50
+      <aside
+        className={`
+        fixed top-0 left-0 h-full w-64 bg-gray-950 border-r border-gray-800 flex flex-col z-50
         transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
         ${isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full lg:translate-x-0"}
-      `}>
-        <div className="h-16 px-6 border-b sidebar-border flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            {brand.logo_url ? (
-              <img src={brand.logo_url} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 border border-white/10" />
-            ) : (
-              <div className="w-8 h-8 rounded-lg bg-brand-gradient flex items-center justify-center brand-glow">
-                <Zap size={16} className="text-white" />
-              </div>
-            )}
-            <span className="font-bold text-white text-lg tracking-tight truncate">
-              {brand.app_name || "EnjoyFun"}
+      `}
+      >
+        <div className="h-16 px-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-[0_0_12px_rgba(124,58,237,0.4)]">
+              <Zap size={16} className="text-white" />
+            </div>
+            <span className="font-bold text-white text-lg tracking-tight">
+              EnjoyFun
             </span>
           </div>
-          <button onClick={onClose} className="lg:hidden p-1.5 text-gray-500 hover:text-white rounded-md hover:bg-gray-800">
+          <button
+            onClick={onClose}
+            className="lg:hidden p-1.5 text-gray-500 hover:text-white rounded-md hover:bg-gray-800"
+          >
             <X size={20} />
           </button>
         </div>
@@ -155,7 +156,10 @@ export default function Sidebar({ isOpen, onClose }) {
                       <Icon size={18} />
                       <span>{item.label}</span>
                     </div>
-                    <ChevronDown size={14} className={`transition-transform ${pdvOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown
+                      size={14}
+                      className={`transition-transform ${pdvOpen ? "rotate-180" : ""}`}
+                    />
                   </button>
 
                   {pdvOpen && (
@@ -165,11 +169,10 @@ export default function Sidebar({ isOpen, onClose }) {
                           key={sub.to}
                           to={sub.to}
                           onClick={onClose}
-                          className={({ isActive }) =>
-                            `flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                                isActive ? "text-brand bg-brand-soft" : "text-gray-500 hover:text-gray-300"
-                            }`
-                          }
+                          className={({ isActive }) => `
+                            flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all
+                            ${isActive ? "text-purple-400 bg-purple-600/5" : "text-gray-500 hover:text-gray-300"}
+                          `}
                         >
                           <span>{sub.label}</span>
                         </NavLink>
@@ -182,14 +185,17 @@ export default function Sidebar({ isOpen, onClose }) {
 
             return (
               <NavLink
-                key={item.label}
+                key={item.to}
                 to={item.to}
                 end={item.to === "/"}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
-                    isActive ? "nav-active-brand" : "text-gray-400 hover:text-white hover:bg-gray-800/50"
-                  }`
-                }
+                className={({ isActive }) => `
+                  flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group
+                  ${
+                    isActive
+                      ? "bg-purple-600/10 text-purple-400 font-semibold relative before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:bg-purple-500 before:rounded-r-md"
+                      : "text-gray-400 hover:text-white hover:bg-gray-800/50"
+                  }
+                `}
                 onClick={onClose}
               >
                 <Icon size={18} className="flex-shrink-0" />
@@ -200,15 +206,14 @@ export default function Sidebar({ isOpen, onClose }) {
 
           <div className="mt-8">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-3 text-[10px]">
-                Sistema
+              Sistema
             </div>
             <NavLink
               to="/settings"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  isActive ? "nav-active-brand" : "text-gray-400 hover:text-white hover:bg-gray-800/50"
-                }`
-              }
+              className={({ isActive }) => `
+                flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
+                ${isActive ? "bg-purple-600/10 text-purple-400 font-semibold" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}
+              `}
               onClick={onClose}
             >
               <Settings size={18} />
@@ -217,9 +222,9 @@ export default function Sidebar({ isOpen, onClose }) {
           </div>
         </nav>
 
-        <div className="p-6 border-t sidebar-border">
+        <div className="p-6 border-t border-gray-800/50">
           <p className="text-[10px] text-center text-gray-600 font-medium uppercase tracking-widest">
-            {brand.app_name} v2.0
+            EnjoyFun v2.0
           </p>
         </div>
       </aside>
