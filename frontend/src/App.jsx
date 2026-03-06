@@ -10,6 +10,7 @@ import EventDetails from "./pages/EventDetails";
 import Tickets from "./pages/Tickets";
 import Cards from "./pages/Cards";
 import SuperAdminPanel from "./pages/SuperAdminPanel";
+import Guests from "./pages/Guests";
 
 // Nossos arquivos independentes
 import Bar from "./pages/Bar";
@@ -79,6 +80,7 @@ export default function App() {
               <Route path="/messaging" element={<Messaging />} />
               <Route path="/ai" element={<AIAgents />} />
               <Route path="/users" element={<Users />} />
+              <Route path="/guests" element={<Guests />} />
               
               {/* Rota de Configurações Final */}
               <Route path="/settings" element={<Settings />} />

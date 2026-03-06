@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -8,6 +8,7 @@ import {
   ParkingSquare,
   MessageCircle,
   Users,
+  Mail,
   Bot,
   Settings,
   X,
@@ -45,6 +46,7 @@ const nav = [
   { to: "/messaging", icon: MessageCircle, label: "Mensageria", roles: ["admin", "organizer"] },
   { to: "/ai", icon: Bot, label: "Agentes de IA", roles: ["admin", "organizer"] },
   { to: "/users", icon: Users, label: "Usuários", roles: ["admin", "organizer"] },
+  { to: "/guests", icon: Mail, label: "Convidados", roles: ["admin", "organizer", "staff"] },
 ];
 
 function applyBrand(settings) {
