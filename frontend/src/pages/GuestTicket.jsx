@@ -81,12 +81,18 @@ export default function GuestTicket() {
         </div>
 
         <div className="p-5">
-          <div className="relative bg-white rounded-2xl p-4 flex items-center justify-center min-h-[290px]">
+          <div className="relative bg-white rounded-2xl p-4 flex flex-col items-center justify-center min-h-[290px] gap-3">
             <img src={qrUrl} alt="QR Code do convite" className="w-[250px] h-[250px] rounded-lg" />
 
+            <div className="text-center w-full">
+              <p className="font-mono font-bold text-gray-800 text-sm md:text-base tracking-wider break-all bg-gray-100 py-2 px-3 rounded-lg w-full border border-gray-200">
+                REF: {token}
+              </p>
+            </div>
+
             {isCheckedIn && (
-              <div className="absolute inset-0 bg-green-600/80 flex items-center justify-center rounded-2xl">
-                <span className="text-white text-2xl font-black text-center px-3 leading-tight">CHECK-IN REALIZADO</span>
+              <div className="absolute inset-0 bg-green-600/90 flex items-center justify-center rounded-2xl backdrop-blur-sm">
+                <span className="text-white text-2xl font-black text-center px-3 leading-tight drop-shadow-md">CHECK-IN REALIZADO</span>
               </div>
             )}
           </div>

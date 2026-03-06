@@ -89,26 +89,27 @@ if ($raw && ($decoded = json_decode($raw, true)) !== null) {
 }
 
 // ── Roteador ──────────────────────────────────────────────────────────────────
-$controllers = [
-    'auth'     => BASE_PATH . '/src/Controllers/AuthController.php',
-    'admin'    => BASE_PATH . '/src/Controllers/AdminController.php',
-    'organizer'=> BASE_PATH . '/src/Controllers/OrganizerController.php',
-    'events'   => BASE_PATH . '/src/Controllers/EventController.php',
-    'tickets'  => BASE_PATH . '/src/Controllers/TicketController.php',
-    'bar'      => BASE_PATH . '/src/Controllers/BarController.php',
-    'food'     => BASE_PATH . '/src/Controllers/FoodController.php',
-    'shop'     => BASE_PATH . '/src/Controllers/ShopController.php',
-    'users'    => BASE_PATH . '/src/Controllers/UserController.php',
-    'messaging'=> BASE_PATH . '/src/Controllers/MessagingController.php',
-    'guests'   => BASE_PATH . '/src/Controllers/GuestController.php',
-    'scanner'  => BASE_PATH . '/src/Controllers/ScannerController.php',
-    'sync'     => BASE_PATH . '/src/Controllers/SyncController.php',
-    'bot'      => BASE_PATH . '/src/Controllers/BotController.php',
-    'health'     => BASE_PATH . '/src/Controllers/HealthController.php',
-    'whatsapp'   => BASE_PATH . '/src/Controllers/WhatsAppController.php',
-    'superadmin' => BASE_PATH . '/src/Controllers/SuperAdminController.php',
-    'organizer-settings' => BASE_PATH . '/src/Controllers/OrganizerSettingsController.php',
-];
+    $controllers = [
+        'auth'     => BASE_PATH . '/src/Controllers/AuthController.php',
+        'admin'    => BASE_PATH . '/src/Controllers/AdminController.php',
+        'cards'    => BASE_PATH . '/src/Controllers/CardController.php',
+        'organizer'=> BASE_PATH . '/src/Controllers/OrganizerController.php',
+        'events'   => BASE_PATH . '/src/Controllers/EventController.php',
+        'tickets'  => BASE_PATH . '/src/Controllers/TicketController.php',
+        'bar'      => BASE_PATH . '/src/Controllers/BarController.php',
+        'food'     => BASE_PATH . '/src/Controllers/FoodController.php',
+        'shop'     => BASE_PATH . '/src/Controllers/ShopController.php',
+        'users'    => BASE_PATH . '/src/Controllers/UserController.php',
+        'messaging'=> BASE_PATH . '/src/Controllers/MessagingController.php',
+        'guests'   => BASE_PATH . '/src/Controllers/GuestController.php',
+        'scanner'  => BASE_PATH . '/src/Controllers/ScannerController.php',
+        'sync'     => BASE_PATH . '/src/Controllers/SyncController.php',
+        'bot'      => BASE_PATH . '/src/Controllers/BotController.php',
+        'health'     => BASE_PATH . '/src/Controllers/HealthController.php',
+        'whatsapp'   => BASE_PATH . '/src/Controllers/WhatsAppController.php',
+        'superadmin' => BASE_PATH . '/src/Controllers/SuperAdminController.php',
+        'organizer-settings' => BASE_PATH . '/src/Controllers/OrganizerSettingsController.php',
+    ];
 
 if ($resource === '' || $resource === 'ping') {
     jsonSuccess(['version' => '2.0', 'status' => 'online'], 'EnjoyFun API');
