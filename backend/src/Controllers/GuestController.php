@@ -322,6 +322,12 @@ function importGuests(): void
 
         while (($row = fgetcsv($handle)) !== false) {
             $line++;
+
+            if ($line > 501) {
+                $errors[] = "Limite máximo de 500 registros por arquivo excedido.";
+                break;
+            }
+
             $processed++;
 
             $name  = trim((string)($row[$nameIdx]  ?? ''));

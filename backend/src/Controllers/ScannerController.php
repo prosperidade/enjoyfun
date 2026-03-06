@@ -19,36 +19,12 @@ function processScan(array $body): void
         jsonError('Token é obrigatório.', 422);
     }
 
-    if ($mode !== 'portaria') {
-        jsonError("Modo '{$mode}' ainda não suportado.", 422);
+    if (!in_array($mode, ['portaria', 'bar', 'food', 'shop', 'parking'], true)) {
+        jsonError("Modo '{$mode}' inválido ou não suportado.", 422);
     }
 
     try {
         $db = Database::getInstance();
-
-        $ticketStmt = $db->prepare(
-            'SELECT id, holder_name, status FROM tickets WHERE qr_token = ? OR order_reference = ? LIMIT 1'
-        );
-        $ticketStmt->execute([$token, $token]);
-        $ticket = $ticketStmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($ticket) {
-            $status = strtolower((string)($ticket['status'] ?? ''));
-            if (in_array($status, ['used', 'utilizado', 'checked_in', 'checked-in'], true)) {
-                jsonError('Ingresso já utilizado', 400);
-            }
-
-            $updateTicketStmt = $db->prepare(
-                "UPDATE tickets SET status = 'used', used_at = NOW(), updated_at = NOW() WHERE id = ?"
-            );
-            $updateTicketStmt->execute([(int)$ticket['id']]);
-
-            jsonSuccess([
-                'source' => 'ticket',
-                'holder_name' => $ticket['holder_name'],
-                'checked_at' => date('c'),
-            ], 'Check-in realizado com sucesso.');
-        }
 
         $guestStmt = $db->prepare('SELECT id, name, status, metadata FROM guests WHERE qr_code_token = ? LIMIT 1');
         $guestStmt->execute([$token]);
