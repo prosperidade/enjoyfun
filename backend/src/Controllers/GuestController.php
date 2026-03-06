@@ -4,7 +4,9 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 {
     match (true) {
         $method === 'GET' && $id === null => listGuests($query),
+        $method === 'GET' && $id === 'ticket' => getGuestTicket($query),
         $method === 'POST' && $id === 'import' => importGuests(),
+        $method === 'POST' && $id === 'checkin' => checkinGuest($body),
         default => jsonError('Rota de convidados não encontrada.', 404),
     };
 }
@@ -81,6 +83,81 @@ function listGuests(array $query): void
         ]);
     } catch (Throwable $e) {
         jsonError('Erro ao listar convidados: ' . $e->getMessage(), 500);
+    }
+}
+
+function getGuestTicket(array $query): void
+{
+    $token = trim((string)($query['token'] ?? ''));
+
+    if ($token === '') {
+        jsonError('Token é obrigatório.', 422);
+    }
+
+    try {
+        $db = Database::getInstance();
+
+        $stmt = $db->prepare("
+            SELECT g.name AS guest_name,
+                   g.status,
+                   g.qr_code_token,
+                   e.id AS event_id,
+                   e.name AS event_name,
+                   COALESCE(e.event_date::text, e.starts_at::date::text) AS event_date,
+                   COALESCE(e.banner_url, '') AS logo_url
+            FROM guests g
+            JOIN events e ON e.id = g.event_id
+            WHERE g.qr_code_token = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$token]);
+        $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$ticket) {
+            jsonError('Convite não encontrado.', 404);
+        }
+
+        jsonSuccess($ticket);
+    } catch (Throwable $e) {
+        jsonError('Erro ao carregar convite: ' . $e->getMessage(), 500);
+    }
+}
+
+function checkinGuest(array $body): void
+{
+    $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    $token = trim((string)($body['token'] ?? ''));
+
+    if ($organizerId <= 0) {
+        jsonError('Organizador inválido.', 403);
+    }
+
+    if ($token === '') {
+        jsonError('Token é obrigatório.', 422);
+    }
+
+    try {
+        $db = Database::getInstance();
+
+        $stmt = $db->prepare('SELECT id, status FROM guests WHERE qr_code_token = ? AND organizer_id = ? LIMIT 1');
+        $stmt->execute([$token, $organizerId]);
+        $guest = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$guest) {
+            jsonError('Convidado não encontrado.', 404);
+        }
+
+        if (($guest['status'] ?? '') === 'presente') {
+            jsonError('Check-in já realizado', 400);
+        }
+
+        $updateStmt = $db->prepare("UPDATE guests SET status = 'presente' WHERE id = ?");
+        $updateStmt->execute([(int)$guest['id']]);
+
+        jsonSuccess(['id' => (int)$guest['id'], 'status' => 'presente'], 'Check-in realizado com sucesso.');
+    } catch (Throwable $e) {
+        jsonError('Erro ao realizar check-in: ' . $e->getMessage(), 500);
     }
 }
 

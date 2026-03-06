@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Mail, Upload, Users } from 'lucide-react';
+import { Link2, Mail, Upload, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
 
@@ -107,6 +107,16 @@ export default function Guests() {
     }
   };
 
+  const copyInviteLink = async (token) => {
+    const inviteUrl = `${window.location.origin}/invite?token=${token}`;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      toast.success('Link do convite copiado!');
+    } catch {
+      toast.error('Não foi possível copiar o link.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -155,13 +165,14 @@ export default function Guests() {
               <th>Documento</th>
               <th>Status</th>
               <th>Evento</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="py-10 text-center"><div className="spinner w-6 h-6 mx-auto" /></td></tr>
+              <tr><td colSpan={7} className="py-10 text-center"><div className="spinner w-6 h-6 mx-auto" /></td></tr>
             ) : guests.length === 0 ? (
-              <tr><td colSpan={6} className="py-10 text-center text-sm text-gray-500">Nenhum convidado encontrado para esse filtro.</td></tr>
+              <tr><td colSpan={7} className="py-10 text-center text-sm text-gray-500">Nenhum convidado encontrado para esse filtro.</td></tr>
             ) : (
               guests.map((guest) => (
                 <tr key={guest.id}>
@@ -180,6 +191,16 @@ export default function Guests() {
                     </span>
                   </td>
                   <td className="text-gray-400">{guest.event_name || `#${guest.event_id}`}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn-secondary px-2 py-1 inline-flex items-center gap-1 text-xs"
+                      onClick={() => copyInviteLink(guest.qr_code_token)}
+                      title="Copiar link do convite"
+                    >
+                      <Link2 size={14} /> Copiar link
+                    </button>
+                  </td>
                 </tr>
               ))
             )}

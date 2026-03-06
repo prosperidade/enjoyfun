@@ -11,6 +11,7 @@ import Tickets from "./pages/Tickets";
 import Cards from "./pages/Cards";
 import SuperAdminPanel from "./pages/SuperAdminPanel";
 import Guests from "./pages/Guests";
+import GuestTicket from "./pages/GuestTicket";
 
 // Nossos arquivos independentes
 import Bar from "./pages/Bar";
@@ -61,6 +62,7 @@ export default function App() {
           <Route path="/app/:slug"          element={<CustomerLogin />} />
           <Route path="/app/:slug/home"     element={<CustomerDashboard />} />
           <Route path="/app/:slug/recharge" element={<CustomerRecharge />} />
+          <Route path="/invite" element={<GuestTicket />} />
 
           <Route element={<PrivateRoute />}>
             <Route element={<DashboardLayout />}>
