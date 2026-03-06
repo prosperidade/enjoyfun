@@ -41,6 +41,7 @@ if (file_exists($envFile)) {
 require_once BASE_PATH . '/config/Database.php';
 require_once BASE_PATH . '/src/Helpers/JWT.php';
 require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
+require_once BASE_PATH . '/src/Services/WalletSecurityService.php';
 
 $auditFile = BASE_PATH . '/src/Services/AuditService.php';
 if (file_exists($auditFile)) require_once $auditFile;
@@ -103,7 +104,9 @@ $controllers = [
     'health'     => BASE_PATH . '/src/Controllers/HealthController.php',
     'whatsapp'   => BASE_PATH . '/src/Controllers/WhatsAppController.php',
     'superadmin' => BASE_PATH . '/src/Controllers/SuperAdminController.php',
-    'guests'     => BASE_PATH . '/src/Controllers/GuestController.php',  // ← LINHA NOVA
+    'guests'     => BASE_PATH . '/src/Controllers/GuestController.php',
+    'scanner'    => BASE_PATH . '/src/Controllers/ScannerController.php',
+    'organizer-settings' => BASE_PATH . '/src/Controllers/OrganizerSettingsController.php',
 ];
 
 if ($resource === '' || $resource === 'ping') {

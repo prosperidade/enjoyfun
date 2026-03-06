@@ -31,31 +31,55 @@ class JWT
     public static function decode(string $token): ?array
     {
         $parts = explode('.', $token);
-        if (count($parts) !== 3) return null;
+        if (count($parts) !== 3) {
+            error_log("❌ [JWT] Token mal formado (não tem 3 partes)");
+            return null;
+        }
 
         [$header, $body, $sig] = $parts;
 
         // Verifica algoritmo
         $headerData = json_decode(self::b64urlDecode($header), true);
-        if (($headerData['alg'] ?? '') !== 'RS256') return null;
+        if (($headerData['alg'] ?? '') !== 'RS256') {
+            error_log("❌ [JWT] Algoritmo inválido: " . ($headerData['alg'] ?? 'ausente'));
+            return null;
+        }
 
-        $publicKey = self::getPublicKey();
-        $key = openssl_pkey_get_public($publicKey);
-        if (!$key) return null;
+        try {
+            $publicKey = self::getPublicKey();
+            $key = openssl_pkey_get_public($publicKey);
+            if (!$key) {
+                error_log("❌ [JWT] Falha ao ler chave pública.");
+                return null;
+            }
 
-        $valid = openssl_verify(
-            "$header.$body",
-            self::b64urlDecode($sig),
-            $key,
-            OPENSSL_ALGO_SHA256
-        );
+            $valid = openssl_verify(
+                "$header.$body",
+                self::b64urlDecode($sig),
+                $key,
+                OPENSSL_ALGO_SHA256
+            );
 
-        if ($valid !== 1) return null;
+            if ($valid !== 1) {
+                error_log("❌ [JWT] Assinatura inválida! OPENSSL CODE: " . openssl_error_string());
+                return null;
+            }
 
-        $payload = json_decode(self::b64urlDecode($body), true);
-        if (!$payload || $payload['exp'] < time()) return null;
+            $payload = json_decode(self::b64urlDecode($body), true);
+            if (!$payload) {
+                error_log("❌ [JWT] Falha ao decodificar payload JSON.");
+                return null;
+            }
+            if ($payload['exp'] < time()) {
+                error_log("❌ [JWT] Token expirado! Exp: " . date('Y-m-d H:i:s', $payload['exp']));
+                return null;
+            }
 
-        return $payload;
+            return $payload;
+        } catch (Throwable $e) {
+            error_log("❌ [JWT] Exception no decode: " . $e->getMessage());
+            return null;
+        }
     }
 
     public static function fromHeader(): ?string

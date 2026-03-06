@@ -19,6 +19,7 @@ function requireAuth(?array $allowedRoles = null): array
     $payload = (array) JWT::decode($token);
 
     if (!$payload) {
+        error_log("❌ [AuthMiddleware] JWT::decode retornou null para o token: " . substr($token, 0, 15) . "...");
         jsonError("Sessão inválida ou expirada", 401);
     }
 

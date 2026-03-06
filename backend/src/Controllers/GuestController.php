@@ -93,72 +93,48 @@ function listGuests(array $query): void
     $operator    = requireAuth(['admin', 'organizer', 'staff']);
     $organizerId = (int)($operator['organizer_id'] ?? 0);
 
-    $eventId = isset($query['event_id']) ? (int)$query['event_id'] : 0;
-    $search  = trim((string)($query['search'] ?? ''));
-    $page    = max(1, (int)($query['page']  ?? 1));
-    $limit   = max(1, min(100, (int)($query['limit'] ?? 10)));
-    $offset  = ($page - 1) * $limit;
-
     try {
         $db = Database::getInstance();
 
-        // ✅ FILTRO PRINCIPAL: apenas convidados pelo prefixo do order_reference
-        $where  = [
-            't.organizer_id = ?',
-            "(t.order_reference LIKE 'EF-GUEST-%' OR t.order_reference LIKE 'EF-IMP-%')",
-        ];
-        $params = [$organizerId];
+        // 1. Obtém a query segura e os parâmetros do Service
+        $safeQuery = WalletSecurityService::buildSafeSelectGuestsQuery($organizerId, $query);
 
-        if ($eventId > 0) {
-            $where[]  = 't.event_id = ?';
-            $params[] = $eventId;
+        // 2. Cria a query de COUNT para a paginação usando os mesmos filtros (sem ORDER/LIMIT)
+        $where = ['g.organizer_id = :organizer_id'];
+        $countParams = [':organizer_id' => $organizerId];
+        
+        if (!empty($query['event_id'])) {
+            $where[] = 'g.event_id = :event_id';
+            $countParams[':event_id'] = (int)$query['event_id'];
+        }
+        if (!empty($query['status'])) {
+            $where[] = 'g.status = :status';
+            $countParams[':status'] = (string)$query['status'];
+        }
+        if (!empty($query['search'])) {
+            $where[] = '(LOWER(g.name) LIKE LOWER(:search) OR LOWER(g.email) LIKE LOWER(:search))';
+            $countParams[':search'] = '%' . trim((string)$query['search']) . '%';
         }
 
-        if ($search !== '') {
-            $where[]  = '(LOWER(t.holder_name) LIKE LOWER(?) OR LOWER(t.holder_email) LIKE LOWER(?))';
-            $params[] = "%{$search}%";
-            $params[] = "%{$search}%";
-        }
-
-        $whereSql = 'WHERE ' . implode(' AND ', $where);
-
-        // Total para paginação
-        $countStmt = $db->prepare("
-            SELECT COUNT(*) FROM tickets t
-            INNER JOIN events e ON e.id = t.event_id
-            {$whereSql}
-        ");
-        $countStmt->execute($params);
+        $countSql = 'SELECT COUNT(*) FROM guests g WHERE ' . implode(' AND ', $where);
+        
+        $countStmt = $db->prepare($countSql);
+        $countStmt->execute($countParams);
         $total = (int)$countStmt->fetchColumn();
 
-        // Lista
-        $stmt = $db->prepare("
-            SELECT
-                t.id,
-                t.order_reference,
-                t.holder_name   AS name,
-                t.holder_email  AS email,
-                t.holder_phone  AS phone,
-                t.status,
-                t.price_paid,
-                t.purchased_at,
-                t.used_at,
-                t.qr_token      AS qr_code_token,
-                t.event_id,
-                e.name          AS event_name,
-                CASE
-                    WHEN t.order_reference LIKE 'EF-GUEST-%' THEN 'Cortesia'
-                    WHEN t.order_reference LIKE 'EF-IMP-%'   THEN 'Importado'
-                    ELSE 'Convidado'
-                END             AS guest_type
-            FROM tickets t
-            INNER JOIN events e ON e.id = t.event_id
-            {$whereSql}
-            ORDER BY t.purchased_at DESC
-            LIMIT ? OFFSET ?
-        ");
-        $stmt->execute([...$params, $limit, $offset]);
+        // 3. Executa a listagem real com bindValue tipado para o LIMIT/OFFSET funcionar
+        $stmt = $db->prepare($safeQuery['sql']);
+        
+        foreach ($safeQuery['params'] as $key => $value) {
+            $type = is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR;
+            $stmt->bindValue($key, $value, $type);
+        }
+        
+        $stmt->execute();
         $guests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $limit = max(1, min(100, (int)($query['limit'] ?? 20)));
+        $page = max(1, (int)($query['page'] ?? 1));
 
         jsonSuccess([
             'items'      => $guests,

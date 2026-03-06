@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Camera, CheckCircle2, XCircle, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../lib/api';
+import api from '../../lib/api';
 
 export default function Scanner() {
   const [scanResult, setScanResult] = useState(null);

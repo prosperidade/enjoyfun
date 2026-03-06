@@ -22,6 +22,7 @@ import Messaging from "./pages/Messaging";
 import AIAgents from "./pages/AIAgents";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
+import Scanner from "./pages/Operations/Scanner";
 import CustomerLogin from "./pages/CustomerApp/CustomerLogin";
 import CustomerDashboard from "./pages/CustomerApp/CustomerDashboard";
 import CustomerRecharge from "./pages/CustomerApp/CustomerRecharge";
@@ -83,6 +84,7 @@ export default function App() {
               <Route path="/ai" element={<AIAgents />} />
               <Route path="/users" element={<Users />} />
               <Route path="/guests" element={<Guests />} />
+              <Route path="/scanner" element={<Scanner />} />
               
               {/* Rota de Configurações Final */}
               <Route path="/settings" element={<Settings />} />
