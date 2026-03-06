@@ -89,24 +89,21 @@ if ($raw && ($decoded = json_decode($raw, true)) !== null) {
 
 // ── Roteador ──────────────────────────────────────────────────────────────────
 $controllers = [
-    'auth'               => BASE_PATH . '/src/Controllers/AuthController.php',
-    'events'             => BASE_PATH . '/src/Controllers/EventController.php',
-    'tickets'            => BASE_PATH . '/src/Controllers/TicketController.php',
-    'parking'            => BASE_PATH . '/src/Controllers/ParkingController.php',
-    'users'              => BASE_PATH . '/src/Controllers/UserController.php',
-    'admin'              => BASE_PATH . '/src/Controllers/AdminController.php',
-    'cards'              => BASE_PATH . '/src/Controllers/CardController.php',
-    'bar'                => BASE_PATH . '/src/Controllers/BarController.php',
-    'food'               => BASE_PATH . '/src/Controllers/FoodController.php',
-    'shop'               => BASE_PATH . '/src/Controllers/ShopController.php',
-    'sync'               => BASE_PATH . '/src/Controllers/SyncController.php',
-    'health'             => BASE_PATH . '/src/Controllers/HealthController.php',
-    'messaging'          => BASE_PATH . '/src/Controllers/MessagingController.php',
-    'whatsapp'           => BASE_PATH . '/src/Controllers/MessagingController.php',
-    'superadmin'         => BASE_PATH . '/src/Controllers/SuperAdminController.php',
-    'organizer-settings' => BASE_PATH . '/src/Controllers/OrganizerSettingsController.php',
-    'customer'           => BASE_PATH . '/src/Controllers/CustomerController.php',
-    'guests'             => BASE_PATH . '/src/Controllers/GuestController.php',
+    'auth'       => BASE_PATH . '/src/Controllers/AuthController.php',
+    'events'     => BASE_PATH . '/src/Controllers/EventController.php',
+    'tickets'    => BASE_PATH . '/src/Controllers/TicketController.php',
+    'parking'    => BASE_PATH . '/src/Controllers/ParkingController.php',
+    'users'      => BASE_PATH . '/src/Controllers/UserController.php',
+    'admin'      => BASE_PATH . '/src/Controllers/AdminController.php',
+    'cards'      => BASE_PATH . '/src/Controllers/CardController.php',
+    'bar'        => BASE_PATH . '/src/Controllers/BarController.php',
+    'food'       => BASE_PATH . '/src/Controllers/FoodController.php',
+    'shop'       => BASE_PATH . '/src/Controllers/ShopController.php',
+    'sync'       => BASE_PATH . '/src/Controllers/SyncController.php',
+    'health'     => BASE_PATH . '/src/Controllers/HealthController.php',
+    'whatsapp'   => BASE_PATH . '/src/Controllers/WhatsAppController.php',
+    'superadmin' => BASE_PATH . '/src/Controllers/SuperAdminController.php',
+    'guests'     => BASE_PATH . '/src/Controllers/GuestController.php',  // ← LINHA NOVA
 ];
 
 if ($resource === '' || $resource === 'ping') {
