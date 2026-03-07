@@ -103,12 +103,13 @@ if ($raw && ($decoded = json_decode($raw, true)) !== null) {
         'messaging'=> BASE_PATH . '/src/Controllers/MessagingController.php',
         'guests'   => BASE_PATH . '/src/Controllers/GuestController.php',
         'scanner'  => BASE_PATH . '/src/Controllers/ScannerController.php',
+        'parking'  => BASE_PATH . '/src/Controllers/ParkingController.php',
         'sync'     => BASE_PATH . '/src/Controllers/SyncController.php',
         'bot'      => BASE_PATH . '/src/Controllers/BotController.php',
         'health'     => BASE_PATH . '/src/Controllers/HealthController.php',
-        'whatsapp'   => BASE_PATH . '/src/Controllers/WhatsAppController.php',
         'superadmin' => BASE_PATH . '/src/Controllers/SuperAdminController.php',
         'organizer-settings' => BASE_PATH . '/src/Controllers/OrganizerSettingsController.php',
+        'ai'       => BASE_PATH . '/src/Controllers/AIController.php',
     ];
 
 if ($resource === '' || $resource === 'ping') {

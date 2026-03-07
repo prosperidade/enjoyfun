@@ -140,10 +140,10 @@ function listRecentSales(): void
     if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     $eventId = isset($_GET['event_id']) && is_numeric($_GET['event_id']) ? (int)$_GET['event_id'] : 1;
     $timeFilter = $_GET['filter'] ?? '24h';
-    $whereTime = "AND s.created_at >= NOW() - INTERVAL '24 hours'";
-    if ($timeFilter === '1h') $whereTime = "AND s.created_at >= NOW() - INTERVAL '1 hour'";
-    elseif ($timeFilter === '5h') $whereTime = "AND s.created_at >= NOW() - INTERVAL '5 hours'";
-    elseif ($timeFilter === 'total') $whereTime = "";
+    $whereTime = "AND s.created_at >= NOW() - INTERVAL '24 hours' AND s.created_at <= NOW()";
+    if ($timeFilter === '1h') $whereTime = "AND s.created_at >= NOW() - INTERVAL '1 hour' AND s.created_at <= NOW()";
+    elseif ($timeFilter === '5h') $whereTime = "AND s.created_at >= NOW() - INTERVAL '5 hours' AND s.created_at <= NOW()";
+    elseif ($timeFilter === 'total') $whereTime = "AND s.created_at <= NOW()";
 
     try {
         $db = Database::getInstance();
@@ -182,13 +182,13 @@ function listRecentSales(): void
         $totalItems = (int) $stmtItems->fetchColumn();
 
         $sqlChart = "
-            SELECT TO_CHAR(s.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') as time, SUM(si.subtotal) as revenue 
+            SELECT TO_CHAR(DATE_TRUNC('minute', s.created_at), 'HH24:MI') as time, SUM(si.subtotal) as revenue 
             FROM sale_items si
             JOIN sales s ON si.sale_id = s.id
             JOIN products p ON p.id = si.product_id
             WHERE s.event_id = ? AND s.organizer_id = ? AND s.status = 'completed' AND p.sector = 'bar' $whereTime
-            GROUP BY TO_CHAR(s.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI')
-            ORDER BY min(s.created_at) ASC
+            GROUP BY DATE_TRUNC('minute', s.created_at)
+            ORDER BY DATE_TRUNC('minute', s.created_at) ASC
         ";
         $stmtChart = $db->prepare($sqlChart);
         $stmtChart->execute([$eventId, $organizerId]);
@@ -366,10 +366,10 @@ function requestGeminiInsight(array $body): void
     $eventId    = (int)($body['event_id'] ?? $_GET['event_id'] ?? 1);
     $timeFilter = $body['filter'] ?? $_GET['filter'] ?? '24h';
 
-    $whereTime = "AND s.created_at >= NOW() - INTERVAL '24 hours'";
-    if ($timeFilter === '1h')        $whereTime = "AND s.created_at >= NOW() - INTERVAL '1 hour'";
-    elseif ($timeFilter === '5h')    $whereTime = "AND s.created_at >= NOW() - INTERVAL '5 hours'";
-    elseif ($timeFilter === 'total') $whereTime = '';
+    $whereTime = "AND s.created_at >= NOW() - INTERVAL '24 hours' AND s.created_at <= NOW()";
+    if ($timeFilter === '1h')        $whereTime = "AND s.created_at >= NOW() - INTERVAL '1 hour' AND s.created_at <= NOW()";
+    elseif ($timeFilter === '5h')    $whereTime = "AND s.created_at >= NOW() - INTERVAL '5 hours' AND s.created_at <= NOW()";
+    elseif ($timeFilter === 'total') $whereTime = "AND s.created_at <= NOW()";
 
     try {
         $db = Database::getInstance();

@@ -76,9 +76,9 @@ const nav = [
     roles: ["admin", "parking_staff", "staff"],
   },
   {
-    to: "/whatsapp",
+    to: "/messaging",
     icon: MessageCircle,
-    label: "WhatsApp",
+    label: "Mensageria",
     roles: ["admin", "organizer"],
   },
   {
@@ -97,7 +97,7 @@ const nav = [
 
 export default function Sidebar({ isOpen, onClose }) {
   // hasRole é usado no filtro visibleNav — não remover
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
   const location = useLocation();
   const [pdvOpen, setPdvOpen] = useState(
     location.pathname.includes("bar") ||
@@ -128,14 +128,26 @@ export default function Sidebar({ isOpen, onClose }) {
       `}
       >
         <div className="h-16 px-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-[0_0_12px_rgba(124,58,237,0.4)]">
-              <Zap size={16} className="text-white" />
-            </div>
-            <span className="font-bold text-white text-lg tracking-tight">
-              EnjoyFun
-            </span>
-          </div>
+          <NavLink to="/" className="flex items-center gap-3">
+            {user?.organizer_settings?.logo_url ? (
+              <img 
+                src={user.organizer_settings.logo_url} 
+                alt={user.organizer_settings.app_name || "Logo"} 
+                className="w-10 h-10 object-contain"
+              />
+            ) : (
+              <div className="flex items-center gap-3">
+                <img 
+                  src="/images/logoenjoyfun.png" 
+                  alt="EnjoyFun Logo" 
+                  className="w-10 h-10 object-contain rounded-lg shadow-[0_0_12px_rgba(124,58,237,0.4)]"
+                />
+                <span className="font-bold text-white text-lg tracking-tight">
+                  {user?.organizer_settings?.app_name || "EnjoyFun"}
+                </span>
+              </div>
+            )}
+          </NavLink>
           <button
             onClick={onClose}
             className="lg:hidden p-1.5 text-gray-500 hover:text-white rounded-md hover:bg-gray-800"

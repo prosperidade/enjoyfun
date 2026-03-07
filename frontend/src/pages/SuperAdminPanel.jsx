@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import api from '../lib/api';
 
 export default function SuperAdminPanel() {
     const [organizers, setOrganizers] = useState([]);
@@ -12,43 +13,25 @@ export default function SuperAdminPanel() {
         password: ''
     });
 
-    // CORREÇÃO: Buscando a chave exata que o AuthContext salva no login
-    const token = localStorage.getItem('access_token');
-
-    // useCallback garante que a função não mude a cada renderização
     const fetchOrganizers = useCallback(async () => {
         try {
-            const response = await fetch('/api/superadmin/organizers', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            // Verificamos se a resposta é JSON antes de tentar o .json()
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.indexOf("application/json") !== -1) {
-                const data = await response.json();
-                if (data.success) {
-                    setOrganizers(data.data.organizers || []);
-                }
-            } else {
-                // Se cair aqui, o PHP enviou um erro HTML
-                const errorText = await response.text();
-                console.error('Resposta inválida do servidor (HTML detectado):', errorText);
+            const response = await api.get('/superadmin/organizers');
+            if (response.data.success) {
+                setOrganizers(response.data.data.organizers || []);
             }
         } catch (error) {
             console.error('Erro ao buscar organizadores:', error);
+            if (error.response?.status === 401) {
+                setMessage({ type: 'error', text: 'Sessão expirada. Faça login novamente.' });
+            }
         } finally {
             setLoading(false);
         }
-    }, [token]);
+    }, []);
 
     useEffect(() => {
-        if (token) {
-            fetchOrganizers();
-        } else {
-            setLoading(false);
-            console.error("Token de acesso não encontrado no localStorage.");
-        }
-    }, [fetchOrganizers, token]); 
+        fetchOrganizers();
+    }, [fetchOrganizers]); 
 
     // Atualização de estado blindada
     const handleInputChange = (e) => {
@@ -65,33 +48,17 @@ export default function SuperAdminPanel() {
         setMessage({ type: '', text: '' });
 
         try {
-            const response = await fetch('/api/superadmin/organizers', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(formData)
-            });
-            
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.indexOf("application/json") !== -1) {
-                const data = await response.json();
-                if (data.success) {
-                    setMessage({ type: 'success', text: 'Organizador criado e isolado com sucesso!' });
-                    setFormData({ name: '', email: '', password: '' });
-                    fetchOrganizers(); 
-                } else {
-                    setMessage({ type: 'error', text: data.message || 'Erro ao criar organizador.' });
-                }
+            const response = await api.post('/superadmin/organizers', formData);
+            if (response.data.success) {
+                setMessage({ type: 'success', text: 'Organizador criado e isolado com sucesso!' });
+                setFormData({ name: '', email: '', password: '' });
+                fetchOrganizers(); 
             } else {
-                const errorText = await response.text();
-                console.error("Erro no servidor (HTML):", errorText);
-                setMessage({ type: 'error', text: 'Erro interno no servidor (PHP disparou um aviso).' });
+                setMessage({ type: 'error', text: response.data.message || 'Erro ao criar organizador.' });
             }
         } catch (error) {
             console.error("Erro no envio:", error); 
-            setMessage({ type: 'error', text: 'Erro de conexão com o servidor.' });
+            setMessage({ type: 'error', text: error.response?.data?.message || 'Erro de conexão com o servidor.' });
         } finally {
             setIsSubmitting(false);
         }

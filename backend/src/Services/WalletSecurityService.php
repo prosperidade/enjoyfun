@@ -56,8 +56,8 @@ class WalletSecurityService
             // Grava histórico da transação
             $txStmt = $db->prepare('
                 INSERT INTO card_transactions (
-                    card_id, type, amount, balance_before, balance_after, metadata, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?::jsonb, NOW())
+                    card_id, type, amount, balance_before, balance_after, description, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, NOW())
                 RETURNING id
             ');
             $txStmt->execute([
@@ -66,7 +66,7 @@ class WalletSecurityService
                 $amount,
                 $currentBalance,
                 $nextBalance,
-                json_encode($metadata, JSON_UNESCAPED_UNICODE),
+                ($metadata['description'] ?? 'Venda via Cashless'),
             ]);
 
             $transactionId = (int)$txStmt->fetchColumn();

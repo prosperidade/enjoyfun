@@ -78,9 +78,11 @@ export default function Login() {
 
         {/* Logo */}
         <div className="relative flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center" style={{boxShadow: '0 0 24px rgba(124,58,237,0.5)'}}>
-            <Zap size={20} className="text-white" />
-          </div>
+          <img 
+            src="/images/logoenjoyfun.png" 
+            alt="EnjoyFun Logo" 
+            className="w-10 h-10 object-contain rounded-xl shadow-[0_0_24px_rgba(124,58,237,0.5)]"
+          />
           <span className="text-white font-bold text-xl tracking-tight">EnjoyFun</span>
           <span className="text-gray-500 text-sm">v2.0</span>
         </div>
@@ -145,9 +147,11 @@ export default function Login() {
 
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-2.5 mb-8">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center" style={{boxShadow: '0 0 20px rgba(124,58,237,0.5)'}}>
-              <Zap size={20} className="text-white" />
-            </div>
+            <img 
+              src="/images/logoenjoyfun.png" 
+              alt="EnjoyFun Logo" 
+              className="w-10 h-10 object-contain rounded-xl shadow-[0_0_20px_rgba(124,58,237,0.5)]"
+            />
             <span className="text-white font-bold text-xl">EnjoyFun</span>
           </div>
 

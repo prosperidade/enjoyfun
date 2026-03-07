@@ -238,6 +238,14 @@ export default function POS({ fixedSector = "bar" }) {
   useEffect(() => {
     loadProducts();
     loadRecentSales();
+
+    // Polling contínuo (Auto-refresh) para garantir a Timeline em Real-time
+    const intervalId = setInterval(() => {
+      loadRecentSales();
+    }, 30000);
+
+    // Limpeza mandatória exigida na validação técnica para evitar memory leaks
+    return () => clearInterval(intervalId);
   }, [loadProducts, loadRecentSales]);
 
   useEffect(() => {
@@ -410,51 +418,11 @@ export default function POS({ fixedSector = "bar" }) {
       let insight = "";
 
       if (ctx) {
-        // Passo 2: chama Gemini diretamente do browser com os dados do backend
-        const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (!geminiKey) {
-          throw new Error("VITE_GEMINI_API_KEY não configurada no frontend.");
-        }
-
-        const prompt = `PERÍODO: ${ctx.time_filter}
-FATURAMENTO TOTAL: R$ ${ctx.total_revenue}
-ITENS VENDIDOS: ${ctx.total_items} und
-TOP PRODUTOS (JSON): ${JSON.stringify(ctx.top_products)}
-ESTOQUE CRÍTICO (JSON): ${JSON.stringify(ctx.stock_levels)}
-
-TAREFAS:
-1. Avalie o ritmo de vendas e saúde do faturamento.
-2. Destaque os campeões de venda.
-3. Alerte sobre itens perto do limite crítico de estoque.
-4. Sugira 2 ações práticas de alta conversão.
-
-PERGUNTA DO OPERADOR: ${q}`;
-
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              system_instruction: {
-                parts: [{ text: "Você é a IA Consultora do EnjoyFun, especialista em eventos. Forneça insights executivos de vendas em português, usando emojis para estruturar." }],
-              },
-              contents: [{ role: "user", parts: [{ text: prompt }] }],
-              generationConfig: { temperature: 0.4 },
-            }),
-          },
-        );
-        const geminiJson = await geminiRes.json();
-        if (!geminiRes.ok) {
-          if (geminiRes.status === 429) {
-            throw new Error("⏳ Limite de requisições atingido. Aguarde 30 segundos e tente novamente.");
-          }
-          throw new Error(geminiJson?.error?.message ?? `Erro da API Gemini (${geminiRes.status})`);
-        }
-        insight = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text
-          ?? "Nenhum insight retornado pela IA.";
+        // Passo 2: Envia contexto e a pergunta pro backend processar de forma segura
+        const aiRes = await api.post('/ai/insight', { context: ctx, question: q });
+        insight = aiRes.data?.data?.insight || "Nenhum insight retornado pela IA.";
       } else if (dataRes.data?.data?.insight) {
-        // Fallback: caso o backend retorne o insight direto
+        // Fallback: retorno direto
         insight = dataRes.data.data.insight;
       }
 
@@ -464,9 +432,11 @@ PERGUNTA DO OPERADOR: ${q}`;
       ]);
     } catch (err) {
       console.error("Erro na IA:", err);
+      // Se for erro do backend (ex: 429 com mensagem tratada), exibe a mensagem amigável dele
+      const msg = err.response?.data?.message || err.message;
       setChatHistory((prev) => [
         ...prev,
-        { role: "ai", content: `Erro na conexão com IA: ${err.message}` },
+        { role: "ai", content: `Erro na conexão com IA: ${msg}` },
       ]);
     } finally {
       setLoadingInsight(false);

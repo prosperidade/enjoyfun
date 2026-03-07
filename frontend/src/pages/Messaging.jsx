@@ -35,7 +35,7 @@ export default function Messaging() {
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
-    api.get('/whatsapp/config')
+    api.get('/messaging/config')
       .then(r => {
         const d = r.data.data || {};
         setWaUrl(d.wa_api_url   || '');
@@ -48,7 +48,7 @@ export default function Messaging() {
       })
       .catch(() => {});
 
-    api.get('/whatsapp/history')
+    api.get('/messaging/history')
       .then(r => setHistory(r.data.data || []))
       .catch(() => {});
   }, []);
@@ -89,7 +89,7 @@ export default function Messaging() {
     setSending(true);
     try {
       if (tab === 'wa') {
-        await api.post('/whatsapp/send', { phone, message });
+        await api.post('/messaging/send', { phone, message });
         toast.success('Mensagem WhatsApp enviada!');
         setPhone(''); setMessage('');
       } else {
@@ -97,7 +97,7 @@ export default function Messaging() {
         toast.success('E-mail enviado!');
         setEmailTo(''); setMessage('');
       }
-      api.get('/whatsapp/history').then(r => setHistory(r.data.data || []));
+      api.get('/messaging/history').then(r => setHistory(r.data.data || []));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erro ao enviar mensagem.');
     } finally {
@@ -265,7 +265,7 @@ export default function Messaging() {
                 </div>
                 <div className="p-3 bg-blue-900/20 rounded-lg border border-blue-800/40">
                   <p className="text-xs text-blue-400 font-medium mb-1">📌 Webhook URL</p>
-                  <code className="text-xs text-gray-300 break-all">{window.location.origin}/api/whatsapp/webhook</code>
+                  <code className="text-xs text-gray-300 break-all">{window.location.origin}/api/messaging/webhook</code>
                   <p className="text-xs text-gray-500 mt-1">Configure este webhook na sua instância Evolution API.</p>
                 </div>
                 <button type="submit" className="btn-primary w-full">Salvar Configuração WhatsApp</button>
