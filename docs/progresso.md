@@ -120,6 +120,12 @@ Em cada bloco novo de progresso, registrar sempre:
    - `PaymentGatewayService` ajustado para usar colunas estruturais com fallback compatível para payload legado.
    - `OrganizerFinanceController` reforçado com auditoria nas mutações do domínio financeiro.
    - `FinancialSettingsService` reforçado com validação de payload (`currency` e faixa de `tax_rate`).
+ - **Auth & Security v1.1 (Hardening Imediato) — Entregue**:
+   - Removido bypass hardcoded de login no `AuthController` (senha de emergência em produção).
+   - Fluxo de autenticação revisado e endurecido: `login`, `refresh`, `me`, emissão/validação JWT.
+   - Estratégia JWT consolidada oficialmente em HS256 hardenizado (com validações explícitas no helper).
+   - `refresh` reforçado com bloqueio de usuário inativo e auditoria em tentativa inválida/expirada.
+   - Nota técnica/ADR criada em `docs/adr_auth_jwt_strategy_v1.md` para eliminar divergência de estratégia.
 
 #### Próximas Ações (Críticas)
 - [x] **Visibilidade Total**: Ajustar o filtro de Workforce para ser resiliente a importações onde todos são 'Guests' mas precisam ser alocados como equipe.
@@ -133,16 +139,40 @@ Em cada bloco novo de progresso, registrar sempre:
 - [ ] Executar validação ponta a ponta da aba Financeiro com dados reais de organizador (sem transação real), garantindo UX sem regressão.
 - [ ] Planejar próxima PR de hardening financeiro: índices/constraints formais em `organizer_payment_gateways` e ajuste de modelagem complementar (`organizer_financial_settings`) sem impacto no checkout.
 
-### Em andamento
+### Entregues
+- **Responsável:** Gemini 3.1
+- **Frente:** UX Operacional de Check-in (Guest + Workforce)
+- **Escopo:** frontend / UX / validação operacional / componentes
+- **Arquivos principais:** `Scanner.jsx`
+- **Status:** Entregue
+- **Próxima ação sugerida:** Unificar a validação de QR code de Workforce no backend `ScannerController.php` (trabalho estrutural do Codex) para que o `Scanner.jsx` suporte leitura de staffs com a mesma riqueza visual.
+- **Bloqueios / dependências:** O `Scanner.jsx` no frontend está pronto para uso intensivo. A dependência pendente é o backend (`POST /scanner/process`) passar a suportar a validação de `event_participants` para habilitar a fila de staff na mesma câmera.
+
+- **Responsável:** Gemini 3.1
+- **Frente:** Resiliência e Previsibilidade do Settings Hub (Frontend)
+- **Escopo:** frontend / configurações globais / fallback data
+- **Arquivos principais:** `BrandingTab.jsx`, `ChannelsTab.jsx`, `AIConfigTab.jsx`
+- **Status:** Entregue
+- **Próxima ação sugerida:** Validar manualmente (tentar salvar cores vazias ou dados falhos para ver a UI reverter imediatamente para o estado do banco).
+- **Bloqueios / dependências:** Nenhuma dependência direta, mas aguarda a estabilização completa do backend multi-tenant pelo Codex para testes E2E do organizador.
+
 - **Responsável:** Codex
-- **Frente:** Financial Layer validação pós-hardening
-- **Escopo:** backend / banco / rotas / services / controllers
-- **Arquivos principais:** `database/006_financial_hardening.sql`, `OrganizerFinanceController.php`, `PaymentGatewayService.php`, `FinancialSettingsService.php`
-- **Status:** Em andamento
-- **Próxima ação sugerida:** aplicar migration em ambiente local/staging e executar checklist de cenários de regressão nas rotas de financeiro
-- **Bloqueios / dependências:** aplicação da migration no banco alvo (dados pré-existentes) para confirmar a deduplicação/controlos
+- **Frente:** Auth & Security validação pós-hardening
+- **Escopo:** backend / auth / JWT / middleware / auditoria
+- **Arquivos principais:** `AuthController.php`, `JWT.php`, `AuthMiddleware.php`, `docs/auth_strategy.md`
+- **Status:** Entregue
+- **Próxima ação sugerida:** Seguir o cleanup gradual, pois não existem bypasses hardcoded de credenciais. A estratégia de JWT foi consolidada oficialmente como HS256.
+- **Bloqueios / dependências:** Nenhuma.
 
 ### Entregues
+- **Responsável:** Codex
+- **Frente:** Auth & Security v1.1 (Hardening Imediato)
+- **Escopo:** backend / auth / JWT / middleware / auditoria / documentação técnica
+- **Arquivos principais:** `AuthController.php`, `JWT.php`, `AuthMiddleware.php`, `docs/adr_auth_jwt_strategy_v1.md`
+- **Status:** Entregue
+- **Próxima ação sugerida:** validar manualmente fluxos de autenticação com API ativa e preparar plano controlado para migração futura RS256 (dual-sign/dual-verify)
+- **Bloqueios / dependências:** checklist E2E depende de ambiente com backend ativo e base de usuários de teste
+
 - **Responsável:** Codex
 - **Frente:** Financial Layer v1.1 (Hardening Estrutural)
 - **Escopo:** backend / banco / integridade de domínio / auditoria / multi-tenant
@@ -206,3 +236,17 @@ Em cada bloco novo de progresso, registrar sempre:
 - **Arquivos principais tocados:** `docs/diagnostico.md`, `docs/progresso.md`
 - **Próxima ação sugerida:** Executar fase de hardening priorizada (auth/JWT, remoção de bypass, sincronização de schema e testes de regressão multi-tenant/workforce/finance).
 - **Bloqueios / dependências:** Necessidade de validação manual em ambiente com migrations plenamente aplicadas para confirmar aderência entre schema consolidado e banco operacional.
+
+## Hardening Estrutural v1.2 (Multi-tenant de Borda + Auditoria Transversal)
+
+- **Responsável:** Codex
+- **Status:** Entregue
+- **Escopo:** backend / banco / consistência de domínio / multi-tenant / auditoria
+- **Arquivos principais tocados:** `backend/src/Controllers/TicketController.php`, `backend/src/Controllers/ParticipantController.php`
+- **O que foi feito:**
+  - Blindagem explícita por tenant no fluxo de transferência de ticket (`organizer_id` obrigatório nas buscas de ticket e novo titular).
+  - Endurecimento de emissão de ticket com validação de pertencimento do `event_id` e `ticket_type_id` ao tenant autenticado.
+  - Validação de tenant no import de participantes (evento deve pertencer ao `organizer_id` do contexto).
+  - Cobertura mínima obrigatória de auditoria adicionada em mutações críticas revisadas: emissão de ticket, transferência de ticket e create/import/update/delete de participantes.
+- **Próxima ação sugerida:** Executar bateria de validação manual/E2E dos fluxos de borda (ticket transfer e participants import/update/delete) em staging com múltiplos tenants para confirmar ausência de regressão.
+- **Bloqueios / dependências:** Nenhum bloqueio de código; validação operacional depende de ambiente com dados reais multi-tenant.

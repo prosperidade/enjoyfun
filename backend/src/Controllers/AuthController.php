@@ -23,7 +23,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 // ─────────────────────────────────────────────────────────────
 function login(array $body): void
 {
-    $email    = trim($body['email']    ?? '');
+    $email    = strtolower(trim($body['email'] ?? ''));
     $password =      $body['password'] ?? '';
 
     if (!$email || !$password) {
@@ -44,21 +44,7 @@ function login(array $body): void
         error_log("[LOGIN] password_verify resultado: " . ($hashOk ? 'OK' : 'FALHOU') . " | hash_len=" . strlen($user['password'] ?? ''));
     }
 
-    // ── Bypass de emergência (TEMPORÁRIO) ────────────────────────
-    // Permite senha master '123456' apenas para os e-mails admin conhecidos.
-    // REMOVER quando o hash correto estiver no banco.
-    $EMERGENCY_EMAILS   = ['admin@enjoyfun.com.br', 'eucurafitos@gmail.com'];
-    $EMERGENCY_PASSWORD = '123456';
-    $isEmergencyBypass  = in_array(strtolower($email), $EMERGENCY_EMAILS, true)
-                          && $password === $EMERGENCY_PASSWORD
-                          && $user !== false;
-
-    if ($isEmergencyBypass) {
-        error_log("[LOGIN BYPASS] Acesso de emergência autorizado para: {$email}");
-    }
-    // ─────────────────────────────────────────────────────────────
-
-    $passwordOk = $user && (password_verify($password, $user['password'] ?? '') || $isEmergencyBypass);
+    $passwordOk = $user && password_verify($password, $user['password'] ?? '');
 
     if (!$user || !$passwordOk) {
         AuditService::logFailure(
@@ -163,11 +149,28 @@ function refresh(array $body): void
     $stmt->execute([$hash]);
     $stored = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$stored) jsonError('Token de atualização inválido ou expirado.', 401);
+    if (!$stored) {
+        AuditService::logFailure(
+            AuditService::USER_LOGIN_FAILED,
+            'refresh_token',
+            null,
+            'Refresh token inválido ou expirado',
+            null
+        );
+        jsonError('Token de atualização inválido ou expirado.', 401);
+    }
 
     $db->prepare('DELETE FROM refresh_tokens WHERE id = ?')->execute([$stored['id']]);
 
     $userData = buildUserPayload($db, ['id' => $stored['user_id']]);
+    if (!$userData || empty($userData['id'])) {
+        jsonError('Usuário do refresh token não encontrado.', 401);
+    }
+    $isActive = filter_var($userData['is_active'] ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    if ($isActive === false) {
+        jsonError('Usuário inativo.', 403);
+    }
+
     $tokens   = issueTokens($db, $userData);
 
     jsonSuccess([
@@ -391,7 +394,7 @@ function buildUserPayload(PDO $db, array $user): array
 {
     // Se faltarem dados essenciais, busca no banco
     if (!isset($user['name']) || !isset($user['role'])) {
-        $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, organizer_id, role, sector, created_at FROM users WHERE id = ? LIMIT 1');
+        $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, organizer_id, role, sector, is_active, created_at FROM users WHERE id = ? LIMIT 1');
         $stmt->execute([$user['id']]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
     }
@@ -411,7 +414,7 @@ function issueTokens(PDO $db, array $user): array
     $expiry  = (int)(getenv('JWT_EXPIRY')  ?: 3600);
     $refresh = (int)(getenv('JWT_REFRESH') ?: 2592000);
 
-    // RS256: a chave privada é carregada dentro do JWT::encode
+    // HS256: a chave simétrica é usada no HMAC via getenv('JWT_SECRET')
     $access = JWT::encode([
         'sub'          => $user['id'],
         'name'         => $user['name'],

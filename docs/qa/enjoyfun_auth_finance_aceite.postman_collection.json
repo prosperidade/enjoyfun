@@ -1,0 +1,448 @@
+{
+  "info": {
+    "name": "EnjoyFun - Aceite Operacional (Auth + Finance)",
+    "description": "Coleção de aceite manual para validação operacional dos fluxos endurecidos de Auth e Financial Layer. Escopo desta frente: mercadopago, pagseguro, asaas e pagarme. Provider padrão: mercadopago.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api"
+    },
+    {
+      "key": "auth_email",
+      "value": "admin@enjoyfun.com.br"
+    },
+    {
+      "key": "auth_password",
+      "value": "123456"
+    },
+    {
+      "key": "auth_password_invalid",
+      "value": "senha_invalida"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "gateway_id",
+      "value": ""
+    },
+    {
+      "key": "gateway_provider",
+      "value": "mercadopago"
+    },
+    {
+      "key": "gateway_access_token",
+      "value": "TEST_TOKEN_MERCADOPAGO"
+    },
+    {
+      "key": "gateway_api_key",
+      "value": "TEST_API_KEY_PROVIDER"
+    },
+    {
+      "key": "invalid_refresh_token",
+      "value": "refresh_invalido_123"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Auth - Login válido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Resposta de sucesso', function () { pm.expect(json.success).to.eql(true); });",
+                  "if (json?.data?.access_token) pm.collectionVariables.set('access_token', json.data.access_token);",
+                  "if (json?.data?.refresh_token) pm.collectionVariables.set('refresh_token', json.data.refresh_token);",
+                  "pm.test('Possui data com tokens', function () { pm.expect(json.data).to.be.an('object'); pm.expect(json.data.access_token).to.be.a('string'); pm.expect(json.data.refresh_token).to.be.a('string'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{auth_email}}\",\n  \"password\": \"{{auth_password}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "Auth - Login inválido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Resposta de falha', function () { pm.expect(json.success).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{auth_email}}\",\n  \"password\": \"{{auth_password_invalid}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "Auth - Refresh válido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Resposta de sucesso', function () { pm.expect(json.success).to.eql(true); });",
+                  "if (json?.data?.access_token) pm.collectionVariables.set('access_token', json.data.access_token);",
+                  "if (json?.data?.refresh_token) pm.collectionVariables.set('refresh_token', json.data.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/refresh"
+          }
+        },
+        {
+          "name": "Auth - Refresh inválido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Resposta de falha', function () { pm.expect(json.success).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{invalid_refresh_token}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/refresh"
+          }
+        },
+        {
+          "name": "Auth - /auth/me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Resposta de sucesso', function () { pm.expect(json.success).to.eql(true); });",
+                  "pm.test('Possui data de usuário', function () { pm.expect(json.data).to.be.an('object'); pm.expect(json.data.id).to.exist; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/auth/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Finance",
+      "item": [
+        {
+          "name": "Finance - Listar gateways",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Resposta de sucesso', function () { pm.expect(json.success).to.eql(true); });",
+                  "const first = json?.data?.[0];",
+                  "if (first?.id) pm.collectionVariables.set('gateway_id', String(first.id));",
+                  "pm.test('Possui data no payload', function () { pm.expect(json.data).to.exist; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/organizer-finance/gateways"
+          }
+        },
+        {
+          "name": "Finance - Criar gateway",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Resposta de sucesso', function () { pm.expect(json.success).to.eql(true); });",
+                  "if (json?.data?.id) pm.collectionVariables.set('gateway_id', String(json.data.id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{gateway_provider}}\",\n  \"is_active\": true,\n  \"environment\": \"sandbox\",\n  \"credentials\": {\n    \"access_token\": \"{{gateway_access_token}}\",\n    \"api_key\": \"{{gateway_api_key}}\"\n  },\n  \"is_primary\": false\n}"
+            },
+            "url": "{{base_url}}/organizer-finance/gateways"
+          }
+        },
+        {
+          "name": "Finance - Editar gateway",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Resposta de sucesso', function () { pm.expect(json.success).to.eql(true); });",
+                  "pm.test('Possui data no payload', function () { pm.expect(json.data).to.exist; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{gateway_provider}}\",\n  \"is_active\": true,\n  \"environment\": \"sandbox\",\n  \"credentials\": {\n    \"access_token\": \"{{gateway_access_token}}\",\n    \"api_key\": \"{{gateway_api_key}}\"\n  }\n}"
+            },
+            "url": "{{base_url}}/organizer-finance/gateways/{{gateway_id}}"
+          }
+        },
+        {
+          "name": "Finance - Inativar gateway",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Resposta de sucesso', function () { pm.expect(json.success).to.eql(true); });",
+                  "pm.test('Possui data no payload', function () { pm.expect(json.data).to.exist; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}"
+            },
+            "url": "{{base_url}}/organizer-finance/gateways/{{gateway_id}}/active"
+          }
+        },
+        {
+          "name": "Finance - Ativar gateway",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Resposta de sucesso', function () { pm.expect(json.success).to.eql(true); });",
+                  "pm.test('Possui data no payload', function () { pm.expect(json.data).to.exist; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": true\n}"
+            },
+            "url": "{{base_url}}/organizer-finance/gateways/{{gateway_id}}/active"
+          }
+        },
+        {
+          "name": "Finance - Definir principal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Resposta de sucesso', function () { pm.expect(json.success).to.eql(true); });",
+                  "pm.test('Possui data no payload', function () { pm.expect(json.data).to.exist; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/organizer-finance/gateways/{{gateway_id}}/primary"
+          }
+        },
+        {
+          "name": "Finance - Testar conexão (gateway por id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test('Resposta de sucesso', function () { pm.expect(json.success).to.eql(true); });",
+                  "pm.test('Possui data no payload', function () { pm.expect(json.data).to.exist; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": "{{base_url}}/organizer-finance/gateways/{{gateway_id}}/test"
+          }
+        }
+      ]
+    }
+  ]
+}

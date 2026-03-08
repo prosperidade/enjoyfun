@@ -12,19 +12,21 @@ export default function AIConfigTab() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        const fetchConfig = async () => {
-            try {
-                const res = await api.get('/organizer-ai-config');
-                if (res.data.success && res.data.data) {
-                    setConfig(res.data.data);
-                }
-            } catch (error) {
-                toast.error('Erro ao buscar configuração da IA.');
-            } finally {
-                setLoading(false);
+    const fetchConfig = async () => {
+        try {
+            const res = await api.get('/organizer-ai-config');
+            if (res.data.success) {
+                const data = res.data.data || {};
+                setConfig(prev => ({ ...prev, ...data }));
             }
-        };
+        } catch (error) {
+            toast.error('Erro ao buscar configuração da IA.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchConfig();
     }, []);
 
@@ -43,6 +45,8 @@ export default function AIConfigTab() {
             }
         } catch (error) {
             toast.error(error.response?.data?.message || 'Erro ao salvar configurações de IA.');
+            await fetchConfig(); // Reverter otimismo da UI
+
         } finally {
             setSaving(false);
         }

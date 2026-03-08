@@ -169,6 +169,14 @@ function createParticipant(array $body): void
         $participantId = $stmtEp->fetchColumn();
 
         $db->commit();
+        participantAudit(
+            'participant.create',
+            (int)$participantId,
+            null,
+            ['event_id' => (int)$eventId, 'person_id' => (int)$personId, 'category_id' => (int)$categoryId],
+            $user,
+            ['event_id' => (int)$eventId]
+        );
         jsonSuccess(['participant_id' => $participantId, 'qr_token' => $qrToken], 'Participante adicionado com sucesso.', 201);
 
     } catch (\Exception $e) {
@@ -188,6 +196,12 @@ function importParticipants(array $body): void
 
     if (!$eventId || !is_array($participants) || count($participants) === 0) {
         jsonError('Dados inválidos. O array de participantes e o event_id são obrigatórios.', 400);
+    }
+
+    $stmtEvent = $db->prepare("SELECT id FROM events WHERE id = ? AND organizer_id = ? LIMIT 1");
+    $stmtEvent->execute([$eventId, $organizerId]);
+    if (!$stmtEvent->fetchColumn()) {
+        jsonError('Evento inválido para este organizador.', 403);
     }
 
     try {
@@ -246,6 +260,15 @@ function importParticipants(array $body): void
 
         $db->commit();
         $skippedCount = count($participants) - $successCount - count($errors);
+        participantAudit(
+            'participant.import',
+            (int)$eventId,
+            null,
+            ['imported' => $successCount, 'skipped' => $skippedCount, 'errors_count' => count($errors)],
+            $user,
+            ['event_id' => (int)$eventId]
+        );
+
         jsonSuccess(['imported' => $successCount, 'skipped' => $skippedCount, 'errors' => $errors], "$successCount participantes importados, $skippedCount já existiam e " . count($errors) . " erros.");
 
     } catch (\Exception $e) {
@@ -275,7 +298,9 @@ function updateParticipant(int $id, array $body): void
     try {
         // Verifica se a inscrição pertence ao organizer
         $stmtCheck = $db->prepare("
-            SELECT ep.id, ep.person_id FROM event_participants ep
+            SELECT ep.id, ep.person_id, ep.event_id, ep.category_id, p.name AS current_name, p.email AS current_email, p.phone AS current_phone
+            FROM event_participants ep
+            JOIN people p ON p.id = ep.person_id
             JOIN events e ON e.id = ep.event_id
             WHERE ep.id = ? AND e.organizer_id = ?
         ");
@@ -309,6 +334,24 @@ function updateParticipant(int $id, array $body): void
         $stmtEp->execute([$categoryId, $id]);
 
         $db->commit();
+        participantAudit(
+            'participant.update',
+            $id,
+            [
+                'name' => $participant['current_name'],
+                'email' => $participant['current_email'],
+                'phone' => $participant['current_phone'],
+                'category_id' => (int)$participant['category_id']
+            ],
+            [
+                'name' => $name,
+                'email' => $email,
+                'phone' => $phone,
+                'category_id' => (int)$categoryId
+            ],
+            $user,
+            ['event_id' => (int)$participant['event_id']]
+        );
         jsonSuccess([], 'Participante atualizado com sucesso.');
     } catch (\Exception $e) {
         $db->rollBack();
@@ -326,12 +369,15 @@ function deleteParticipant(int $id): void
 
     // Verifica se a inscrição pertence a um evento do tenant
     $stmtCheck = $db->prepare("
-        SELECT ep.id FROM event_participants ep
+        SELECT ep.id, ep.event_id, ep.person_id, p.name, p.email
+        FROM event_participants ep
+        JOIN people p ON p.id = ep.person_id
         JOIN events e ON e.id = ep.event_id
         WHERE ep.id = ? AND e.organizer_id = ?
     ");
     $stmtCheck->execute([$id, $organizerId]);
-    if (!$stmtCheck->fetchColumn()) jsonError('Participante não encontrado.', 404);
+    $participant = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+    if (!$participant) jsonError('Participante não encontrado.', 404);
 
     if (!$canBypassSector && $userSector !== 'all') {
         $stmtSector = $db->prepare("
@@ -347,6 +393,14 @@ function deleteParticipant(int $id): void
     }
 
     $db->prepare("DELETE FROM event_participants WHERE id = ?")->execute([$id]);
+    participantAudit(
+        'participant.delete',
+        $id,
+        ['name' => $participant['name'], 'email' => $participant['email'], 'person_id' => (int)$participant['person_id']],
+        null,
+        $user,
+        ['event_id' => (int)$participant['event_id']]
+    );
     jsonSuccess([], 'Participante removido do evento com sucesso.');
 }
 
@@ -489,6 +543,22 @@ function migrateLegacyGuests(): void
         if ($db->inTransaction()) $db->rollBack();
         jsonError($e->getMessage());
     }
+}
+
+function participantAudit(string $action, int $participantId, $before, $after, array $user, array $extra = []): void
+{
+    if (!class_exists('AuditService')) return;
+
+    AuditService::log(
+        $action,
+        'participant',
+        $participantId,
+        $before,
+        $after,
+        $user,
+        'success',
+        $extra
+    );
 }
 
 

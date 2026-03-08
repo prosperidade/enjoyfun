@@ -14,26 +14,27 @@ export default function ChannelsTab() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        const fetchSettings = async () => {
-            try {
-                const res = await api.get('/organizer-messaging-settings');
-                if (res.data.success && res.data.data) {
-                    const data = res.data.data;
-                    setSettings({
-                        resend_api_key: data.email_configured ? '(Configurada)' : '',
-                        email_sender: data.email_sender || '',
-                        wa_api_url: data.wa_api_url || '',
-                        wa_token: data.wa_configured ? '(Configurado)' : '',
-                        wa_instance: data.wa_instance || ''
-                    });
-                }
-            } catch (error) {
-                toast.error('Erro ao buscar canais de contato.');
-            } finally {
-                setLoading(false);
+    const fetchSettings = async () => {
+        try {
+            const res = await api.get('/organizer-messaging-settings');
+            if (res.data.success) {
+                const data = res.data.data || {};
+                setSettings({
+                    resend_api_key: data.email_configured ? '(Configurada)' : '',
+                    email_sender: data.email_sender || '',
+                    wa_api_url: data.wa_api_url || '',
+                    wa_token: data.wa_configured ? '(Configurado)' : '',
+                    wa_instance: data.wa_instance || ''
+                });
             }
-        };
+        } catch (error) {
+            toast.error('Erro ao buscar canais de contato.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchSettings();
     }, []);
 
@@ -54,6 +55,8 @@ export default function ChannelsTab() {
             }
         } catch (error) {
             toast.error(error.response?.data?.message || 'Erro ao salvar canais.');
+            await fetchSettings(); // Reverte alterações locais não confirmadas
+
         } finally {
             setSaving(false);
         }

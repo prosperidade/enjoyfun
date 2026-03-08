@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Camera, CheckCircle2, XCircle, MapPin, Keyboard } from 'lucide-react';
+import { Camera, CheckCircle2, XCircle, MapPin, Keyboard, AlertTriangle, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
 
 export default function Scanner() {
   const [scanResult, setScanResult] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [cameraError, setCameraError] = useState('');
   
   // O Staff escolhe onde ele está trabalhando (vazio para forçar a escolha)
@@ -62,6 +63,7 @@ export default function Scanner() {
 
   // Processa a leitura
   const handleScan = async (qrData) => {
+    setIsProcessing(true);
     try {
       const { data } = await api.post('/scanner/process', {
         token: qrData,
@@ -69,18 +71,33 @@ export default function Scanner() {
       });
 
       setScanResult({
-        success: true,
+        type: 'success',
         message: data.message || 'Leitura Aprovada!',
         details: data.data
       });
       toast.success('Leitura aprovada!');
 
     } catch (err) {
+      const msg = err.response?.data?.message || 'Erro na validação do QR Code.';
+      const lowerMsg = msg.toLowerCase();
+      
+      let type = 'error';
+      // Mapeia mensagens do backend para UX visual
+      if (lowerMsg.includes('já utilizado') || lowerMsg.includes('já validado') || lowerMsg.includes('already used')) {
+        type = 'warning';
+      } else if (lowerMsg.includes('limite') || lowerMsg.includes('cota atingida')) {
+        type = 'warning';
+      } else if (lowerMsg.includes('bloqueado') || lowerMsg.includes('inapto')) {
+        type = 'error';
+      }
+
       setScanResult({
-        success: false,
-        message: err.response?.data?.message || 'Erro na validação do QR Code.',
+        type,
+        message: msg,
       });
-      toast.error('Erro na leitura');
+      toast.error(type === 'warning' ? 'Atenção na leitura' : 'Erro na leitura');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -165,25 +182,36 @@ export default function Scanner() {
               </div>
             )}
 
-            {scanResult && (
-              <div className={`absolute inset-0 flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-200 ${scanResult.success ? 'bg-green-600' : 'bg-red-600'}`}>
-                {scanResult.success ? <CheckCircle2 size={80} className="text-white mb-4" /> : <XCircle size={80} className="text-white mb-4" />}
+            {isProcessing && (
+              <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 text-center z-10 animate-fade-in backdrop-blur-sm">
+                <Loader2 size={64} className="text-brand animate-spin mb-4" />
+                <h2 className="text-2xl font-bold text-white tracking-widest uppercase">Processando</h2>
+              </div>
+            )}
+
+            {scanResult && !isProcessing && (
+              <div className={`absolute inset-0 flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-200 z-10 
+                ${scanResult.type === 'success' ? 'bg-green-600' : scanResult.type === 'warning' ? 'bg-amber-500' : 'bg-red-600'}`}>
                 
-                <h2 className="text-3xl font-black text-white leading-tight mb-2">
-                  {scanResult.success ? 'APROVADO' : 'NEGADO'}
+                {scanResult.type === 'success' && <CheckCircle2 size={80} className="text-white mb-4 stroke-[2.5]" />}
+                {scanResult.type === 'warning' && <AlertTriangle size={80} className="text-white mb-4 stroke-[2.5]" />}
+                {scanResult.type === 'error' && <XCircle size={80} className="text-white mb-4 stroke-[2.5]" />}
+                
+                <h2 className="text-4xl font-black text-white leading-tight mb-2 tracking-wider uppercase drop-shadow-md">
+                  {scanResult.type === 'success' ? 'APROVADO' : scanResult.type === 'warning' ? 'ATENÇÃO' : 'NEGADO'}
                 </h2>
-                <p className="text-white/90 font-medium text-lg">
+                <p className="text-white/95 font-semibold text-xl px-2 drop-shadow">
                   {scanResult.message}
                 </p>
 
                 {scanResult.details?.holder_name && (
-                  <div className="mt-4 bg-black/20 rounded-xl p-3 w-full">
-                    <p className="text-white font-bold">{scanResult.details.holder_name}</p>
-                    {scanResult.details?.info && <p className="text-white/80 text-sm">{scanResult.details.info}</p>}
+                  <div className="mt-6 bg-black/20 rounded-xl p-4 w-full border border-white/20 backdrop-blur-sm self-stretch mx-4">
+                    <p className="text-white font-black text-2xl truncate">{scanResult.details.holder_name}</p>
+                    {scanResult.details?.info && <p className="text-white/90 font-medium mt-1 uppercase tracking-wider text-sm">{scanResult.details.info}</p>}
                   </div>
                 )}
 
-                <button onClick={resetScanner} className="mt-8 px-8 py-3 bg-white text-black font-bold rounded-full shadow-lg hover:bg-gray-200 active:scale-95 transition-all">
+                <button onClick={resetScanner} className="mt-8 px-10 py-4 bg-white text-black font-black rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.3)] hover:bg-gray-100 active:scale-95 transition-all w-full max-w-[280px] text-lg uppercase tracking-wider">
                   Ler Próximo
                 </button>
               </div>

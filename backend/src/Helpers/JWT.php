@@ -7,12 +7,14 @@
  */
 class JWT
 {
+    private const ALGO = 'HS256';
+
     public static function encode(array $payload, int $ttlSeconds = 3600): string
     {
         $now     = time();
         $payload = array_merge($payload, ['iat' => $now, 'exp' => $now + $ttlSeconds]);
 
-        $header = self::b64url(json_encode(['alg' => 'HS256', 'typ' => 'JWT']));
+        $header = self::b64url(json_encode(['alg' => self::ALGO, 'typ' => 'JWT']));
         $body   = self::b64url(json_encode($payload));
 
         $secret = self::getSecretKey();
@@ -33,8 +35,12 @@ class JWT
 
         // Verifica algoritmo
         $headerData = json_decode(self::b64urlDecode($header), true);
-        if (($headerData['alg'] ?? '') !== 'HS256') {
+        if (($headerData['alg'] ?? '') !== self::ALGO) {
             error_log("❌ [JWT] Algoritmo inválido: " . ($headerData['alg'] ?? 'ausente'));
+            return null;
+        }
+        if (($headerData['typ'] ?? '') !== 'JWT') {
+            error_log("❌ [JWT] Tipo de token inválido.");
             return null;
         }
 
@@ -53,6 +59,10 @@ class JWT
             $payload = json_decode(self::b64urlDecode($body), true);
             if (!$payload) {
                 error_log("❌ [JWT] Falha ao decodificar payload JSON.");
+                return null;
+            }
+            if (!isset($payload['exp']) || !is_numeric($payload['exp'])) {
+                error_log("❌ [JWT] Claim exp ausente ou inválida.");
                 return null;
             }
             if ($payload['exp'] < time()) {
@@ -76,9 +86,12 @@ class JWT
 
     public static function getSecretKey(): string
     {
-        $secret = getenv('JWT_SECRET');
+        $secret = trim((string)getenv('JWT_SECRET'));
         if (!$secret) {
             throw new Exception("JWT_SECRET is required but not set in the environment.");
+        }
+        if (strlen($secret) < 32) {
+            throw new Exception("JWT_SECRET must have at least 32 characters.");
         }
         return $secret;
     }

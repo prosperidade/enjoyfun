@@ -15,8 +15,8 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'POST' && $id === 'validate' => validateDynamicTicket($body),
         $method === 'GET'  && $id === null       => listTickets($query),
         $method === 'POST' && $id === null       => storeTicket($body),
-        // CORREÇÃO DA ROTA ÓRFÃ:
-        $method === 'POST' && $sub === 'transfer' => transferTicket((int)$id, $body), 
+        // Transferência: exige id numérico para evitar captura indevida de rota.
+        $method === 'POST' && $id !== null && ctype_digit((string)$id) && $sub === 'transfer' => transferTicket((int)$id, $body),
         $method === 'GET'  && $id !== null       => getTicket($id),
         default => jsonError("Rota não encontrada.", 404),
     };
@@ -99,17 +99,34 @@ function storeTicket(array $body): void
     $user   = requireAuth();
     $organizerId = $user['organizer_id'];
     $db     = Database::getInstance();
-    $userId = $user['sub'] ?? null;
+    $userId = $user['id'] ?? $user['sub'] ?? null;
     
     if (!$userId) jsonError("Usuário autenticado inválido.", 401);
 
-    $eventId = (int)($body['event_id']      ?? 1);
-    $typeId  = (int)($body['ticket_type_id'] ?? 1);
+    $eventId = (int)($body['event_id']      ?? 0);
+    $typeId  = (int)($body['ticket_type_id'] ?? 0);
     $price   = (float)($body['price']       ?? 150.00);
 
+    if ($eventId <= 0 || $typeId <= 0) {
+        jsonError("event_id e ticket_type_id são obrigatórios.", 422);
+    }
+
     try {
-        $stmt = $db->prepare("SELECT * FROM ticket_types WHERE id = ? LIMIT 1");
-        $stmt->execute([$typeId]);
+        $stmtEvent = $db->prepare("SELECT id FROM events WHERE id = ? AND organizer_id = ? LIMIT 1");
+        $stmtEvent->execute([$eventId, $organizerId]);
+        if (!$stmtEvent->fetchColumn()) {
+            jsonError("Evento inválido para este organizador.", 403);
+        }
+
+        $stmt = $db->prepare("
+            SELECT *
+            FROM ticket_types
+            WHERE id = ?
+              AND event_id = ?
+              AND organizer_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$typeId, $eventId, $organizerId]);
         $type = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$type) jsonError("Tipo de ingresso não encontrado.", 404);
 
@@ -123,11 +140,21 @@ function storeTicket(array $body): void
                 (event_id, ticket_type_id, user_id, order_reference, status,
                  price_paid, qr_token, totp_secret, holder_name, purchased_at, created_at, organizer_id)
             VALUES (?, ?, ?, ?, 'paid', ?, ?, ?, ?, NOW(), NOW(), ?)
+            RETURNING id
         ");
         $stmt->execute([
             $eventId, $typeId, $userId, $orderRef,
             $price, $qrToken, $totpSecret, $holderName, $organizerId
         ]);
+
+        $ticketId = (int)$stmt->fetchColumn();
+        ticketAudit(
+            AuditService::TICKET_ISSUE,
+            $ticketId,
+            null,
+            ['event_id' => $eventId, 'ticket_type_id' => $typeId, 'holder_name' => $holderName],
+            $user
+        );
 
         jsonSuccess(['order_reference' => $orderRef, 'qr_token' => $qrToken], "Ingresso emitido!", 201);
 
@@ -172,6 +199,15 @@ function validateDynamicTicket(array $body): void
         }
 
         $db->prepare("UPDATE tickets SET status = 'used', used_at = NOW() WHERE id = ?")->execute([$ticket['id']]);
+
+        ticketAudit(
+            AuditService::TICKET_VALIDATE,
+            (int)$ticket['id'],
+            ['status' => $ticket['status']],
+            ['status' => 'used'],
+            $user,
+            ['event_id' => (int)$ticket['event_id']]
+        );
 
         jsonSuccess([
             'holder_name' => $ticket['holder_name'],
@@ -225,33 +261,57 @@ function normalizeScannedToken(mixed $rawToken): string
 function transferTicket(int $ticketId, array $body): void
 {
     $owner    = requireAuth();
-    $ownerId  = $owner['sub'] ?? null;
+    $ownerId  = $owner['id'] ?? $owner['sub'] ?? null;
+    $organizerId = (int)($owner['organizer_id'] ?? 0);
     $newEmail = strtolower(trim($body['new_owner_email'] ?? ''));
     $newName  = trim($body['new_holder_name'] ?? '');
 
-    if (!$newEmail || !$newName) jsonError("Dados do novo titular incompletos.", 422);
+    if ($ticketId <= 0 || !$ownerId || !$newEmail || !$newName) jsonError("Dados do novo titular incompletos.", 422);
 
     try {
         $db = Database::getInstance();
 
-        $stmt = $db->prepare("SELECT * FROM tickets WHERE id = ? AND user_id = ? AND status = 'paid' LIMIT 1");
-        $stmt->execute([$ticketId, $ownerId]);
+        $stmt = $db->prepare("
+            SELECT *
+            FROM tickets
+            WHERE id = ?
+              AND user_id = ?
+              AND organizer_id = ?
+              AND status = 'paid'
+            LIMIT 1
+        ");
+        $stmt->execute([$ticketId, $ownerId, $organizerId]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$ticket) jsonError("Ingresso indisponível para transferência.", 403);
 
-        $stmt = $db->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
-        $stmt->execute([$newEmail]);
+        $stmt = $db->prepare("SELECT id FROM users WHERE email = ? AND organizer_id = ? AND is_active = TRUE LIMIT 1");
+        $stmt->execute([$newEmail, $organizerId]);
         $newOwner = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$newOwner) jsonError("O destinatário precisa ter conta no EnjoyFun.", 404);
 
         $newQrToken = bin2hex(random_bytes(16));
         $newSecret  = strtoupper(bin2hex(random_bytes(10)));
 
+        $before = [
+            'user_id' => (int)$ticket['user_id'],
+            'holder_name' => $ticket['holder_name'],
+            'holder_email' => $ticket['holder_email']
+        ];
+
         $db->prepare("
             UPDATE tickets
-            SET user_id = ?, holder_name = ?, qr_token = ?, totp_secret = ?, updated_at = NOW()
+            SET user_id = ?, holder_name = ?, holder_email = ?, qr_token = ?, totp_secret = ?, updated_at = NOW()
             WHERE id = ?
-        ")->execute([$newOwner['id'], $newName, $newQrToken, $newSecret, $ticketId]);
+        ")->execute([$newOwner['id'], $newName, $newEmail, $newQrToken, $newSecret, $ticketId]);
+
+        ticketAudit(
+            'ticket.transfer',
+            $ticketId,
+            $before,
+            ['user_id' => (int)$newOwner['id'], 'holder_name' => $newName, 'holder_email' => $newEmail],
+            $owner,
+            ['event_id' => (int)$ticket['event_id']]
+        );
 
         jsonSuccess(null, "Ingresso transferido para {$newName} com sucesso!");
 
@@ -284,4 +344,20 @@ function verifyTOTP(string $secret, string $code): bool
         if (hash_equals($otp, $code)) return true;
     }
     return false;
+}
+
+function ticketAudit(string $action, int $ticketId, $before, $after, array $user, array $extra = []): void
+{
+    if (!class_exists('AuditService')) return;
+
+    AuditService::log(
+        $action,
+        'ticket',
+        $ticketId,
+        $before,
+        $after,
+        $user,
+        'success',
+        $extra
+    );
 }

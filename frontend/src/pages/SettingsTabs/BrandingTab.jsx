@@ -27,23 +27,24 @@ export default function BrandingTab() {
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
 
-    useEffect(() => {
-        const bootstrap = async () => {
-            try {
-                const res = await api.get('/organizer-settings');
-                if (res.data.success && res.data.data) {
-                    const payload = res.data.data;
-                    setSettings(prev => ({ ...prev, ...payload }));
-                    applyBrand(payload);
-                }
-            } catch (error) {
-                console.error("Erro ao buscar configurações visuais", error);
-                toast.error("Erro ao carregar identifidade visual.");
-            } finally {
-                setLoading(false);
+    const fetchSettings = async () => {
+        try {
+            const res = await api.get('/organizer-settings');
+            if (res.data.success) {
+                const payload = res.data.data || {};
+                setSettings(prev => ({ ...prev, ...payload }));
+                applyBrand(payload);
             }
-        };
-        bootstrap();
+        } catch (error) {
+            console.error("Erro ao buscar configurações visuais", error);
+            toast.error("Erro ao carregar identifidade visual.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchSettings();
     }, []);
 
     const handleInputChange = (e) => {
@@ -62,6 +63,8 @@ export default function BrandingTab() {
             }
         } catch (error) {
             toast.error(error.response?.data?.message || 'Erro ao salvar branding.');
+            await fetchSettings(); // Reverte UI otimista em caso de erro
+
         } finally {
             setSaving(false);
         }
