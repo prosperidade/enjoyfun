@@ -128,3 +128,21 @@ Nenhuma task ativa no momento.
 - **Status:** Entregue
 - **Próxima ação sugerida:** Validação visual em tela cheia da Responsividade do Dashboard ou iniciar Hardening do BD de Financeiro.
 - **Bloqueios / dependências:** Nenhuma.
+
+## Varredura Técnica do Estado Atual (Diagnóstico Reescrito)
+
+- **Responsável:** Codex Navegador
+- **Status:** Entregue
+- **Escopo:** Auditoria técnica do estado atual do sistema (backend, frontend, banco, auth, multi-tenant, auditoria e módulos operacionais) + reescrita integral do diagnóstico oficial.
+- **Arquivos principais tocados:** `docs/diagnostico.md`, `docs/progresso.md`
+- **Próxima ação sugerida:** Executar fase de hardening priorizada (auth/JWT, remoção de bypass, sincronização de schema e testes de regressão multi-tenant/workforce/finance).
+- **Bloqueios / dependências:** Necessidade de validação manual em ambiente com migrations plenamente aplicadas para confirmar aderência entre schema consolidado e banco operacional.
+
+## PR — Revisão do Diagnóstico Técnico (pós-feedback)
+
+- **Responsável:** Codex Navegador
+- **Status:** Entregue
+- **Escopo:** Reescrita técnica do `docs/diagnostico.md` com maior precisão do estado atual, separação explícita de consolidado/parcial/pendente por domínio e priorização objetiva de riscos/debitos para a próxima fase.
+- **Arquivos principais tocados:** `docs/diagnostico.md`, `docs/progresso.md`
+- **Próxima ação sugerida:** Abrir PR de hardening de Auth/JWT e PR de consolidação de schema (`schema_real.sql` alinhado às migrations 003/004/005).
+- **Bloqueios / dependências:** Necessário validar em ambiente com banco atualizado (migrations completas) para confirmar aderência operacional total de Workforce/Meals/Finance.
