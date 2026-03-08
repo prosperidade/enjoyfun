@@ -38,13 +38,13 @@ class AuditService
                     ip_address, user_agent,
                     action, entity_type, entity_id,
                     previous_value, new_value,
-                    event_id, pdv_id, metadata, result
+                    event_id, pdv_id, metadata, result, organizer_id
                 ) VALUES (
                     :user_id, :user_email, :session_id,
                     :ip_address, :user_agent,
                     :action, :entity_type, :entity_id,
                     :previous_value, :new_value,
-                    :event_id, :pdv_id, :metadata, :result
+                    :event_id, :pdv_id, :metadata, :result, :organizer_id
                 )
             ")->execute([
                 // CORREÇÃO: Lê o 'id' que o requireAuth passa (e usa 'sub' como backup)
@@ -62,6 +62,7 @@ class AuditService
                 ':pdv_id'         => $extra['pdv_id']   ?? null,
                 ':metadata'       => isset($extra['metadata']) ? json_encode($extra['metadata']) : null,
                 ':result'         => $result,
+                ':organizer_id'   => $userPayload['organizer_id'] ?? null,
             ]);
         } catch (\Throwable $e) {
             // Nunca derruba o fluxo principal

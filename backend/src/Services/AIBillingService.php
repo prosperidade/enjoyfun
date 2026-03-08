@@ -30,6 +30,7 @@ class AIBillingService
 
             $userId           = $payload['user_id'] ?? null;
             $eventId          = $payload['event_id'] ?? null;
+            $organizerId      = $payload['organizer_id'] ?? null;
             $agentName        = $payload['agent_name'] ?? 'general';
             $promptTokens     = (int)($payload['prompt_tokens'] ?? 0);
             $completionTokens = (int)($payload['completion_tokens'] ?? 0);
@@ -40,13 +41,14 @@ class AIBillingService
 
             $stmt = $db->prepare('
                 INSERT INTO ai_usage_logs 
-                (user_id, event_id, agent_name, prompt_tokens, completion_tokens, total_tokens, estimated_cost, request_duration_ms, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                (user_id, event_id, organizer_id, agent_name, prompt_tokens, completion_tokens, total_tokens, estimated_cost, request_duration_ms, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ');
             
             $stmt->execute([
                 $userId,
                 $eventId,
+                $organizerId,
                 $agentName,
                 $promptTokens,
                 $completionTokens,

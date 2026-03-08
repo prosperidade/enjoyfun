@@ -15,94 +15,18 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
 function getDashboardStats(): void
 {
+    require_once __DIR__ . '/../Services/DashboardDomainService.php';
+    
     // 1. Pega os dados do Organizador
     $operator = requireAuth();
-    $organizerId = $operator['organizer_id'];
+    $organizerId = (int)$operator['organizer_id'];
     
     $eventId = isset($_GET['event_id']) && is_numeric($_GET['event_id']) ? (int)$_GET['event_id'] : null;
 
     try {
         $db = Database::getInstance();
-        
-        // Cláusulas de filtro de Evento + Isolamento de Tenant (CADEADO)
-        $whereEventSales   = $eventId ? " AND s.event_id = :event_id" : "";
-        $whereEventTickets = $eventId ? " AND event_id = :event_id" : "";
-        
-        // ── Tickets Vendidos (Isolado) ──
-        $stmtTickets = $db->prepare("SELECT COUNT(id) FROM tickets WHERE status = 'paid' AND organizer_id = :org_id" . $whereEventTickets);
-        $stmtTickets->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
-        if ($eventId) $stmtTickets->bindValue(':event_id', $eventId, PDO::PARAM_INT);
-        $stmtTickets->execute();
-        $totalTickets = (int) $stmtTickets->fetchColumn();
-
-        // ── Usuários Totais do Organizador ──
-        $stmtUsers = $db->prepare("SELECT COUNT(id) FROM users WHERE organizer_id = :org_id");
-        $stmtUsers->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
-        $stmtUsers->execute();
-        $totalUsers = (int) $stmtUsers->fetchColumn();
-
-        // ── Vendas PDV (Bar/Lojas) - Receita Total ──
-        $stmtSalesTotal = $db->prepare("SELECT COALESCE(SUM(total_amount), 0) FROM sales s WHERE s.status = 'completed' AND s.organizer_id = :org_id" . $whereEventSales);
-        $stmtSalesTotal->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
-        if ($eventId) $stmtSalesTotal->bindValue(':event_id', $eventId, PDO::PARAM_INT);
-        $stmtSalesTotal->execute();
-        $salesTotal = (float) $stmtSalesTotal->fetchColumn();
-
-        // ── Créditos em Float (Digital Cards do Organizador) ──
-        $stmtFloat = $db->prepare("SELECT COALESCE(SUM(balance), 0) FROM digital_cards WHERE organizer_id = :org_id");
-        $stmtFloat->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
-        $stmtFloat->execute();
-        $totalFloat = (float) $stmtFloat->fetchColumn();
-
-        // ── Carros no Estacionamento ──
-        $stmtPark = $db->prepare("SELECT COUNT(id) FROM parking_records WHERE exit_at IS NULL AND organizer_id = :org_id" . $whereEventTickets);
-        $stmtPark->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
-        if ($eventId) $stmtPark->bindValue(':event_id', $eventId, PDO::PARAM_INT);
-        $stmtPark->execute();
-        $totalPark = (int) $stmtPark->fetchColumn();
-
-        // ── Gráfico de Vendas (Últimas 24 horas - Isolado) ──
-        $sqlChart = "
-            SELECT TO_CHAR(DATE_TRUNC('hour', created_at), 'HH24:MI') as day, SUM(total_amount) as revenue 
-            FROM sales s
-            WHERE s.status = 'completed' AND s.organizer_id = :org_id $whereEventSales AND s.created_at >= NOW() - INTERVAL '24 hours'
-            GROUP BY DATE_TRUNC('hour', created_at) 
-            ORDER BY DATE_TRUNC('hour', created_at) ASC
-        ";
-        $stmtChart = $db->prepare($sqlChart);
-        $stmtChart->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
-        if ($eventId) $stmtChart->bindValue(':event_id', $eventId, PDO::PARAM_INT);
-        $stmtChart->execute();
-        $salesChart = $stmtChart->fetchAll(PDO::FETCH_ASSOC);
-
-        // ── Top Produtos (Itens que mais deram receita) ──
-        $sqlTop = "
-            SELECT p.name, SUM(si.quantity) as qty_sold, SUM(si.subtotal) as revenue
-            FROM sale_items si
-            JOIN sales s ON s.id = si.sale_id
-            JOIN products p ON p.id = si.product_id
-            WHERE s.status = 'completed' AND s.organizer_id = :org_id $whereEventSales
-            GROUP BY p.id, p.name
-            ORDER BY revenue DESC
-            LIMIT 6
-        ";
-        $stmtTop = $db->prepare($sqlTop);
-        $stmtTop->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
-        if ($eventId) $stmtTop->bindValue(':event_id', $eventId, PDO::PARAM_INT);
-        $stmtTop->execute();
-        $topProducts = $stmtTop->fetchAll(PDO::FETCH_ASSOC);
-
-        jsonSuccess([
-            'summary' => [
-                'tickets_sold'  => $totalTickets,
-                'sales_total'   => $salesTotal,
-                'credits_float' => $totalFloat,
-                'cars_inside'   => $totalPark,
-                'users_total'   => $totalUsers
-            ],
-            'sales_chart'   => $salesChart,
-            'top_products'  => $topProducts
-        ]);
+        $data = \EnjoyFun\Services\DashboardDomainService::getExecutiveDashboard($db, $organizerId, $eventId);
+        jsonSuccess($data);
     } catch (Exception $e) {
         jsonError("Error fetching dashboard stats: " . $e->getMessage(), 500);
     }

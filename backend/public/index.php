@@ -3,8 +3,14 @@
  * EnjoyFun 2.0 — Backend Entry Point (VERSÃO FINAL BLINDADA)
  */
 
-// ── CORS (ALINHADO COM FRONTEND 3001) ────────────────────────────────────────
-header('Access-Control-Allow-Origin: http://localhost:3001');
+// ── CORS (ALINHADO COM FRONTEND 3000/3001) ────────────────────────────────────────
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'];
+if (in_array($origin, $allowedOrigins)) {
+    header("Access-Control-Allow-Origin: $origin");
+} else {
+    header('Access-Control-Allow-Origin: http://localhost:3000');
+}
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 header('Access-Control-Allow-Credentials: true');
@@ -105,10 +111,19 @@ if ($raw && ($decoded = json_decode($raw, true)) !== null) {
         'scanner'  => BASE_PATH . '/src/Controllers/ScannerController.php',
         'parking'  => BASE_PATH . '/src/Controllers/ParkingController.php',
         'sync'     => BASE_PATH . '/src/Controllers/SyncController.php',
+        'event-days' => BASE_PATH . '/src/Controllers/EventDayController.php',
+        'event-shifts' => BASE_PATH . '/src/Controllers/EventShiftController.php',
+        'participants' => BASE_PATH . '/src/Controllers/ParticipantController.php',
+        'workforce' => BASE_PATH . '/src/Controllers/WorkforceController.php',
+        'participant-checkins' => BASE_PATH . '/src/Controllers/ParticipantCheckinController.php',
+        'meals'    => BASE_PATH . '/src/Controllers/MealController.php',
         'bot'      => BASE_PATH . '/src/Controllers/BotController.php',
         'health'     => BASE_PATH . '/src/Controllers/HealthController.php',
         'superadmin' => BASE_PATH . '/src/Controllers/SuperAdminController.php',
         'organizer-settings' => BASE_PATH . '/src/Controllers/OrganizerSettingsController.php',
+        'organizer-messaging-settings' => BASE_PATH . '/src/Controllers/OrganizerMessagingSettingsController.php',
+        'organizer-ai-config' => BASE_PATH . '/src/Controllers/OrganizerAIConfigController.php',
+        'organizer-finance' => BASE_PATH . '/src/Controllers/OrganizerFinanceController.php',
         'ai'       => BASE_PATH . '/src/Controllers/AIController.php',
     ];
 

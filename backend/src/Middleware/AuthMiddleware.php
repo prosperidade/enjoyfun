@@ -30,6 +30,7 @@ function requireAuth(?array $allowedRoles = null): array
         'name'         => $payload['name'] ?? 'Usuário',
         'email'        => $payload['email'] ?? '',
         'role'         => $payload['role'] ?? ($payload['roles'][0] ?? 'organizer'),
+        'sector'       => $payload['sector'] ?? 'all',
         'organizer_id' => $payload['organizer_id'] ?? null
     ];
 

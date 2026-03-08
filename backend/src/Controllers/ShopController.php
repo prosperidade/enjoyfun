@@ -209,74 +209,29 @@ function checkout(array $body): void
     $organizerId = (int)($operator['organizer_id'] ?? 0);
     if ($organizerId <= 0) jsonError('Organizer inválido', 403);
 
-    $db = Database::getInstance();
+    require_once __DIR__ . '/../Services/SalesDomainService.php';
+
     $eventId = (int)($body['event_id'] ?? 1);
     $items   = $body['items'] ?? [];
+    $totalAmount   = (float)($body['total_amount'] ?? 0);
     // POS.jsx envia como 'qr_token'
     $cardId  = $body['qr_token'] ?? $body['card_id'] ?? $body['customer_id'] ?? $body['card_token'] ?? null;
 
-    if (empty($items)) jsonError('Carrinho vazio.', 422);
-
     try {
-        $db->beginTransaction();
-
-        // 1. Cálculo seguro do total
-        $calculatedTotal = 0.0;
-        foreach ($items as $item) {
-            $stmtP = $db->prepare('SELECT price FROM products WHERE id = ? AND event_id = ? AND organizer_id = ?');
-            $stmtP->execute([$item['product_id'], $eventId, $organizerId]);
-            $price = (float)$stmtP->fetchColumn();
-            if ($price <= 0) throw new Exception('Produto não encontrado: ' . $item['product_id']);
-            $calculatedTotal += $price * (int)$item['quantity'];
-        }
-        if ($calculatedTotal <= 0) throw new Exception('Valor total inválido.');
-
-        // 2. Validação Cashless — via WalletSecurityService
-        $newBalance = null;
-        if ($cardId) {
-            try {
-                $txResult = WalletSecurityService::processTransaction(
-                    $db,
-                    $cardId,
-                    $calculatedTotal,
-                    'debit',
-                    $organizerId,
-                    ['sector' => 'shop']
-                );
-                $newBalance = $txResult['balance_after'];
-            } catch (Exception $e) {
-                if ($db->inTransaction()) {
-                    $db->rollBack();
-                }
-                jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 400);
-            }
-        }
-
-        // 3. Registro da venda
-        $stmtSale = $db->prepare(
-            "INSERT INTO sales (event_id, organizer_id, total_amount, status, created_at)
-             VALUES (?, ?, ?, 'completed', NOW()) RETURNING id"
+        $db = Database::getInstance();
+        $result = \EnjoyFun\Services\SalesDomainService::processCheckout(
+            $db,
+            $operator,
+            $eventId,
+            $items,
+            'shop',
+            $totalAmount,
+            $cardId
         );
-        $stmtSale->execute([$eventId, $organizerId, $calculatedTotal]);
-        $saleId = $stmtSale->fetchColumn();
 
-        // 4. Itens e baixa de estoque
-        foreach ($items as $item) {
-            $stmtP2 = $db->prepare('SELECT price FROM products WHERE id = ?');
-            $stmtP2->execute([$item['product_id']]);
-            $price    = (float)$stmtP2->fetchColumn();
-            $subtotal = $price * (int)$item['quantity'];
-            $db->prepare('INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)')
-               ->execute([$saleId, $item['product_id'], $item['quantity'], $price, $subtotal]);
-            $db->prepare('UPDATE products SET stock_qty = stock_qty - ? WHERE id = ?')
-               ->execute([$item['quantity'], $item['product_id']]);
-        }
-
-        $db->commit();
-        jsonSuccess(['sale_id' => $saleId, 'new_balance' => $newBalance], "Venda realizada com sucesso!");
+        jsonSuccess($result, "Venda realizada com sucesso!");
     } catch (Exception $e) {
-        if ($db->inTransaction()) $db->rollBack();
-        jsonError($e->getMessage(), 400);
+        jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 400);
     }
 }
 

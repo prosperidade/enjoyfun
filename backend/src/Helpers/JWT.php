@@ -76,8 +76,11 @@ class JWT
 
     public static function getSecretKey(): string
     {
-        // Se a ENV não existir, usamos um fallback confiável para a transição
-        return getenv('JWT_SECRET') ?: 'ENJOYFUN_MASTER_SECRET_KEY_PROD_2026_HS256';
+        $secret = getenv('JWT_SECRET');
+        if (!$secret) {
+            throw new Exception("JWT_SECRET is required but not set in the environment.");
+        }
+        return $secret;
     }
 
     private static function b64url(string $data): string

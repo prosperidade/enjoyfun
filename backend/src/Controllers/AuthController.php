@@ -372,7 +372,7 @@ function me(): void
     $db      = Database::getInstance();
 
     // Puxa as colunas novas: role e organizer_id
-    $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, is_active, organizer_id, role, created_at FROM users WHERE id = ? LIMIT 1');
+    $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, is_active, organizer_id, role, sector, created_at FROM users WHERE id = ? LIMIT 1');
     $stmt->execute([$payload['id']]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -391,7 +391,7 @@ function buildUserPayload(PDO $db, array $user): array
 {
     // Se faltarem dados essenciais, busca no banco
     if (!isset($user['name']) || !isset($user['role'])) {
-        $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, organizer_id, role, created_at FROM users WHERE id = ? LIMIT 1');
+        $stmt = $db->prepare('SELECT id, name, email, phone, avatar_url, organizer_id, role, sector, created_at FROM users WHERE id = ? LIMIT 1');
         $stmt->execute([$user['id']]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
     }
@@ -418,6 +418,7 @@ function issueTokens(PDO $db, array $user): array
         'email'        => $user['email'],
         'roles'        => $user['roles'],
         'role'         => $user['role'],
+        'sector'       => $user['sector'] ?? 'all',
         'organizer_id' => $user['organizer_id'] ?? null, // A CHAVE MESTRA DO WHITE LABEL!
     ], $expiry);
 

@@ -18,6 +18,7 @@ import {
   Shield,
   UserCheck, // ícone para Convidados/Guests
   Scan,
+  Briefcase,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -44,18 +45,23 @@ const nav = [
     label: "Ingressos",
     roles: ["admin", "organizer", "staff"],
   },
-  // ✅ ROTA GUESTS — roles: [] significa visível para todos os logados
-  {
-    to: "/guests",
-    icon: UserCheck,
-    label: "Convidados",
-    roles: [],
-  },
   {
     to: "/scanner",
     icon: Scan,
     label: "Scanner",
     roles: ["admin", "organizer", "staff"],
+  },
+  {
+    to: "/participants",
+    icon: Briefcase,
+    label: "Participants Hub",
+    roles: ["admin", "organizer", "manager", "staff"],
+  },
+  {
+    to: "/meals-control",
+    icon: UtensilsCrossed,
+    label: "Meals Control",
+    roles: ["admin", "organizer", "manager", "staff"],
   },
   { to: "/cards", icon: CreditCard, label: "Cartão Digital", roles: [] },
   {

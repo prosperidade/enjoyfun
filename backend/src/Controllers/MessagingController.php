@@ -22,9 +22,86 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
         // New messaging routes
         $method === 'POST' && $id === 'email'   => sendManualEmail($body),
+        $method === 'POST' && $id === 'bulk-whatsapp' => sendBulkWhatsApp($body),
 
         default => jsonError("Rota não encontrada: {$method} /{$id}", 404),
     };
+}
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/messaging/bulk-whatsapp
+// ─────────────────────────────────────────────────────────────
+function sendBulkWhatsApp(array $body): void
+{
+    $user = requireAuth(['admin', 'organizer']);
+    $recipients = $body['recipients'] ?? [];
+    $messageTemplate = trim($body['message'] ?? '');
+
+    if (empty($recipients) || !$messageTemplate) {
+        jsonError('recipients (array) e message são obrigatórios.', 422);
+    }
+
+    $db = Database::getInstance();
+    $orgId = resolveOrgId($user);
+
+    // Load WhatsApp Config
+    $stmt = $db->prepare('SELECT wa_api_url, wa_token, wa_instance FROM organizer_settings WHERE organizer_id = ? LIMIT 1');
+    $stmt->execute([$orgId]);
+    $cfg = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    $waUrl      = rtrim($cfg['wa_api_url']  ?? '', '/');
+    $waToken    = $cfg['wa_token']    ?? '';
+    $waInstance = $cfg['wa_instance'] ?? '';
+
+    if (!$waUrl || !$waToken || !$waInstance) {
+        jsonError('WhatsApp não configurado.', 503);
+    }
+
+    $successCount = 0;
+    $errors = [];
+
+    foreach ($recipients as $recipient) {
+        $phone = trim($recipient['phone'] ?? '');
+        if (!$phone) continue;
+
+        // Replace placeholders if any (e.g., {{name}}, {{link}})
+        $personalMessage = $messageTemplate;
+        if (isset($recipient['name'])) {
+            $personalMessage = str_replace('{{name}}', $recipient['name'], $personalMessage);
+        }
+        if (isset($recipient['link'])) {
+            $personalMessage = str_replace('{{link}}', $recipient['link'], $personalMessage);
+        }
+
+        $phoneClean = preg_replace('/\D/', '', $phone);
+        if (!str_starts_with($phoneClean, '55')) $phoneClean = '55' . $phoneClean;
+
+        $payload = json_encode([
+            'number'      => $phoneClean . '@s.whatsapp.net',
+            'options'     => ['delay' => 1200, 'presence' => 'composing'],
+            'textMessage' => ['text' => $personalMessage],
+        ]);
+
+        $ch = curl_init("{$waUrl}/message/sendText/{$waInstance}");
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json', "apikey: {$waToken}"],
+            CURLOPT_TIMEOUT        => 10,
+        ]);
+        $resp = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($status >= 200 && $status < 300) {
+            $successCount++;
+        } else {
+            $errors[] = "Falha para {$phone}: {$status}";
+        }
+    }
+
+    jsonSuccess(['success_count' => $successCount, 'errors' => $errors], "Disparo concluído: $successCount mensagens enviadas.");
 }
 
 // ─────────────────────────────────────────────────────────────

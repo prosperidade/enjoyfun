@@ -52,7 +52,8 @@ function getGuestTicket(array $query): void
     try {
         $db = Database::getInstance();
 
-        $stmt = $db->prepare("
+        // 1) Fluxo legado de guests
+        $stmtGuest = $db->prepare("
             SELECT
                 g.id,
                 'Convite'       AS ticket_type,
@@ -72,8 +73,36 @@ function getGuestTicket(array $query): void
             WHERE g.qr_code_token = ?
             LIMIT 1
         ");
-        $stmt->execute([$token]);
-        $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmtGuest->execute([$token]);
+        $ticket = $stmtGuest->fetch(PDO::FETCH_ASSOC);
+
+        // 2) Fluxo novo de participants/workforce
+        if (!$ticket) {
+            $stmtParticipant = $db->prepare("
+                SELECT
+                    ep.id,
+                    COALESCE(c.name, 'Participante') AS ticket_type,
+                    ep.status,
+                    ep.qr_token,
+                    p.name                           AS guest_name,
+                    p.email                          AS holder_email,
+                    ep.created_at                    AS purchased_at,
+                    ep.updated_at                    AS used_at,
+                    e.name                           AS event_name,
+                    e.event_date,
+                    e.starts_at,
+                    e.venue_name,
+                    NULL::text                       AS logo_url
+                FROM event_participants ep
+                INNER JOIN people p ON p.id = ep.person_id
+                INNER JOIN events e ON e.id = ep.event_id
+                LEFT JOIN participant_categories c ON c.id = ep.category_id
+                WHERE ep.qr_token = ?
+                LIMIT 1
+            ");
+            $stmtParticipant->execute([$token]);
+            $ticket = $stmtParticipant->fetch(PDO::FETCH_ASSOC);
+        }
 
         if (!$ticket) jsonError("Convite não encontrado ou token inválido.", 404);
 
@@ -206,15 +235,16 @@ function createGuest(array $body): void
 function checkInGuest(array $body): void
 {
     $operator = requireAuth(['admin', 'organizer', 'staff']);
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
     $ticketId = (int)($body['ticket_id'] ?? 0);
 
-    if (!$ticketId) jsonError("ticket_id é obrigatório.", 422);
+    if (!$ticketId || !$organizerId) jsonError("ticket_id e organizer_id são obrigatórios.", 422);
 
     try {
         $db = Database::getInstance();
 
-        $stmt = $db->prepare("SELECT * FROM guests WHERE id = ? LIMIT 1");
-        $stmt->execute([$ticketId]);
+        $stmt = $db->prepare("SELECT * FROM guests WHERE id = ? AND organizer_id = ? LIMIT 1");
+        $stmt->execute([$ticketId, $organizerId]);
         $guest = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$guest)                               jsonError("Convidado não encontrado.", 404);
@@ -223,8 +253,8 @@ function checkInGuest(array $body): void
         }
         if ($guest['status'] === 'cancelled')      jsonError("Convite cancelado.", 409);
 
-        $db->prepare("UPDATE guests SET status = 'presente', updated_at = NOW() WHERE id = ?")
-           ->execute([$ticketId]);
+        $db->prepare("UPDATE guests SET status = 'presente', updated_at = NOW() WHERE id = ? AND organizer_id = ?")
+           ->execute([$ticketId, $organizerId]);
 
         AuditService::log(
             'guest.checkin', 'guest', $ticketId,
