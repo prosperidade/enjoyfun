@@ -128,3 +128,12 @@ Nenhuma task ativa no momento.
 - **Status:** Entregue
 - **Próxima ação sugerida:** Validação visual em tela cheia da Responsividade do Dashboard ou iniciar Hardening do BD de Financeiro.
 - **Bloqueios / dependências:** Nenhuma.
+
+## Varredura Técnica do Estado Atual (Diagnóstico Reescrito)
+
+- **Responsável:** Codex (GPT-5.2-Codex)
+- **Status:** Entregue
+- **Escopo:** Auditoria técnica do estado atual do sistema (backend, frontend, banco, auth, multi-tenant, auditoria e módulos operacionais) + reescrita integral do diagnóstico oficial.
+- **Arquivos principais tocados:** `docs/diagnostico.md`, `docs/progresso.md`
+- **Próxima ação sugerida:** Executar fase de hardening priorizada (auth/JWT, remoção de bypass, sincronização de schema e testes de regressão multi-tenant/workforce/finance).
+- **Bloqueios / dependências:** Necessidade de validação manual em ambiente com migrations plenamente aplicadas para confirmar aderência entre schema consolidado e banco operacional.
