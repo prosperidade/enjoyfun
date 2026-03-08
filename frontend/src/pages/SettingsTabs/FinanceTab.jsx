@@ -31,14 +31,32 @@ export default function FinanceTab() {
             const res = await api.get('/organizer-finance');
             if (res.data.success && res.data.data) {
                 const data = res.data.data;
-                // Merge com a lista oficial para exibir todos os cards
+                // Normalização defensiva: lida com dados parciais e aliases legados/transicionais
                 const merged = GATEWAYS.map(g => {
                     const found = (data.gateways || []).find(dg => dg.provider === g.id);
-                    return found || {
-                        provider: g.id,
-                        is_active: false,
-                        is_principal: false,
-                        credentials: { public_key: '', access_token: '', has_token: false }
+                    if (!found) {
+                        return {
+                            provider: g.id,
+                            is_active: false,
+                            is_principal: false,
+                            credentials: { public_key: '', access_token: '', has_token: false }
+                        };
+                    }
+
+                    // Adapter local: unifica `is_principal` e `is_primary`
+                    const isPrincipalNormalized = found.is_principal ?? found.is_primary ?? false;
+                    const isActiveNormalized = found.is_active ?? false;
+                    const creds = found.credentials || {};
+
+                    return {
+                        ...found,
+                        is_active: isActiveNormalized,
+                        is_principal: isPrincipalNormalized,
+                        credentials: {
+                            public_key: creds.public_key || '',
+                            access_token: creds.access_token || '',
+                            has_token: !!creds.has_token || !!creds.access_token
+                        }
                     };
                 });
                 setGateways(merged);
@@ -55,25 +73,32 @@ export default function FinanceTab() {
     const handleSaveGateway = async (gatewayData) => {
         setSaving(true);
         try {
+            // Payload dinâmico tolerante a múltiplos contratos de backend
             const payload = {
                 gateway_provider: gatewayData.provider,
                 gateway_active: gatewayData.is_active,
+                // Envia ambos os aliases garantindo que o backend aceite independente da versão
                 is_principal: gatewayData.is_principal,
-                access_token: gatewayData.credentials.access_token,
-                public_key: gatewayData.credentials.public_key,
+                is_primary: gatewayData.is_principal, 
+                access_token: gatewayData.credentials?.access_token || '',
+                public_key: gatewayData.credentials?.public_key || '',
                 // Mantém cfg global
                 currency,
                 tax_rate: taxRate
             };
 
             const res = await api.put('/organizer-finance', payload);
-            if (res.data.success) {
+            if (res.data && res.data.success) {
                 toast.success(`Configurações de ${GATEWAYS.find(g => g.id === gatewayData.provider)?.name} salvas!`);
-                await fetchConfig(); // Recarrega lista completa para atualizar is_principal visualmente caso mudou
+                await fetchConfig(); // Garantir que a UI reflete a verdade absoluta do DB (ex: se o backend tirou o primary de outro)
                 setEditingGateway(null);
+            } else {
+                toast.error(res.data?.message || 'Erro operacional na configuração do gateway.');
+                await fetchConfig(); // Reverter se houve manipulação otimista
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Erro ao salvar financeiro.');
+            toast.error(error.response?.data?.message || 'Falha sistêmica ao salvar financeiro.');
+            await fetchConfig(); // Resync para garantir contrato seguro pós-crash
         } finally {
             setSaving(false);
         }
@@ -82,17 +107,20 @@ export default function FinanceTab() {
     const handleTestConnection = async (gatewayData) => {
         setTestingId(gatewayData.provider);
         try {
+            // Utiliza adapter de credenciais tolerante a nulls
             const payload = {
                 gateway_provider: gatewayData.provider,
-                access_token: gatewayData.credentials.access_token 
+                access_token: gatewayData.credentials?.access_token 
                     || (gateways.find(g => g.provider === gatewayData.provider)?.credentials?.has_token ? 'dummy_token_to_test_backend' : '')
             };
             const res = await api.post('/organizer-finance/test', payload);
-            if (res.data.success) {
-                toast.success(res.data.message);
+            if (res.data && res.data.success) {
+                toast.success(res.data.message || 'Conexão validada com sucesso!');
+            } else {
+                toast.error(res.data?.message || 'O gateway rejeitou a conexão.');
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Falha na conexão.');
+            toast.error(error.response?.data?.message || 'Ocorreu uma falha no teste de conexão.');
         } finally {
             setTestingId(null);
         }

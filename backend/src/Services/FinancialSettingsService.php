@@ -2,6 +2,7 @@
 namespace EnjoyFun\Services;
 
 use PDO;
+use InvalidArgumentException;
 
 class FinancialSettingsService
 {
@@ -40,6 +41,9 @@ class FinancialSettingsService
     {
         $currency = self::normalizeCurrency((string)($payload['currency'] ?? 'BRL'));
         $taxRate = (float)($payload['tax_rate'] ?? 0);
+        if ($taxRate < 0 || $taxRate > 100) {
+            throw new InvalidArgumentException('tax_rate deve estar entre 0 e 100.');
+        }
 
         $check = $db->prepare("SELECT id FROM organizer_financial_settings WHERE organizer_id = ? ORDER BY id DESC LIMIT 1");
         $check->execute([$organizerId]);
@@ -75,7 +79,9 @@ class FinancialSettingsService
         if ($currency === '') {
             return 'BRL';
         }
+        if (!preg_match('/^[A-Z0-9]{3,10}$/', $currency)) {
+            throw new InvalidArgumentException('currency inválida.');
+        }
         return substr($currency, 0, 10);
     }
 }
-

@@ -49,9 +49,10 @@ function listPaymentGateways(): void
 
 function createPaymentGateway(array $body): void
 {
-    [$db, $organizerId] = getFinanceContext();
+    [$db, $organizerId, $user] = getFinanceContext();
     try {
         $gateway = PaymentGatewayService::createGateway($db, $organizerId, $body);
+        financeAudit('finance.gateway.create', 'organizer_payment_gateways', $gateway['id'] ?? null, null, $gateway, $user);
         jsonSuccess($gateway, 'Gateway criado com sucesso.', 201);
     } catch (\InvalidArgumentException $e) {
         jsonError($e->getMessage(), 422);
@@ -60,9 +61,11 @@ function createPaymentGateway(array $body): void
 
 function updatePaymentGateway(int $gatewayId, array $body): void
 {
-    [$db, $organizerId] = getFinanceContext();
+    [$db, $organizerId, $user] = getFinanceContext();
     try {
+        $before = PaymentGatewayService::getGatewayById($db, $organizerId, $gatewayId);
         $gateway = PaymentGatewayService::updateGateway($db, $organizerId, $gatewayId, $body);
+        financeAudit('finance.gateway.update', 'organizer_payment_gateways', $gatewayId, $before, $gateway, $user);
         jsonSuccess($gateway, 'Gateway atualizado com sucesso.');
     } catch (\InvalidArgumentException $e) {
         $code = str_contains(strtolower($e->getMessage()), 'não encontrado') ? 404 : 422;
@@ -72,9 +75,11 @@ function updatePaymentGateway(int $gatewayId, array $body): void
 
 function deletePaymentGateway(int $gatewayId): void
 {
-    [$db, $organizerId] = getFinanceContext();
+    [$db, $organizerId, $user] = getFinanceContext();
     try {
+        $before = PaymentGatewayService::getGatewayById($db, $organizerId, $gatewayId);
         PaymentGatewayService::deleteGateway($db, $organizerId, $gatewayId);
+        financeAudit('finance.gateway.delete', 'organizer_payment_gateways', $gatewayId, $before, null, $user);
         jsonSuccess([], 'Gateway excluído com sucesso.');
     } catch (\InvalidArgumentException $e) {
         jsonError($e->getMessage(), 404);
@@ -83,9 +88,10 @@ function deletePaymentGateway(int $gatewayId): void
 
 function setPrimaryGateway(int $gatewayId): void
 {
-    [$db, $organizerId] = getFinanceContext();
+    [$db, $organizerId, $user] = getFinanceContext();
     try {
         $gateway = PaymentGatewayService::setPrimaryGateway($db, $organizerId, $gatewayId);
+        financeAudit('finance.gateway.set_primary', 'organizer_payment_gateways', $gatewayId, null, $gateway, $user);
         jsonSuccess($gateway, 'Gateway principal definido com sucesso.');
     } catch (\InvalidArgumentException $e) {
         jsonError($e->getMessage(), 422);
@@ -94,10 +100,12 @@ function setPrimaryGateway(int $gatewayId): void
 
 function setGatewayStatus(int $gatewayId, array $body): void
 {
-    [$db, $organizerId] = getFinanceContext();
+    [$db, $organizerId, $user] = getFinanceContext();
     $isActive = filter_var($body['is_active'] ?? false, FILTER_VALIDATE_BOOLEAN);
     try {
+        $before = PaymentGatewayService::getGatewayById($db, $organizerId, $gatewayId);
         $gateway = PaymentGatewayService::setGatewayActive($db, $organizerId, $gatewayId, $isActive);
+        financeAudit('finance.gateway.set_status', 'organizer_payment_gateways', $gatewayId, $before, $gateway, $user);
         jsonSuccess($gateway, 'Status do gateway atualizado com sucesso.');
     } catch (\InvalidArgumentException $e) {
         jsonError($e->getMessage(), 404);
@@ -127,9 +135,15 @@ function getFinancialSettings(): void
 
 function updateFinancialSettings(array $body): void
 {
-    [$db, $organizerId] = getFinanceContext();
-    $settings = FinancialSettingsService::saveSettings($db, $organizerId, $body);
-    jsonSuccess($settings, 'Configurações financeiras atualizadas.');
+    [$db, $organizerId, $user] = getFinanceContext();
+    try {
+        $before = FinancialSettingsService::getSettings($db, $organizerId);
+        $settings = FinancialSettingsService::saveSettings($db, $organizerId, $body);
+        financeAudit('finance.settings.update', 'organizer_financial_settings', $settings['id'] ?? null, $before, $settings, $user);
+        jsonSuccess($settings, 'Configurações financeiras atualizadas.');
+    } catch (\InvalidArgumentException $e) {
+        jsonError($e->getMessage(), 422);
+    }
 }
 
 function testGatewayLegacy(array $body): void
@@ -172,7 +186,7 @@ function getFinanceConfig(): void
 
 function updateFinanceConfig(array $body): void
 {
-    [$db, $organizerId] = getFinanceContext();
+    [$db, $organizerId, $user] = getFinanceContext();
     $db->beginTransaction();
     try {
         $provider = (string)($body['gateway_provider'] ?? $body['provider'] ?? '');
@@ -194,6 +208,10 @@ function updateFinanceConfig(array $body): void
 
         $settings = FinancialSettingsService::saveSettings($db, $organizerId, $body);
         $db->commit();
+        financeAudit('finance.config.update', 'organizer_finance', $organizerId, null, [
+            'gateway' => $updatedGateway,
+            'settings' => $settings
+        ], $user);
 
         jsonSuccess([
             'gateway' => $updatedGateway,
@@ -386,7 +404,7 @@ function getFinanceContext(): array
     $user = requireAuth(['admin', 'organizer']);
     $db = Database::getInstance();
     $organizerId = resolveOrganizerId($user);
-    return [$db, $organizerId];
+    return [$db, $organizerId, $user];
 }
 
 function resolveOrganizerId(array $user): int
@@ -427,3 +445,19 @@ function normalizeSector(string $value): string
     return preg_replace('/\s+/', '_', $v);
 }
 
+function financeAudit(string $action, string $entityType, $entityId, $before, $after, array $user): void
+{
+    if (!class_exists('AuditService')) {
+        return;
+    }
+    AuditService::log(
+        $action,
+        $entityType,
+        $entityId,
+        $before,
+        $after,
+        $user,
+        'success',
+        ['metadata' => ['module' => 'organizer-finance']]
+    );
+}

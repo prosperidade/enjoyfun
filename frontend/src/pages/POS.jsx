@@ -16,7 +16,12 @@ import {
   Shirt,
   Wifi,
   WifiOff,
-  ArrowLeft, // ADICIONADO
+  ArrowLeft,
+  Coffee,
+  GlassWater,
+  CupSoda,
+  Pizza,
+  Zap
 } from "lucide-react";
 import { db } from "../lib/db";
 import { useNetwork } from "../hooks/useNetwork";
@@ -75,16 +80,21 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const getProductIcon = (name, sector) => {
-  if (!name) return sector === "food" ? "🍔" : sector === "shop" ? "👕" : "🍻";
+  const defaultSize = 28;
+  const defaultClass = "text-gray-400";
+  
+  if (!name) return sector === "food" ? <UtensilsCrossed size={defaultSize} className="text-orange-400" /> : sector === "shop" ? <Shirt size={defaultSize} className="text-blue-400" /> : <Beer size={defaultSize} className="text-purple-400" />;
+  
   const n = String(name).toLowerCase();
-  if (n.includes("vodka") || n.includes("combo")) return "🍾";
-  if (n.includes("whisky") || n.includes("old par")) return "🥃";
-  if (n.includes("pizza")) return "🍕";
-  if (n.includes("xeque mate") || n.includes("mate")) return "🧉";
-  if (n.includes("agua") || n.includes("água")) return "💧";
-  if (n.includes("gatorade") || n.includes("energetico") || n.includes("energético")) return "⚡";
-  if (n.includes("hamburguer") || n.includes("burger")) return "🍔";
-  return sector === "food" ? "🍔" : sector === "shop" ? "👕" : "🍻";
+  if (n.includes("vodka") || n.includes("combo")) return <Beer size={defaultSize} className="text-indigo-400" />;
+  if (n.includes("whisky") || n.includes("old par")) return <Coffee size={defaultSize} className="text-amber-600" />; // using coffee as a glass approx
+  if (n.includes("pizza")) return <Pizza size={defaultSize} className="text-red-400" />;
+  if (n.includes("xeque mate") || n.includes("mate")) return <CupSoda size={defaultSize} className="text-green-500" />;
+  if (n.includes("agua") || n.includes("água")) return <GlassWater size={defaultSize} className="text-blue-300" />;
+  if (n.includes("gatorade") || n.includes("energetico") || n.includes("energético")) return <Zap size={defaultSize} className="text-yellow-400" />;
+  if (n.includes("hamburguer") || n.includes("burger")) return <UtensilsCrossed size={defaultSize} className="text-orange-500" />;
+  
+  return sector === "food" ? <UtensilsCrossed size={defaultSize} className="text-orange-400" /> : sector === "shop" ? <Shirt size={defaultSize} className="text-blue-400" /> : <Beer size={defaultSize} className="text-purple-400" />;
 };
 
 export default function POS({ fixedSector = "bar" }) {
@@ -112,18 +122,18 @@ export default function POS({ fixedSector = "bar" }) {
       return {
         icon: <UtensilsCrossed className="text-orange-400" size={28} />,
         title: "ALIMENTAÇÃO",
-        emoji: "🍔",
+        fallbackIcon: <UtensilsCrossed className="text-orange-400" size={32} />
       };
     if (currentSector === "shop")
       return {
         icon: <Shirt className="text-blue-400" size={28} />,
         title: "LOJA",
-        emoji: "👕",
+        fallbackIcon: <Shirt className="text-blue-400" size={32} />
       };
     return {
       icon: <Beer className="text-purple-400" size={28} />,
       title: "BAR",
-      emoji: "🍻",
+      fallbackIcon: <Beer className="text-purple-400" size={32} />
     };
   };
 
@@ -474,12 +484,12 @@ export default function POS({ fixedSector = "bar" }) {
 
         <div className="flex items-center gap-3">
           {isOffline ? (
-            <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full text-red-400 text-[10px] font-bold">
-              <WifiOff size={12} /> <span>OFFLINE</span>
+            <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-full text-red-400 text-xs font-black tracking-widest uppercase shadow-[0_0_15px_rgba(239,68,68,0.2)] animate-pulse">
+              <WifiOff size={16} /> <span className="mt-0.5">OFFLINE MODE</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full text-green-400 text-[10px] font-bold">
-              <Wifi size={12} /> <span>ONLINE</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full text-green-400 text-[10px] font-bold tracking-wider">
+              <Wifi size={14} /> <span>ONLINE</span>
             </div>
           )}
         </div>
@@ -556,8 +566,8 @@ export default function POS({ fixedSector = "bar" }) {
                           disabled={product.stock_qty <= 0}
                           className={`p-4 rounded-2xl border flex flex-col items-center justify-center gap-3 transition-all active:scale-95 ${product.stock_qty > 0 ? (product.stock_qty <= (product.low_stock_threshold || 5) ? "bg-red-900/20 border-red-500/50 hover:border-red-400" : "hover:border-purple-500 bg-gray-800/40 border-gray-700/50") : "opacity-40 cursor-not-allowed bg-gray-900 border-gray-800"}`}
                         >
-                          <div className="text-4xl">
-                            {product.icon || sectorInfo.emoji}
+                          <div className="flex items-center justify-center w-12 h-12 bg-gray-900/50 rounded-full mb-1">
+                            {product.icon || sectorInfo.fallbackIcon}
                           </div>
                           <div className="text-center w-full">
                             <p className="text-white font-semibold text-sm leading-tight truncate">
@@ -581,66 +591,76 @@ export default function POS({ fixedSector = "bar" }) {
               </div>
 
               <div className="flex-1 bg-gray-900 border border-gray-800 rounded-2xl flex flex-col overflow-hidden min-h-[500px]">
-                <div className="px-5 py-4 bg-gray-800/50 border-b border-gray-800 flex items-center justify-between font-bold text-white">
-                  Venda Atual{" "}
-                  <span className="bg-purple-600 px-2.5 py-1 rounded-full text-xs">
-                    {cart.length} itens
+                <div className="px-5 py-4 bg-gray-800/80 border-b border-gray-700 flex items-center justify-between font-bold text-white shadow-sm">
+                  <span>Carrinho de Venda</span>
+                  <span className="bg-purple-600 px-3 py-1 rounded-full text-xs flex items-center gap-1">
+                    <ShoppingCart size={14} /> {cart.length}
                   </span>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-900/40">
                   {cart.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-gray-600 gap-3">
-                      <ShoppingCart size={48} className="opacity-20" />
-                      <p className="text-sm">Carrinho vazio</p>
+                    <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-4 mt-8">
+                      <div className="p-6 bg-gray-800/30 rounded-full border border-gray-800 border-dashed">
+                        <ShoppingCart size={40} className="text-gray-600 border-gray-700" />
+                      </div>
+                      <div className="text-center">
+                        <p className="font-semibold text-gray-400">Caixa Livre</p>
+                        <p className="text-xs mt-1 max-w-[200px]">Adicione produtos clicando nos botões ao lado.</p>
+                      </div>
                     </div>
                   ) : (
                     cart.map((item) => (
                       <div
                         key={item.id}
-                        className="flex flex-col gap-2 p-3 bg-gray-800/40 border border-gray-700/50 rounded-xl"
+                        className="flex flex-col gap-3 p-3.5 bg-gray-800/60 border border-gray-700 rounded-xl shadow-sm transition-all hover:border-gray-600"
                       >
-                        <div className="flex justify-between text-sm text-white font-medium">
+                        <div className="flex justify-between text-sm text-white font-semibold">
                           <span className="truncate pr-2">{item.name}</span>
-                          <span className="text-purple-300">
+                          <span className="text-purple-300 whitespace-nowrap">
                             R$ {(item.price * item.quantity).toFixed(2)}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1 bg-gray-900 rounded-lg p-1 border border-gray-700">
+                        <div className="flex items-center justify-between mt-1">
+                          <div className="flex items-center bg-gray-900 rounded-lg p-1 border border-gray-700">
                             <button
                               onClick={() => updateQuantity(item.id, -1)}
-                              className="p-1 text-gray-400 hover:text-white"
+                              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
                             >
-                              <Minus size={14} />
+                              <Minus size={16} />
                             </button>
-                            <span className="w-8 text-center text-sm font-bold">
+                            <span className="w-10 text-center text-sm font-bold text-white">
                               {item.quantity}
                             </span>
                             <button
                               onClick={() => updateQuantity(item.id, 1)}
-                              className="p-1 text-gray-400 hover:text-white"
+                              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
                             >
-                              <Plus size={14} />
+                              <Plus size={16} />
                             </button>
                           </div>
                           <button
                             onClick={() => removeFromCart(item.id)}
-                            className="p-1.5 text-gray-500 hover:text-red-400"
+                            className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                            title="Remover"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={18} />
                           </button>
                         </div>
                       </div>
                     ))
                   )}
                 </div>
-                <div className="p-5 bg-gray-800/80 border-t border-gray-700">
-                  <input
-                    value={cardToken}
-                    onChange={(e) => setCardToken(e.target.value)}
-                    placeholder="ESCANEIE O QR CLIENTE"
-                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-3 mb-4 text-sm outline-none focus:border-purple-500"
-                  />
+                <div className="p-5 bg-gray-900 border-t border-gray-700 shadow-[0_-10px_30px_rgba(0,0,0,0.3)] z-10">
+                  <div className="relative mb-4">
+                    <QrCode size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                    <input
+                      value={cardToken}
+                      onChange={(e) => setCardToken(e.target.value)}
+                      placeholder="ESCANEIE O QR CLIENTE"
+                      autoFocus
+                      className="w-full bg-gray-950 border border-gray-700 text-white rounded-xl pl-10 pr-4 py-3.5 text-sm font-semibold outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all placeholder:text-gray-600"
+                    />
+                  </div>
                   <div className="flex justify-between items-center mb-4 text-white">
                     <span className="text-gray-400">Total</span>
                     <span className="text-2xl font-extrabold">
@@ -650,11 +670,19 @@ export default function POS({ fixedSector = "bar" }) {
                   <button
                     onClick={handleCheckout}
                     disabled={cart.length === 0 || processingSale || !cardToken}
-                    className="w-full bg-purple-600 hover:bg-purple-500 py-4 rounded-xl font-bold transition-all disabled:opacity-50"
+                    className={`w-full py-4 rounded-xl font-bold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${isOffline ? "bg-amber-600 hover:bg-amber-500 shadow-[0_0_15px_rgba(217,119,6,0.2)]" : "bg-purple-600 hover:bg-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.3)]"}`}
                   >
-                    {processingSale
-                      ? "PROCESSANDO..."
-                      : "💳 FINALIZAR PAGAMENTO"}
+                    {processingSale ? (
+                      <span className="animate-pulse">PROCESSANDO...</span>
+                    ) : isOffline ? (
+                      <>
+                        <WifiOff size={18} /> SALVAR OFFLINE
+                      </>
+                    ) : (
+                      <>
+                        <Check size={18} /> FINALIZAR PAGAMENTO
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -790,10 +818,10 @@ export default function POS({ fixedSector = "bar" }) {
                   products.map((p) => (
                     <div
                       key={p.id}
-                      className="flex items-center gap-4 py-3 border-b border-gray-800 last:border-0 hover:bg-gray-800/30 px-2 rounded-xl"
+                      className="flex items-center gap-4 p-4 mb-2 bg-gray-950/50 border border-gray-800 rounded-xl transition-colors hover:border-gray-700"
                     >
-                      <div className="text-2xl w-8">
-                        {p.icon || sectorInfo.emoji}
+                      <div className="flex items-center justify-center w-10 h-10 bg-gray-900 rounded-full border border-gray-800">
+                        {p.icon || sectorInfo.fallbackIcon}
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-medium text-white">
@@ -844,30 +872,30 @@ export default function POS({ fixedSector = "bar" }) {
           {/* ABA BI & IA */}
           {tab === "reports" && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center bg-gray-900 border border-gray-800 p-4 rounded-xl">
-                <div className="flex gap-2 bg-gray-800 p-1 rounded-lg">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-gray-900 border border-gray-800 p-4 rounded-xl">
+                <div className="flex flex-wrap gap-2 bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50 w-full sm:w-auto overflow-x-auto">
                   {["1h", "5h", "24h", "total"].map((f) => (
                     <button
                       key={f}
                       onClick={() => setTimeFilter(f)}
-                      className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${timeFilter === f ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"}`}
+                      className={`flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition-all ${timeFilter === f ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/20" : "text-gray-400 hover:text-white hover:bg-gray-700"}`}
                     >
                       {f.toUpperCase()}
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                   <input
                     value={aiQuestion}
                     onChange={(e) => setAiQuestion(e.target.value)}
-                    placeholder="Pergunte à IA..."
-                    className="bg-gray-950 border border-indigo-500/30 text-white rounded-lg px-4 py-2 text-xs w-64 outline-none focus:border-indigo-500"
+                    placeholder="Pergunte à IA (ex: qual horário de pico?)"
+                    className="flex-1 sm:w-72 bg-gray-950 border border-indigo-500/30 text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-600"
                     onKeyDown={(e) => e.key === "Enter" && requestInsight()}
                   />
                   <button
                     onClick={requestInsight}
                     disabled={loadingInsight}
-                    className="bg-indigo-600 px-4 py-2 rounded-lg text-white text-xs font-bold hover:bg-indigo-500"
+                    className="bg-indigo-600 px-6 py-3 rounded-xl text-white text-sm font-bold hover:bg-indigo-500 transition-colors whitespace-nowrap shadow-lg shadow-indigo-900/20"
                   >
                     {loadingInsight ? "..." : "✨ Analisar"}
                   </button>
@@ -894,13 +922,13 @@ export default function POS({ fixedSector = "bar" }) {
               </div>
 
               {chatHistory.length > 0 && (
-                <div className="bg-gray-900 border border-indigo-500/30 p-4 rounded-xl flex flex-col gap-3 max-h-96 overflow-y-auto">
+                <div className="bg-gray-900/80 border border-indigo-500/30 p-5 rounded-2xl flex flex-col gap-4 max-h-[400px] overflow-y-auto w-full mx-auto">
                   {chatHistory.map((msg, i) => (
                     <div
                       key={i}
-                      className={`p-3 rounded-lg text-sm max-w-[85%] ${msg.role === "user" ? "bg-indigo-600/20 text-indigo-100 self-end ml-auto" : "bg-purple-900/40 text-purple-100 self-start"}`}
+                      className={`p-4 rounded-2xl text-sm max-w-[90%] sm:max-w-[75%] shadow-sm ${msg.role === "user" ? "bg-indigo-600 text-white self-end ml-auto rounded-tr-sm" : "bg-gray-800 border border-gray-700 text-gray-200 self-start rounded-tl-sm"}`}
                     >
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                     </div>
                   ))}
                 </div>

@@ -2,6 +2,16 @@
 
 Este documento serve como um diário de bordo rigoroso para todas as mudanças sistêmicas feitas durante a execução das Fases.
 
+## Padrão Obrigatório de Registro (Codex + Gemini 3.1)
+
+Em cada bloco novo de progresso, registrar sempre:
+- **Responsável:** `Codex` ou `Gemini 3.1`
+- **Status:** `Em andamento` / `Entregue` / `Pausado` / `Cancelado`
+- **Escopo:** `backend` / `frontend` / `banco` / `UX`
+- **Arquivos principais tocados**
+- **Próxima ação sugerida**
+- **Bloqueios / dependências**
+
 ## Fase 1 - Sprint 1
 
 ### Ações Concluídas
@@ -99,11 +109,17 @@ Este documento serve como um diário de bordo rigoroso para todas as mudanças s
    - Implementado endpoint padronizado de teste de conexão por provider, sem acoplamento com checkout real.
    - Mantida compatibilidade com a aba financeira atual (`GET/PUT /organizer-finance` e `POST /organizer-finance/test`).
    - Providers prioritários cobertos: Mercado Pago, PagSeguro, Asaas, Pagar.me e InfinityPay.
-  - **Financial Layer v1 (Tenant Settings Hub) — Entregue**:
-    - Backend (`OrganizerFinanceController.php`) refatorado para consultar e atualizar múltiplos gateways, além de gerenciar Gateway "Principal" (is_principal).
-    - Criado endpoint mock/teste de conexão (`POST /organizer-finance/test`).
-    - Coluna `is_principal` adicionada e populada na `organizer_payment_gateways`.
-    - Frontend (`FinanceTab.jsx`) inteiramente reescrito usando visual de cartões (cards) para gerenciar múltiplos provedores simultaneamente, com seletores de prioridade visuais.
+ - **Financial Layer v1.1 (Hardening Estrutural) — Entregue**:
+   - Criada migration segura `database/006_financial_hardening.sql` para reforçar integridade em base existente.
+   - Adicionadas colunas estruturais em `organizer_payment_gateways`: `is_primary` e `environment`.
+   - Aplicado backfill de legado (`credentials.flags`) para colunas novas e deduplicação por `organizer_id + provider`.
+   - Criados índices/constraints de integridade por tenant:
+     - `ux_payment_gateways_org_provider`
+     - `ux_payment_gateways_org_primary` (parcial)
+     - `ux_financial_settings_organizer`
+   - `PaymentGatewayService` ajustado para usar colunas estruturais com fallback compatível para payload legado.
+   - `OrganizerFinanceController` reforçado com auditoria nas mutações do domínio financeiro.
+   - `FinancialSettingsService` reforçado com validação de payload (`currency` e faixa de `tax_rate`).
 
 #### Próximas Ações (Críticas)
 - [x] **Visibilidade Total**: Ajustar o filtro de Workforce para ser resiliente a importações onde todos são 'Guests' mas precisam ser alocados como equipe.
@@ -118,9 +134,62 @@ Este documento serve como um diário de bordo rigoroso para todas as mudanças s
 - [ ] Planejar próxima PR de hardening financeiro: índices/constraints formais em `organizer_payment_gateways` e ajuste de modelagem complementar (`organizer_financial_settings`) sem impacto no checkout.
 
 ### Em andamento
-Nenhuma task ativa no momento.
+- **Responsável:** Codex
+- **Frente:** Financial Layer validação pós-hardening
+- **Escopo:** backend / banco / rotas / services / controllers
+- **Arquivos principais:** `database/006_financial_hardening.sql`, `OrganizerFinanceController.php`, `PaymentGatewayService.php`, `FinancialSettingsService.php`
+- **Status:** Em andamento
+- **Próxima ação sugerida:** aplicar migration em ambiente local/staging e executar checklist de cenários de regressão nas rotas de financeiro
+- **Bloqueios / dependências:** aplicação da migration no banco alvo (dados pré-existentes) para confirmar a deduplicação/controlos
 
 ### Entregues
+- **Responsável:** Codex
+- **Frente:** Financial Layer v1.1 (Hardening Estrutural)
+- **Escopo:** backend / banco / integridade de domínio / auditoria / multi-tenant
+- **Arquivos principais:** `database/006_financial_hardening.sql`, `OrganizerFinanceController.php`, `PaymentGatewayService.php`, `FinancialSettingsService.php`
+- **Status:** Entregue
+- **Próxima ação sugerida:** validar migration aplicada e executar suíte manual de aceite (`/organizer-finance` e `/organizer-finance/gateways`)
+- **Bloqueios / dependências:** pendente execução da migration no ambiente de banco em uso
+
+- **Responsável:** Gemini 3.1 Pro (Gravity)
+- **Frente:** Frontend Resilience - Settings/Finance
+- **Escopo:** frontend / adapter / error handling
+- **Arquivos principais:** `FinanceTab.jsx`
+- **Status:** Entregue
+- **Próxima ação sugerida:** Estender a padronização defensiva/visual para as outras abas do SettingsHub (`BrandingTab`, `ChannelsTab`) para garantir previsibilidade universal no admin.
+- **Bloqueios / dependências:** nenhuma
+- **Responsável:** Gemini 3.1 (Gravity)
+- **Frente:** Baseline Consolidation - Database/Schema Drift
+- **Escopo:** banco / documentação / schema
+- **Arquivos principais:** `database/schema_real.sql`, `drift_report.md` (artefato)
+- **Status:** Entregue
+- **Próxima ação sugerida:** Iniciar a remoção gradual da proteção "defensiva" no backend (como `columnExists` em `WorkforceController.php`) se a aplicação dos schemas consolidados nos tenants for confirmada.
+- **Bloqueios / dependências:** Depende da validação e rodada dos scripts consolidados em um banco de staging ou o update dos tenants de produção para as versões de schema atuais.
+
+- **Responsável:** Gemini 3.1 Pro (Gravity)
+- **Frente:** UX Refinement - POS (Terminal)
+- **Escopo:** frontend / UX / componentes visuais
+- **Arquivos principais:** `POS.jsx`
+- **Status:** Entregue
+- **Próxima ação sugerida:** Avaliar se as telas de Check-in (Guest/Workforce) precisam de um tratamento de UX focado em velocidade de leitura de QR (como o POS).
+- **Bloqueios / dependências:** nenhuma
+
+- **Responsável:** Codex
+- **Frente:** Padronização do `progresso.md`
+- **Escopo:** documentação / processo
+- **Arquivos principais:** `docs/progresso.md`
+- **Status:** Entregue
+- **Próxima ação sugerida:** manter o padrão obrigatório em todos os novos blocos de progresso (Codex/Gemini 3.1 com campos completos)
+- **Bloqueios / dependências:** nenhuma
+
+- **Responsável:** Codex
+- **Frente:** Financial Layer v1 (Tenant Settings Hub)
+- **Escopo:** backend / rotas / services / controllers
+- **Arquivos principais:** `OrganizerFinanceController.php`, `PaymentGatewayService.php`, `FinancialSettingsService.php`
+- **Status:** Entregue
+- **Próxima ação sugerida:** montar coleção Postman/Insomnia e executar validação ponta a ponta da aba Financeiro
+- **Bloqueios / dependências:** nenhuma de código; pendente validação operacional com dados reais do organizador
+
 - **Responsável:** Gemini 3.1 Pro (Gravity)
 - **Frente:** Dashboard frontend refinement
 - **Escopo:** frontend / UX / componentes visuais

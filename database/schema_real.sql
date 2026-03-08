@@ -2353,3 +2353,178 @@ ALTER TABLE ONLY public.user_roles
 
 \unrestrict G8bGWl4X5HhrDccJ3wUd56GRUDLyendLalCSV4PAJg2RJPK7MPPYrPE8wbm7xYa
 
+-- ==========================================================
+-- CONSOLIDATED BASELINE: SPRINT 1 TO SPRINT 3 + FINANCE HARDENING
+-- As tabelas abaixo foram adicionadas para consolidar as migrações 001 a 006
+-- diretamente no schema_real.sql, reduzindo o drift técnico.
+-- ==========================================================
+
+CREATE TABLE IF NOT EXISTS public.organizer_channels (
+    id SERIAL PRIMARY KEY,
+    organizer_id integer NOT NULL,
+    channel_type VARCHAR(50) NOT NULL,
+    credentials JSONB,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.organizer_ai_config (
+    id SERIAL PRIMARY KEY,
+    organizer_id integer NOT NULL,
+    provider VARCHAR(50) DEFAULT 'gemini',
+    system_prompt TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.organizer_payment_gateways (
+    id SERIAL PRIMARY KEY,
+    organizer_id integer NOT NULL,
+    provider VARCHAR(50) NOT NULL CHECK (provider IN ('mercadopago', 'pagseguro', 'asaas', 'pagarme', 'infinitypay')),
+    credentials JSONB,
+    is_active BOOLEAN DEFAULT true,
+    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+    environment VARCHAR(20) NOT NULL DEFAULT 'production' CHECK (environment IN ('production', 'sandbox')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_gateways_org_provider
+    ON public.organizer_payment_gateways (organizer_id, provider);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_gateways_org_primary
+    ON public.organizer_payment_gateways (organizer_id)
+    WHERE is_primary = TRUE;
+
+CREATE TABLE IF NOT EXISTS public.organizer_financial_settings (
+    id SERIAL PRIMARY KEY,
+    organizer_id integer NOT NULL,
+    currency VARCHAR(10) DEFAULT 'BRL',
+    tax_rate NUMERIC(5,2) DEFAULT 0.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_financial_settings_organizer
+    ON public.organizer_financial_settings (organizer_id);
+
+CREATE TABLE IF NOT EXISTS public.event_days (
+    id SERIAL PRIMARY KEY,
+    event_id integer NOT NULL,
+    date DATE NOT NULL,
+    starts_at TIMESTAMP NOT NULL,
+    ends_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.event_shifts (
+    id SERIAL PRIMARY KEY,
+    event_day_id integer NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    starts_at TIMESTAMP NOT NULL,
+    ends_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.people (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    document VARCHAR(50),
+    phone VARCHAR(50),
+    organizer_id integer NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.participant_categories (
+    id SERIAL PRIMARY KEY,
+    organizer_id integer NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.event_participants (
+    id SERIAL PRIMARY KEY,
+    event_id integer NOT NULL,
+    person_id integer NOT NULL,
+    category_id integer NOT NULL,
+    status VARCHAR(50) DEFAULT 'expected',
+    qr_token VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.participant_access_rules (
+    id SERIAL PRIMARY KEY,
+    category_id integer NOT NULL,
+    event_day_id integer,
+    event_shift_id integer,
+    allowed_areas JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.participant_checkins (
+    id SERIAL PRIMARY KEY,
+    participant_id integer NOT NULL,
+    gate_id VARCHAR(100),
+    action VARCHAR(20) NOT NULL,
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.participant_meals (
+    id SERIAL PRIMARY KEY,
+    participant_id integer NOT NULL,
+    event_day_id integer,
+    event_shift_id integer,
+    consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.workforce_roles (
+    id SERIAL PRIMARY KEY,
+    organizer_id integer NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    sector varchar(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_workforce_roles_organizer_sector
+    ON public.workforce_roles (organizer_id, sector);
+
+CREATE TABLE IF NOT EXISTS public.workforce_assignments (
+    id SERIAL PRIMARY KEY,
+    participant_id integer NOT NULL,
+    role_id integer NOT NULL,
+    sector VARCHAR(50),
+    event_shift_id integer,
+    manager_user_id integer,
+    source_file_name varchar(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_workforce_assignments_participant_sector UNIQUE (participant_id, sector)
+);
+CREATE INDEX IF NOT EXISTS idx_workforce_assignments_sector
+    ON public.workforce_assignments (sector);
+CREATE INDEX IF NOT EXISTS idx_workforce_assignments_manager_user
+    ON public.workforce_assignments (manager_user_id);
+
+CREATE TABLE IF NOT EXISTS public.workforce_member_settings (
+    id SERIAL PRIMARY KEY,
+    participant_id integer NOT NULL UNIQUE,
+    max_shifts_event integer NOT NULL DEFAULT 1,
+    shift_hours numeric(5,2) NOT NULL DEFAULT 8.00,
+    meals_per_day integer NOT NULL DEFAULT 4,
+    payment_amount numeric(12,2) NOT NULL DEFAULT 0.00,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_workforce_member_settings_participant
+    ON public.workforce_member_settings (participant_id);
+
+CREATE TABLE IF NOT EXISTS public.dashboard_snapshots (
+    id SERIAL PRIMARY KEY,
+    organizer_id integer NOT NULL,
+    event_id integer,
+    metric_name VARCHAR(100) NOT NULL,
+    metric_value NUMERIC(15,2) NOT NULL,
+    snapshot_time TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

@@ -23,21 +23,20 @@ class PaymentGatewayService
     public static function listGateways(PDO $db, int $organizerId): array
     {
         $stmt = $db->prepare("
-            SELECT id, provider, credentials, is_active, created_at, updated_at
+            SELECT id, provider, credentials, is_active, is_primary, environment, created_at, updated_at
             FROM organizer_payment_gateways
             WHERE organizer_id = ?
-            ORDER BY id ASC
+            ORDER BY is_primary DESC, id ASC
         ");
         $stmt->execute([$organizerId]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
         return array_map(fn($row) => self::mapGatewayRow($row), $rows);
     }
 
     public static function getGatewayById(PDO $db, int $organizerId, int $gatewayId): ?array
     {
         $stmt = $db->prepare("
-            SELECT id, provider, credentials, is_active, created_at, updated_at
+            SELECT id, provider, credentials, is_active, is_primary, environment, created_at, updated_at
             FROM organizer_payment_gateways
             WHERE id = ? AND organizer_id = ?
             LIMIT 1
@@ -51,7 +50,7 @@ class PaymentGatewayService
     {
         $provider = self::normalizeProvider($provider);
         $stmt = $db->prepare("
-            SELECT id, provider, credentials, is_active, created_at, updated_at
+            SELECT id, provider, credentials, is_active, is_primary, environment, created_at, updated_at
             FROM organizer_payment_gateways
             WHERE organizer_id = ? AND provider = ?
             LIMIT 1
@@ -65,11 +64,10 @@ class PaymentGatewayService
     {
         $provider = self::normalizeProvider((string)($payload['provider'] ?? $payload['gateway_provider'] ?? ''));
         if ($provider === '') {
-            throw new InvalidArgumentException('provider é obrigatório.');
+            throw new InvalidArgumentException('provider é obrigatório e deve ser suportado.');
         }
 
-        $existing = self::findByProvider($db, $organizerId, $provider);
-        if ($existing) {
+        if (self::findByProvider($db, $organizerId, $provider)) {
             throw new InvalidArgumentException('Já existe gateway cadastrado para este provider. Use edição.');
         }
 
@@ -78,14 +76,23 @@ class PaymentGatewayService
         $environment = self::normalizeEnvironment((string)($payload['environment'] ?? 'production'));
 
         $credentials = self::extractCredentialInput($payload);
-        $storedCredentials = self::buildStoredCredentials([], $credentials, $isPrimary, $environment);
+        $storedCredentials = self::buildStoredCredentials($credentials, $isPrimary, $environment);
 
         $stmt = $db->prepare("
-            INSERT INTO organizer_payment_gateways (organizer_id, provider, credentials, is_active, updated_at)
-            VALUES (?, ?, ?::jsonb, ?, NOW())
+            INSERT INTO organizer_payment_gateways (
+                organizer_id, provider, credentials, is_active, is_primary, environment, updated_at
+            )
+            VALUES (?, ?, ?::jsonb, ?, ?, ?, NOW())
             RETURNING id
         ");
-        $stmt->execute([$organizerId, $provider, json_encode($storedCredentials, JSON_UNESCAPED_UNICODE), $isActive]);
+        $stmt->execute([
+            $organizerId,
+            $provider,
+            json_encode($storedCredentials, JSON_UNESCAPED_UNICODE),
+            $isActive,
+            $isPrimary,
+            $environment
+        ]);
         $gatewayId = (int)$stmt->fetchColumn();
 
         if ($isPrimary) {
@@ -105,12 +112,11 @@ class PaymentGatewayService
         $provider = isset($payload['provider']) || isset($payload['gateway_provider'])
             ? self::normalizeProvider((string)($payload['provider'] ?? $payload['gateway_provider']))
             : (string)$current['provider'];
-
         if ($provider === '') {
             throw new InvalidArgumentException('provider inválido.');
         }
 
-        if ($provider !== $current['provider']) {
+        if ($provider !== (string)$current['provider']) {
             $sameProvider = self::findByProvider($db, $organizerId, $provider);
             if ($sameProvider && (int)$sameProvider['id'] !== $gatewayId) {
                 throw new InvalidArgumentException('Já existe gateway com este provider.');
@@ -126,13 +132,7 @@ class PaymentGatewayService
         $incoming = self::extractCredentialInput($payload);
         $finalSecrets = $existingSecrets;
         foreach ($incoming as $k => $v) {
-            if (
-                $v === null ||
-                $v === '' ||
-                strpos($v, '...') !== false ||
-                strpos($v, '*') !== false ||
-                $v === 'dummy_token_to_test_backend'
-            ) {
+            if ($v === null || $v === '' || strpos($v, '...') !== false || strpos($v, '*') !== false || $v === 'dummy_token_to_test_backend') {
                 continue;
             }
             $finalSecrets[$k] = $v;
@@ -140,29 +140,38 @@ class PaymentGatewayService
 
         $isPrimary = array_key_exists('is_primary', $payload) || array_key_exists('is_principal', $payload)
             ? self::toBool($payload['is_primary'] ?? $payload['is_principal'])
-            : (bool)($decodedCurrent['flags']['is_primary'] ?? false);
+            : self::toBool($current['is_primary'] ?? ($decodedCurrent['flags']['is_primary'] ?? false));
 
         $environment = array_key_exists('environment', $payload)
             ? self::normalizeEnvironment((string)$payload['environment'])
-            : self::normalizeEnvironment((string)($decodedCurrent['flags']['environment'] ?? 'production'));
+            : self::normalizeEnvironment((string)($current['environment'] ?? ($decodedCurrent['flags']['environment'] ?? 'production')));
 
-        $storedCredentials = self::buildStoredCredentials($decodedCurrent, $finalSecrets, $isPrimary, $environment);
+        $storedCredentials = self::buildStoredCredentials($finalSecrets, $isPrimary, $environment);
 
         $stmt = $db->prepare("
             UPDATE organizer_payment_gateways
-            SET provider = ?, credentials = ?::jsonb, is_active = ?, updated_at = NOW()
+            SET provider = ?, credentials = ?::jsonb, is_active = ?, is_primary = ?, environment = ?, updated_at = NOW()
             WHERE id = ? AND organizer_id = ?
         ");
         $stmt->execute([
             $provider,
             json_encode($storedCredentials, JSON_UNESCAPED_UNICODE),
             $isActive,
+            $isPrimary,
+            $environment,
             $gatewayId,
             $organizerId
         ]);
 
         if ($isPrimary) {
             self::setPrimaryGateway($db, $organizerId, $gatewayId);
+        } elseif (!$isActive) {
+            // Um gateway inativo não pode seguir marcado como principal.
+            $db->prepare("
+                UPDATE organizer_payment_gateways
+                SET is_primary = FALSE, updated_at = NOW()
+                WHERE id = ? AND organizer_id = ?
+            ")->execute([$gatewayId, $organizerId]);
         }
 
         return self::getGatewayById($db, $organizerId, $gatewayId) ?? [];
@@ -179,38 +188,46 @@ class PaymentGatewayService
 
     public static function setPrimaryGateway(PDO $db, int $organizerId, int $gatewayId): array
     {
+        $existsStmt = $db->prepare("SELECT id FROM organizer_payment_gateways WHERE id = ? AND organizer_id = ? LIMIT 1");
+        $existsStmt->execute([$gatewayId, $organizerId]);
+        if (!(int)$existsStmt->fetchColumn()) {
+            throw new InvalidArgumentException('Gateway alvo para principal não encontrado.');
+        }
+
+        // Zera principal de todos no tenant.
+        $db->prepare("
+            UPDATE organizer_payment_gateways
+            SET is_primary = FALSE, updated_at = NOW()
+            WHERE organizer_id = ?
+        ")->execute([$organizerId]);
+
+        // Define principal e força ativo.
+        $db->prepare("
+            UPDATE organizer_payment_gateways
+            SET is_primary = TRUE, is_active = TRUE, updated_at = NOW()
+            WHERE organizer_id = ? AND id = ?
+        ")->execute([$organizerId, $gatewayId]);
+
+        // Mantém o legado no JSON credentials (flags) para compatibilidade.
         $rowsStmt = $db->prepare("
-            SELECT id, credentials, is_active
+            SELECT id, credentials, environment
             FROM organizer_payment_gateways
             WHERE organizer_id = ?
             ORDER BY id ASC
         ");
         $rowsStmt->execute([$organizerId]);
         $rows = $rowsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        if (!$rows) {
-            throw new InvalidArgumentException('Nenhum gateway cadastrado para definir principal.');
-        }
-
-        $found = false;
         foreach ($rows as $row) {
             $id = (int)$row['id'];
             $decoded = self::decodeStoredCredentials($row['credentials'] ?? []);
-            $flags = $decoded['flags'] ?? [];
-            $flags['is_primary'] = ($id === $gatewayId);
-            if ($id === $gatewayId) {
-                $found = true;
-            }
-            $stored = self::buildStoredCredentials($decoded, $decoded['secrets'] ?? [], (bool)$flags['is_primary'], (string)($flags['environment'] ?? 'production'));
-            $stmtUpd = $db->prepare("
+            $secrets = $decoded['secrets'] ?? [];
+            $env = self::normalizeEnvironment((string)($row['environment'] ?? ($decoded['flags']['environment'] ?? 'production')));
+            $stored = self::buildStoredCredentials($secrets, $id === $gatewayId, $env);
+            $db->prepare("
                 UPDATE organizer_payment_gateways
-                SET credentials = ?::jsonb, is_active = CASE WHEN id = ? THEN TRUE ELSE is_active END, updated_at = NOW()
-                WHERE id = ? AND organizer_id = ?
-            ");
-            $stmtUpd->execute([json_encode($stored, JSON_UNESCAPED_UNICODE), $gatewayId, $id, $organizerId]);
-        }
-
-        if (!$found) {
-            throw new InvalidArgumentException('Gateway alvo para principal não encontrado.');
+                SET credentials = ?::jsonb
+                WHERE organizer_id = ? AND id = ?
+            ")->execute([json_encode($stored, JSON_UNESCAPED_UNICODE), $organizerId, $id]);
         }
 
         return self::getGatewayById($db, $organizerId, $gatewayId) ?? [];
@@ -220,10 +237,10 @@ class PaymentGatewayService
     {
         $stmt = $db->prepare("
             UPDATE organizer_payment_gateways
-            SET is_active = ?, updated_at = NOW()
+            SET is_active = ?, is_primary = CASE WHEN ? = FALSE THEN FALSE ELSE is_primary END, updated_at = NOW()
             WHERE id = ? AND organizer_id = ?
         ");
-        $stmt->execute([$isActive, $gatewayId, $organizerId]);
+        $stmt->execute([$isActive, $isActive, $gatewayId, $organizerId]);
         if ($stmt->rowCount() <= 0) {
             throw new InvalidArgumentException('Gateway não encontrado para atualizar status.');
         }
@@ -255,7 +272,8 @@ class PaymentGatewayService
             } else {
                 $existing = self::findByProvider($db, $organizerId, $provider);
                 if ($existing) {
-                    $decoded = self::decodeStoredCredentials($existing['credentials'] ?? []);
+                    $raw = self::getRawGateway($db, $organizerId, (int)$existing['id']);
+                    $decoded = self::decodeStoredCredentials($raw['credentials'] ?? []);
                     $credentials = $decoded['secrets'] ?? [];
                 }
             }
@@ -285,7 +303,7 @@ class PaymentGatewayService
     private static function getRawGateway(PDO $db, int $organizerId, int $gatewayId): ?array
     {
         $stmt = $db->prepare("
-            SELECT id, provider, credentials, is_active, created_at, updated_at
+            SELECT id, provider, credentials, is_active, is_primary, environment, created_at, updated_at
             FROM organizer_payment_gateways
             WHERE id = ? AND organizer_id = ?
             LIMIT 1
@@ -308,13 +326,16 @@ class PaymentGatewayService
         $flags = $decoded['flags'] ?? [];
         $secrets = $decoded['secrets'] ?? [];
 
+        $isPrimary = self::toBool($row['is_primary'] ?? ($flags['is_primary'] ?? false));
+        $environment = self::normalizeEnvironment((string)($row['environment'] ?? ($flags['environment'] ?? 'production')));
+
         return [
             'id' => (int)$row['id'],
             'provider' => (string)$row['provider'],
             'is_active' => self::toBool($row['is_active'] ?? false),
-            'is_primary' => (bool)($flags['is_primary'] ?? false),
-            'is_principal' => (bool)($flags['is_primary'] ?? false),
-            'environment' => self::normalizeEnvironment((string)($flags['environment'] ?? 'production')),
+            'is_primary' => $isPrimary,
+            'is_principal' => $isPrimary,
+            'environment' => $environment,
             'credentials' => [
                 'has_token' => self::hasAnyCredential($secrets),
                 'public_key' => self::maskSensitive($secrets['public_key'] ?? ''),
@@ -350,7 +371,7 @@ class PaymentGatewayService
         return $out;
     }
 
-    private static function buildStoredCredentials(array $existingDecoded, array $secrets, bool $isPrimary, string $environment): array
+    private static function buildStoredCredentials(array $secrets, bool $isPrimary, string $environment): array
     {
         $storedSecrets = [];
         foreach ($secrets as $k => $v) {
@@ -391,7 +412,6 @@ class PaymentGatewayService
             ];
         }
 
-        // Compatibilidade com payloads antigos em texto puro.
         $secrets = [];
         foreach (self::SECRET_FIELDS as $field) {
             if (array_key_exists($field, $value)) {
@@ -500,3 +520,4 @@ class PaymentGatewayService
         return substr($value, 0, 4) . '...' . substr($value, -4);
     }
 }
+
