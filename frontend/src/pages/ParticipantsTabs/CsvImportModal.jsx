@@ -11,7 +11,8 @@ export default function CsvImportModal({
   mode = "guest",
   workforceRoleId = null,
   workforceSector = "",
-  workforceRoleName = ""
+  workforceRoleName = "",
+  workforceRoleCostBucket = "operational"
 }) {
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
@@ -116,8 +117,8 @@ export default function CsvImportModal({
                   toast.success(data.message || `${data.data.imported} importados, ${data.data.skipped} ignorados.`);
                 }
             }
-            onImported();
             onClose();
+            onImported?.(data.data || null);
         } catch (err) {
             toast.error(err.response?.data?.message || "Erro ao processar importação no servidor.");
         } finally {
@@ -158,9 +159,16 @@ export default function CsvImportModal({
                     <div className="text-sm">
                         <strong className="block mb-1">Formato Exigido do CSV</strong>
                         {mode === "workforce" && (
-                          <p className="text-blue-300 mb-2">
-                            Importação vinculada ao cargo: <strong>{workforceRoleName || "Cargo selecionado"}</strong>
-                          </p>
+                          <>
+                            <p className="text-blue-300 mb-2">
+                              Importação vinculada ao cargo: <strong>{workforceRoleName || "Cargo selecionado"}</strong>
+                            </p>
+                            {String(workforceRoleCostBucket || "").toLowerCase() === "managerial" && (
+                              <p className="text-amber-300">
+                                Cargo gerencial detectado: os nomes do CSV serão alocados automaticamente no cargo operacional do setor, preservando o gerente apenas como liderança configurada.
+                              </p>
+                            )}
+                          </>
                         )}
                         <p className="text-gray-400 leading-relaxed">
                             A primeira linha deve ser o cabeçalho. As colunas devem estar separadas por vírgula nesta ordem: <br/>

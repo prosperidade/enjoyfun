@@ -179,16 +179,28 @@ function findGuestByToken(PDO $db, int $organizerId, string $token): ?array
 
 function findParticipantByToken(PDO $db, int $organizerId, string $token): ?array
 {
+    $hasRoleSettings = scannerTableExists($db, 'workforce_role_settings');
+    $maxShiftsExpr = $hasRoleSettings
+        ? "COALESCE(wms.max_shifts_event, wrs.max_shifts_event, 1)"
+        : "COALESCE(wms.max_shifts_event, 1)";
+    $roleSettingsJoin = $hasRoleSettings
+        ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id AND wrs.organizer_id = e.organizer_id"
+        : "";
+
     $participantStmt = $db->prepare("
         SELECT ep.id, ep.status, ep.qr_token, ep.event_id,
                p.name AS participant_name,
                c.name AS category_name,
-               wms.max_shifts_event
+               wr.name AS role_name,
+               {$maxShiftsExpr}::int AS max_shifts_event
         FROM event_participants ep
         JOIN events e ON e.id = ep.event_id
         JOIN people p ON p.id = ep.person_id
         LEFT JOIN participant_categories c ON c.id = ep.category_id
+        LEFT JOIN workforce_assignments wa ON wa.participant_id = ep.id
+        LEFT JOIN workforce_roles wr ON wr.id = wa.role_id
         LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
+        {$roleSettingsJoin}
         WHERE ep.qr_token = ?
           AND e.organizer_id = ?
         LIMIT 1
@@ -275,4 +287,23 @@ function scannerAuditFailure(array $user, string $token, string $mode, string $r
             ]
         ]
     );
+}
+
+function scannerTableExists(PDO $db, string $table): bool
+{
+    static $cache = [];
+    if (array_key_exists($table, $cache)) {
+        return $cache[$table];
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = :table
+        LIMIT 1
+    ");
+    $stmt->execute([':table' => $table]);
+    $cache[$table] = (bool)$stmt->fetchColumn();
+    return $cache[$table];
 }

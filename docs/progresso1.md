@@ -406,3 +406,374 @@ Em cada bloco novo de progresso, registrar sempre:
   - No modo `workforce`, o seletor de categoria do `CsvImportModal` agora exibe apenas categorias com `type = staff`.
   - Ajustado o default da categoria para nunca cair em categoria fora do domínio Workforce quando o modal abre.
   - Adicionada mensagem explícita quando o organizador não possui categorias Workforce/Staff disponíveis.
+
+  diff --git a/docs/progresso1.md b/docs/progresso1.md
+index 43a802d649fcd472dbfcdafe0e398b6646c7cd69..b1dcc3e1b8e41b842957561af00c7e21eb61ecef 100644
+--- a/docs/progresso1.md
++++ b/docs/progresso1.md
+@@ -384,25 +384,67 @@ Em cada bloco novo de progresso, registrar sempre:
+ 
+ - **Responsável:** Codex
+ - **Status:** Entregue
+ - **Escopo:** backend / estabilidade operacional
+ - **Arquivos principais tocados:** `backend/src/Controllers/WorkforceController.php`, `docs/progresso1.md`
+ - **Próxima ação sugerida:** validar abertura do modal de configuração do cargo em ambiente legado para confirmar que a leitura agora provisiona as colunas antes do `SELECT`.
+ - **Bloqueios / dependências:** sem bloqueio novo.
+ 
+ - **O que foi ajustado:**
+   - `GET /workforce/role-settings/:roleId` agora chama o provisionamento estrutural antes da leitura.
+   - Corrigido erro SQL `Undefined column: leader_name` em bases onde a tabela existia, mas ainda sem as novas colunas documentais.
+ 
+ ## Hotfix Workforce v1.9.2 (Filtro de Categorias no Modal de Importação)
+ 
+ - **Responsável:** Codex
+ - **Status:** Entregue
+ - **Escopo:** frontend / estabilidade operacional
+ - **Arquivos principais tocados:** `frontend/src/pages/ParticipantsTabs/CsvImportModal.jsx`, `docs/progresso1.md`
+ - **Próxima ação sugerida:** validar em staging a importação CSV de Workforce com organizer que possua categorias mistas (`guest` + `staff`) para confirmar que o seletor mostra apenas categorias do domínio Workforce.
+ - **Bloqueios / dependências:** depende do endpoint `GET /participants/categories` continuar retornando o campo `type`.
+ 
+ - **O que foi ajustado:**
+   - No modo `workforce`, o seletor de categoria do `CsvImportModal` agora exibe apenas categorias com `type = staff`.
+   - Ajustado o default da categoria para nunca cair em categoria fora do domínio Workforce quando o modal abre.
+   - Adicionada mensagem explícita quando o organizador não possui categorias Workforce/Staff disponíveis.
++
++## Diagnóstico Técnico — Fluxo Tickets / Lotes / Comissários (Etapa de Levantamento)
++
++- **Responsável:** Codex
++- **Status:** Diagnóstico concluído (sem implementação)
++- **Escopo:** mapeamento banco + backend + frontend + bugs + plano de correção
++- **Arquivos analisados (principais):** `CLAUDE.md`, `docs/progresso.md`, `docs/progresso1.md`, `docs/diagnostico.md`, `frontend/src/pages/Events.jsx`, `frontend/src/pages/EventDetails.jsx`, `frontend/src/pages/Tickets.jsx`, `frontend/src/pages/Dashboard.jsx`, `backend/src/Controllers/EventController.php`, `backend/src/Controllers/TicketController.php`, `backend/src/Services/DashboardDomainService.php`, `backend/src/Controllers/AdminController.php`, `database/schema_real.sql`, `database/008_tickets_commercial_model.sql`.
++
++### Resultado objetivo do levantamento
++
++1. **Modelagem atual é híbrida e com drift de schema**:
++   - fluxo comercial novo depende de `ticket_batches`, `commissaries`, `ticket_commissions` e colunas `tickets.ticket_batch_id`/`tickets.commissary_id` (definidos na migration `008`);
++   - porém `schema_real.sql` ainda descreve apenas `events`, `ticket_types` e `tickets` sem essas estruturas novas.
++
++2. **Fluxo funcional hoje (quando migration/DDL existe)**:
++   - organizador cria evento em `Events.jsx`;
++   - frontend tenta criar lotes/comissários em sequência via `/tickets/batches` e `/tickets/commissaries`;
++   - telas `EventDetails` e `Tickets` carregam lotes/comissários por evento via `GET /tickets/batches` e `GET /tickets/commissaries`.
++
++3. **Ponto crítico de quebra**:
++   - backend usa fallback dinâmico (`ensureTicketCommercialSchema`) para criar estrutura em runtime, mas sem FKs/checks completos da migration;
++   - ambientes com `schema_real.sql` defasado podem ficar com comportamento parcial/silencioso (listas vazias, constraints faltando, inconsistência entre ambientes).
++
++4. **Bugs reais identificados no fluxo**:
++   - criação de evento + lotes/comissários não é transacional de ponta a ponta (evento pode ser criado com falha parcial em lote/comissário);
++   - frontend para no primeiro erro de lote/comissário e retorna “Evento criado” com warning único;
++   - `Tickets.jsx` depende de `ticket_types`; se não houver tipos no evento, venda rápida fica bloqueada sem fluxo de correção na mesma tela;
++   - dashboard backend já agrega por lote/comissário, mas frontend dashboard não consome esse bloco, deixando visibilidade comercial incompleta.
++
++### Proposta de correção (somente plano, sem execução)
++
++1. **Consolidar schema oficial**: incorporar integralmente a `008_tickets_commercial_model.sql` ao baseline (`schema_real.sql`) e remover dependência de DDL em runtime.
++2. **Fechar contrato backend/frontend**: endpoint transacional de configuração comercial de evento (evento + lotes + comissários) com rollback único.
++3. **Fortalecer UX operacional**:
++   - expor gestão de lotes/comissários também para evento já criado;
++   - sinalizar claramente ausência de tipos de ingresso e atalho de criação.
++4. **Compatibilidade controlada**: manter leitura tolerante por versão durante migração, mas com flag/telemetria para detectar ambiente sem `008` aplicada.
++
++### Observação de etapa
++
++- Esta entrega é exclusivamente de diagnóstico/planejamento, conforme solicitado.
++- Nenhuma alteração de regra de negócio do fluxo foi implementada nesta etapa.
+
+**Responsável:** Codex
+- **Status:** Entregue
+- **Escopo:** backend / estabilidade operacional
+- **Arquivos principais tocados:** `backend/src/Controllers/WorkforceController.php`, `docs/progresso1.md`
+- **Próxima ação sugerida:** validar abertura do modal de configuração do cargo em ambiente legado para confirmar que a leitura agora provisiona as colunas antes do `SELECT`.
+- **Bloqueios / dependências:** sem bloqueio novo.
+
+- **O que foi ajustado:**
+  - `GET /workforce/role-settings/:roleId` agora chama o provisionamento estrutural antes da leitura.
+  - Corrigido erro SQL `Undefined column: leader_name` em bases onde a tabela existia, mas ainda sem as novas colunas documentais.
+
+## Hotfix Workforce v1.9.2 (Filtro de Categorias no Modal de Importação)
+
+- **Responsável:** Codex
+- **Status:** Entregue
+- **Escopo:** frontend / estabilidade operacional
+- **Arquivos principais tocados:** `frontend/src/pages/ParticipantsTabs/CsvImportModal.jsx`, `docs/progresso1.md`
+- **Próxima ação sugerida:** validar em staging a importação CSV de Workforce com organizer que possua categorias mistas (`guest` + `staff`) para confirmar que o seletor mostra apenas categorias do domínio Workforce.
+- **Bloqueios / dependências:** depende do endpoint `GET /participants/categories` continuar retornando o campo `type`.
+
+- **O que foi ajustado:**
+  - No modo `workforce`, o seletor de categoria do `CsvImportModal` agora exibe apenas categorias com `type = staff`.
+  - Ajustado o default da categoria para nunca cair em categoria fora do domínio Workforce quando o modal abre.
+  - Adicionada mensagem explícita quando o organizador não possui categorias Workforce/Staff disponíveis.
+
+## Diagnóstico Tickets/Lotes/Comissários v1.13 (levantamento sem implementação)
+
+- **Responsável:** Codex
+- **Status:** Diagnóstico concluído (sem alteração de código funcional)
+- **Escopo:** mapeamento banco + backend + frontend + bugs + plano
+- **Arquivos inspecionados:** `backend/src/Controllers/TicketController.php`, `backend/src/Controllers/EventController.php`, `backend/src/Services/DashboardDomainService.php`, `backend/src/Controllers/AdminController.php`, `backend/public/index.php`, `frontend/src/pages/Events.jsx`, `frontend/src/pages/EventDetails.jsx`, `frontend/src/pages/Tickets.jsx`, `frontend/src/pages/Dashboard.jsx`, `database/schema_real.sql`, `database/008_tickets_commercial_model.sql`, `docs/diagnostico.md`, `docs/progresso.md`
+
+### Resumo do estado atual
+- Configuração comercial foi deslocada para **criação de evento** em `Events.jsx` (rascunho local + POST sequencial em `/tickets/batches` e `/tickets/commissaries` após `/events`).
+- `EventDetails.jsx` hoje apenas **lê e resume** (contagens), sem edição de lotes/comissários.
+- `Tickets.jsx` carrega filtros (evento/lote/comissário) de `/events`, `/tickets/batches`, `/tickets/commissaries` e usa os mesmos dados para emissão rápida.
+- Backend de tickets suporta comercial com fallback de compatibilidade: quando schema comercial não existe, tenta provisionar tabelas/colunas em runtime.
+
+### Achados críticos
+1. **Drift de modelagem real:** `schema_real.sql` não contém `ticket_batches`, `commissaries`, `ticket_commissions` nem colunas `tickets.ticket_batch_id` / `tickets.commissary_id`; isso está só na migration 008 e no provisionamento runtime.
+2. **Provisionamento runtime incompleto:** criação dinâmica não aplica FKs/check constraints da migration 008, reduzindo integridade referencial.
+3. **Fluxo de configuração parcial no frontend:** ao criar evento com múltiplos lotes/comissários, se um item falha o loop para no primeiro erro e o restante não é salvo (evento fica parcialmente configurado).
+4. **Dashboard sem consumo visual dos novos recortes:** backend já entrega `ticketing.by_batch` e `ticketing.by_commissary`, mas `Dashboard.jsx` não renderiza esses blocos.
+
+### Plano recomendado (sem execução nesta etapa)
+1. Consolidar migration 008 como fonte única de verdade (ambientes sem runtime DDL para produção).
+2. Remover/limitar provisionamento runtime para apenas modo dev (ou health-check explícito), mantendo constraints/FKs via migration.
+3. Endurecer fluxo de criação de evento com persistência transacional de configuração comercial (ou etapa de retry explícita por item) para evitar estado parcial.
+4. Fechar contrato frontend/backend de filtros comerciais com payload único e testes de contrato.
+5. Conectar dashboard frontend aos agregados `by_batch`/`by_commissary` (quando aprovado).
+
+### Observação de escopo
+- Esta etapa foi **somente diagnóstico e plano**. Nenhuma implementação funcional foi iniciada.
+
+## Diagnóstico Tickets/Lotes/Comissários v1.14 (análise e planejamento)
+
+- **Responsável:** Codex
+- **Status:** Diagnóstico concluído (sem implementação)
+- **Escopo:** banco + backend + frontend + fluxo + plano de correção
+- **Arquivos inspecionados:** `CLAUDE.md`, `docs/progresso.md`, `docs/progresso1.md`, `docs/diagnostico.md`, `frontend/src/pages/Events.jsx`, `frontend/src/pages/EventDetails.jsx`, `frontend/src/pages/Tickets.jsx`, `backend/src/Controllers/EventController.php`, `backend/src/Controllers/TicketController.php`, `database/schema_real.sql`, `database/008_tickets_commercial_model.sql`
+
+### Resumo objetivo
+- O fluxo comercial hoje está fragmentado: o evento é criado em uma chamada e os lotes/comissários são persistidos depois, em chamadas separadas.
+- A página de Tickets já filtra a listagem por `evento`, `lote` e `comissário`, mas mistura isso com controles de emissão rápida e por isso acaba exibindo 6 seletores.
+- Existe drift entre a migration comercial (`008_tickets_commercial_model.sql`), o `schema_real.sql` e o backend com DDL de provisionamento em runtime.
+- O problema principal desta frente não é layout; é contrato quebrado e fluxo incompleto entre evento, configuração comercial e operação em tickets.
+
+### Bugs reais identificados
+1. Evento pode ser criado com configuração comercial parcial se algum lote/comissário falhar no meio do processo.
+2. Não existe edição real da configuração comercial do evento; hoje o fluxo está concentrado em criação e leitura/resumo.
+3. `Tickets.jsx` mistura filtros de listagem com campos de emissão rápida, o que gera os 6 filtros confusos.
+4. Ao trocar de evento em Tickets, filtros e seleções comerciais podem ficar com valores herdados do evento anterior.
+5. Falha de carregamento de lotes/comissários em Tickets/EventDetails tende a aparecer como lista vazia, mascarando erro de endpoint/schema.
+6. `storeTicket` valida lote e comissário por evento, mas não garante coerência entre `ticket_type_id` e `ticket_batch_id` quando o lote estiver vinculado a um tipo.
+7. Schema provisionado dinamicamente não reproduz integralmente as constraints/FKs da migration 008.
+
+### Direção proposta para a próxima etapa
+1. Consolidar a modelagem oficial de lotes/comissários/comissões como parte do fluxo de evento.
+2. Separar conceitualmente, na página de Tickets, filtros de operação comercial da emissão rápida, deixando apenas `Evento`, `Lote` e `Comissário` como filtros da listagem.
+3. Fechar contrato backend/frontend para que os filtros de lote e comissário sejam sempre carregados a partir da configuração real do evento selecionado.
+4. Corrigir o fluxo de persistência para evitar salvamento parcial e compatibilizar criação/edição do evento com a configuração comercial.
+
+### Observação de etapa
+- Esta entrega registra somente análise, desenho de fluxo e planejamento.
+- Nenhuma mudança funcional foi iniciada nesta etapa.
+
+## Implementação Tickets/Lotes/Comissários v1.15 (correção estrutural e funcional)
+
+- **Responsável:** Codex
+- **Status:** Entregue
+- **Escopo:** backend + frontend + modelagem + operação comercial
+- **Arquivos principais tocados:** `backend/src/Controllers/EventController.php`, `backend/src/Controllers/TicketController.php`, `frontend/src/pages/Events.jsx`, `frontend/src/pages/EventDetails.jsx`, `frontend/src/pages/Tickets.jsx`, `database/schema_real.sql`, `docs/progresso1.md`
+
+### O que foi implementado
+1. **Persistência robusta do evento com configuração comercial**
+   - `POST /events` passou a aceitar `commercial_config` e salvar evento + lotes + comissários em transação única.
+   - Adicionado `PUT /events/:id` para edição real do evento com sincronização completa de lotes/comissários.
+   - Remoção de lotes/comissários agora é controlada no backend e bloqueada quando já existem ingressos/comissões vinculados.
+
+2. **Edição real na mesma interface do evento**
+   - `Events.jsx` virou ponto único de criação e edição do evento, mantendo os quadros lado a lado.
+   - Implementados criação, edição e remoção de lotes/comissários diretamente na mesma interface.
+   - Edição pode ser aberta pela lista de eventos e também a partir de `EventDetails.jsx`.
+
+3. **Tickets.jsx simplificado para operação comercial**
+   - A listagem ficou com apenas 3 filtros: `Evento`, `Lote`, `Comissário`.
+   - Lote e comissário são recarregados a partir do evento selecionado e resetados corretamente na troca de evento.
+   - A emissão rápida saiu da área de filtros e foi movida para modal próprio.
+
+4. **Respeito ao vínculo lote -> tipo de ingresso**
+   - Na emissão de ticket, se o lote tiver `ticket_type_id`, o backend passa a exigir esse vínculo obrigatoriamente.
+   - O modal de emissão rápida acompanha esse comportamento e trava o tipo quando o lote já estiver vinculado.
+
+5. **Modelagem consolidada**
+   - `schema_real.sql` foi atualizado para refletir a modelagem oficial da migration `008_tickets_commercial_model.sql`.
+   - O runtime DDL deixou de ser tratado como caminho principal; o backend agora falha explicitamente quando a migration 008 não estiver aplicada.
+
+### Validações executadas
+- `php -l backend/src/Controllers/EventController.php`
+- `php -l backend/src/Controllers/TicketController.php`
+- `npx eslint src/pages/Events.jsx src/pages/Tickets.jsx src/pages/EventDetails.jsx`
+
+### Observação operacional
+- Esta etapa não incluiu dashboard visual por lote/comissário, guest, staff/workforce, scanner, meals ou financeiro, conforme escopo aprovado.
+
+## Operação Local v1.15.1 (migration 008 aplicada no banco enjoyfun)
+
+- **Responsável:** Codex
+- **Status:** Entregue
+- **Escopo:** banco local / saneamento operacional
+- **Base alvo:** PostgreSQL local `enjoyfun` (`postgres`)
+
+### Ação executada
+- Executada a migration `database/008_tickets_commercial_model.sql` diretamente no banco local.
+
+### Conferência realizada
+- Tabelas presentes: `ticket_batches`, `commissaries`, `ticket_commissions`
+- Colunas presentes em `tickets`: `ticket_batch_id`, `commissary_id`
+- FKs e índices comerciais confirmados em `public.tickets`
+
+### Observação
+- A mensagem de frontend sobre ausência da migration era consistente com o estado anterior do banco.
+- Após a aplicação local da 008, o fluxo comercial pode ser revalidado na interface.
+
+## Ajuste Operacional v1.15.2 (tipos de ingresso no fluxo do evento)
+
+- **Responsável:** Codex
+- **Status:** Entregue
+- **Escopo:** frontend + backend / fluxo comercial do evento
+- **Arquivos principais tocados:** `backend/src/Controllers/EventController.php`, `frontend/src/pages/Events.jsx`, `frontend/src/pages/Tickets.jsx`, `docs/progresso1.md`
+
+### O que foi ajustado
+- O backend do evento passou a sincronizar também `ticket_types` dentro de `commercial_config`.
+- A interface de `Events.jsx` agora inclui cadastro/edição/remoção de tipos de ingresso na mesma tela do evento.
+- Lotes podem apontar para tipos já existentes ou recém-criados na mesma edição do evento.
+- `Tickets.jsx` mantém o bloqueio correto quando não houver tipo, mas agora com mensagem orientando a editar o evento e cadastrar pelo menos um tipo.
+
+### Validação
+- `php -l backend/src/Controllers/EventController.php`
+- `npx eslint src/pages/Events.jsx src/pages/Tickets.jsx`
+
+### Estado atual do banco verificado
+- Eventos com tipos cadastrados: `EnjoyFun 2026`
+- Eventos ainda sem tipos: `universo paralello`, `hipinotica`, `UBUNTU`
+A. Resumo executivo do diagnóstico
+
+O dashboard atual é um painel híbrido: existe separação visual entre “Visão Executiva” e “Visão Operacional”, mas ambos continuam na mesma página e ainda misturam blocos de natureza executiva, operacional e de conector financeiro (workforce costs) em uma única composição. Isso entra em tensão com o blueprint oficial que recomenda dashboards separados por finalidade/persona. 
+
+O frontend consome 3 endpoints: /events, /admin/dashboard e /organizer-finance/workforce-costs (com event_id), sendo que o último traz métricas de custo de equipe que não pertencem ao núcleo clássico do dashboard executivo/operacional, mas hoje estão acopladas à tela. 
+
+No backend, o /admin/dashboard está centralizado em DashboardDomainService, com payload relativamente rico (summary, séries, totais por setor, top products e ticketing por lote/comissário), porém o frontend usa só parte desse contrato. 
+
+A aderência aos docs oficiais é parcial: o que existe hoje cobre parte do MVP (receita, tickets, float, carros, setorial), mas faltam vários blocos oficiais (recargas, saldo remanescente, presença/check-ins, estoque crítico, refeições consumidas, terminais offline reais etc.) e há nomenclaturas que podem gerar confusão semântica. 
+
+B. O que já está bom
+
+Há filtro global por evento e propagação consistente para os dois endpoints principais da tela (/admin/dashboard e /organizer-finance/workforce-costs). 
+
+O backend do dashboard já aplica escopo multi-tenant com fallback por events.organizer_id quando necessário, reduzindo vazamento em dados legados. 
+
+KPIs já alinháveis ao oficial:
+
+sales_total ↔ total_revenue;
+
+tickets_sold ↔ tickets_sold;
+
+credits_float ↔ credits_float;
+
+cars_inside ↔ cars_inside_now/parking inside now. 
+
+Existe evolução documentada coerente com a rodada: quadro setorial consolidado BAR/FOOD/SHOP/PARKING/TICKETS e integração do conector workforce-costs no dashboard. 
+
+C. O que está desalinhado
+
+Separação de dashboards: blueprint manda não misturar os dashboards numa tela gigante; hoje executivo + operacional + conector de equipe convivem no mesmo arquivo/página. 
+
+MVP Executivo incompleto: faltam recargas antecipadas/no evento, saldo remanescente, participantes por categoria e estacionamento consolidado completo (submétricas). 
+
+MVP Operacional incompleto: não há estoque crítico, presentes vs ausentes de equipe (de presença real), refeições consumidas/restantes, terminais offline com dado real de offline_queue. Há aviso textual, mas não KPI operacional de offline. 
+
+Arquitetura backend oficial não concluída: não existe DashboardService nem MetricsDefinitionService apesar de recomendação explícita na arquitetura oficial. 
+
+Arquitetura frontend: Dashboard.jsx concentra fetch, transformação e UI extensa (~470 linhas), distante da organização sugerida por módulos/componentes de dashboard. 
+
+D. O que está ambíguo ou perigoso
+
+“Receita Total” no card usa só sales.total_amount (PDV completed), enquanto no bloco setorial aparecem também tickets e parking (24h). Isso pode confundir leitura de “total” vs “total setorial do período”. 
+
+“Usuários no Sistema” (users_total) não é KPI central de decisão executiva definido no documento oficial de KPIs do dashboard. Pode poluir hierarquia de decisão. 
+
+Custo de equipe dentro da mesma página do dashboard central: útil, mas sem fronteira clara entre “visão operacional do evento” e “camada financeira de workforce”, elevando risco de escopo difuso. 
+
+Campos de payload não usados no frontend (sales_chart, sales_chart_by_sector, ticketing.*, formulas, filters, etc.) indicam contrato inchado vs render atual, risco de drift semântico entre backend e UI. 
+
+E. O que depende de backend novo
+
+KPIs executivos de recarga antecipada/no evento e saldo remanescente histórico robusto (ledger/transações) ainda não aparecem no payload do /admin/dashboard. 
+
+Presença de participantes (presentes/no-show/check-ins recentes por categoria) não está no payload atual consumido pela tela. 
+
+Operacional oficial de terminais offline (offline_terminals_count) e estoque crítico (critical_stock_products) não está integrado no contrato do dashboard atual. 
+
+Apesar de já existir base para ticketing.by_batch e by_commissary, o frontend atual não materializa esses blocos (e a maturidade depende de estabilidade de modelagem comercial). 
+
+F. O que pode ser refatorado depois
+
+Extrair Dashboard.jsx em componentes de domínio (ex.: ExecutiveKpiGrid, SectorRevenuePanel, OperationalSnapshot, WorkforceCostConnector) sem mudar regra agora. 
+
+Criar hooks dedicados (useDashboardData, useWorkforceCosts, useDashboardFilters) para separar fetch/estado da camada visual. 
+
+Introduzir camada semântica de métricas no backend (DashboardService + MetricsDefinitionService) para desacoplar SQL de definição de KPI e reduzir inconsistência de nomenclatura. 
+
+Revisar contratos para retornar só o que a tela usa (ou expandir a tela de forma consciente), evitando payload “sobrando”. 
+
+G. Próxima PR ideal para o dashboard
+
+Prioridade 1 (obrigatório antes de crescer):
+
+Congelar semântica de cards atuais (especialmente “Receita Total” vs consolidados 24h) e alinhar naming com KPIs oficiais. 
+
+Delimitar claramente fronteira entre executivo/operacional/conector financeiro na UI (mesmo sem separar rota ainda). 
+
+Prioridade 2 (estrutura visual):
+
+Modularizar Dashboard.jsx e padronizar componentes de KPI/section/filter bar. 
+
+Prioridade 3 (depende de backend novo):
+
+Adicionar no contrato do dashboard os KPIs faltantes do MVP executivo/operacional (recargas, saldo remanescente, presença/check-in, offline real, estoque crítico). 
+
+Prioridade 4 (analítico futuro):
+
+Só após base estável, evoluir visualização de lote/comissário e demais blocos analíticos conforme roadmap oficial. 
+
+H. Lista objetiva de arquivos que deverão ser mexidos na próxima fase
+
+frontend/src/pages/Dashboard.jsx (quebra por blocos e hierarquia visual). 
+
+frontend/src/modules/dashboard/* (novo módulo recomendado pela arquitetura oficial). 
+
+backend/src/Controllers/AdminController.php (orquestração para serviços dedicados). 
+
+backend/src/Services/DashboardDomainService.php (ajuste/normalização de contrato por KPI oficial). 
+
+backend/src/Services/DashboardService.php (a criar, conforme arquitetura oficial). 
+
+backend/src/Services/MetricsDefinitionService.php (a criar, para governança semântica de KPI). 
+
+(Se mantiver conector workforce no dashboard) backend/src/Controllers/OrganizerFinanceController.php para eventual contrato mínimo específico de dashboard. 
+
+Checks executados (diagnóstico somente, sem alterações de código):
+
+✅ rg --files docs
+
+✅ nl -ba frontend/src/pages/Dashboard.jsx | sed -n '1,360p'
+
+✅ nl -ba frontend/src/pages/Dashboard.jsx | sed -n '360,520p'
+
+✅ nl -ba backend/src/Controllers/AdminController.php | sed -n '1,260p'
+
+✅ nl -ba backend/src/Services/DashboardDomainService.php
+
+✅ nl -ba backend/src/Controllers/OrganizerFinanceController.php | sed -n '240,580p'
+
+✅ nl -ba docs/enjoyfun_blueprint_dashboard_v_1.md | sed -n '1,460p'
+
+✅ nl -ba docs/enjoyfun_kpis_formulas_oficiais_v_1.md | sed -n '1,620p'
+
+✅ nl -ba docs/enjoyfun_mvps_oficiais_v_1.md | sed -n '1,170p'
+
+✅ nl -ba docs/enjoyfun_arquitetura_modulos_servicos_v_1.md | sed -n '360,470p'
+
+✅ nl -ba docs/progresso.md | sed -n '36,120p'
+
+✅ nl -ba docs/progresso1.md | sed -n '1,130p'
+
+Sem screenshot, pois não houve mudança de frontend (apenas análise).

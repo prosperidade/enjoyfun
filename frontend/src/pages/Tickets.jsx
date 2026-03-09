@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "../lib/api";
 import {
   Ticket,
@@ -6,11 +6,12 @@ import {
   XCircle,
   Clock,
   Eye,
-  Send
+  Send,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { QRCodeCanvas } from "qrcode.react";
-import * as otplib from 'otplib';
+import { useSearchParams } from "react-router-dom";
+import * as otplib from "otplib";
 
 const { totp } = otplib;
 
@@ -32,7 +33,14 @@ const statusLabel = {
   active: "Ativo",
 };
 
+const EMPTY_SALE_FORM = {
+  ticketTypeId: "",
+  batchId: "",
+  commissaryId: "",
+};
+
 export default function Tickets() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
@@ -40,114 +48,122 @@ export default function Tickets() {
   const [ticketTypes, setTicketTypes] = useState([]);
   const [batches, setBatches] = useState([]);
   const [commissaries, setCommissaries] = useState([]);
-  const [ticketTypeId, setTicketTypeId] = useState("");
   const [batchFilter, setBatchFilter] = useState("");
   const [commissaryFilter, setCommissaryFilter] = useState("");
-  const [batchForSale, setBatchForSale] = useState("");
-  const [commissaryForSale, setCommissaryForSale] = useState("");
+  const [showSaleModal, setShowSaleModal] = useState(false);
+  const [saleForm, setSaleForm] = useState(EMPTY_SALE_FORM);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-  
-  // Estados do Motor Dinâmico (Anti-Print)
-  const [dynamicToken, setDynamicToken] = useState("");
-  const [timeLeft, setTimeLeft] = useState(30);
+  const requestedEventId = searchParams.get("event_id");
 
-  // 1. Relógio em tempo real
+  const selectedSaleBatch = useMemo(
+    () => batches.find((batch) => String(batch.id) === saleForm.batchId) || null,
+    [batches, saleForm.batchId]
+  );
+
+  const effectiveEventId = useMemo(() => {
+    const availableIds = new Set(events.map((event) => String(event.id)));
+    if (eventId && availableIds.has(String(eventId))) {
+      return String(eventId);
+    }
+    if (requestedEventId && availableIds.has(String(requestedEventId))) {
+      return String(requestedEventId);
+    }
+    return events[0] ? String(events[0].id) : "";
+  }, [eventId, events, requestedEventId]);
+
+  const currentEvent = useMemo(
+    () => events.find((event) => String(event.id) === String(effectiveEventId)) || null,
+    [events, effectiveEventId]
+  );
+
+  const dynamicToken = useMemo(() => {
+    if (!selectedTicket) return "";
+    if (!selectedTicket.totp_secret) return selectedTicket.qr_token || "";
+    const secondSeed = currentTime.getSeconds();
+
+    try {
+      void secondSeed;
+      return `${selectedTicket.qr_token}.${totp.generate(selectedTicket.totp_secret)}`;
+    } catch (err) {
+      console.error("Erro no motor TOTP:", err);
+      return selectedTicket.qr_token || "";
+    }
+  }, [selectedTicket, currentTime]);
+
+  const timeLeft = useMemo(() => {
+    const seconds = currentTime.getSeconds();
+    return 30 - (seconds % 30 || 0);
+  }, [currentTime]);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // 2. Motor de Rotação do QR Code (Só ativa quando o modal abre)
-  useEffect(() => {
-    if (!selectedTicket || !selectedTicket.totp_secret) {
-      setDynamicToken(selectedTicket?.qr_token || "");
-      return;
-    }
-
-    const generateLoop = () => {
-      try {
-        const code = totp.generate(selectedTicket.totp_secret);
-        // Formato da URL Assinada: TOKEN_FIXO.CODIGO_DINAMICO
-        setDynamicToken(`${selectedTicket.qr_token}.${code}`);
-        setTimeLeft(30);
-      } catch (err) {
-        console.error("Erro no motor TOTP:", err);
-      }
-    };
-
-    generateLoop();
-    const rotator = setInterval(generateLoop, 30000);
-    const countdown = setInterval(() => {
-      setTimeLeft((prev) => (prev <= 1 ? 30 : prev - 1));
-    }, 1000);
-
-    return () => {
-      clearInterval(rotator);
-      clearInterval(countdown);
-    };
-  }, [selectedTicket]);
-
-  // 3. Carregar Eventos
   useEffect(() => {
     api.get("/events")
       .then((r) => setEvents(r.data.data || []))
-      .catch(() => console.error("Erro ao carregar eventos"));
+      .catch(() => toast.error("Erro ao carregar eventos."));
   }, []);
 
+  const syncEventQuery = useCallback((nextEventId) => {
+    const next = new URLSearchParams(searchParams);
+    if (nextEventId) {
+      next.set("event_id", String(nextEventId));
+    } else {
+      next.delete("event_id");
+    }
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   const loadCommercialConfig = useCallback(async () => {
-    if (!eventId) {
+    if (!effectiveEventId) {
       setTicketTypes([]);
       setBatches([]);
       setCommissaries([]);
-      setTicketTypeId("");
-      setBatchForSale("");
-      setCommissaryForSale("");
       return;
     }
 
     const [typesRes, batchesRes, commissariesRes] = await Promise.allSettled([
-      api.get("/tickets/types", { params: { event_id: eventId } }),
-      api.get("/tickets/batches", { params: { event_id: eventId } }),
-      api.get("/tickets/commissaries", { params: { event_id: eventId } }),
+      api.get("/tickets/types", { params: { event_id: effectiveEventId } }),
+      api.get("/tickets/batches", { params: { event_id: effectiveEventId } }),
+      api.get("/tickets/commissaries", { params: { event_id: effectiveEventId } }),
     ]);
 
     if (typesRes.status === "fulfilled") {
-      const types = typesRes.value.data?.data || [];
-      setTicketTypes(types);
-      setTicketTypeId((prev) => prev || (types[0]?.id ? String(types[0].id) : ""));
+      setTicketTypes(typesRes.value.data?.data || []);
     } else {
       setTicketTypes([]);
       toast.error(typesRes.reason?.response?.data?.message || "Erro ao carregar tipos de ingresso.");
     }
 
-    setBatches(
-      batchesRes.status === "fulfilled"
-        ? batchesRes.value.data?.data || []
-        : []
-    );
-    setCommissaries(
-      commissariesRes.status === "fulfilled"
-        ? commissariesRes.value.data?.data || []
-        : []
-    );
-  }, [eventId]);
-
-  useEffect(() => {
-    if (!eventId && events.length > 0) {
-      setEventId(String(events[0].id));
+    if (batchesRes.status === "fulfilled") {
+      setBatches(batchesRes.value.data?.data || []);
+    } else {
+      setBatches([]);
+      toast.error(batchesRes.reason?.response?.data?.message || "Erro ao carregar lotes comerciais.");
     }
-  }, [events, eventId]);
+
+    if (commissariesRes.status === "fulfilled") {
+      setCommissaries(commissariesRes.value.data?.data || []);
+    } else {
+      setCommissaries([]);
+      toast.error(commissariesRes.reason?.response?.data?.message || "Erro ao carregar comissários.");
+    }
+  }, [effectiveEventId]);
 
   useEffect(() => {
-    loadCommercialConfig();
+    const timer = setTimeout(() => {
+      loadCommercialConfig();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [loadCommercialConfig]);
 
-  // 4. Busca de Ingressos (Com Cache Offline)
   const fetchTickets = useCallback(() => {
     setLoading(true);
     const params = {};
-    if (eventId) params.event_id = eventId;
+    if (effectiveEventId) params.event_id = effectiveEventId;
     if (batchFilter) params.ticket_batch_id = batchFilter;
     if (commissaryFilter) params.commissary_id = commissaryFilter;
 
@@ -178,37 +194,60 @@ export default function Tickets() {
         }
       })
       .finally(() => setLoading(false));
-  }, [eventId, batchFilter, commissaryFilter]);
+  }, [effectiveEventId, batchFilter, commissaryFilter]);
 
   useEffect(() => {
-    fetchTickets();
+    const timer = setTimeout(() => {
+      fetchTickets();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchTickets]);
 
-  // 5. Venda Rápida
+  const handleEventChange = (nextEventId) => {
+    setEventId(nextEventId);
+    setBatchFilter("");
+    setCommissaryFilter("");
+    setSaleForm(EMPTY_SALE_FORM);
+    syncEventQuery(nextEventId);
+  };
+
+  const openQuickSale = () => {
+    if (!effectiveEventId) {
+      toast.error("Selecione um evento.");
+      return;
+    }
+    if (ticketTypes.length === 0) {
+      toast.error("Este evento ainda não possui tipos de ingresso cadastrados. Edite o evento e cadastre ao menos um tipo.");
+      return;
+    }
+    setSaleForm(EMPTY_SALE_FORM);
+    setShowSaleModal(true);
+  };
+
   const handleQuickSale = async () => {
-    const targetEventId = eventId || (events[0] ? events[0].id : null);
-    if (!targetEventId) return toast.error("Selecione um evento!");
-    if (!ticketTypeId) return toast.error("Selecione um tipo de ingresso.");
+    if (!effectiveEventId) return toast.error("Selecione um evento.");
+    if (!saleForm.ticketTypeId) return toast.error("Selecione um tipo de ingresso.");
 
     const loadId = toast.loading("Emitindo ingresso...");
     try {
       const payload = {
-        event_id: Number(targetEventId),
-        ticket_type_id: Number(ticketTypeId),
-        ticket_batch_id: batchForSale ? Number(batchForSale) : null,
-        commissary_id: commissaryForSale ? Number(commissaryForSale) : null,
+        event_id: Number(effectiveEventId),
+        ticket_type_id: Number(saleForm.ticketTypeId),
+        ticket_batch_id: saleForm.batchId ? Number(saleForm.batchId) : null,
+        commissary_id: saleForm.commissaryId ? Number(saleForm.commissaryId) : null,
       };
       const { data } = await api.post("/tickets", payload);
       if (data.success) {
         toast.success("Ingresso gerado!", { id: loadId });
-        fetchTickets(); 
+        setShowSaleModal(false);
+        setSaleForm(EMPTY_SALE_FORM);
+        fetchTickets();
       }
     } catch (err) {
       toast.error(err.response?.data?.message || "Erro na emissão.", { id: loadId });
     }
   };
 
-  // 6. Transferência Nominal
   const handleTransfer = async (ticketId) => {
     const email = prompt("E-mail do novo titular (precisa ter conta):");
     if (!email) return;
@@ -217,9 +256,9 @@ export default function Tickets() {
 
     const loadId = toast.loading("Transferindo...");
     try {
-      await api.post(`/tickets/${ticketId}/transfer`, { 
-        new_owner_email: email, 
-        new_holder_name: name 
+      await api.post(`/tickets/${ticketId}/transfer`, {
+        new_owner_email: email,
+        new_holder_name: name,
       });
       toast.success("Transferência concluída!", { id: loadId });
       fetchTickets();
@@ -230,7 +269,6 @@ export default function Tickets() {
 
   return (
     <div className="space-y-6">
-      {/* HEADER CORRIGIDO: Botões alinhados e responsivos */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="page-title flex items-center gap-2">
@@ -239,47 +277,36 @@ export default function Tickets() {
           <p className="text-gray-500 text-sm mt-1">{tickets.length} ingressos comerciais ativos</p>
         </div>
         <div className="flex flex-wrap gap-3 w-full sm:w-auto">
-          <button onClick={handleQuickSale} className="btn-primary flex-1 sm:flex-none justify-center">
+          <button onClick={openQuickSale} className="btn-primary flex-1 sm:flex-none justify-center">
             <Plus size={18} /> Venda Rápida
           </button>
         </div>
       </div>
 
-      {/* FILTROS */}
       <div className="card p-4 space-y-3">
         <p className="text-xs text-gray-500 uppercase tracking-wide">Operação Comercial de Ingressos</p>
         <div className="grid md:grid-cols-3 gap-3">
-          <select className="select" value={eventId} onChange={(e) => setEventId(e.target.value)}>
+          <select className="select" name="ticket_event_filter" value={effectiveEventId} onChange={(e) => handleEventChange(e.target.value)}>
             <option value="">Selecione o evento</option>
-            {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+            {events.map((event) => (
+              <option key={event.id} value={event.id}>{event.name}</option>
+            ))}
           </select>
-          <select className="select" value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)} disabled={!eventId}>
-            <option value="">Filtro por lote (todos)</option>
-            {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
+          <select className="select" name="ticket_batch_filter" value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)} disabled={!effectiveEventId}>
+            <option value="">Todos os lotes</option>
+            {batches.map((batch) => (
+              <option key={batch.id} value={batch.id}>{batch.name}</option>
+            ))}
           </select>
-          <select className="select" value={commissaryFilter} onChange={(e) => setCommissaryFilter(e.target.value)} disabled={!eventId}>
-            <option value="">Filtro por comissário (todos)</option>
-            {commissaries.map((commissary) => <option key={commissary.id} value={commissary.id}>{commissary.name}</option>)}
-          </select>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-3">
-          <select className="select" value={ticketTypeId} onChange={(e) => setTicketTypeId(e.target.value)} disabled={!eventId}>
-            <option value="">Tipo para venda rápida</option>
-            {ticketTypes.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
-          </select>
-          <select className="select" value={batchForSale} onChange={(e) => setBatchForSale(e.target.value)} disabled={!eventId}>
-            <option value="">Lote na venda (opcional)</option>
-            {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
-          </select>
-          <select className="select" value={commissaryForSale} onChange={(e) => setCommissaryForSale(e.target.value)} disabled={!eventId}>
-            <option value="">Comissário na venda (opcional)</option>
-            {commissaries.map((commissary) => <option key={commissary.id} value={commissary.id}>{commissary.name}</option>)}
+          <select className="select" name="ticket_commissary_filter" value={commissaryFilter} onChange={(e) => setCommissaryFilter(e.target.value)} disabled={!effectiveEventId}>
+            <option value="">Todos os comissários</option>
+            {commissaries.map((commissary) => (
+              <option key={commissary.id} value={commissary.id}>{commissary.name}</option>
+            ))}
           </select>
         </div>
       </div>
 
-      {/* TABELA DE REGISTROS */}
       {loading ? (
         <div className="flex justify-center py-20"><div className="spinner w-10 h-10" /></div>
       ) : (
@@ -297,23 +324,27 @@ export default function Tickets() {
               </tr>
             </thead>
             <tbody>
-              {tickets.map((t) => (
-                <tr key={t.id} className="hover:bg-white/5 transition-colors">
+              {tickets.map((ticket) => (
+                <tr key={ticket.id} className="hover:bg-white/5 transition-colors">
                   <td>
-                    <div className="font-medium text-white">{t.holder_name || "Cliente"}</div>
-                    <div className="text-[10px] text-gray-500 font-mono">{t.order_reference}</div>
+                    <div className="font-medium text-white">{ticket.holder_name || "Cliente"}</div>
+                    <div className="text-[10px] text-gray-500 font-mono">{ticket.order_reference}</div>
                   </td>
-                  <td>{t.event_name}</td>
-                  <td><span className="badge-purple">{t.type_name || "Geral"}</span></td>
-                  <td className="text-gray-300">{t.batch_name || 'Sem lote'}</td>
-                  <td className="text-gray-300">{t.commissary_name || 'Sem comissário'}</td>
-                  <td><span className={statusBadge[t.status]}>{statusLabel[t.status]}</span></td>
+                  <td>{ticket.event_name}</td>
+                  <td><span className="badge-purple">{ticket.type_name || "Geral"}</span></td>
+                  <td className="text-gray-300">{ticket.batch_name || "Sem lote"}</td>
+                  <td className="text-gray-300">{ticket.commissary_name || "Sem comissário"}</td>
+                  <td><span className={statusBadge[ticket.status]}>{statusLabel[ticket.status]}</span></td>
                   <td className="text-right">
                     <div className="flex justify-end gap-2">
-                      {t.status === 'paid' && (
-                        <button onClick={() => handleTransfer(t.id)} title="Transferir Titularidade" className="p-2 hover:bg-white/10 rounded-lg text-gray-400 transition-all"><Send size={18} /></button>
-                      )}
-                      <button onClick={() => setSelectedTicket(t)} className="p-2 hover:text-brand hover:bg-brand-soft rounded-lg text-gray-400 transition-all"><Eye size={20} /></button>
+                      {ticket.status === "paid" ? (
+                        <button onClick={() => handleTransfer(ticket.id)} title="Transferir Titularidade" className="p-2 hover:bg-white/10 rounded-lg text-gray-400 transition-all">
+                          <Send size={18} />
+                        </button>
+                      ) : null}
+                      <button onClick={() => setSelectedTicket(ticket)} className="p-2 hover:text-brand hover:bg-brand-soft rounded-lg text-gray-400 transition-all">
+                        <Eye size={20} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -323,8 +354,97 @@ export default function Tickets() {
         </div>
       )}
 
-      {/* MODAL DO INGRESSO DINÂMICO (VIVO) - CORRIGIDO O BOTÃO FECHAR */}
-      {selectedTicket && (
+      {showSaleModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="card max-w-xl w-full border-brand/40 space-y-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="section-title">Emitir Ingresso Comercial</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Evento: <span className="text-white">{currentEvent?.name || "Não selecionado"}</span>
+                </p>
+              </div>
+              <button type="button" className="text-gray-500 hover:text-white" onClick={() => setShowSaleModal(false)}>
+                <XCircle size={24} />
+              </button>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="input-label">Tipo de ingresso *</label>
+                <select
+                  className="select"
+                  name="sale_ticket_type"
+                  value={saleForm.ticketTypeId}
+                  onChange={(e) => setSaleForm((current) => ({ ...current, ticketTypeId: e.target.value }))}
+                  disabled={Boolean(selectedSaleBatch?.ticket_type_id)}
+                >
+                  <option value="">Selecione o tipo</option>
+                  {ticketTypes.map((type) => (
+                    <option key={type.id} value={type.id}>{type.name}</option>
+                  ))}
+                </select>
+                {selectedSaleBatch?.ticket_type_id ? (
+                  <p className="text-xs text-amber-300 mt-1">
+                    Este lote está vinculado a um tipo de ingresso específico e a emissão respeitará esse vínculo.
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <label className="input-label">Lote</label>
+                <select
+                  className="select"
+                  name="sale_batch"
+                  value={saleForm.batchId}
+                  onChange={(e) => {
+                    const nextBatchId = e.target.value;
+                    const nextBatch = batches.find((batch) => String(batch.id) === nextBatchId);
+                    setSaleForm((current) => ({
+                      ...current,
+                      batchId: nextBatchId,
+                      ticketTypeId: nextBatch?.ticket_type_id
+                        ? String(nextBatch.ticket_type_id)
+                        : current.ticketTypeId,
+                    }));
+                  }}
+                >
+                  <option value="">Sem lote</option>
+                  {batches.map((batch) => (
+                    <option key={batch.id} value={batch.id}>{batch.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="input-label">Comissário</label>
+                <select
+                  className="select"
+                  name="sale_commissary"
+                  value={saleForm.commissaryId}
+                  onChange={(e) => setSaleForm((current) => ({ ...current, commissaryId: e.target.value }))}
+                >
+                  <option value="">Sem comissário</option>
+                  {commissaries.map((commissary) => (
+                    <option key={commissary.id} value={commissary.id}>{commissary.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button type="button" className="btn-primary flex-1" onClick={handleQuickSale}>
+                Emitir Ingresso
+              </button>
+              <button type="button" className="btn-outline flex-1" onClick={() => setShowSaleModal(false)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {selectedTicket ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
           <div className="card max-w-sm w-full border-brand/50 text-center space-y-6 p-8 relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 left-0 w-full h-1 bg-brand-gradient"></div>
@@ -333,7 +453,9 @@ export default function Tickets() {
                 <Clock size={16} className="animate-pulse" />
                 <span className="text-xs font-mono">{currentTime.toLocaleTimeString("pt-BR")}</span>
               </div>
-              <button onClick={() => setSelectedTicket(null)} className="text-gray-500 hover:text-white"><XCircle size={24} /></button>
+              <button onClick={() => setSelectedTicket(null)} className="text-gray-500 hover:text-white">
+                <XCircle size={24} />
+              </button>
             </div>
 
             <div className="space-y-1">
@@ -342,18 +464,17 @@ export default function Tickets() {
             </div>
 
             <div className="bg-white p-3 rounded-xl inline-block mx-auto shadow-inner border-4 border-brand">
-                <QRCodeCanvas value={dynamicToken} size={200} level={"H"} includeMargin={true} />
+              <QRCodeCanvas value={dynamicToken} size={200} level="H" includeMargin />
             </div>
 
             <div className="space-y-1">
               <p className="text-white font-bold text-2xl truncate px-2">{selectedTicket.holder_name || "Cliente"}</p>
               <p className="text-brand font-semibold uppercase">{selectedTicket.type_name || "Ingresso Geral"}</p>
               <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] py-1 px-2 rounded mt-2 font-bold uppercase">
-                  Prints e Fotos são inválidos nesta portaria
+                Prints e fotos são inválidos nesta portaria
               </div>
             </div>
 
-            {/* BOTÃO CORRIGIDO: "FECHAR" com espaçamento correto */}
             <div className="pt-4 mt-4 border-t border-gray-800">
               <button onClick={() => setSelectedTicket(null)} className="btn-primary w-full py-3 text-lg font-bold tracking-widest">
                 FECHAR
@@ -361,7 +482,7 @@ export default function Tickets() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

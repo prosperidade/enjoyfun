@@ -185,6 +185,25 @@ export default function WorkforceOpsTab({ eventId }) {
     setSelectedIds([]);
   };
 
+  const handleWorkforceImported = async (result = null) => {
+    const { roles: refreshedRoles } = await fetchRolesAndAssignments();
+    const assignedRoleId = Number(result?.assigned_role_id || 0);
+    const redirected = Boolean(result?.managerial_redirect);
+
+    if (assignedRoleId > 0 && redirected) {
+      const assignedRole = refreshedRoles.find((role) => Number(role.id) === assignedRoleId);
+      if (assignedRole) {
+        setSelectedRole(assignedRole);
+        toast.success(`Equipe importada em "${assignedRole.name}".`);
+        return;
+      }
+    }
+
+    if (selectedRole?.id) {
+      await fetchRoleMembers(selectedRole.id);
+    }
+  };
+
   const handleCreateRole = async () => {
     const name = newRoleName.trim();
     if (!name) {
@@ -407,9 +426,8 @@ export default function WorkforceOpsTab({ eventId }) {
           workforceRoleId={selectedRole?.id || null}
           workforceSector={selectedRole?.sector || DEFAULT_SECTOR_BY_ROLE(selectedRole?.name || "")}
           workforceRoleName={selectedRole?.name || ""}
-          onImported={async () => {
-            await fetchRolesAndAssignments();
-          }}
+          workforceRoleCostBucket={selectedRole ? inferRoleCostBucket(selectedRole) : "operational"}
+          onImported={handleWorkforceImported}
         />
 
         <WorkforceRoleSettingsModal
@@ -629,10 +647,8 @@ export default function WorkforceOpsTab({ eventId }) {
         workforceRoleId={selectedRole.id}
         workforceSector={selectedRole.sector || DEFAULT_SECTOR_BY_ROLE(selectedRole.name)}
         workforceRoleName={selectedRole.name}
-        onImported={async () => {
-          await fetchRolesAndAssignments();
-          await fetchRoleMembers(selectedRole.id);
-        }}
+        workforceRoleCostBucket={inferRoleCostBucket(selectedRole)}
+        onImported={handleWorkforceImported}
       />
 
       <EditParticipantModal

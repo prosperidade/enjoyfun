@@ -201,7 +201,7 @@ function storeTicket(array $body): void
         $batch = null;
         if ($ticketBatchId !== null) {
             $stmtBatch = $db->prepare("
-                SELECT id, price::float AS price, quantity_total, quantity_sold, is_active
+                SELECT id, ticket_type_id, price::float AS price, quantity_total, quantity_sold, is_active, starts_at, ends_at
                 FROM ticket_batches
                 WHERE id = ? AND organizer_id = ? AND event_id = ?
                 LIMIT 1
@@ -211,6 +211,15 @@ function storeTicket(array $body): void
             $batch = $stmtBatch->fetch(PDO::FETCH_ASSOC);
             if (!$batch) throw new RuntimeException('Lote comercial não encontrado para este evento.', 404);
             if (!(bool)$batch['is_active']) throw new RuntimeException('Lote comercial inativo.', 409);
+            if (!empty($batch['ticket_type_id']) && (int)$batch['ticket_type_id'] !== $typeId) {
+                throw new RuntimeException('O lote selecionado está vinculado a outro tipo de ingresso.', 422);
+            }
+            if (!empty($batch['starts_at']) && strtotime((string)$batch['starts_at']) > time()) {
+                throw new RuntimeException('O lote comercial ainda não está liberado para venda.', 409);
+            }
+            if (!empty($batch['ends_at']) && strtotime((string)$batch['ends_at']) < time()) {
+                throw new RuntimeException('O lote comercial selecionado já encerrou.', 409);
+            }
             if ($batch['quantity_total'] !== null && (int)$batch['quantity_sold'] >= (int)$batch['quantity_total']) {
                 throw new RuntimeException('Lote comercial esgotado.', 409);
             }
@@ -568,98 +577,40 @@ function resetTicketCommercialSchemaCache(): void
 
 function ensureTicketCommercialTable(PDO $db, string $tableName): void
 {
-    ensureTicketCommercialSchema($db);
-    if (!ticketTableExists($db, $tableName)) {
+    $schema = ensureTicketCommercialSchema($db);
+    $tableMap = [
+        'ticket_batches' => 'ticket_batches',
+        'commissaries' => 'commissaries',
+        'ticket_commissions' => 'ticket_commissions',
+    ];
+    if (!isset($tableMap[$tableName]) || empty($schema[$tableMap[$tableName]])) {
         jsonError("Recurso indisponível: aplique a migration 008 ({$tableName}).", 409);
     }
 }
 
-function ensureTicketCommercialSchema(PDO $db): void
+function ensureTicketCommercialSchema(PDO $db): array
 {
-    try {
-        if (!ticketTableExists($db, 'ticket_batches')) {
-            $db->exec("
-                CREATE TABLE IF NOT EXISTS ticket_batches (
-                    id SERIAL PRIMARY KEY,
-                    organizer_id INTEGER NOT NULL,
-                    event_id INTEGER NOT NULL,
-                    ticket_type_id INTEGER NULL,
-                    name VARCHAR(120) NOT NULL,
-                    code VARCHAR(40) NULL,
-                    price NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-                    starts_at TIMESTAMP WITHOUT TIME ZONE NULL,
-                    ends_at TIMESTAMP WITHOUT TIME ZONE NULL,
-                    quantity_total INTEGER NULL,
-                    quantity_sold INTEGER NOT NULL DEFAULT 0,
-                    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                )
-            ");
-        }
+    $schema = ticketCommercialSchema($db);
+    $requiredKeys = [
+        'ticket_batches',
+        'commissaries',
+        'ticket_commissions',
+        'tickets_ticket_batch_id',
+        'tickets_commissary_id',
+    ];
 
-        if (!ticketTableExists($db, 'commissaries')) {
-            $db->exec("
-                CREATE TABLE IF NOT EXISTS commissaries (
-                    id SERIAL PRIMARY KEY,
-                    organizer_id INTEGER NOT NULL,
-                    event_id INTEGER NOT NULL,
-                    name VARCHAR(120) NOT NULL,
-                    email VARCHAR(160) NULL,
-                    phone VARCHAR(40) NULL,
-                    status VARCHAR(20) NOT NULL DEFAULT 'active',
-                    commission_mode VARCHAR(20) NOT NULL DEFAULT 'percent',
-                    commission_value NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                )
-            ");
+    $missing = [];
+    foreach ($requiredKeys as $key) {
+        if (empty($schema[$key])) {
+            $missing[] = $key;
         }
-
-        if (!ticketTableExists($db, 'ticket_commissions')) {
-            $db->exec("
-                CREATE TABLE IF NOT EXISTS ticket_commissions (
-                    id SERIAL PRIMARY KEY,
-                    organizer_id INTEGER NOT NULL,
-                    event_id INTEGER NOT NULL,
-                    ticket_id INTEGER NOT NULL,
-                    commissary_id INTEGER NOT NULL,
-                    base_amount NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-                    commission_mode VARCHAR(20) NOT NULL,
-                    commission_value NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-                    commission_amount NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                )
-            ");
-        }
-
-        if (ticketTableExists($db, 'tickets')) {
-            $db->exec("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS ticket_batch_id INTEGER NULL");
-            $db->exec("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS commissary_id INTEGER NULL");
-        }
-
-        if (ticketTableExists($db, 'ticket_batches')) {
-            $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS ux_ticket_batches_org_event_name ON ticket_batches (organizer_id, event_id, name)");
-            $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS ux_ticket_batches_org_event_code ON ticket_batches (organizer_id, event_id, code) WHERE code IS NOT NULL");
-            $db->exec("CREATE INDEX IF NOT EXISTS idx_ticket_batches_event_active ON ticket_batches (organizer_id, event_id, is_active)");
-            $db->exec("CREATE INDEX IF NOT EXISTS idx_tickets_batch ON tickets (ticket_batch_id)");
-        }
-
-        if (ticketTableExists($db, 'commissaries')) {
-            $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS ux_commissaries_org_event_email ON commissaries (organizer_id, event_id, email) WHERE email IS NOT NULL");
-            $db->exec("CREATE INDEX IF NOT EXISTS idx_commissaries_event_status ON commissaries (organizer_id, event_id, status)");
-            $db->exec("CREATE INDEX IF NOT EXISTS idx_tickets_commissary ON tickets (commissary_id)");
-        }
-
-        if (ticketTableExists($db, 'ticket_commissions')) {
-            $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS ux_ticket_commissions_ticket ON ticket_commissions (ticket_id)");
-            $db->exec("CREATE INDEX IF NOT EXISTS idx_ticket_commissions_commissary ON ticket_commissions (commissary_id, event_id)");
-        }
-
-        resetTicketCommercialSchemaCache();
-    } catch (Throwable $e) {
-        // Compatibilidade: se o ambiente não puder provisionar DDL, os GETs seguem funcionando com fallback.
     }
+
+    if ($missing) {
+        jsonError('Migration 008 não aplicada completamente. Recursos ausentes: ' . implode(', ', $missing), 409);
+    }
+
+    return $schema;
 }
 
 function listTicketTypes(array $query): void
@@ -717,9 +668,7 @@ function listTicketBatches(array $query): void
 
     try {
         $db = Database::getInstance();
-        if (!ticketTableExists($db, 'ticket_batches')) {
-            jsonSuccess([]);
-        }
+        ensureTicketCommercialTable($db, 'ticket_batches');
 
         if ($eventId) {
             $stmtEvent = $db->prepare('SELECT id FROM events WHERE id = ? AND organizer_id = ? LIMIT 1');
@@ -820,9 +769,7 @@ function listCommissaries(array $query): void
 
     try {
         $db = Database::getInstance();
-        if (!ticketTableExists($db, 'commissaries')) {
-            jsonSuccess([]);
-        }
+        ensureTicketCommercialTable($db, 'commissaries');
 
         if ($eventId) {
             $stmtEvent = $db->prepare('SELECT id FROM events WHERE id = ? AND organizer_id = ? LIMIT 1');

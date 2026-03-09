@@ -54,15 +54,8 @@ function registerCheckin(array $body): void
 
     // Validação por configuração: limite de turnos no evento
     if ($action === 'check-in') {
-        $stmtCfg = $db->prepare("
-            SELECT max_shifts_event
-            FROM workforce_member_settings
-            WHERE participant_id = ?
-            LIMIT 1
-        ");
-        $stmtCfg->execute([$participantId]);
-        $cfg = $stmtCfg->fetch(PDO::FETCH_ASSOC);
-        $maxShifts = (int)($cfg['max_shifts_event'] ?? 0);
+        $cfg = participantCheckinResolveOperationalConfig($db, $participantId);
+        $maxShifts = (int)($cfg['max_shifts_event'] ?? 1);
 
         if ($maxShifts > 0) {
             $stmtCount = $db->prepare("
@@ -97,4 +90,56 @@ function resolveOrganizerId(array $user): int
         return (int)($user['organizer_id'] ?? $user['id'] ?? 0);
     }
     return (int)($user['organizer_id'] ?? 0);
+}
+
+function participantCheckinResolveOperationalConfig(PDO $db, int $participantId): array
+{
+    $hasRoleSettings = participantCheckinTableExists($db, 'workforce_role_settings');
+    $maxShiftsExpr = $hasRoleSettings
+        ? "COALESCE(wms.max_shifts_event, wrs.max_shifts_event, 1)"
+        : "COALESCE(wms.max_shifts_event, 1)";
+    $mealsExpr = $hasRoleSettings
+        ? "COALESCE(wms.meals_per_day, wrs.meals_per_day, 4)"
+        : "COALESCE(wms.meals_per_day, 4)";
+    $roleSettingsJoin = $hasRoleSettings
+        ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id"
+        : "";
+
+    $stmt = $db->prepare("
+        SELECT
+            {$maxShiftsExpr}::int AS max_shifts_event,
+            {$mealsExpr}::int AS meals_per_day
+        FROM event_participants ep
+        LEFT JOIN workforce_assignments wa ON wa.participant_id = ep.id
+        LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
+        {$roleSettingsJoin}
+        WHERE ep.id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$participantId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return [
+        'max_shifts_event' => (int)($row['max_shifts_event'] ?? 1),
+        'meals_per_day' => (int)($row['meals_per_day'] ?? 4),
+    ];
+}
+
+function participantCheckinTableExists(PDO $db, string $table): bool
+{
+    static $cache = [];
+    if (array_key_exists($table, $cache)) {
+        return $cache[$table];
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = :table
+        LIMIT 1
+    ");
+    $stmt->execute([':table' => $table]);
+    $cache[$table] = (bool)$stmt->fetchColumn();
+    return $cache[$table];
 }

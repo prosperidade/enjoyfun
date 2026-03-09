@@ -179,23 +179,23 @@ export default function Login() {
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {tab === 'register' && (
               <Field label="Nome completo" error={errors.name}>
-                <input className={input(errors.name)} type="text" placeholder="Seu nome" value={form.name} onChange={set('name')} autoFocus />
+                <input className={input(errors.name)} id="register-name" name="name" autoComplete="name" type="text" placeholder="Seu nome" value={form.name} onChange={set('name')} autoFocus />
               </Field>
             )}
 
             <Field label="E-mail" error={errors.email}>
-              <input className={input(errors.email)} type="email" placeholder="seu@email.com" value={form.email} onChange={set('email')} autoFocus={tab === 'login'} />
+              <input className={input(errors.email)} id="auth-email" name="email" autoComplete="email" type="email" placeholder="seu@email.com" value={form.email} onChange={set('email')} autoFocus={tab === 'login'} />
             </Field>
 
             {tab === 'register' && (
               <Field label="CPF *" error={errors.cpf}>
-                <input className={input(errors.cpf)} type="text" placeholder="000.000.000-00" required value={form.cpf} onChange={set('cpf')} />
+                <input className={input(errors.cpf)} id="register-cpf" name="cpf" autoComplete="off" type="text" placeholder="000.000.000-00" required value={form.cpf} onChange={set('cpf')} />
               </Field>
             )}
 
             {tab === 'register' && (
               <Field label="WhatsApp / Telefone *" error={errors.phone}>
-                <input className={input(errors.phone)} type="tel" placeholder="+55 11 99999-0000" required value={form.phone} onChange={set('phone')} />
+                <input className={input(errors.phone)} id="register-phone" name="phone" autoComplete="tel" type="tel" placeholder="+55 11 99999-0000" required value={form.phone} onChange={set('phone')} />
               </Field>
             )}
 
@@ -203,6 +203,9 @@ export default function Login() {
               <div className="relative">
                 <input
                   className={`${input(errors.password)} pr-11`}
+                  id="auth-password"
+                  name="password"
+                  autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
                   type={showPw ? 'text' : 'password'}
                   placeholder={tab === 'register' ? 'Mínimo 8 caracteres' : '••••••••'}
                   value={form.password}

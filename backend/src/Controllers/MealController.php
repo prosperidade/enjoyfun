@@ -19,6 +19,7 @@ function getMealsBalance(array $query): void
     $user = requireAuth(['admin', 'organizer', 'manager', 'staff']);
     $db = Database::getInstance();
     $organizerId = resolveOrganizerId($user);
+    $hasRoleSettings = mealTableExists($db, 'workforce_role_settings');
 
     $eventId = (int)($query['event_id'] ?? 0);
     $eventDayId = (int)($query['event_day_id'] ?? 0);
@@ -52,6 +53,13 @@ function getMealsBalance(array $query): void
         $mealUnitCost = (float)($stmtMealCost->fetchColumn() ?: 0);
     }
 
+    $mealsExpr = $hasRoleSettings
+        ? "COALESCE(wms.meals_per_day, wrs.meals_per_day, 4)"
+        : "COALESCE(wms.meals_per_day, 4)";
+    $roleSettingsJoin = $hasRoleSettings
+        ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id AND wrs.organizer_id = :organizer_id"
+        : "";
+
     $sql = "
         SELECT
             ep.id AS participant_id,
@@ -60,7 +68,7 @@ function getMealsBalance(array $query): void
             COALESCE(wa.sector, 'geral') AS sector,
             r.id AS role_id,
             r.name AS role_name,
-            COALESCE(wms.meals_per_day, 4) AS meals_per_day,
+            {$mealsExpr}::int AS meals_per_day,
             COALESCE(day_meals.total_day, 0) AS consumed_day,
             COALESCE(shift_meals.total_shift, 0) AS consumed_shift
         FROM workforce_assignments wa
@@ -68,6 +76,7 @@ function getMealsBalance(array $query): void
         JOIN people p ON p.id = ep.person_id
         JOIN workforce_roles r ON r.id = wa.role_id
         LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
+        {$roleSettingsJoin}
         LEFT JOIN (
             SELECT participant_id, COUNT(*)::int AS total_day
             FROM participant_meals
@@ -258,15 +267,8 @@ function registerMeal(array $body): void
     $participantId = (int)$resolvedParticipantId;
 
     // Validação por configuração: refeições por dia
-    $stmtCfg = $db->prepare("
-        SELECT meals_per_day
-        FROM workforce_member_settings
-        WHERE participant_id = ?
-        LIMIT 1
-    ");
-    $stmtCfg->execute([$participantId]);
-    $cfg = $stmtCfg->fetch(PDO::FETCH_ASSOC);
-    $maxMealsPerDay = (int)($cfg['meals_per_day'] ?? 0);
+    $cfg = mealResolveOperationalConfig($db, $participantId);
+    $maxMealsPerDay = (int)($cfg['meals_per_day'] ?? 4);
     if ($maxMealsPerDay > 0) {
         $stmtCount = $db->prepare("
             SELECT COUNT(*)
@@ -314,4 +316,56 @@ function columnExists(PDO $db, string $table, string $column): bool
     $stmt->execute([':table' => $table, ':column' => $column]);
     $cache[$key] = (bool)$stmt->fetchColumn();
     return $cache[$key];
+}
+
+function mealResolveOperationalConfig(PDO $db, int $participantId): array
+{
+    $hasRoleSettings = mealTableExists($db, 'workforce_role_settings');
+    $maxShiftsExpr = $hasRoleSettings
+        ? "COALESCE(wms.max_shifts_event, wrs.max_shifts_event, 1)"
+        : "COALESCE(wms.max_shifts_event, 1)";
+    $mealsExpr = $hasRoleSettings
+        ? "COALESCE(wms.meals_per_day, wrs.meals_per_day, 4)"
+        : "COALESCE(wms.meals_per_day, 4)";
+    $roleSettingsJoin = $hasRoleSettings
+        ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id"
+        : "";
+
+    $stmt = $db->prepare("
+        SELECT
+            {$maxShiftsExpr}::int AS max_shifts_event,
+            {$mealsExpr}::int AS meals_per_day
+        FROM event_participants ep
+        LEFT JOIN workforce_assignments wa ON wa.participant_id = ep.id
+        LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
+        {$roleSettingsJoin}
+        WHERE ep.id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$participantId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return [
+        'max_shifts_event' => (int)($row['max_shifts_event'] ?? 1),
+        'meals_per_day' => (int)($row['meals_per_day'] ?? 4),
+    ];
+}
+
+function mealTableExists(PDO $db, string $table): bool
+{
+    static $cache = [];
+    if (array_key_exists($table, $cache)) {
+        return $cache[$table];
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = :table
+        LIMIT 1
+    ");
+    $stmt->execute([':table' => $table]);
+    $cache[$table] = (bool)$stmt->fetchColumn();
+    return $cache[$table];
 }

@@ -70,6 +70,7 @@ function listRoles(): void
     $userSector = resolveUserSector($db, $user);
 
     $hasRoleSector = columnExists($db, 'workforce_roles', 'sector');
+    $hasRoleSettings = tableExists($db, 'workforce_role_settings');
     $sectorSelect = $hasRoleSector ? "wr.sector AS sector" : "NULL::varchar AS sector";
     $bucketSelect = $hasRoleSettings
         ? "COALESCE(wrs.cost_bucket, 'operational') AS cost_bucket"
@@ -436,13 +437,21 @@ function listAssignments(array $query): void
         $params[':role_id'] = $requestedRoleId;
     }
 
-    // Regra de domínio: configuração de cargo NÃO deve ser herdada por trabalhadores.
-    // Trabalhadores usam apenas override individual (workforce_member_settings) ou default operacional.
-    $maxShiftsExpr = "COALESCE(wms.max_shifts_event, 1)";
-    $shiftHoursExpr = "COALESCE(wms.shift_hours, 8)";
-    $mealsExpr = "COALESCE(wms.meals_per_day, 4)";
-    $paymentExpr = "COALESCE(wms.payment_amount, 0)";
-    $bucketExpr = "'operational'";
+    $maxShiftsExpr = $hasRoleSettings
+        ? "COALESCE(wms.max_shifts_event, wrs.max_shifts_event, 1)"
+        : "COALESCE(wms.max_shifts_event, 1)";
+    $shiftHoursExpr = $hasRoleSettings
+        ? "COALESCE(wms.shift_hours, wrs.shift_hours, 8)"
+        : "COALESCE(wms.shift_hours, 8)";
+    $mealsExpr = $hasRoleSettings
+        ? "COALESCE(wms.meals_per_day, wrs.meals_per_day, 4)"
+        : "COALESCE(wms.meals_per_day, 4)";
+    $paymentExpr = $hasRoleSettings
+        ? "COALESCE(wms.payment_amount, wrs.payment_amount, 0)"
+        : "COALESCE(wms.payment_amount, 0)";
+    $bucketExpr = $hasRoleSettings
+        ? "COALESCE(wrs.cost_bucket, 'operational')"
+        : "'operational'";
     $sql = "
         SELECT wa.id, wa.sector, wa.created_at,
                ep.id as participant_id, ep.qr_token, p.name as person_name, p.phone,
@@ -460,6 +469,7 @@ function listAssignments(array $query): void
         LEFT JOIN event_shifts es ON es.id = wa.event_shift_id
         LEFT JOIN event_days ed ON ed.id = es.event_day_id
         LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
+        " . ($hasRoleSettings ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id AND wrs.organizer_id = :org_id" : "") . "
         WHERE ep.event_id = :evt_id AND p.organizer_id = :org_id
         {$whereSector}
         " . ($requestedRoleId > 0 ? " AND wa.role_id = :role_id" : "") . "
@@ -602,36 +612,7 @@ function getMemberSettings(int $participantId): void
         jsonError('Participante não encontrado ou sem permissão.', 404);
     }
 
-    $stmt = $db->prepare("
-        SELECT participant_id, max_shifts_event, shift_hours, meals_per_day, payment_amount
-        FROM workforce_member_settings
-        WHERE participant_id = ?
-        LIMIT 1
-    ");
-    $stmt->execute([$participantId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$row) {
-        $row = [
-            'participant_id' => $participantId,
-            'max_shifts_event' => 1,
-            'shift_hours' => 8,
-            'meals_per_day' => 4,
-            'payment_amount' => 0,
-            'cost_bucket' => 'operational',
-            'source' => 'default'
-        ];
-    } else {
-        $row = [
-            'participant_id' => (int)$row['participant_id'],
-            'max_shifts_event' => (int)$row['max_shifts_event'],
-            'shift_hours' => (float)$row['shift_hours'],
-            'meals_per_day' => (int)$row['meals_per_day'],
-            'payment_amount' => (float)$row['payment_amount'],
-            'cost_bucket' => 'operational',
-            'source' => 'member_override'
-        ];
-    }
+    $row = resolveParticipantOperationalSettings($db, $participantId);
 
     jsonSuccess($row);
 }
@@ -712,6 +693,9 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
     $roleIdInput = (int)($body['role_id'] ?? 0);
     $targetRoleId = $forcedRoleId ?: ($roleIdInput > 0 ? $roleIdInput : 0);
     $targetRole = null;
+    $requestedRoleId = $targetRoleId > 0 ? $targetRoleId : null;
+    $requestedRoleName = null;
+    $requestedRoleBucket = null;
 
     if ($eventId <= 0 || !is_array($participants) || count($participants) === 0) {
         jsonError('Dados inválidos. event_id e participants são obrigatórios.', 400);
@@ -722,6 +706,8 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
         if (!$targetRole) {
             jsonError('Cargo inválido para importação.', 403);
         }
+        $requestedRoleName = (string)($targetRole['name'] ?? '');
+        $requestedRoleBucket = resolveRoleCostBucket($db, $organizerId, $targetRole);
         $roleSector = normalizeSector((string)($targetRole['sector'] ?? ''));
         if (!$canBypassSector && $userSector !== 'all' && $roleSector && $roleSector !== $userSector) {
             jsonError('Você só pode importar para cargos do seu setor.', 403);
@@ -749,7 +735,15 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
         jsonError('Evento não encontrado para este organizador.', 404);
     }
 
+    $managerialRedirect = false;
+    if ($targetRoleId > 0 && $requestedRoleBucket === 'managerial') {
+        $targetRoleId = ensureSectorDefaultRole($db, $organizerId, $targetSector);
+        $managerialRedirect = true;
+    }
+
     $defaultRoleId = $targetRoleId > 0 ? $targetRoleId : ensureSectorDefaultRole($db, $organizerId, $targetSector);
+    $assignedRole = getRoleById($db, $organizerId, $defaultRoleId);
+    $assignedRoleName = (string)($assignedRole['name'] ?? ('Equipe ' . strtoupper($targetSector ?: 'GERAL')));
     $defaultCategoryId = resolveDefaultCategoryId($db, $organizerId);
     $managerUserId = $canBypassSector ? null : (int)($user['id'] ?? 0);
     $source = $fileName ?: 'workforce_import.csv';
@@ -836,11 +830,19 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
 
     jsonSuccess([
         'sector' => $targetSector,
+        'requested_role_id' => $requestedRoleId,
+        'requested_role_name' => $requestedRoleName,
+        'requested_role_bucket' => $requestedRoleBucket,
+        'assigned_role_id' => $defaultRoleId,
+        'assigned_role_name' => $assignedRoleName,
+        'managerial_redirect' => $managerialRedirect,
         'imported' => $imported,
         'assigned' => $assigned,
         'skipped' => $skipped,
         'errors' => $errors
-    ], "Importação concluída para o setor '{$targetSector}'.");
+    ], $managerialRedirect
+        ? "Importação concluída no cargo operacional '{$assignedRoleName}'. O cargo gerencial '{$requestedRoleName}' foi preservado apenas para a liderança do setor."
+        : "Importação concluída para o setor '{$targetSector}'.");
 }
 
 function resolveOrganizerId(array $user): int
@@ -943,6 +945,26 @@ function getRoleById(PDO $db, int $organizerId, int $roleId): ?array
     $stmt->execute([$roleId, $organizerId]);
     $role = $stmt->fetch(PDO::FETCH_ASSOC);
     return $role ?: null;
+}
+
+function resolveRoleCostBucket(PDO $db, int $organizerId, array $role): string
+{
+    $roleId = (int)($role['id'] ?? 0);
+    if ($roleId > 0 && tableExists($db, 'workforce_role_settings')) {
+        $stmt = $db->prepare("
+            SELECT cost_bucket
+            FROM workforce_role_settings
+            WHERE role_id = ? AND organizer_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$roleId, $organizerId]);
+        $value = $stmt->fetchColumn();
+        if (is_string($value) && trim($value) !== '') {
+            return normalizeCostBucket($value, (string)($role['name'] ?? ''));
+        }
+    }
+
+    return normalizeCostBucket((string)($role['cost_bucket'] ?? ''), (string)($role['name'] ?? ''));
 }
 
 function inferSectorFromRoleName(string $roleName): string
@@ -1159,6 +1181,65 @@ function inferCostBucketFromRoleName(string $roleName): string
         }
     }
     return 'operational';
+}
+
+function resolveParticipantOperationalSettings(PDO $db, int $participantId): array
+{
+    $hasRoleSettings = tableExists($db, 'workforce_role_settings');
+    $maxShiftsExpr = $hasRoleSettings
+        ? "COALESCE(wms.max_shifts_event, wrs.max_shifts_event, 1)"
+        : "COALESCE(wms.max_shifts_event, 1)";
+    $shiftHoursExpr = $hasRoleSettings
+        ? "COALESCE(wms.shift_hours, wrs.shift_hours, 8)"
+        : "COALESCE(wms.shift_hours, 8)";
+    $mealsExpr = $hasRoleSettings
+        ? "COALESCE(wms.meals_per_day, wrs.meals_per_day, 4)"
+        : "COALESCE(wms.meals_per_day, 4)";
+    $paymentExpr = $hasRoleSettings
+        ? "COALESCE(wms.payment_amount, wrs.payment_amount, 0)"
+        : "COALESCE(wms.payment_amount, 0)";
+    $bucketExpr = $hasRoleSettings
+        ? "COALESCE(wrs.cost_bucket, 'operational')"
+        : "'operational'";
+    $sourceExpr = $hasRoleSettings
+        ? "CASE
+                WHEN wms.participant_id IS NOT NULL THEN 'member_override'
+                WHEN wrs.role_id IS NOT NULL THEN 'role_settings'
+                ELSE 'default'
+           END"
+        : "CASE
+                WHEN wms.participant_id IS NOT NULL THEN 'member_override'
+                ELSE 'default'
+           END";
+
+    $stmt = $db->prepare("
+        SELECT
+            ep.id AS participant_id,
+            {$maxShiftsExpr}::int AS max_shifts_event,
+            {$shiftHoursExpr}::numeric AS shift_hours,
+            {$mealsExpr}::int AS meals_per_day,
+            {$paymentExpr}::numeric AS payment_amount,
+            {$bucketExpr}::varchar AS cost_bucket,
+            {$sourceExpr} AS source
+        FROM event_participants ep
+        LEFT JOIN workforce_assignments wa ON wa.participant_id = ep.id
+        LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
+        " . ($hasRoleSettings ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id" : "") . "
+        WHERE ep.id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$participantId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return [
+        'participant_id' => $participantId,
+        'max_shifts_event' => (int)($row['max_shifts_event'] ?? 1),
+        'shift_hours' => (float)($row['shift_hours'] ?? 8),
+        'meals_per_day' => (int)($row['meals_per_day'] ?? 4),
+        'payment_amount' => (float)($row['payment_amount'] ?? 0),
+        'cost_bucket' => (string)($row['cost_bucket'] ?? 'operational'),
+        'source' => (string)($row['source'] ?? 'default')
+    ];
 }
 
 function ensureParticipantQrToken(PDO $db, int $participantId): void

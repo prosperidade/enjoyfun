@@ -2528,3 +2528,207 @@ CREATE TABLE IF NOT EXISTS public.dashboard_snapshots (
     snapshot_time TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ==========================================================
+-- CONSOLIDATED BASELINE: TICKETS COMMERCIAL DOMAIN (MIGRATION 008)
+-- Fonte oficial para lotes, comissarios e comissoes comerciais.
+-- ==========================================================
+
+CREATE TABLE IF NOT EXISTS public.ticket_batches (
+    id SERIAL PRIMARY KEY,
+    organizer_id INTEGER NOT NULL,
+    event_id INTEGER NOT NULL,
+    ticket_type_id INTEGER NULL,
+    name VARCHAR(120) NOT NULL,
+    code VARCHAR(40) NULL,
+    price NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+    starts_at TIMESTAMP WITHOUT TIME ZONE NULL,
+    ends_at TIMESTAMP WITHOUT TIME ZONE NULL,
+    quantity_total INTEGER NULL,
+    quantity_sold INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.commissaries (
+    id SERIAL PRIMARY KEY,
+    organizer_id INTEGER NOT NULL,
+    event_id INTEGER NOT NULL,
+    name VARCHAR(120) NOT NULL,
+    email VARCHAR(160) NULL,
+    phone VARCHAR(40) NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    commission_mode VARCHAR(20) NOT NULL DEFAULT 'percent',
+    commission_value NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.ticket_commissions (
+    id SERIAL PRIMARY KEY,
+    organizer_id INTEGER NOT NULL,
+    event_id INTEGER NOT NULL,
+    ticket_id INTEGER NOT NULL,
+    commissary_id INTEGER NOT NULL,
+    base_amount NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+    commission_mode VARCHAR(20) NOT NULL,
+    commission_value NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+    commission_amount NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.tickets
+    ADD COLUMN IF NOT EXISTS ticket_batch_id INTEGER NULL,
+    ADD COLUMN IF NOT EXISTS commissary_id INTEGER NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_ticket_batches_qty_non_negative'
+    ) THEN
+        ALTER TABLE public.ticket_batches
+            ADD CONSTRAINT chk_ticket_batches_qty_non_negative
+            CHECK (quantity_sold >= 0 AND (quantity_total IS NULL OR quantity_total >= 0));
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_ticket_batches_qty_bounds'
+    ) THEN
+        ALTER TABLE public.ticket_batches
+            ADD CONSTRAINT chk_ticket_batches_qty_bounds
+            CHECK (quantity_total IS NULL OR quantity_sold <= quantity_total);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_commissaries_status'
+    ) THEN
+        ALTER TABLE public.commissaries
+            ADD CONSTRAINT chk_commissaries_status
+            CHECK (status IN ('active', 'inactive'));
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_commissaries_mode'
+    ) THEN
+        ALTER TABLE public.commissaries
+            ADD CONSTRAINT chk_commissaries_mode
+            CHECK (commission_mode IN ('percent', 'fixed'));
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_commissaries_value_non_negative'
+    ) THEN
+        ALTER TABLE public.commissaries
+            ADD CONSTRAINT chk_commissaries_value_non_negative
+            CHECK (commission_value >= 0);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_ticket_commissions_mode'
+    ) THEN
+        ALTER TABLE public.ticket_commissions
+            ADD CONSTRAINT chk_ticket_commissions_mode
+            CHECK (commission_mode IN ('percent', 'fixed'));
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_ticket_commissions_non_negative'
+    ) THEN
+        ALTER TABLE public.ticket_commissions
+            ADD CONSTRAINT chk_ticket_commissions_non_negative
+            CHECK (
+                base_amount >= 0
+                AND commission_value >= 0
+                AND commission_amount >= 0
+            );
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_ticket_batches_event'
+    ) THEN
+        ALTER TABLE public.ticket_batches
+            ADD CONSTRAINT fk_ticket_batches_event
+            FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_ticket_batches_type'
+    ) THEN
+        ALTER TABLE public.ticket_batches
+            ADD CONSTRAINT fk_ticket_batches_type
+            FOREIGN KEY (ticket_type_id) REFERENCES public.ticket_types(id) ON DELETE SET NULL;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_commissaries_event'
+    ) THEN
+        ALTER TABLE public.commissaries
+            ADD CONSTRAINT fk_commissaries_event
+            FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_ticket_commissions_ticket'
+    ) THEN
+        ALTER TABLE public.ticket_commissions
+            ADD CONSTRAINT fk_ticket_commissions_ticket
+            FOREIGN KEY (ticket_id) REFERENCES public.tickets(id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_ticket_commissions_commissary'
+    ) THEN
+        ALTER TABLE public.ticket_commissions
+            ADD CONSTRAINT fk_ticket_commissions_commissary
+            FOREIGN KEY (commissary_id) REFERENCES public.commissaries(id) ON DELETE RESTRICT;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_tickets_ticket_batch'
+    ) THEN
+        ALTER TABLE public.tickets
+            ADD CONSTRAINT fk_tickets_ticket_batch
+            FOREIGN KEY (ticket_batch_id) REFERENCES public.ticket_batches(id) ON DELETE SET NULL;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_tickets_commissary'
+    ) THEN
+        ALTER TABLE public.tickets
+            ADD CONSTRAINT fk_tickets_commissary
+            FOREIGN KEY (commissary_id) REFERENCES public.commissaries(id) ON DELETE SET NULL;
+    END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ticket_batches_org_event_name
+    ON public.ticket_batches (organizer_id, event_id, name);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ticket_batches_org_event_code
+    ON public.ticket_batches (organizer_id, event_id, code)
+    WHERE code IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_commissaries_org_event_email
+    ON public.commissaries (organizer_id, event_id, email)
+    WHERE email IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ticket_commissions_ticket
+    ON public.ticket_commissions (ticket_id);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_batches_event_active
+    ON public.ticket_batches (organizer_id, event_id, is_active);
+
+CREATE INDEX IF NOT EXISTS idx_commissaries_event_status
+    ON public.commissaries (organizer_id, event_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_tickets_batch
+    ON public.tickets (ticket_batch_id);
+
+CREATE INDEX IF NOT EXISTS idx_tickets_commissary
+    ON public.tickets (commissary_id);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_commissions_commissary
+    ON public.ticket_commissions (commissary_id, event_id);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../lib/api";
-import { CalendarDays, MapPin, Clock, ArrowLeft, Users, CheckCircle, Layers3, UserRound, Trash2 } from "lucide-react";
+import { CalendarDays, MapPin, Clock, ArrowLeft, Users, CheckCircle, Layers3, UserRound, Trash2, Pencil } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function EventDetails() {
@@ -31,6 +31,16 @@ export default function EventDetails() {
       setTicketTypes(typesRes.status === "fulfilled" ? typesRes.value.data?.data || [] : []);
       setBatches(batchesRes.status === "fulfilled" ? batchesRes.value.data?.data || [] : []);
       setCommissaries(commissariesRes.status === "fulfilled" ? commissariesRes.value.data?.data || [] : []);
+
+      if (typesRes.status === "rejected") {
+        toast.error(typesRes.reason?.response?.data?.message || "Erro ao carregar tipos de ingresso.");
+      }
+      if (batchesRes.status === "rejected") {
+        toast.error(batchesRes.reason?.response?.data?.message || "Erro ao carregar lotes comerciais.");
+      }
+      if (commissariesRes.status === "rejected") {
+        toast.error(commissariesRes.reason?.response?.data?.message || "Erro ao carregar comissários.");
+      }
     };
 
     loadCommercialConfig();
@@ -60,9 +70,14 @@ export default function EventDetails() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between gap-3">
-        <Link to="/events" className="btn-outline inline-flex">
-          <ArrowLeft size={16} /> Voltar para Eventos
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link to="/events" className="btn-outline inline-flex">
+            <ArrowLeft size={16} /> Voltar para Eventos
+          </Link>
+          <Link to={`/events?edit=${id}`} className="btn-outline inline-flex">
+            <Pencil size={16} /> Editar Evento
+          </Link>
+        </div>
         {event?.can_delete ? (
           <button type="button" className="btn-outline inline-flex" onClick={handleDeleteEvent}>
             <Trash2 size={16} /> Excluir Evento
@@ -125,7 +140,7 @@ export default function EventDetails() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <Link to="/bar" className="badge-blue cursor-pointer hover:bg-blue-800">POS Ativo</Link>
-                <Link to="/tickets" className="badge-purple cursor-pointer hover:bg-purple-800">Bilheteria Linkada</Link>
+                <Link to={`/tickets?event_id=${id}`} className="badge-purple cursor-pointer hover:bg-purple-800">Bilheteria Linkada</Link>
               </div>
             </div>
           </div>
