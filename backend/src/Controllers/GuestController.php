@@ -29,6 +29,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         // ── Protegidas ────────────────────────────────────────────────────────
         $method === 'GET'    && $id === null      => listGuests($query),
         $method === 'POST'   && $id === null      => createGuest($body),
+        $method === 'POST'   && $id === 'bulk-delete' => bulkDeleteGuests($body),
         $method === 'POST'   && $id === 'checkin' => checkInGuest($body),
         $method === 'POST'   && $id === 'import'  => importGuests(),
         $method === 'PUT'    && $id !== null       => updateGuest((int)$id, $body),
@@ -75,34 +76,6 @@ function getGuestTicket(array $query): void
         ");
         $stmtGuest->execute([$token]);
         $ticket = $stmtGuest->fetch(PDO::FETCH_ASSOC);
-
-        // 2) Fluxo novo de participants/workforce
-        if (!$ticket) {
-            $stmtParticipant = $db->prepare("
-                SELECT
-                    ep.id,
-                    COALESCE(c.name, 'Participante') AS ticket_type,
-                    ep.status,
-                    ep.qr_token,
-                    p.name                           AS guest_name,
-                    p.email                          AS holder_email,
-                    ep.created_at                    AS purchased_at,
-                    ep.updated_at                    AS used_at,
-                    e.name                           AS event_name,
-                    e.event_date,
-                    e.starts_at,
-                    e.venue_name,
-                    NULL::text                       AS logo_url
-                FROM event_participants ep
-                INNER JOIN people p ON p.id = ep.person_id
-                INNER JOIN events e ON e.id = ep.event_id
-                LEFT JOIN participant_categories c ON c.id = ep.category_id
-                WHERE ep.qr_token = ?
-                LIMIT 1
-            ");
-            $stmtParticipant->execute([$token]);
-            $ticket = $stmtParticipant->fetch(PDO::FETCH_ASSOC);
-        }
 
         if (!$ticket) jsonError("Convite não encontrado ou token inválido.", 404);
 
@@ -502,10 +475,124 @@ function deleteGuest(int $id): void
         }
 
         $db->prepare("DELETE FROM guests WHERE id = ? AND organizer_id = ?")->execute([$id, $organizerId]);
+        if (class_exists('AuditService')) {
+            AuditService::log(
+                'guest.delete',
+                'guest',
+                $id,
+                [
+                    'name' => $guest['name'],
+                    'organizer_id' => $organizerId,
+                ],
+                null,
+                $operator,
+                'success'
+            );
+        }
 
         jsonSuccess(['id' => $id], "Convidado {$guest['name']} removido com sucesso.");
 
     } catch (Exception $e) {
         jsonError("Erro ao remover convidado: " . $e->getMessage(), 500);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROTEGIDA — Remove convidados em massa
+// POST /guests/bulk-delete  { ids: [1,2,3] }
+// ─────────────────────────────────────────────────────────────────────────────
+function bulkDeleteGuests(array $body): void
+{
+    $operator = requireAuth(['admin', 'organizer']);
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    $ids = $body['ids'] ?? [];
+
+    if (!is_array($ids) || count($ids) === 0) {
+        jsonError("Informe ao menos um convidado para exclusão.", 422);
+    }
+
+    $normalized = [];
+    foreach ($ids as $value) {
+        if (is_numeric($value)) {
+            $id = (int)$value;
+            if ($id > 0) $normalized[] = $id;
+        }
+    }
+    $normalized = array_values(array_unique($normalized));
+
+    if (count($normalized) === 0) {
+        jsonError("IDs inválidos para exclusão em massa.", 422);
+    }
+
+    if (count($normalized) > 500) {
+        jsonError("Limite máximo de 500 convidados por exclusão em massa.", 422);
+    }
+
+    try {
+        $db = Database::getInstance();
+
+        $deleted = 0;
+        $notFound = [];
+        $failed = [];
+
+        $stmtSelect = $db->prepare("
+            SELECT id, name
+            FROM guests
+            WHERE id = ? AND organizer_id = ?
+            LIMIT 1
+        ");
+        $stmtDelete = $db->prepare("DELETE FROM guests WHERE id = ? AND organizer_id = ?");
+
+        foreach ($normalized as $guestId) {
+            $stmtSelect->execute([$guestId, $organizerId]);
+            $guest = $stmtSelect->fetch(PDO::FETCH_ASSOC);
+            if (!$guest) {
+                $notFound[] = $guestId;
+                continue;
+            }
+
+            try {
+                $stmtDelete->execute([$guestId, $organizerId]);
+                $deleted++;
+
+                if (class_exists('AuditService')) {
+                    AuditService::log(
+                        'guest.delete',
+                        'guest',
+                        $guestId,
+                        [
+                            'name' => $guest['name'],
+                            'organizer_id' => $organizerId,
+                        ],
+                        null,
+                        $operator,
+                        'success',
+                        ['bulk' => true]
+                    );
+                }
+            } catch (Throwable $inner) {
+                $failed[] = [
+                    'id' => $guestId,
+                    'reason' => $inner->getMessage(),
+                ];
+            }
+        }
+
+        $status = 'success';
+        if ($deleted === 0) {
+            $status = 'error';
+        } elseif (!empty($notFound) || !empty($failed)) {
+            $status = 'partial';
+        }
+
+        jsonSuccess([
+            'status' => $status,
+            'requested' => count($normalized),
+            'deleted' => $deleted,
+            'not_found' => $notFound,
+            'failed' => $failed,
+        ], $status === 'success' ? 'Exclusão em massa concluída.' : 'Exclusão em massa concluída com pendências.');
+    } catch (Throwable $e) {
+        jsonError("Erro na exclusão em massa de convidados: " . $e->getMessage(), 500);
     }
 }

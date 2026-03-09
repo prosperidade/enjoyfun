@@ -170,7 +170,7 @@ function sendWhatsAppMessage(array $body): void
     $waInstance = $cfg['wa_instance'] ?? '';
 
     if (!$waUrl || !$waToken || !$waInstance) {
-        jsonError('WhatsApp não configurado. Acesse Mensageria → Configurações para adicionar as credenciais.', 503);
+        jsonError('WhatsApp não configurado. Ajuste em Configurações do Organizador → Canais de Contato.', 503);
     }
 
     $phoneClean = preg_replace('/\D/', '', $phone);
@@ -231,7 +231,7 @@ function sendManualEmail(array $body): void
     $from   = $cfg['email_sender']   ?? getenv('EMAIL_SENDER')   ?: 'no-reply@enjoyfun.com.br';
 
     if (!$apiKey) {
-        jsonError('Resend API Key não configurada. Acesse Mensageria → Configuração de E-mail.', 503);
+        jsonError('Resend API Key não configurada. Ajuste em Configurações do Organizador → Canais de Contato.', 503);
     }
 
     $GLOBALS['year'] = date('Y');

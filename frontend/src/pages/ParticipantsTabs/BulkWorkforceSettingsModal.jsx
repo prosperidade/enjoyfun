@@ -93,7 +93,7 @@ export default function BulkWorkforceSettingsModal({ isOpen, onClose, participan
             />
           </label>
           <label className="text-xs text-gray-400">
-            Valor de Pagamento (R$)
+            Valor por Turno (R$)
             <input
               type="number"
               step="0.01"
@@ -115,4 +115,3 @@ export default function BulkWorkforceSettingsModal({ isOpen, onClose, participan
     </div>
   );
 }
-

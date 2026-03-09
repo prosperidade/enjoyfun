@@ -25,6 +25,7 @@ function getMealsBalance(array $query): void
     $eventShiftId = (int)($query['event_shift_id'] ?? 0);
     $sector = strtolower(trim((string)($query['sector'] ?? '')));
     $roleId = (int)($query['role_id'] ?? 0);
+    $mealUnitCost = 0.0;
 
     if ($eventId <= 0) {
         jsonError('event_id é obrigatório.', 400);
@@ -37,6 +38,18 @@ function getMealsBalance(array $query): void
     $stmtEvent->execute([$eventId, $organizerId]);
     if (!$stmtEvent->fetchColumn()) {
         jsonError('Evento não encontrado ou sem acesso.', 404);
+    }
+
+    if (columnExists($db, 'organizer_financial_settings', 'meal_unit_cost')) {
+        $stmtMealCost = $db->prepare("
+            SELECT COALESCE(meal_unit_cost, 0)
+            FROM organizer_financial_settings
+            WHERE organizer_id = ?
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+        $stmtMealCost->execute([$organizerId]);
+        $mealUnitCost = (float)($stmtMealCost->fetchColumn() ?: 0);
     }
 
     $sql = "
@@ -100,9 +113,13 @@ function getMealsBalance(array $query): void
         'consumed_day_total' => 0,
         'remaining_day_total' => 0,
         'consumed_shift_total' => 0,
+        'meal_unit_cost' => round($mealUnitCost, 2),
+        'estimated_day_cost_total' => 0.0,
+        'consumed_day_cost_total' => 0.0,
+        'remaining_day_cost_total' => 0.0,
     ];
 
-    $normalizedItems = array_map(function ($row) use (&$summary) {
+    $normalizedItems = array_map(function ($row) use (&$summary, $mealUnitCost) {
         $mealsPerDay = (int)$row['meals_per_day'];
         $consumedDay = (int)$row['consumed_day'];
         $consumedShift = (int)$row['consumed_shift'];
@@ -113,6 +130,9 @@ function getMealsBalance(array $query): void
         $summary['consumed_day_total'] += $consumedDay;
         $summary['remaining_day_total'] += $remainingDay;
         $summary['consumed_shift_total'] += $consumedShift;
+        $summary['estimated_day_cost_total'] += ($mealsPerDay * $mealUnitCost);
+        $summary['consumed_day_cost_total'] += ($consumedDay * $mealUnitCost);
+        $summary['remaining_day_cost_total'] += ($remainingDay * $mealUnitCost);
 
         return [
             'participant_id' => (int)$row['participant_id'],
@@ -125,8 +145,16 @@ function getMealsBalance(array $query): void
             'consumed_day' => $consumedDay,
             'remaining_day' => $remainingDay,
             'consumed_shift' => $consumedShift,
+            'meal_unit_cost' => round($mealUnitCost, 2),
+            'estimated_day_cost' => round($mealsPerDay * $mealUnitCost, 2),
+            'consumed_day_cost' => round($consumedDay * $mealUnitCost, 2),
+            'remaining_day_cost' => round($remainingDay * $mealUnitCost, 2),
         ];
     }, $items);
+
+    $summary['estimated_day_cost_total'] = round((float)$summary['estimated_day_cost_total'], 2);
+    $summary['consumed_day_cost_total'] = round((float)$summary['consumed_day_cost_total'], 2);
+    $summary['remaining_day_cost_total'] = round((float)$summary['remaining_day_cost_total'], 2);
 
     jsonSuccess([
         'filters' => [
@@ -135,6 +163,11 @@ function getMealsBalance(array $query): void
             'event_shift_id' => $eventShiftId > 0 ? $eventShiftId : null,
             'sector' => $sector !== '' ? $sector : null,
             'role_id' => $roleId > 0 ? $roleId : null,
+        ],
+        'formulas' => [
+            'estimated_day_cost_total' => 'meals_per_day_total * meal_unit_cost',
+            'consumed_day_cost_total' => 'consumed_day_total * meal_unit_cost',
+            'remaining_day_cost_total' => 'remaining_day_total * meal_unit_cost'
         ],
         'summary' => $summary,
         'items' => $normalizedItems,
@@ -261,4 +294,24 @@ function resolveOrganizerId(array $user): int
         return (int)($user['organizer_id'] ?? $user['id'] ?? 0);
     }
     return (int)($user['organizer_id'] ?? 0);
+}
+
+function columnExists(PDO $db, string $table, string $column): bool
+{
+    static $cache = [];
+    $key = $table . '.' . $column;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = :table
+          AND column_name = :column
+        LIMIT 1
+    ");
+    $stmt->execute([':table' => $table, ':column' => $column]);
+    $cache[$key] = (bool)$stmt->fetchColumn();
+    return $cache[$key];
 }

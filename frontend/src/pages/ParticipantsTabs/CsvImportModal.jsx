@@ -18,17 +18,38 @@ export default function CsvImportModal({
   const [categories, setCategories] = useState([]);
   const [defaultCategoryId, setDefaultCategoryId] = useState("");
 
+  const filteredCategories = categories.filter((category) => {
+    if (mode !== "workforce") {
+      return true;
+    }
+
+    return String(category.type || "").toLowerCase() === "staff";
+  });
+
   useEffect(() => {
     if (isOpen) {
       api.get("/participants/categories")
         .then(res => {
           const cats = res.data.data || [];
           setCategories(cats);
-          if (cats.length > 0) setDefaultCategoryId(cats[0].id);
         })
         .catch(() => {});
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (filteredCategories.length > 0) {
+      const hasCurrentOption = filteredCategories.some((category) => String(category.id) === String(defaultCategoryId));
+      if (!hasCurrentOption) {
+        setDefaultCategoryId(String(filteredCategories[0].id));
+      }
+      return;
+    }
+
+    setDefaultCategoryId("");
+  }, [isOpen, mode, filteredCategories, defaultCategoryId]);
   
   if (!isOpen) return null;
 
@@ -122,7 +143,7 @@ export default function CsvImportModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md relative z-10 shadow-2xl animate-fade-in flex flex-col">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md max-h-[90vh] relative z-10 shadow-2xl animate-fade-in flex flex-col overflow-hidden">
         <div className="p-4 border-b border-gray-800 flex justify-between items-center">
           <h2 className="text-lg font-bold text-white">Importação em Lote (CSV)</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-800">
@@ -130,7 +151,7 @@ export default function CsvImportModal({
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto">
             <div className="card bg-gray-800/50 border border-blue-900/30 p-4">
                 <div className="flex gap-3 text-blue-400">
                     <AlertCircle size={20} className="flex-shrink-0" />
@@ -150,17 +171,24 @@ export default function CsvImportModal({
             </div>
 
             <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-400 block">Categoria Padrão (utilizada se a coluna CSV estiver vazia)</label>
+                <label className="text-xs font-medium text-gray-400 block">
+                  {mode === "workforce" ? "Categoria Workforce" : "Categoria Padrão"} (utilizada se a coluna CSV estiver vazia)
+                </label>
                 <select 
                     className="select w-full"
                     value={defaultCategoryId}
                     onChange={(e) => setDefaultCategoryId(e.target.value)}
                 >
                     <option value="">Selecione uma categoria...</option>
-                    {categories.map(c => (
+                    {filteredCategories.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                 </select>
+                {mode === "workforce" && filteredCategories.length === 0 && (
+                    <p className="text-xs text-amber-400">
+                        Nenhuma categoria do tipo Workforce/Staff foi encontrada para este organizador.
+                    </p>
+                )}
             </div>
 
             <div className="border-2 border-dashed border-gray-700 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-gray-800/30 transition-colors">
@@ -191,7 +219,7 @@ export default function CsvImportModal({
             </div>
         </div>
 
-        <div className="p-4 border-t border-gray-800 flex justify-end gap-3 bg-gray-900/50 rounded-b-2xl">
+        <div className="p-4 border-t border-gray-800 flex justify-end gap-3 bg-gray-900/50 rounded-b-2xl flex-shrink-0">
           <button onClick={onClose} className="px-4 py-2 rounded-lg font-medium text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
             Cancelar
           </button>

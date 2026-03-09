@@ -95,7 +95,7 @@ export default function WorkforceMemberSettingsModal({ isOpen, onClose, particip
             />
           </label>
           <label className="text-xs text-gray-400">
-            Valor de Pagamento (R$)
+            Valor por Turno (R$)
             <input
               type="number"
               step="0.01"
@@ -117,4 +117,3 @@ export default function WorkforceMemberSettingsModal({ isOpen, onClose, particip
     </div>
   );
 }
-

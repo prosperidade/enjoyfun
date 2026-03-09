@@ -16,7 +16,6 @@ import {
   UtensilsCrossed,
   Store,
   Shield,
-  UserCheck, // ícone para Convidados/Guests
   Scan,
   Briefcase,
 } from "lucide-react";

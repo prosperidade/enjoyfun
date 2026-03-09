@@ -9,6 +9,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
     match (true) {
         $method === 'GET'    && $id === 'categories' => listCategories(),
         $method === 'GET'    && $id === null => listParticipants($query),
+        $method === 'POST'   && $id === 'bulk-delete' => bulkDeleteParticipants($body),
         $method === 'POST'   && $id === null && $sub === null => createParticipant($body),
         $method === 'POST'   && $id === 'import' => importParticipants($body),
         $method === 'POST'   && $id === 'migrate' => migrateLegacyGuests(),
@@ -404,6 +405,150 @@ function deleteParticipant(int $id): void
     jsonSuccess([], 'Participante removido do evento com sucesso.');
 }
 
+function bulkDeleteParticipants(array $body): void
+{
+    $user = requireAuth(['admin', 'organizer', 'manager', 'staff']);
+    $db = Database::getInstance();
+    $organizerId = resolveOrganizerId($user);
+    $canBypassSector = canBypassParticipantSectorAcl($user);
+    $userSector = resolveUserSectorFromDb($db, $user);
+    $ids = $body['ids'] ?? [];
+
+    if (!is_array($ids) || count($ids) === 0) {
+        jsonError('Informe ao menos um participante para exclusão em massa.', 422);
+    }
+
+    $normalized = [];
+    foreach ($ids as $value) {
+        if (is_numeric($value)) {
+            $id = (int)$value;
+            if ($id > 0) $normalized[] = $id;
+        }
+    }
+    $normalized = array_values(array_unique($normalized));
+
+    if (count($normalized) === 0) {
+        jsonError('IDs inválidos para exclusão em massa.', 422);
+    }
+
+    if (count($normalized) > 500) {
+        jsonError('Limite máximo de 500 participantes por operação.', 422);
+    }
+
+    $hasAssignments = participantTableExists($db, 'workforce_assignments');
+    $hasMemberSettings = participantTableExists($db, 'workforce_member_settings');
+    $hasCheckins = participantTableExists($db, 'participant_checkins');
+    $hasMeals = participantTableExists($db, 'participant_meals');
+
+    $stmtCheck = $db->prepare("
+        SELECT ep.id, ep.event_id, ep.person_id, p.name, p.email
+        FROM event_participants ep
+        JOIN people p ON p.id = ep.person_id
+        JOIN events e ON e.id = ep.event_id
+        WHERE ep.id = ? AND e.organizer_id = ?
+        LIMIT 1
+    ");
+    $stmtSector = $db->prepare("
+        SELECT wa.id
+        FROM workforce_assignments wa
+        WHERE wa.participant_id = ? AND LOWER(COALESCE(wa.sector, '')) = ?
+        LIMIT 1
+    ");
+    $stmtDelAssignments = $hasAssignments
+        ? $db->prepare("DELETE FROM workforce_assignments WHERE participant_id = ?")
+        : null;
+    $stmtDelMemberSettings = $hasMemberSettings
+        ? $db->prepare("DELETE FROM workforce_member_settings WHERE participant_id = ?")
+        : null;
+    $stmtDelCheckins = $hasCheckins
+        ? $db->prepare("DELETE FROM participant_checkins WHERE participant_id = ?")
+        : null;
+    $stmtDelMeals = $hasMeals
+        ? $db->prepare("DELETE FROM participant_meals WHERE participant_id = ?")
+        : null;
+    $stmtDelParticipant = $db->prepare("DELETE FROM event_participants WHERE id = ?");
+
+    $deleted = 0;
+    $notFound = [];
+    $forbidden = [];
+    $failed = [];
+
+    foreach ($normalized as $participantId) {
+        $stmtCheck->execute([$participantId, $organizerId]);
+        $participant = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+        if (!$participant) {
+            $notFound[] = $participantId;
+            continue;
+        }
+
+        if (!$canBypassSector && $userSector !== 'all') {
+            if (!$hasAssignments) {
+                $forbidden[] = $participantId;
+                continue;
+            }
+            $stmtSector->execute([$participantId, $userSector]);
+            if (!$stmtSector->fetchColumn()) {
+                $forbidden[] = $participantId;
+                continue;
+            }
+        }
+
+        try {
+            $db->beginTransaction();
+
+            // Cleanup explícito de dependências para evitar resíduos órfãos.
+            if ($stmtDelAssignments) $stmtDelAssignments->execute([$participantId]);
+            if ($stmtDelMemberSettings) $stmtDelMemberSettings->execute([$participantId]);
+            if ($stmtDelCheckins) $stmtDelCheckins->execute([$participantId]);
+            if ($stmtDelMeals) $stmtDelMeals->execute([$participantId]);
+
+            $stmtDelParticipant->execute([$participantId]);
+            $db->commit();
+
+            $deleted++;
+            participantAudit(
+                'participant.delete',
+                (int)$participantId,
+                [
+                    'name' => $participant['name'],
+                    'email' => $participant['email'],
+                    'person_id' => (int)$participant['person_id']
+                ],
+                null,
+                $user,
+                [
+                    'event_id' => (int)$participant['event_id'],
+                    'bulk' => true
+                ]
+            );
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            $failed[] = [
+                'id' => $participantId,
+                'reason' => $e->getMessage()
+            ];
+        }
+    }
+
+    $status = 'success';
+    if ($deleted === 0) {
+        $status = 'error';
+    } elseif (!empty($notFound) || !empty($forbidden) || !empty($failed)) {
+        $status = 'partial';
+    }
+
+    jsonSuccess([
+        'status' => $status,
+        'requested' => count($normalized),
+        'deleted' => $deleted,
+        'not_found' => $notFound,
+        'forbidden' => $forbidden,
+        'failed' => $failed
+    ], $status === 'success'
+        ? 'Exclusão em massa concluída.'
+        : 'Exclusão em massa concluída com pendências.');
+}
+
 function resolveOrganizerId(array $user): int
 {
     if (($user['role'] ?? '') === 'admin') {
@@ -451,6 +596,20 @@ function normalizeParticipantSector(string $value): string
 {
     $v = strtolower(trim($value));
     return preg_replace('/\s+/', '_', $v);
+}
+
+function participantTableExists(PDO $db, string $tableName): bool
+{
+    $stmt = $db->prepare("
+        SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+              AND table_name = :table_name
+        )
+    ");
+    $stmt->execute([':table_name' => $tableName]);
+    return (bool)$stmt->fetchColumn();
 }
 
 function migrateLegacyGuests(): void

@@ -2,14 +2,11 @@ import { useEffect, useState, useCallback } from "react";
 import api from "../lib/api";
 import {
   Ticket,
-  QrCode,
   Plus,
-  CheckCircle,
   XCircle,
   Clock,
   Eye,
-  Send,
-  Search
+  Send
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { QRCodeCanvas } from "qrcode.react";
@@ -40,10 +37,14 @@ export default function Tickets() {
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
   const [eventId, setEventId] = useState("");
-  const [scanMode, setScanMode] = useState(false);
-  const [qrInput, setQrInput] = useState("");
-  const [scanResult, setScanResult] = useState(null);
-  const [scanning, setScanning] = useState(false);
+  const [ticketTypes, setTicketTypes] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [commissaries, setCommissaries] = useState([]);
+  const [ticketTypeId, setTicketTypeId] = useState("");
+  const [batchFilter, setBatchFilter] = useState("");
+  const [commissaryFilter, setCommissaryFilter] = useState("");
+  const [batchForSale, setBatchForSale] = useState("");
+  const [commissaryForSale, setCommissaryForSale] = useState("");
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   
@@ -94,29 +95,90 @@ export default function Tickets() {
       .catch(() => console.error("Erro ao carregar eventos"));
   }, []);
 
+  const loadCommercialConfig = useCallback(async () => {
+    if (!eventId) {
+      setTicketTypes([]);
+      setBatches([]);
+      setCommissaries([]);
+      setTicketTypeId("");
+      setBatchForSale("");
+      setCommissaryForSale("");
+      return;
+    }
+
+    const [typesRes, batchesRes, commissariesRes] = await Promise.allSettled([
+      api.get("/tickets/types", { params: { event_id: eventId } }),
+      api.get("/tickets/batches", { params: { event_id: eventId } }),
+      api.get("/tickets/commissaries", { params: { event_id: eventId } }),
+    ]);
+
+    if (typesRes.status === "fulfilled") {
+      const types = typesRes.value.data?.data || [];
+      setTicketTypes(types);
+      setTicketTypeId((prev) => prev || (types[0]?.id ? String(types[0].id) : ""));
+    } else {
+      setTicketTypes([]);
+      toast.error(typesRes.reason?.response?.data?.message || "Erro ao carregar tipos de ingresso.");
+    }
+
+    setBatches(
+      batchesRes.status === "fulfilled"
+        ? batchesRes.value.data?.data || []
+        : []
+    );
+    setCommissaries(
+      commissariesRes.status === "fulfilled"
+        ? commissariesRes.value.data?.data || []
+        : []
+    );
+  }, [eventId]);
+
+  useEffect(() => {
+    if (!eventId && events.length > 0) {
+      setEventId(String(events[0].id));
+    }
+  }, [events, eventId]);
+
+  useEffect(() => {
+    loadCommercialConfig();
+  }, [loadCommercialConfig]);
+
   // 4. Busca de Ingressos (Com Cache Offline)
   const fetchTickets = useCallback(() => {
     setLoading(true);
-    const params = { per_page: 50 };
+    const params = {};
     if (eventId) params.event_id = eventId;
+    if (batchFilter) params.ticket_batch_id = batchFilter;
+    if (commissaryFilter) params.commissary_id = commissaryFilter;
 
     api.get("/tickets", { params })
       .then((r) => {
         const data = r.data.data || [];
-        setTickets(data);
-        localStorage.setItem("enjoyfun_tickets_cache", JSON.stringify(data));
+        const commercialOnly = data.filter((ticket) => {
+          const ref = String(ticket?.order_reference || "");
+          return !ref.startsWith("EF-GUEST-") && !ref.startsWith("EF-IMP-");
+        });
+        setTickets(commercialOnly);
+        localStorage.setItem("enjoyfun_tickets_cache", JSON.stringify(commercialOnly));
       })
       .catch(() => {
         const cached = localStorage.getItem("enjoyfun_tickets_cache");
         if (cached) {
-          setTickets(JSON.parse(cached));
+          const parsed = JSON.parse(cached);
+          const commercialOnly = Array.isArray(parsed)
+            ? parsed.filter((ticket) => {
+                const ref = String(ticket?.order_reference || "");
+                return !ref.startsWith("EF-GUEST-") && !ref.startsWith("EF-IMP-");
+              })
+            : [];
+          setTickets(commercialOnly);
           toast("Modo Offline: Usando cache.");
         } else {
           toast.error("Erro ao carregar ingressos.");
         }
       })
       .finally(() => setLoading(false));
-  }, [eventId]);
+  }, [eventId, batchFilter, commissaryFilter]);
 
   useEffect(() => {
     fetchTickets();
@@ -126,10 +188,16 @@ export default function Tickets() {
   const handleQuickSale = async () => {
     const targetEventId = eventId || (events[0] ? events[0].id : null);
     if (!targetEventId) return toast.error("Selecione um evento!");
+    if (!ticketTypeId) return toast.error("Selecione um tipo de ingresso.");
 
     const loadId = toast.loading("Emitindo ingresso...");
     try {
-      const payload = { event_id: targetEventId, ticket_type_id: 1, price: 150.0 };
+      const payload = {
+        event_id: Number(targetEventId),
+        ticket_type_id: Number(ticketTypeId),
+        ticket_batch_id: batchForSale ? Number(batchForSale) : null,
+        commissary_id: commissaryForSale ? Number(commissaryForSale) : null,
+      };
       const { data } = await api.post("/tickets", payload);
       if (data.success) {
         toast.success("Ingresso gerado!", { id: loadId });
@@ -160,84 +228,55 @@ export default function Tickets() {
     }
   };
 
-  // 7. Validação por Scanner (Portaria)
-  const handleScan = async (e) => {
-    if (e) e.preventDefault();
-    const token = qrInput.trim();
-    if (!token) return;
-
-    setScanning(true);
-    setScanResult(null);
-
-    try {
-      // Bate na rota de validação dinâmica (Motor 3.0)
-      const { data } = await api.post("/tickets/validate", { dynamic_token: token });
-      setScanResult(data);
-      if (data.success) {
-        toast.success(data.message);
-        setQrInput("");
-        fetchTickets();
-      }
-    } catch (err) {
-      const msg = err.response?.data?.message || "QR Code Expirado (PRINT)";
-      setScanResult({ success: false, message: msg });
-      toast.error(msg);
-    } finally {
-      setScanning(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* HEADER CORRIGIDO: Botões alinhados e responsivos */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="page-title flex items-center gap-2">
-            <Ticket size={22} className="text-brand" /> Ingressos
+            <Ticket size={22} className="text-brand" /> Ingressos Comerciais
           </h1>
-          <p className="text-gray-500 text-sm mt-1">{tickets.length} ingressos ativos</p>
+          <p className="text-gray-500 text-sm mt-1">{tickets.length} ingressos comerciais ativos</p>
         </div>
         <div className="flex flex-wrap gap-3 w-full sm:w-auto">
           <button onClick={handleQuickSale} className="btn-primary flex-1 sm:flex-none justify-center">
             <Plus size={18} /> Venda Rápida
           </button>
-          <button onClick={() => setScanMode(!scanMode)} className={`flex-1 sm:flex-none justify-center ${scanMode ? "btn-secondary" : "btn-outline"}`}>
-            <QrCode size={18} /> {scanMode ? "Fechar Scanner" : "Scanner QR"}
-          </button>
         </div>
       </div>
 
-      {/* ÁREA DO SCANNER (PORTARIA) CORRIGIDA: Input e botão na mesma altura */}
-      {scanMode && (
-        <div className="card border-brand/40 animate-in zoom-in duration-300">
-          <h2 className="section-title">🔍 Validar Portaria (Anti-Print)</h2>
-          <form onSubmit={handleScan} className="flex gap-3 w-full">
-            <input 
-              className="input flex-1" 
-              placeholder="Bipe o código aqui..." 
-              value={qrInput} 
-              onChange={(e) => setQrInput(e.target.value)} 
-              autoFocus 
-            />
-            <button type="submit" disabled={scanning} className="btn-primary px-8">
-              {scanning ? <span className="spinner w-5 h-5" /> : "Validar"}
-            </button>
-          </form>
-          {scanResult && (
-            <div className={`mt-4 rounded-xl p-4 border flex items-start gap-3 ${scanResult.success ? "bg-green-900/20 border-green-800" : "bg-red-900/20 border-red-800"}`}>
-              {scanResult.success ? <CheckCircle size={20} className="text-green-400" /> : <XCircle size={20} className="text-red-400" />}
-              <p className={`font-semibold ${scanResult.success ? "text-green-400" : "text-red-400"}`}>{scanResult.message}</p>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* FILTROS */}
-      <div className="flex gap-3">
-        <select className="select w-auto min-w-[200px]" value={eventId} onChange={(e) => setEventId(e.target.value)}>
-          <option value="">Todos os eventos</option>
-          {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
-        </select>
+      <div className="card p-4 space-y-3">
+        <p className="text-xs text-gray-500 uppercase tracking-wide">Operação Comercial de Ingressos</p>
+        <div className="grid md:grid-cols-3 gap-3">
+          <select className="select" value={eventId} onChange={(e) => setEventId(e.target.value)}>
+            <option value="">Selecione o evento</option>
+            {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+          </select>
+          <select className="select" value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)} disabled={!eventId}>
+            <option value="">Filtro por lote (todos)</option>
+            {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
+          </select>
+          <select className="select" value={commissaryFilter} onChange={(e) => setCommissaryFilter(e.target.value)} disabled={!eventId}>
+            <option value="">Filtro por comissário (todos)</option>
+            {commissaries.map((commissary) => <option key={commissary.id} value={commissary.id}>{commissary.name}</option>)}
+          </select>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-3">
+          <select className="select" value={ticketTypeId} onChange={(e) => setTicketTypeId(e.target.value)} disabled={!eventId}>
+            <option value="">Tipo para venda rápida</option>
+            {ticketTypes.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
+          </select>
+          <select className="select" value={batchForSale} onChange={(e) => setBatchForSale(e.target.value)} disabled={!eventId}>
+            <option value="">Lote na venda (opcional)</option>
+            {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
+          </select>
+          <select className="select" value={commissaryForSale} onChange={(e) => setCommissaryForSale(e.target.value)} disabled={!eventId}>
+            <option value="">Comissário na venda (opcional)</option>
+            {commissaries.map((commissary) => <option key={commissary.id} value={commissary.id}>{commissary.name}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* TABELA DE REGISTROS */}
@@ -251,6 +290,8 @@ export default function Tickets() {
                 <th>Titular</th>
                 <th>Evento</th>
                 <th>Tipo</th>
+                <th>Lote</th>
+                <th>Comissário</th>
                 <th>Status</th>
                 <th className="text-right">Ações</th>
               </tr>
@@ -259,11 +300,13 @@ export default function Tickets() {
               {tickets.map((t) => (
                 <tr key={t.id} className="hover:bg-white/5 transition-colors">
                   <td>
-                    <div className="font-medium text-white">{t.holder_name || "Participante"}</div>
+                    <div className="font-medium text-white">{t.holder_name || "Cliente"}</div>
                     <div className="text-[10px] text-gray-500 font-mono">{t.order_reference}</div>
                   </td>
                   <td>{t.event_name}</td>
                   <td><span className="badge-purple">{t.type_name || "Geral"}</span></td>
+                  <td className="text-gray-300">{t.batch_name || 'Sem lote'}</td>
+                  <td className="text-gray-300">{t.commissary_name || 'Sem comissário'}</td>
                   <td><span className={statusBadge[t.status]}>{statusLabel[t.status]}</span></td>
                   <td className="text-right">
                     <div className="flex justify-end gap-2">
@@ -303,7 +346,7 @@ export default function Tickets() {
             </div>
 
             <div className="space-y-1">
-              <p className="text-white font-bold text-2xl truncate px-2">{selectedTicket.holder_name || "Participante"}</p>
+              <p className="text-white font-bold text-2xl truncate px-2">{selectedTicket.holder_name || "Cliente"}</p>
               <p className="text-brand font-semibold uppercase">{selectedTicket.type_name || "Ingresso Geral"}</p>
               <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] py-1 px-2 rounded mt-2 font-bold uppercase">
                   Prints e Fotos são inválidos nesta portaria

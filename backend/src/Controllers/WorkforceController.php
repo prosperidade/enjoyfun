@@ -35,6 +35,15 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         return;
     }
 
+    if ($id === 'role-settings') {
+        match (true) {
+            $method === 'GET' && $sub !== null => getRoleSettings((int)$sub),
+            $method === 'PUT' && $sub !== null => upsertRoleSettings((int)$sub, $body),
+            default => jsonError('Endpoint de Configuração de Cargo não encontrado.', 404),
+        };
+        return;
+    }
+
     if ($id === 'assignments') {
         match (true) {
             $method === 'GET'    => listAssignments($query),
@@ -45,7 +54,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         return;
     }
 
-    jsonError('Endpoint de Workforce não encontrado (utilize /workforce/roles ou /workforce/assignments).', 404);
+    jsonError('Endpoint de Workforce não encontrado (utilize /workforce/roles, /workforce/assignments, /workforce/member-settings ou /workforce/role-settings).', 404);
 }
 
 // ----------------------------------------------------
@@ -61,14 +70,25 @@ function listRoles(): void
     $userSector = resolveUserSector($db, $user);
 
     $hasRoleSector = columnExists($db, 'workforce_roles', 'sector');
-    $sectorSelect = $hasRoleSector ? "sector" : "NULL::varchar AS sector";
-    $sql = "SELECT id, name, {$sectorSelect}, created_at FROM workforce_roles WHERE organizer_id = ?";
+    $sectorSelect = $hasRoleSector ? "wr.sector AS sector" : "NULL::varchar AS sector";
+    $bucketSelect = $hasRoleSettings
+        ? "COALESCE(wrs.cost_bucket, 'operational') AS cost_bucket"
+        : "'operational'::varchar AS cost_bucket";
+    $sql = "
+        SELECT wr.id, wr.name, {$sectorSelect}, wr.created_at, {$bucketSelect}
+        FROM workforce_roles wr
+        " . ($hasRoleSettings ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wr.id AND wrs.organizer_id = ?" : "") . "
+        WHERE wr.organizer_id = ?
+    ";
     $params = [$organizerId];
+    if ($hasRoleSettings) {
+        $params = [$organizerId, $organizerId];
+    }
     if ($hasRoleSector && !$canBypassSector && $userSector !== 'all') {
-        $sql .= " AND LOWER(COALESCE(sector, '')) = ?";
+        $sql .= " AND LOWER(COALESCE(wr.sector, '')) = ?";
         $params[] = $userSector;
     }
-    $sql .= " ORDER BY name ASC";
+    $sql .= " ORDER BY wr.name ASC";
 
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
@@ -111,16 +131,270 @@ function deleteRole(int $id): void
     $db = Database::getInstance();
     $organizerId = resolveOrganizerId($user);
 
-    $stmtCheck = $db->prepare("SELECT id FROM workforce_roles WHERE id = ? AND organizer_id = ?");
+    $stmtCheck = $db->prepare("SELECT id, name FROM workforce_roles WHERE id = ? AND organizer_id = ?");
     $stmtCheck->execute([$id, $organizerId]);
-    if (!$stmtCheck->fetchColumn()) jsonError('Cargo não encontrado.', 404);
+    $role = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+    if (!$role) jsonError('Cargo não encontrado.', 404);
 
-    $checkDeps = $db->prepare("SELECT COUNT(*) FROM workforce_assignments WHERE role_id = ?");
-    $checkDeps->execute([$id]);
-    if ($checkDeps->fetchColumn() > 0) jsonError('Não é possível excluir o cargo pois existem alocações vinculadas a ele.', 409);
+    try {
+        $db->beginTransaction();
 
-    $db->prepare("DELETE FROM workforce_roles WHERE id = ?")->execute([$id]);
-    jsonSuccess([], 'Cargo excluído.');
+        $countAssignments = $db->prepare("SELECT COUNT(*) FROM workforce_assignments WHERE role_id = ?");
+        $countAssignments->execute([$id]);
+        $assignmentsCount = (int)$countAssignments->fetchColumn();
+
+        $removedRoleSettings = 0;
+        if (tableExists($db, 'workforce_role_settings')) {
+            $stmtRoleSettings = $db->prepare("DELETE FROM workforce_role_settings WHERE role_id = ? AND organizer_id = ?");
+            $stmtRoleSettings->execute([$id, $organizerId]);
+            $removedRoleSettings = (int)$stmtRoleSettings->rowCount();
+        }
+
+        // Remove vínculos operacionais do cargo antes de remover o próprio cargo.
+        $stmtAssignments = $db->prepare("DELETE FROM workforce_assignments WHERE role_id = ?");
+        $stmtAssignments->execute([$id]);
+        $removedAssignments = (int)$stmtAssignments->rowCount();
+
+        $stmtRole = $db->prepare("DELETE FROM workforce_roles WHERE id = ? AND organizer_id = ?");
+        $stmtRole->execute([$id, $organizerId]);
+
+        $db->commit();
+
+        if (class_exists('AuditService')) {
+            AuditService::log(
+                'workforce.role.delete',
+                'workforce_role',
+                (int)$id,
+                [
+                    'role_name' => $role['name'],
+                    'assignments_count' => $assignmentsCount,
+                    'organizer_id' => $organizerId,
+                ],
+                null,
+                $user,
+                'success',
+                [
+                    'removed_assignments' => $removedAssignments,
+                    'removed_role_settings' => $removedRoleSettings
+                ]
+            );
+        }
+
+        jsonSuccess([
+            'role_id' => (int)$id,
+            'removed_assignments' => $removedAssignments,
+            'removed_role_settings' => $removedRoleSettings
+        ], 'Cargo excluído com sucesso (vínculos removidos automaticamente).');
+    } catch (\Throwable $e) {
+        if ($db->inTransaction()) $db->rollBack();
+        jsonError('Erro ao excluir cargo: ' . $e->getMessage(), 500);
+    }
+}
+
+function getRoleSettings(int $roleId): void
+{
+    $user = requireAuth(['admin', 'organizer', 'manager']);
+    $db = Database::getInstance();
+    $organizerId = resolveOrganizerId($user);
+    $canBypassSector = canBypassSectorAcl($user);
+    $userSector = resolveUserSector($db, $user);
+
+    $role = getRoleById($db, $organizerId, $roleId);
+    if (!$role) {
+        jsonError('Cargo não encontrado.', 404);
+    }
+    $roleSector = normalizeSector((string)($role['sector'] ?? ''));
+    if (!$canBypassSector && $userSector !== 'all' && $roleSector !== '' && $roleSector !== $userSector) {
+        jsonError('Sem permissão para este cargo.', 403);
+    }
+
+    ensureWorkforceRoleSettingsTable($db);
+
+    if (!tableExists($db, 'workforce_role_settings')) {
+        jsonSuccess([
+            'role_id' => $roleId,
+            'max_shifts_event' => 1,
+            'shift_hours' => 8,
+            'meals_per_day' => 4,
+            'payment_amount' => 0,
+            'cost_bucket' => inferCostBucketFromRoleName((string)($role['name'] ?? '')),
+            'leader_name' => '',
+            'leader_cpf' => '',
+            'leader_phone' => '',
+            'source' => 'default'
+        ]);
+    }
+
+    $hasLeaderName = columnExists($db, 'workforce_role_settings', 'leader_name');
+    $hasLeaderCpf = columnExists($db, 'workforce_role_settings', 'leader_cpf');
+    $hasLeaderPhone = columnExists($db, 'workforce_role_settings', 'leader_phone');
+
+    $leaderNameSelect = $hasLeaderName
+        ? "COALESCE(leader_name, '') AS leader_name"
+        : "'' AS leader_name";
+    $leaderCpfSelect = $hasLeaderCpf
+        ? "COALESCE(leader_cpf, '') AS leader_cpf"
+        : "'' AS leader_cpf";
+    $leaderPhoneSelect = $hasLeaderPhone
+        ? "COALESCE(leader_phone, '') AS leader_phone"
+        : "'' AS leader_phone";
+
+    $stmt = $db->prepare("
+        SELECT role_id, max_shifts_event, shift_hours, meals_per_day, payment_amount, cost_bucket,
+               {$leaderNameSelect},
+               {$leaderCpfSelect},
+               {$leaderPhoneSelect}
+        FROM workforce_role_settings
+        WHERE role_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$roleId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$row) {
+        jsonSuccess([
+            'role_id' => $roleId,
+            'max_shifts_event' => 1,
+            'shift_hours' => 8,
+            'meals_per_day' => 4,
+            'payment_amount' => 0,
+            'cost_bucket' => inferCostBucketFromRoleName((string)($role['name'] ?? '')),
+            'leader_name' => '',
+            'leader_cpf' => '',
+            'leader_phone' => '',
+            'source' => 'default'
+        ]);
+    }
+
+    jsonSuccess([
+        'role_id' => (int)$row['role_id'],
+        'max_shifts_event' => (int)$row['max_shifts_event'],
+        'shift_hours' => (float)$row['shift_hours'],
+        'meals_per_day' => (int)$row['meals_per_day'],
+        'payment_amount' => (float)$row['payment_amount'],
+        'cost_bucket' => normalizeCostBucket((string)($row['cost_bucket'] ?? ''), (string)($role['name'] ?? '')),
+        'leader_name' => (string)($row['leader_name'] ?? ''),
+        'leader_cpf' => (string)($row['leader_cpf'] ?? ''),
+        'leader_phone' => (string)($row['leader_phone'] ?? ''),
+        'source' => 'role_settings'
+    ]);
+}
+
+function upsertRoleSettings(int $roleId, array $body): void
+{
+    $user = requireAuth(['admin', 'organizer', 'manager']);
+    $db = Database::getInstance();
+    $organizerId = resolveOrganizerId($user);
+    $canBypassSector = canBypassSectorAcl($user);
+    $userSector = resolveUserSector($db, $user);
+
+    $role = getRoleById($db, $organizerId, $roleId);
+    if (!$role) {
+        jsonError('Cargo não encontrado.', 404);
+    }
+    $roleSector = normalizeSector((string)($role['sector'] ?? ''));
+    if (!$canBypassSector && $userSector !== 'all' && $roleSector !== '' && $roleSector !== $userSector) {
+        jsonError('Sem permissão para este cargo.', 403);
+    }
+    ensureWorkforceRoleSettingsTable($db);
+
+    if (!tableExists($db, 'workforce_role_settings')) {
+        jsonError('Estrutura de configuração por cargo indisponível. Aplique a migration desta rodada.', 409);
+    }
+
+    $maxShiftsEvent = max(0, (int)($body['max_shifts_event'] ?? 1));
+    $shiftHours = max(0, (float)($body['shift_hours'] ?? 8));
+    $mealsPerDay = max(0, (int)($body['meals_per_day'] ?? 4));
+    $paymentAmount = max(0, (float)($body['payment_amount'] ?? 0));
+    $costBucket = normalizeCostBucket((string)($body['cost_bucket'] ?? ''), (string)($role['name'] ?? ''));
+    $leaderName = trim((string)($body['leader_name'] ?? ''));
+    $leaderCpf = trim((string)($body['leader_cpf'] ?? ''));
+    $leaderPhone = trim((string)($body['leader_phone'] ?? ''));
+
+    $hasLeaderName = columnExists($db, 'workforce_role_settings', 'leader_name');
+    $hasLeaderCpf = columnExists($db, 'workforce_role_settings', 'leader_cpf');
+    $hasLeaderPhone = columnExists($db, 'workforce_role_settings', 'leader_phone');
+
+    $columns = [
+        'organizer_id',
+        'role_id',
+        'max_shifts_event',
+        'shift_hours',
+        'meals_per_day',
+        'payment_amount',
+        'cost_bucket',
+    ];
+    $placeholders = [
+        ':organizer_id',
+        ':role_id',
+        ':max_shifts_event',
+        ':shift_hours',
+        ':meals_per_day',
+        ':payment_amount',
+        ':cost_bucket',
+    ];
+    $updates = [
+        'max_shifts_event = EXCLUDED.max_shifts_event',
+        'shift_hours = EXCLUDED.shift_hours',
+        'meals_per_day = EXCLUDED.meals_per_day',
+        'payment_amount = EXCLUDED.payment_amount',
+        'cost_bucket = EXCLUDED.cost_bucket',
+    ];
+    $params = [
+        ':organizer_id' => $organizerId,
+        ':role_id' => $roleId,
+        ':max_shifts_event' => $maxShiftsEvent,
+        ':shift_hours' => $shiftHours,
+        ':meals_per_day' => $mealsPerDay,
+        ':payment_amount' => $paymentAmount,
+        ':cost_bucket' => $costBucket,
+    ];
+
+    if ($hasLeaderName) {
+        $columns[] = 'leader_name';
+        $placeholders[] = ':leader_name';
+        $updates[] = 'leader_name = EXCLUDED.leader_name';
+        $params[':leader_name'] = $leaderName !== '' ? $leaderName : null;
+    }
+    if ($hasLeaderCpf) {
+        $columns[] = 'leader_cpf';
+        $placeholders[] = ':leader_cpf';
+        $updates[] = 'leader_cpf = EXCLUDED.leader_cpf';
+        $params[':leader_cpf'] = $leaderCpf !== '' ? $leaderCpf : null;
+    }
+    if ($hasLeaderPhone) {
+        $columns[] = 'leader_phone';
+        $placeholders[] = ':leader_phone';
+        $updates[] = 'leader_phone = EXCLUDED.leader_phone';
+        $params[':leader_phone'] = $leaderPhone !== '' ? $leaderPhone : null;
+    }
+
+    $stmt = $db->prepare("
+        INSERT INTO workforce_role_settings (
+            " . implode(', ', $columns) . ",
+            created_at, updated_at
+        )
+        VALUES (
+            " . implode(', ', $placeholders) . ",
+            NOW(), NOW()
+        )
+        ON CONFLICT (role_id) DO UPDATE SET
+            " . implode(",\n            ", $updates) . ",
+            updated_at = NOW()
+    ");
+    $stmt->execute($params);
+
+    jsonSuccess([
+        'role_id' => $roleId,
+        'max_shifts_event' => $maxShiftsEvent,
+        'shift_hours' => $shiftHours,
+        'meals_per_day' => $mealsPerDay,
+        'payment_amount' => $paymentAmount,
+        'cost_bucket' => $costBucket,
+        'leader_name' => $leaderName,
+        'leader_cpf' => $leaderCpf,
+        'leader_phone' => $leaderPhone
+    ], 'Configuração do cargo atualizada com sucesso.');
 }
 
 // ----------------------------------------------------
@@ -143,6 +417,7 @@ function listAssignments(array $query): void
 
     $requestedSector = normalizeSector((string)($query['sector'] ?? ''));
     $requestedRoleId = (int)($query['role_id'] ?? 0);
+    $hasRoleSettings = tableExists($db, 'workforce_role_settings');
     $effectiveSector = null;
 
     if ($canBypassSector) {
@@ -161,12 +436,23 @@ function listAssignments(array $query): void
         $params[':role_id'] = $requestedRoleId;
     }
 
+    // Regra de domínio: configuração de cargo NÃO deve ser herdada por trabalhadores.
+    // Trabalhadores usam apenas override individual (workforce_member_settings) ou default operacional.
+    $maxShiftsExpr = "COALESCE(wms.max_shifts_event, 1)";
+    $shiftHoursExpr = "COALESCE(wms.shift_hours, 8)";
+    $mealsExpr = "COALESCE(wms.meals_per_day, 4)";
+    $paymentExpr = "COALESCE(wms.payment_amount, 0)";
+    $bucketExpr = "'operational'";
     $sql = "
         SELECT wa.id, wa.sector, wa.created_at,
                ep.id as participant_id, ep.qr_token, p.name as person_name, p.phone,
                r.id as role_id, r.name as role_name,
                es.id as shift_id, es.name as shift_name, ed.date as shift_date,
-               wms.max_shifts_event, wms.shift_hours, wms.meals_per_day, wms.payment_amount
+               {$maxShiftsExpr}::int AS max_shifts_event,
+               {$shiftHoursExpr}::numeric AS shift_hours,
+               {$mealsExpr}::int AS meals_per_day,
+               {$paymentExpr}::numeric AS payment_amount,
+               {$bucketExpr}::varchar AS cost_bucket
         FROM workforce_assignments wa
         JOIN event_participants ep ON ep.id = wa.participant_id
         JOIN people p ON p.id = ep.person_id
@@ -331,7 +617,19 @@ function getMemberSettings(int $participantId): void
             'max_shifts_event' => 1,
             'shift_hours' => 8,
             'meals_per_day' => 4,
-            'payment_amount' => 0
+            'payment_amount' => 0,
+            'cost_bucket' => 'operational',
+            'source' => 'default'
+        ];
+    } else {
+        $row = [
+            'participant_id' => (int)$row['participant_id'],
+            'max_shifts_event' => (int)$row['max_shifts_event'],
+            'shift_hours' => (float)$row['shift_hours'],
+            'meals_per_day' => (int)$row['meals_per_day'],
+            'payment_amount' => (float)$row['payment_amount'],
+            'cost_bucket' => 'operational',
+            'source' => 'member_override'
         ];
     }
 
@@ -758,6 +1056,109 @@ function columnExists(PDO $db, string $table, string $column): bool
     $stmt->execute([':table' => $table, ':column' => $column]);
     $cache[$key] = (bool)$stmt->fetchColumn();
     return $cache[$key];
+}
+
+function tableExists(PDO $db, string $table): bool
+{
+    static $cache = [];
+    if (array_key_exists($table, $cache)) {
+        return $cache[$table];
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = :table
+        LIMIT 1
+    ");
+    $stmt->execute([':table' => $table]);
+    $cache[$table] = (bool)$stmt->fetchColumn();
+    return $cache[$table];
+}
+
+function ensureWorkforceRoleSettingsTable(PDO $db): void
+{
+    try {
+        if (!tableExists($db, 'workforce_role_settings')) {
+            $db->exec("
+                CREATE TABLE IF NOT EXISTS workforce_role_settings (
+                    id SERIAL PRIMARY KEY,
+                    organizer_id INTEGER NOT NULL,
+                    role_id INTEGER NOT NULL UNIQUE,
+                    max_shifts_event INTEGER NOT NULL DEFAULT 1,
+                    shift_hours NUMERIC(10,2) NOT NULL DEFAULT 8,
+                    meals_per_day INTEGER NOT NULL DEFAULT 4,
+                    payment_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+                    cost_bucket VARCHAR(20) NOT NULL DEFAULT 'operational',
+                    leader_name VARCHAR(150) NULL,
+                    leader_cpf VARCHAR(20) NULL,
+                    leader_phone VARCHAR(40) NULL,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+                )
+            ");
+        }
+    } catch (\Throwable $e) {
+        return;
+    }
+
+    if (!tableExists($db, 'workforce_role_settings')) {
+        return;
+    }
+
+    $statements = [
+        "ALTER TABLE workforce_role_settings ADD COLUMN IF NOT EXISTS leader_name VARCHAR(150) NULL",
+        "ALTER TABLE workforce_role_settings ADD COLUMN IF NOT EXISTS leader_cpf VARCHAR(20) NULL",
+        "ALTER TABLE workforce_role_settings ADD COLUMN IF NOT EXISTS leader_phone VARCHAR(40) NULL",
+        "
+            CREATE INDEX IF NOT EXISTS idx_workforce_role_settings_organizer
+            ON workforce_role_settings (organizer_id)
+        ",
+        "
+            CREATE INDEX IF NOT EXISTS idx_workforce_role_settings_role
+            ON workforce_role_settings (role_id)
+        ",
+    ];
+
+    foreach ($statements as $statement) {
+        try {
+            $db->exec($statement);
+        } catch (\Throwable $e) {
+            // Compatibilidade: não falhar requests operacionais por falta de DDL.
+        }
+    }
+}
+
+function normalizeCostBucket(string $value, string $roleName = ''): string
+{
+    $normalized = strtolower(trim($value));
+    if ($normalized === 'managerial' || $normalized === 'operational') {
+        return $normalized;
+    }
+    return inferCostBucketFromRoleName($roleName);
+}
+
+function inferCostBucketFromRoleName(string $roleName): string
+{
+    $name = strtolower(trim($roleName));
+    $managerialHints = [
+        'gerente',
+        'diretor',
+        'coordenador',
+        'supervisor',
+        'lider',
+        'chefe',
+        'gestor',
+        'manager'
+    ];
+
+    foreach ($managerialHints as $hint) {
+        if ($name !== '' && str_contains($name, $hint)) {
+            return 'managerial';
+        }
+    }
+    return 'operational';
 }
 
 function ensureParticipantQrToken(PDO $db, int $participantId): void

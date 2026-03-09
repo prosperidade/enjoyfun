@@ -22,21 +22,32 @@ class PaymentGatewayService
 
     public static function listGateways(PDO $db, int $organizerId): array
     {
+        $selectColumns = self::selectColumns($db);
         $stmt = $db->prepare("
-            SELECT id, provider, credentials, is_active, is_primary, environment, created_at, updated_at
+            SELECT {$selectColumns}
             FROM organizer_payment_gateways
             WHERE organizer_id = ?
-            ORDER BY is_primary DESC, id ASC
+            ORDER BY id ASC
         ");
         $stmt->execute([$organizerId]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        return array_map(fn($row) => self::mapGatewayRow($row), $rows);
+        $mapped = array_map(fn($row) => self::mapGatewayRow($row), $rows);
+        usort($mapped, function ($a, $b) {
+            $ap = self::toBool($a['is_primary'] ?? false);
+            $bp = self::toBool($b['is_primary'] ?? false);
+            if ($ap === $bp) {
+                return (int)($a['id'] ?? 0) <=> (int)($b['id'] ?? 0);
+            }
+            return $ap ? -1 : 1;
+        });
+        return $mapped;
     }
 
     public static function getGatewayById(PDO $db, int $organizerId, int $gatewayId): ?array
     {
+        $selectColumns = self::selectColumns($db);
         $stmt = $db->prepare("
-            SELECT id, provider, credentials, is_active, is_primary, environment, created_at, updated_at
+            SELECT {$selectColumns}
             FROM organizer_payment_gateways
             WHERE id = ? AND organizer_id = ?
             LIMIT 1
@@ -49,8 +60,9 @@ class PaymentGatewayService
     public static function findByProvider(PDO $db, int $organizerId, string $provider): ?array
     {
         $provider = self::normalizeProvider($provider);
+        $selectColumns = self::selectColumns($db);
         $stmt = $db->prepare("
-            SELECT id, provider, credentials, is_active, is_primary, environment, created_at, updated_at
+            SELECT {$selectColumns}
             FROM organizer_payment_gateways
             WHERE organizer_id = ? AND provider = ?
             LIMIT 1
@@ -78,21 +90,38 @@ class PaymentGatewayService
         $credentials = self::extractCredentialInput($payload);
         $storedCredentials = self::buildStoredCredentials($credentials, $isPrimary, $environment);
 
-        $stmt = $db->prepare("
-            INSERT INTO organizer_payment_gateways (
-                organizer_id, provider, credentials, is_active, is_primary, environment, updated_at
-            )
-            VALUES (?, ?, ?::jsonb, ?, ?, ?, NOW())
-            RETURNING id
-        ");
-        $stmt->execute([
-            $organizerId,
-            $provider,
-            json_encode($storedCredentials, JSON_UNESCAPED_UNICODE),
-            $isActive,
-            $isPrimary,
-            $environment
-        ]);
+        $schema = self::gatewaySchema($db);
+        if ($schema['has_is_primary'] && $schema['has_environment']) {
+            $stmt = $db->prepare("
+                INSERT INTO organizer_payment_gateways (
+                    organizer_id, provider, credentials, is_active, is_primary, environment, updated_at
+                )
+                VALUES (?, ?, ?::jsonb, ?, ?, ?, NOW())
+                RETURNING id
+            ");
+            $stmt->execute([
+                $organizerId,
+                $provider,
+                json_encode($storedCredentials, JSON_UNESCAPED_UNICODE),
+                $isActive,
+                $isPrimary,
+                $environment
+            ]);
+        } else {
+            $stmt = $db->prepare("
+                INSERT INTO organizer_payment_gateways (
+                    organizer_id, provider, credentials, is_active, updated_at
+                )
+                VALUES (?, ?, ?::jsonb, ?, NOW())
+                RETURNING id
+            ");
+            $stmt->execute([
+                $organizerId,
+                $provider,
+                json_encode($storedCredentials, JSON_UNESCAPED_UNICODE),
+                $isActive
+            ]);
+        }
         $gatewayId = (int)$stmt->fetchColumn();
 
         if ($isPrimary) {
@@ -148,24 +177,40 @@ class PaymentGatewayService
 
         $storedCredentials = self::buildStoredCredentials($finalSecrets, $isPrimary, $environment);
 
-        $stmt = $db->prepare("
-            UPDATE organizer_payment_gateways
-            SET provider = ?, credentials = ?::jsonb, is_active = ?, is_primary = ?, environment = ?, updated_at = NOW()
-            WHERE id = ? AND organizer_id = ?
-        ");
-        $stmt->execute([
-            $provider,
-            json_encode($storedCredentials, JSON_UNESCAPED_UNICODE),
-            $isActive,
-            $isPrimary,
-            $environment,
-            $gatewayId,
-            $organizerId
-        ]);
+        $schema = self::gatewaySchema($db);
+        if ($schema['has_is_primary'] && $schema['has_environment']) {
+            $stmt = $db->prepare("
+                UPDATE organizer_payment_gateways
+                SET provider = ?, credentials = ?::jsonb, is_active = ?, is_primary = ?, environment = ?, updated_at = NOW()
+                WHERE id = ? AND organizer_id = ?
+            ");
+            $stmt->execute([
+                $provider,
+                json_encode($storedCredentials, JSON_UNESCAPED_UNICODE),
+                $isActive,
+                $isPrimary,
+                $environment,
+                $gatewayId,
+                $organizerId
+            ]);
+        } else {
+            $stmt = $db->prepare("
+                UPDATE organizer_payment_gateways
+                SET provider = ?, credentials = ?::jsonb, is_active = ?, updated_at = NOW()
+                WHERE id = ? AND organizer_id = ?
+            ");
+            $stmt->execute([
+                $provider,
+                json_encode($storedCredentials, JSON_UNESCAPED_UNICODE),
+                $isActive,
+                $gatewayId,
+                $organizerId
+            ]);
+        }
 
         if ($isPrimary) {
             self::setPrimaryGateway($db, $organizerId, $gatewayId);
-        } elseif (!$isActive) {
+        } elseif (!$isActive && $schema['has_is_primary']) {
             // Um gateway inativo não pode seguir marcado como principal.
             $db->prepare("
                 UPDATE organizer_payment_gateways
@@ -194,23 +239,32 @@ class PaymentGatewayService
             throw new InvalidArgumentException('Gateway alvo para principal não encontrado.');
         }
 
-        // Zera principal de todos no tenant.
-        $db->prepare("
-            UPDATE organizer_payment_gateways
-            SET is_primary = FALSE, updated_at = NOW()
-            WHERE organizer_id = ?
-        ")->execute([$organizerId]);
+        $schema = self::gatewaySchema($db);
+        if ($schema['has_is_primary']) {
+            // Zera principal de todos no tenant.
+            $db->prepare("
+                UPDATE organizer_payment_gateways
+                SET is_primary = FALSE, updated_at = NOW()
+                WHERE organizer_id = ?
+            ")->execute([$organizerId]);
 
-        // Define principal e força ativo.
-        $db->prepare("
-            UPDATE organizer_payment_gateways
-            SET is_primary = TRUE, is_active = TRUE, updated_at = NOW()
-            WHERE organizer_id = ? AND id = ?
-        ")->execute([$organizerId, $gatewayId]);
+            // Define principal e força ativo.
+            $db->prepare("
+                UPDATE organizer_payment_gateways
+                SET is_primary = TRUE, is_active = TRUE, updated_at = NOW()
+                WHERE organizer_id = ? AND id = ?
+            ")->execute([$organizerId, $gatewayId]);
+        } else {
+            $db->prepare("
+                UPDATE organizer_payment_gateways
+                SET is_active = CASE WHEN id = ? THEN TRUE ELSE is_active END, updated_at = NOW()
+                WHERE organizer_id = ?
+            ")->execute([$gatewayId, $organizerId]);
+        }
 
         // Mantém o legado no JSON credentials (flags) para compatibilidade.
         $rowsStmt = $db->prepare("
-            SELECT id, credentials, environment
+            SELECT id, credentials, " . ($schema['has_environment'] ? "environment" : "NULL::varchar AS environment") . "
             FROM organizer_payment_gateways
             WHERE organizer_id = ?
             ORDER BY id ASC
@@ -235,15 +289,41 @@ class PaymentGatewayService
 
     public static function setGatewayActive(PDO $db, int $organizerId, int $gatewayId, bool $isActive): array
     {
-        $stmt = $db->prepare("
-            UPDATE organizer_payment_gateways
-            SET is_active = ?, is_primary = CASE WHEN ? = FALSE THEN FALSE ELSE is_primary END, updated_at = NOW()
-            WHERE id = ? AND organizer_id = ?
-        ");
-        $stmt->execute([$isActive, $isActive, $gatewayId, $organizerId]);
+        $schema = self::gatewaySchema($db);
+        if ($schema['has_is_primary']) {
+            $stmt = $db->prepare("
+                UPDATE organizer_payment_gateways
+                SET is_active = ?, is_primary = CASE WHEN ? = FALSE THEN FALSE ELSE is_primary END, updated_at = NOW()
+                WHERE id = ? AND organizer_id = ?
+            ");
+            $stmt->execute([$isActive, $isActive, $gatewayId, $organizerId]);
+        } else {
+            $stmt = $db->prepare("
+                UPDATE organizer_payment_gateways
+                SET is_active = ?, updated_at = NOW()
+                WHERE id = ? AND organizer_id = ?
+            ");
+            $stmt->execute([$isActive, $gatewayId, $organizerId]);
+        }
         if ($stmt->rowCount() <= 0) {
             throw new InvalidArgumentException('Gateway não encontrado para atualizar status.');
         }
+
+        if (!$isActive) {
+            $raw = self::getRawGateway($db, $organizerId, $gatewayId);
+            if ($raw) {
+                $decoded = self::decodeStoredCredentials($raw['credentials'] ?? []);
+                $secrets = $decoded['secrets'] ?? [];
+                $env = self::normalizeEnvironment((string)($raw['environment'] ?? ($decoded['flags']['environment'] ?? 'production')));
+                $stored = self::buildStoredCredentials($secrets, false, $env);
+                $db->prepare("
+                    UPDATE organizer_payment_gateways
+                    SET credentials = ?::jsonb, updated_at = NOW()
+                    WHERE id = ? AND organizer_id = ?
+                ")->execute([json_encode($stored, JSON_UNESCAPED_UNICODE), $gatewayId, $organizerId]);
+            }
+        }
+
         return self::getGatewayById($db, $organizerId, $gatewayId) ?? [];
     }
 
@@ -302,8 +382,9 @@ class PaymentGatewayService
 
     private static function getRawGateway(PDO $db, int $organizerId, int $gatewayId): ?array
     {
+        $selectColumns = self::selectColumns($db);
         $stmt = $db->prepare("
-            SELECT id, provider, credentials, is_active, is_primary, environment, created_at, updated_at
+            SELECT {$selectColumns}
             FROM organizer_payment_gateways
             WHERE id = ? AND organizer_id = ?
             LIMIT 1
@@ -461,6 +542,48 @@ class PaymentGatewayService
     {
         $env = strtolower(trim($environment));
         return in_array($env, ['sandbox', 'production'], true) ? $env : 'production';
+    }
+
+    private static function selectColumns(PDO $db): string
+    {
+        $schema = self::gatewaySchema($db);
+        $isPrimaryExpr = $schema['has_is_primary'] ? 'is_primary' : 'NULL::boolean AS is_primary';
+        $environmentExpr = $schema['has_environment'] ? 'environment' : 'NULL::varchar AS environment';
+        return "id, provider, credentials, is_active, {$isPrimaryExpr}, {$environmentExpr}, created_at, updated_at";
+    }
+
+    private static function gatewaySchema(PDO $db): array
+    {
+        static $cache = [];
+        $key = spl_object_hash($db);
+        if (isset($cache[$key])) {
+            return $cache[$key];
+        }
+        $cache[$key] = [
+            'has_is_primary' => self::columnExists($db, 'organizer_payment_gateways', 'is_primary'),
+            'has_environment' => self::columnExists($db, 'organizer_payment_gateways', 'environment'),
+        ];
+        return $cache[$key];
+    }
+
+    private static function columnExists(PDO $db, string $table, string $column): bool
+    {
+        static $cache = [];
+        $key = $table . '.' . $column;
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+        $stmt = $db->prepare("
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = :table
+              AND column_name = :column
+            LIMIT 1
+        ");
+        $stmt->execute([':table' => $table, ':column' => $column]);
+        $cache[$key] = (bool)$stmt->fetchColumn();
+        return $cache[$key];
     }
 
     private static function toBool($value): bool

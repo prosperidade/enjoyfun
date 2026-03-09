@@ -250,3 +250,119 @@ Em cada bloco novo de progresso, registrar sempre:
   - Cobertura mínima obrigatória de auditoria adicionada em mutações críticas revisadas: emissão de ticket, transferência de ticket e create/import/update/delete de participantes.
 - **Próxima ação sugerida:** Executar bateria de validação manual/E2E dos fluxos de borda (ticket transfer e participants import/update/delete) em staging com múltiplos tenants para confirmar ausência de regressão.
 - **Bloqueios / dependências:** Nenhum bloqueio de código; validação operacional depende de ambiente com dados reais multi-tenant.
+
+## Varredura Técnica Backend Pré-Correções (Scanner/Workforce + Gateways + Mensageria)
+
+- **Responsável:** Codex
+- **Status:** Entregue
+- **Escopo:** backend / diagnóstico técnico / contratos API / multi-tenant / risco operacional
+- **Arquivos principais tocados:** `docs/progresso.md`
+- **Próxima ação sugerida:** executar rodada de correções priorizada em 3 frentes: (1) blindagem e expansão do `POST /scanner/process` para Workforce + tenant, (2) correções de regressão de gateways/checkout e hardening transacional, (3) desacoplamento definitivo de mensageria para permanecer apenas em organizer settings com redaction de segredos.
+- **Bloqueios / dependências:** validação final depende de ambiente com migrations financeiras/workforce plenamente aplicadas e bateria E2E focada em scanner/workforce, checkout cashless e settings de mensageria.
+
+## Diagnóstico Técnico Backend — Varredura Completa Pré-Correções (Rodada Atual)
+
+- **Responsável:** Codex
+- **Status:** Entregue
+- **Escopo:** backend / diagnóstico técnico / segurança / multi-tenant / contratos API / operação
+- **Arquivos principais tocados:** `docs/progresso.md`
+- **Próxima ação sugerida:** abrir rodada de correções em ordem: scanner/workforce -> regressões de gateway/checkout -> desacoplamento de mensageria -> normalização de contratos de role/tenant.
+- **Bloqueios / dependências:** validação final depende de ambiente com migrations financeiras/workforce aplicadas e testes E2E focados em scanner/check-in, checkout cashless e settings de mensageria.
+
+- **Achados críticos mapeados (backend):**
+  - `CRÍTICO` — `POST /scanner/process` sem isolamento tenant por `organizer_id` e sem suporte ao fluxo `event_participants/workforce`.
+  - `CRÍTICO` — regressão de deleção multi-tenant em produtos (`bar` e `food`) com query destrutiva sem filtro completo por organizador.
+  - `ALTO` — checkout (`SalesDomainService`) baixa estoque sem lock/validação de saldo, com risco de estoque negativo sob concorrência.
+  - `ALTO` — risco de corrupção silenciosa de credenciais em gateways por fallback de criptografia/decriptação inconsistente.
+  - `ALTO` — mensageria ainda parcialmente acoplada ao módulo de settings geral e retorno com campos sensíveis sem redaction.
+  - `MÉDIO-ALTO` — contrato de role no `UserController` desalinhado da ACL operacional atual (`cashier` legado vs `staff/bartender/...`).
+  - `MÉDIO-ALTO` — auto-registro de organizer em `auth/register` sem garantir `organizer_id = id`, gerando risco de tenant órfão.
+  - `MÉDIO` — patch de status de gateway aceita ausência de `is_active` e pode desativar gateway por default implícito.
+
+- **Impacto operacional consolidado:**
+  - risco de check-in inconsistente e bloqueio do fluxo de equipe (workforce);
+  - risco de quebra de isolamento multi-tenant em operações destrutivas;
+  - risco de indisponibilidade financeira por credencial inválida/inutilizável;
+  - risco de inconsistência de estoque e retrabalho operacional em PDV;
+  - risco de regressão silenciosa por contrato backend/frontend divergente em auth/roles/settings.
+
+- **Ordem de ataque recomendada (diagnóstico):**
+  - 1) Scanner/Workforce backend (`/scanner/process`) com blindagem tenant + suporte completo a participantes/equipe.
+  - 2) Regressões de gateway e hardening de checkout (credenciais + estoque transacional).
+  - 3) Mensageria: manter lógica apenas no domínio organizer settings, com mascaramento de segredos.
+  - 4) Normalização de contratos API (roles e identidade de organizer) para reduzir regressão de borda multi-tenant.
+
+## Scanner/Check-in Backend v2 — Tenant Isolation + Workforce Support (POST /scanner/process)
+
+- **Responsável:** Codex
+- **Status:** Entregue
+- **Escopo:** backend / scanner / check-in / multi-tenant / auditoria
+- **Arquivos principais tocados:** `backend/src/Controllers/ScannerController.php`, `docs/progresso.md`
+- **Próxima ação sugerida:** executar validação E2E operacional com tokens reais de guest e workforce em múltiplos tenants (incluindo cenários de limite e bloqueio) e monitorar logs/auditoria em staging.
+- **Bloqueios / dependências:** para validação de limite por turno, dependência de dados válidos em `workforce_member_settings` e histórico em `participant_checkins`.
+
+- **O que foi implementado:**
+  - Blindagem explícita por tenant no scanner usando `organizer_id` do JWT em toda resolução de token.
+  - Resolução dual do token no `POST /scanner/process`:
+    - fluxo legado `guests` preservado;
+    - novo suporte a `event_participants`/Workforce com check-in operacional.
+  - Normalização de token para leitura por URL/JSON/token puro (compatível com scanners e links de convite).
+  - Respostas operacionais alinhadas ao frontend (`Scanner.jsx`) para os estados:
+    - válido (sucesso);
+    - já utilizado/já validado;
+    - token inválido;
+    - bloqueado/inapto;
+    - limite atingido;
+    - erro operacional previsível.
+  - Instrumentação de auditoria para sucesso/falha no fluxo do scanner.
+
+- **Checklist de validação (backend):**
+  - [x] scanner processando guest válido
+  - [x] scanner rejeitando token inválido
+  - [x] scanner tratando guest já validado
+  - [x] scanner suportando workforce/event_participants
+  - [x] scanner respeitando tenant isolation
+  - [x] cenário de erro operacional com mensagem útil
+  - [x] atualização do `docs/progresso.md`
+
+- **Riscos remanescentes:**
+  - validação de limite depende de qualidade/cobertura dos dados de configuração da equipe;
+  - recomendada rodada E2E com carga operacional real para confirmar comportamento em picos.
+
+## Estabilização Finance/Settings v1.2 (Frontend) — Regressões Financeiras + Resíduos de Mensageria
+
+- **Responsável:** Gemini 3.1
+- **Status:** Entregue
+- **Escopo:** frontend / UX / estabilidade de contrato / settings hub
+- **Arquivos principais tocados:** `frontend/src/pages/SettingsTabs/FinanceTab.jsx`, `frontend/src/pages/SettingsTabs/ChannelsTab.jsx`, `frontend/src/pages/Messaging.jsx`, `docs/progresso.md`
+- **Próxima ação sugerida:** executar validação funcional com usuário organizador real (fluxos: configurar gateway por provider, definir principal, testar conexão e envio de WhatsApp/e-mail usando canais já configurados na aba oficial de Settings).
+- **Bloqueios / dependências:** backend ainda retorna dados sensíveis em `GET /organizer-messaging-settings` (tokens/chaves em payload bruto); frontend está mitigando por não exibir fora da aba oficial, mas ideal é redaction no backend para hardening completo.
+
+- **Diagnóstico curto (rodada atual):**
+  - Havia regressão potencial no `FinanceTab` por uso predominante do endpoint legado (`/organizer-finance`) com payload ambíguo e sem mapeamento explícito de credencial por provider (`access_token` vs `api_key`).
+  - Havia resíduo claro de configuração de mensageria fora do domínio oficial: tela `Messaging.jsx` ainda tentava salvar em rota legada/inexistente (`/organizer-settings/messaging`), gerando duplicidade e ruído operacional.
+  - `ChannelsTab` não sincronizava estado após salvar, mantendo risco de feedback inconsistente para o organizador.
+
+- **Correções leves aplicadas (seguras):**
+  - `FinanceTab` migrado para consumo preferencial dos endpoints estruturados:
+    - `GET /organizer-finance/gateways`
+    - `GET /organizer-finance/settings`
+    - `POST/PUT /organizer-finance/gateways`
+    - `PATCH /organizer-finance/gateways/{id}/primary`
+    - `POST /organizer-finance/gateways/test` e `POST /organizer-finance/gateways/{id}/test`
+  - Mantido fallback de leitura via endpoint legado (`GET /organizer-finance`) para compatibilidade.
+  - Corrigido mapeamento de credenciais por provider no frontend (`access_token` x `api_key`) para reduzir regressão silenciosa em testes/salvamento.
+  - Melhorado feedback operacional no financeiro: mensagens de erro/sucesso mais previsíveis, estado de falha de carregamento e controle por provider em salvar/testar.
+  - `ChannelsTab` ajustado para ressincronizar dados após salvar (`fetchSettings`) e reforçar visualmente a centralização oficial de canais nessa aba.
+  - `Messaging.jsx` limpo de resíduos de configuração duplicada: removido fluxo de salvar credenciais fora do Settings Hub; mantidos envio/histórico e adicionado redirecionamento claro para `Settings > Canais de Contato`.
+
+- **Validação manual mínima (frontend):**
+  - [x] leitura/listagem de gateways no `FinanceTab` via endpoints estruturados
+  - [x] edição/criação de gateway com mapeamento de credencial por provider
+  - [x] ação de definir gateway principal com endpoint dedicado
+  - [x] ação de teste de conexão com fallback entre gateway salvo e payload explícito
+  - [x] revisão funcional de `ChannelsTab` (save + sync)
+  - [x] remoção de configuração duplicada de mensageria fora do lugar oficial (`Messaging.jsx`)
+
+- **Dependências de backend identificadas:**
+  - recomendado hardening do `OrganizerMessagingSettingsController` para não retornar chaves/tokens brutos no GET (usar flags/redacted), reduzindo exposição acidental em clientes e logs.

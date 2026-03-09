@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { QrCode, UtensilsCrossed, RefreshCw } from "lucide-react";
+import { QrCode, UtensilsCrossed, RefreshCw, Settings2, Save, X } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../lib/api";
 
@@ -27,6 +27,10 @@ export default function MealsControl() {
   const [registering, setRegistering] = useState(false);
   const [qrInput, setQrInput] = useState("");
   const [payload, setPayload] = useState({ summary: null, items: [] });
+  const [mealUnitCost, setMealUnitCost] = useState(0);
+  const [mealCostModalOpen, setMealCostModalOpen] = useState(false);
+  const [mealCostDraft, setMealCostDraft] = useState(0);
+  const [savingMealCost, setSavingMealCost] = useState(false);
 
   const filteredShifts = useMemo(() => {
     if (!eventDayId) return [];
@@ -80,6 +84,8 @@ export default function MealsControl() {
         summary: res.data?.data?.summary || null,
         items: res.data?.data?.items || [],
       });
+      const unit = Number(res.data?.data?.summary?.meal_unit_cost ?? mealUnitCost ?? 0);
+      setMealUnitCost(unit);
     } catch (err) {
       toast.error(err.response?.data?.message || "Erro ao carregar saldo de refeições.");
     } finally {
@@ -87,8 +93,22 @@ export default function MealsControl() {
     }
   };
 
+  const loadMealUnitCost = async () => {
+    try {
+      const res = await api.get("/organizer-finance/settings");
+      const settings = res.data?.data || {};
+      const unitCost = Number(settings.meal_unit_cost ?? 0);
+      setMealUnitCost(unitCost);
+      setMealCostDraft(unitCost);
+    } catch {
+      setMealUnitCost(0);
+      setMealCostDraft(0);
+    }
+  };
+
   useEffect(() => {
     loadEvents().catch(() => toast.error("Erro ao carregar eventos."));
+    loadMealUnitCost();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -149,6 +169,35 @@ export default function MealsControl() {
     consumed_day_total: 0,
     remaining_day_total: 0,
     consumed_shift_total: 0,
+    meal_unit_cost: mealUnitCost,
+    estimated_day_cost_total: 0,
+    consumed_day_cost_total: 0,
+    remaining_day_cost_total: 0,
+  };
+
+  const currentMealUnitCost = Number(summary.meal_unit_cost ?? mealUnitCost ?? 0);
+
+  const saveMealCost = async (e) => {
+    e.preventDefault();
+    const safeValue = Math.max(0, Number(mealCostDraft || 0));
+    setSavingMealCost(true);
+    try {
+      const res = await api.get("/organizer-finance/settings");
+      const settings = res.data?.data || {};
+      await api.put("/organizer-finance/settings", {
+        currency: settings.currency || "BRL",
+        tax_rate: Number(settings.tax_rate ?? 0),
+        meal_unit_cost: safeValue
+      });
+      setMealUnitCost(safeValue);
+      toast.success("Valor unitário de refeição atualizado.");
+      setMealCostModalOpen(false);
+      await loadBalance();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Erro ao salvar valor unitário da refeição.");
+    } finally {
+      setSavingMealCost(false);
+    }
   };
 
   return (
@@ -168,6 +217,15 @@ export default function MealsControl() {
           disabled={loading}
         >
           <RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Atualizar
+        </button>
+        <button
+          className="btn-secondary flex items-center gap-2"
+          onClick={() => {
+            setMealCostDraft(currentMealUnitCost);
+            setMealCostModalOpen(true);
+          }}
+        >
+          <Settings2 size={16} /> Valor Refeição
         </button>
       </div>
 
@@ -242,6 +300,33 @@ export default function MealsControl() {
         <div className="card p-3"><p className="text-xs text-gray-500">Consumidas turno</p><p className="text-xl font-bold text-blue-400">{summary.consumed_shift_total}</p></div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="card p-3">
+          <p className="text-xs text-gray-500">Valor unitário refeição</p>
+          <p className="text-lg font-bold text-white">
+            R$ {Number(currentMealUnitCost || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          </p>
+        </div>
+        <div className="card p-3">
+          <p className="text-xs text-gray-500">Custo estimado (dia)</p>
+          <p className="text-lg font-bold text-emerald-400">
+            R$ {Number(summary.estimated_day_cost_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          </p>
+        </div>
+        <div className="card p-3">
+          <p className="text-xs text-gray-500">Custo consumido (dia)</p>
+          <p className="text-lg font-bold text-amber-400">
+            R$ {Number(summary.consumed_day_cost_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          </p>
+        </div>
+        <div className="card p-3">
+          <p className="text-xs text-gray-500">Custo saldo (dia)</p>
+          <p className="text-lg font-bold text-cyan-400">
+            R$ {Number(summary.remaining_day_cost_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          </p>
+        </div>
+      </div>
+
       <div className="table-wrapper">
         <table className="table">
           <thead>
@@ -286,6 +371,48 @@ export default function MealsControl() {
           </tbody>
         </table>
       </div>
+
+      {mealCostModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md overflow-hidden">
+            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+              <div>
+                <h3 className="text-white font-bold">Configuração de Refeições</h3>
+                <p className="text-xs text-gray-500 mt-1">Defina o valor unitário para custo operacional.</p>
+              </div>
+              <button onClick={() => setMealCostModalOpen(false)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={saveMealCost} className="p-5 space-y-4">
+              <label className="text-xs text-gray-400 block">
+                Valor unitário da refeição (R$)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="input mt-1 w-full"
+                  value={mealCostDraft}
+                  onChange={(e) => setMealCostDraft(Number(e.target.value))}
+                />
+              </label>
+              <p className="text-xs text-gray-500">
+                O consumo total é calculado automaticamente com base em turnos e refeições configurados no Workforce.
+              </p>
+
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setMealCostModalOpen(false)} className="btn-secondary">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={savingMealCost} className="btn-primary flex items-center gap-2">
+                  <Save size={16} /> Salvar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

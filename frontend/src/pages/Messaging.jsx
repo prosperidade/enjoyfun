@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MessageCircle, Mail, Send, Settings, History, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
+import { MessageCircle, Mail, Send, History, CheckCircle, AlertCircle } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
@@ -10,19 +10,11 @@ const CHANNEL_TABS = [
 
 export default function Messaging() {
   const [tab,          setTab]          = useState('wa');
-  const [configTab,    setConfigTab]    = useState('wa');  // sub-tab inside Configurações
-  const [mainTab,      setMainTab]      = useState('send'); // send | history | config
+  const [mainTab,      setMainTab]      = useState('send'); // send | history
 
-  // ── WhatsApp config ───────────────────────────────────────────
-  const [waUrl,      setWaUrl]      = useState('');
-  const [waToken,    setWaToken]    = useState('');
-  const [waInstance, setWaInstance] = useState('');
+  // ── Status de canais (fonte oficial = organizer settings) ────
   const [waStatus,   setWaStatus]   = useState(null); // null | 'ok' | 'err'
 
-  // ── Email config ──────────────────────────────────────────────
-  const [resendKey,    setResendKey]    = useState('');
-  const [emailSender,  setEmailSender]  = useState('');
-  const [showKey,     setShowKey]      = useState(false);
   const [emailStatus, setEmailStatus]  = useState(null);
 
   // ── Send form ─────────────────────────────────────────────────
@@ -33,59 +25,37 @@ export default function Messaging() {
 
   // ── History ───────────────────────────────────────────────────
   const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/messaging/config')
+    api.get('/organizer-messaging-settings')
       .then(r => {
         const d = r.data.data || {};
-        setWaUrl(d.wa_api_url   || '');
-        setWaToken(d.wa_token   || '');
-        setWaInstance(d.wa_instance || '');
-        setResendKey(d.resend_api_key || '');
-        setEmailSender(d.email_sender || '');
-        setWaStatus(d.wa_api_url ? 'ok' : null);
-        setEmailStatus(d.resend_api_key ? 'ok' : null);
+        setWaStatus(d.wa_configured ? 'ok' : null);
+        setEmailStatus(d.email_configured ? 'ok' : null);
       })
-      .catch(() => {});
+      .catch(() => {
+        setWaStatus('err');
+        setEmailStatus('err');
+      });
 
     api.get('/messaging/history')
       .then(r => setHistory(r.data.data || []))
-      .catch(() => {});
+      .catch(() => setHistory([]))
+      .finally(() => setHistoryLoading(false));
   }, []);
-
-  const handleSaveWa = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post('/organizer-settings/messaging', {
-        wa_api_url:  waUrl,
-        wa_token:    waToken,
-        wa_instance: waInstance,
-      });
-      setWaStatus('ok');
-      toast.success('Configuração WhatsApp salva!');
-    } catch {
-      setWaStatus('err');
-      toast.error('Erro ao salvar configuração.');
-    }
-  };
-
-  const handleSaveEmail = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post('/organizer-settings/messaging', {
-        resend_api_key: resendKey,
-        email_sender:   emailSender,
-      });
-      setEmailStatus('ok');
-      toast.success('Configuração de e-mail salva!');
-    } catch {
-      setEmailStatus('err');
-      toast.error('Erro ao salvar configuração.');
-    }
-  };
 
   const handleSend = async (e) => {
     e.preventDefault();
+    if (tab === 'wa' && waStatus !== 'ok') {
+      toast.error('Canal WhatsApp não configurado. Ajuste em Configurações > Canais de Contato.');
+      return;
+    }
+    if (tab === 'email' && emailStatus !== 'ok') {
+      toast.error('Canal de e-mail não configurado. Ajuste em Configurações > Canais de Contato.');
+      return;
+    }
+
     setSending(true);
     try {
       if (tab === 'wa') {
@@ -120,7 +90,7 @@ export default function Messaging() {
           <MessageCircle size={22} className="text-green-400" /> Mensageria
         </h1>
         <p className="text-gray-500 text-sm mt-1">
-          Disparo de WhatsApp e E-mail · Configuração por canal
+          Disparo de WhatsApp e E-mail
         </p>
       </div>
 
@@ -129,14 +99,14 @@ export default function Messaging() {
         {[
           { label: 'WhatsApp (Evolution)', status: waStatus, icon: MessageCircle, color: 'text-green-400' },
           { label: 'E-mail (Resend)',      status: emailStatus, icon: Mail,       color: 'text-blue-400'  },
-        ].map(({ label, status, icon: Icon, color }) => (
-          <div key={label} className={`card flex items-center gap-3 border ${
-            status === 'ok' ? 'border-green-800/40 bg-green-900/10' : 'border-gray-800'
+        ].map((item) => (
+          <div key={item.label} className={`card flex items-center gap-3 border ${
+            item.status === 'ok' ? 'border-green-800/40 bg-green-900/10' : 'border-gray-800'
           }`}>
-            <Icon size={18} className={color} />
+            <item.icon size={18} className={item.color} />
             <div>
-              <p className="text-sm font-semibold text-white">{label}</p>
-              <StatusBadge status={status} />
+              <p className="text-sm font-semibold text-white">{item.label}</p>
+              <StatusBadge status={item.status} />
             </div>
           </div>
         ))}
@@ -147,7 +117,6 @@ export default function Messaging() {
         {[
           { id: 'send',    icon: Send,     label: 'Enviar' },
           { id: 'history', icon: History,  label: 'Histórico' },
-          { id: 'config',  icon: Settings, label: 'Configurações' },
         ].map(t => (
           <button key={t.id} onClick={() => setMainTab(t.id)}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
@@ -209,107 +178,22 @@ export default function Messaging() {
               <th>Canal</th><th>Destino</th><th>Mensagem</th><th>Status</th><th>Data</th>
             </tr></thead>
             <tbody>
-              {history.length === 0
+              {historyLoading
+                ? <tr><td colSpan={5} className="text-center text-gray-500 py-8">Carregando histórico...</td></tr>
+                : history.length === 0
                 ? <tr><td colSpan={5} className="text-center text-gray-500 py-8">Nenhuma mensagem no histórico</td></tr>
                 : history.map(msg => (
                   <tr key={msg.id}>
-                    <td>{msg.direction === 'in' ? '📥 Recebida' : '📤 Enviada'}</td>
-                    <td className="font-mono text-xs">{msg.phone}</td>
-                    <td className="max-w-xs truncate">{msg.content}</td>
+                    <td>{msg.direction === 'in' ? 'Recebida' : 'Enviada'}</td>
+                    <td className="font-mono text-xs">{msg.phone || msg.to || msg.email || '-'}</td>
+                    <td className="max-w-xs truncate">{msg.content || msg.message || '-'}</td>
                     <td><span className={`badge ${msg.status === 'sent' || msg.status === 'read' ? 'badge-green' : msg.status === 'failed' ? 'badge-red' : 'badge-yellow'}`}>{msg.status}</span></td>
-                    <td className="text-xs text-gray-400">{new Date(msg.created_at).toLocaleString('pt-BR')}</td>
+                    <td className="text-xs text-gray-400">{msg.created_at ? new Date(msg.created_at).toLocaleString('pt-BR') : '-'}</td>
                   </tr>
                 ))
               }
             </tbody>
           </table>
-        </div>
-      )}
-
-      {/* ── Config ────────────────────────────────────────────────── */}
-      {mainTab === 'config' && (
-        <div className="space-y-4 max-w-lg">
-          {/* Config sub-tabs */}
-          <div className="flex gap-1 bg-gray-800 p-1 rounded-xl w-fit">
-            {CHANNEL_TABS.map(c => (
-              <button key={c.id} onClick={() => setConfigTab(c.id)}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  configTab === c.id ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'
-                }`}>
-                <c.icon size={14} className={configTab === c.id ? c.color : ''}/>{c.label}
-              </button>
-            ))}
-          </div>
-
-          {/* WhatsApp config */}
-          {configTab === 'wa' && (
-            <div className="card">
-              <h2 className="section-title flex items-center gap-2">
-                <MessageCircle size={16} className="text-green-400"/> Configuração Evolution API / Z-API
-              </h2>
-              <form onSubmit={handleSaveWa} className="space-y-4">
-                <div>
-                  <label className="input-label">API URL *</label>
-                  <input className="input" placeholder="https://sua-evolution-api.com"
-                    value={waUrl} onChange={e => setWaUrl(e.target.value)} />
-                </div>
-                <div>
-                  <label className="input-label">API Key / Token *</label>
-                  <input className="input" type="password" placeholder="sua-api-key-secreta"
-                    value={waToken} onChange={e => setWaToken(e.target.value)} />
-                </div>
-                <div>
-                  <label className="input-label">Nome da Instância *</label>
-                  <input className="input" placeholder="enjoyfun-bot"
-                    value={waInstance} onChange={e => setWaInstance(e.target.value)} />
-                </div>
-                <div className="p-3 bg-blue-900/20 rounded-lg border border-blue-800/40">
-                  <p className="text-xs text-blue-400 font-medium mb-1">📌 Webhook URL</p>
-                  <code className="text-xs text-gray-300 break-all">{window.location.origin}/api/messaging/webhook</code>
-                  <p className="text-xs text-gray-500 mt-1">Configure este webhook na sua instância Evolution API.</p>
-                </div>
-                <button type="submit" className="btn-primary w-full">Salvar Configuração WhatsApp</button>
-              </form>
-            </div>
-          )}
-
-          {/* Email config */}
-          {configTab === 'email' && (
-            <div className="card">
-              <h2 className="section-title flex items-center gap-2">
-                <Mail size={16} className="text-blue-400"/> Configuração de E-mail (Resend)
-              </h2>
-              <p className="text-xs text-gray-500 mb-4">
-                Crie uma conta gratuita em{' '}
-                <a href="https://resend.com" target="_blank" rel="noreferrer" className="text-blue-400 underline">resend.com</a>
-                {' '}e adicione seu domínio para obter a API Key.
-              </p>
-              <form onSubmit={handleSaveEmail} className="space-y-4">
-                <div>
-                  <label className="input-label">Resend API Key *</label>
-                  <div className="relative">
-                    <input className="input pr-10"
-                      type={showKey ? 'text' : 'password'}
-                      placeholder="re_xxxxxxxxxxxxxxxxxxxx"
-                      value={resendKey} onChange={e => setResendKey(e.target.value)} />
-                    <button type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
-                      onClick={() => setShowKey(v => !v)}>
-                      {showKey ? <EyeOff size={15}/> : <Eye size={15}/>}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="input-label">E-mail Remetente *</label>
-                  <input className="input" type="email"
-                    placeholder="no-reply@seudominio.com.br"
-                    value={emailSender} onChange={e => setEmailSender(e.target.value)} />
-                  <p className="text-xs text-gray-500 mt-1">O domínio deve estar verificado no Resend.</p>
-                </div>
-                <button type="submit" className="btn-primary w-full">Salvar Configuração E-mail</button>
-              </form>
-            </div>
-          )}
         </div>
       )}
     </div>

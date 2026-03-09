@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 export default function BulkMessageModal({ isOpen, onClose, selectedParticipants, type = "whatsapp" }) {
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
+    const resolveToken = (participant) => participant?.qr_token || participant?.qr_code_token || "";
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -20,7 +21,7 @@ export default function BulkMessageModal({ isOpen, onClose, selectedParticipants
                 const recipients = selectedParticipants.map(p => ({
                     phone: p.phone,
                     name: p.name,
-                    link: `${window.location.origin}/invite?token=${p.qr_token}`
+                    link: `${window.location.origin}/invite?token=${resolveToken(p)}`
                 }));
                 const res = await api.post("/messaging/bulk-whatsapp", { recipients, message });
                 toast.success(res.data.message || "Mensagens enviadas!");
@@ -28,10 +29,11 @@ export default function BulkMessageModal({ isOpen, onClose, selectedParticipants
                 // Email implementation (one by one or bulk if supported)
                 for (const p of selectedParticipants) {
                     if (p.email) {
+                        const token = resolveToken(p);
                         await api.post("/messaging/email", {
                             to: p.email,
                             subject: "Seu Convite - EnjoyFun",
-                            message: message.replace("{{name}}", p.name).replace("{{link}}", `${window.location.origin}/invite?token=${p.qr_token}`)
+                            message: message.replace("{{name}}", p.name).replace("{{link}}", `${window.location.origin}/invite?token=${token}`)
                         });
                     }
                 }

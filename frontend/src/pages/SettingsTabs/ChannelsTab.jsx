@@ -3,6 +3,9 @@ import { Save, Mail, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
 
+const PLACEHOLDER_EMAIL_KEY = '(Configurada)';
+const PLACEHOLDER_WA_TOKEN = '(Configurado)';
+
 export default function ChannelsTab() {
     const [settings, setSettings] = useState({
         resend_api_key: '',
@@ -20,14 +23,14 @@ export default function ChannelsTab() {
             if (res.data.success) {
                 const data = res.data.data || {};
                 setSettings({
-                    resend_api_key: data.email_configured ? '(Configurada)' : '',
+                    resend_api_key: data.email_configured ? PLACEHOLDER_EMAIL_KEY : '',
                     email_sender: data.email_sender || '',
                     wa_api_url: data.wa_api_url || '',
-                    wa_token: data.wa_configured ? '(Configurado)' : '',
+                    wa_token: data.wa_configured ? PLACEHOLDER_WA_TOKEN : '',
                     wa_instance: data.wa_instance || ''
                 });
             }
-        } catch (error) {
+        } catch {
             toast.error('Erro ao buscar canais de contato.');
         } finally {
             setLoading(false);
@@ -46,12 +49,13 @@ export default function ChannelsTab() {
         try {
             // Se o usuário não mudou o placeholder "(Configurada)", não enviar
             const payload = { ...settings };
-            if (payload.resend_api_key === '(Configurada)') delete payload.resend_api_key;
-            if (payload.wa_token === '(Configurado)') delete payload.wa_token;
+            if (payload.resend_api_key === PLACEHOLDER_EMAIL_KEY) delete payload.resend_api_key;
+            if (payload.wa_token === PLACEHOLDER_WA_TOKEN) delete payload.wa_token;
 
             const res = await api.post('/organizer-messaging-settings', payload);
             if (res.data.success) {
                 toast.success('Canais configurados com sucesso!');
+                await fetchSettings();
             }
         } catch (error) {
             toast.error(error.response?.data?.message || 'Erro ao salvar canais.');
@@ -66,6 +70,9 @@ export default function ChannelsTab() {
 
     return (
         <div className="card max-w-4xl fade-in space-y-8 p-8">
+            <div className="rounded-lg border border-brand/30 bg-brand/10 p-3 text-sm text-gray-200">
+                Configuração oficial de canais centralizada nesta aba. Ajustes operacionais de envio em outras telas usam estes mesmos dados.
+            </div>
             <form onSubmit={handleSave} className="space-y-8">
                 
                 {/* Email Section */}

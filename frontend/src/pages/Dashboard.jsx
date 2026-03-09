@@ -229,40 +229,39 @@ export default function Dashboard() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Timeline chart */}
           <div className="card">
-            <h2 className="section-title">Timeline de Vendas (Últimas 24h)</h2>
+            <h2 className="section-title">Vendas por Setor (Últimas 24h)</h2>
             {loading ? (
               <div className="h-48 flex items-center justify-center">
                 <div className="spinner w-8 h-8" />
               </div>
-            ) : stats?.sales_chart?.length ? (
-              <div className="space-y-4 mt-6">
-                {stats.sales_chart.map((row, i) => (
-                  <div key={i} className="flex items-center gap-3 text-sm group">
-                    <span className="text-gray-500 w-12 font-medium flex-shrink-0 group-hover:text-gray-300 transition-colors">
-                      {row.day}
-                    </span>
-                    <div className="flex-1 bg-gray-800/50 rounded-full h-2.5 overflow-hidden">
-                      <div
-                        className="h-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full relative"
-                        style={{
-                          width: `${Math.min(100, (row.revenue / Math.max(...stats.sales_chart.map((r) => r.revenue))) * 100)}%`,
-                        }}
-                      >
-                         <div className="absolute inset-0 bg-white/20 w-full animate-pulse"></div>
+            ) : (
+              <div className="space-y-4 mt-4">
+                {[
+                  { key: "bar", label: "BAR", color: "text-purple-400", qtyLabel: "itens" },
+                  { key: "food", label: "FOOD", color: "text-orange-400", qtyLabel: "itens" },
+                  { key: "shop", label: "SHOP", color: "text-blue-400", qtyLabel: "itens" },
+                  { key: "parking", label: "PARKING", color: "text-cyan-400", qtyLabel: "registros" },
+                  { key: "tickets", label: "TICKETS", color: "text-pink-400", qtyLabel: "tickets" }
+                ].map((item) => {
+                  const total = Number(stats?.sales_sector_totals?.[item.key]?.revenue || 0);
+                  const qty = Number(stats?.sales_sector_totals?.[item.key]?.qty || 0);
+                  return (
+                    <div key={item.key} className="bg-gray-800/40 rounded-xl border border-gray-700/60 px-4 py-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`text-sm font-semibold ${item.color}`}>{item.label}</p>
+                        <p className="text-xs text-gray-500">Consolidado 24h</p>
+                      </div>
+                      <div className="flex items-end justify-between mt-2">
+                        <p className="text-white text-lg font-bold">R$ {total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                        <p className="text-xs text-gray-500">{qty.toLocaleString("pt-BR")} {item.qtyLabel}</p>
                       </div>
                     </div>
-                    <span className="text-gray-300 w-24 text-right font-medium">
-                      R$ {parseFloat(row.revenue).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state h-48 mt-4">
-                <TrendingUp size={40} className="text-gray-700" />
-                <p>Nenhuma venda registrada recentemente.</p>
+                  );
+                })}
+                {!stats?.sales_sector_totals && (
+                  <p className="text-sm text-gray-500">Sem vendas setoriais nas últimas 24h para o filtro atual.</p>
+                )}
               </div>
             )}
           </div>
@@ -322,7 +321,7 @@ export default function Dashboard() {
             <span className="text-xs bg-emerald-400/20 text-emerald-400 px-2 py-1 rounded ml-2 font-medium">Conector Financeiro</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
             <StatCard
               loading={loadingWorkforceCosts}
               icon={Users}
@@ -346,6 +345,22 @@ export default function Dashboard() {
               value={Number(workforceCosts?.summary?.estimated_hours_total || 0).toLocaleString("pt-BR")}
               color="bg-cyan-600"
               subtitle="Trabalho estimado em horas"
+            />
+            <StatCard
+              loading={loadingWorkforceCosts}
+              icon={UtensilsCrossed}
+              label="Custo Refeições"
+              value={`R$ ${Number(workforceCosts?.summary?.estimated_meals_cost_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+              color="bg-amber-600"
+              subtitle={`Unitário: R$ ${Number(workforceCosts?.summary?.meal_unit_cost || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            />
+            <StatCard
+              loading={loadingWorkforceCosts}
+              icon={TrendingUp}
+              label="Custo Total Equipe"
+              value={`R$ ${Number(workforceCosts?.summary?.estimated_total_cost || workforceCosts?.summary?.estimated_payment_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+              color="bg-fuchsia-600"
+              subtitle="Equipe + refeições estimadas"
             />
           </div>
 
@@ -396,6 +411,58 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <p className="text-sm text-gray-500">Sem dados de cargo para o filtro atual.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-6 mt-6">
+            <div className="card">
+              <h3 className="text-sm font-semibold text-gray-200 mb-4">Cargos Gerenciais/Diretivos</h3>
+              {loadingWorkforceCosts ? (
+                <div className="h-28 flex items-center justify-center"><div className="spinner w-6 h-6" /></div>
+              ) : (workforceCosts?.by_role_managerial?.length || 0) > 0 ? (
+                <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+                  {(workforceCosts?.by_role_managerial || []).map((row, idx) => (
+                    <div key={`${row.sector}-${row.role_name}-${idx}`} className="flex items-center justify-between bg-gray-800/40 rounded-lg px-3 py-2 border border-gray-700/60">
+                      <div>
+                        <div className="text-xs text-white font-medium">{row.role_name}</div>
+                        <div className="text-[11px] text-gray-500 uppercase">{row.sector} • {row.members} membros</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold text-amber-400">
+                          R$ {Number(row.estimated_payment_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">Sem cargos gerenciais/diretivos no filtro atual.</p>
+              )}
+            </div>
+
+            <div className="card">
+              <h3 className="text-sm font-semibold text-gray-200 mb-4">Membros Operacionais</h3>
+              {loadingWorkforceCosts ? (
+                <div className="h-28 flex items-center justify-center"><div className="spinner w-6 h-6" /></div>
+              ) : (workforceCosts?.operational_members?.length || 0) > 0 ? (
+                <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+                  {(workforceCosts?.operational_members || []).slice(0, 20).map((item) => (
+                    <div key={item.participant_id} className="flex items-center justify-between bg-gray-800/40 rounded-lg px-3 py-2 border border-gray-700/60">
+                      <div>
+                        <div className="text-xs text-white font-medium">{item.participant_name}</div>
+                        <div className="text-[11px] text-gray-500 uppercase">{item.sector} • {item.role_name}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold text-cyan-400">
+                          R$ {Number(item.estimated_payment_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">Sem membros operacionais no filtro atual.</p>
               )}
             </div>
           </div>

@@ -92,11 +92,28 @@ class SalesDomainService
             }
 
             // 3. Registro da venda principal
-            $stmtSale = $db->prepare(
-                "INSERT INTO sales (event_id, organizer_id, total_amount, status, created_at)
-                 VALUES (?, ?, ?, 'completed', NOW()) RETURNING id"
+            $saleColumns = ['event_id', 'organizer_id', 'total_amount', 'status', 'created_at'];
+            $salePlaceholders = ['?', '?', '?', "'completed'", 'NOW()'];
+            $saleValues = [$eventId, $organizerId, $calculatedTotal];
+
+            if (self::columnExists($db, 'sales', 'sector')) {
+                $saleColumns[] = 'sector';
+                $salePlaceholders[] = '?';
+                $saleValues[] = $sector;
+            }
+            if (self::columnExists($db, 'sales', 'operator_id')) {
+                $saleColumns[] = 'operator_id';
+                $salePlaceholders[] = '?';
+                $saleValues[] = (int)($operator['id'] ?? 0);
+            }
+
+            $sqlSale = sprintf(
+                "INSERT INTO sales (%s) VALUES (%s) RETURNING id",
+                implode(', ', $saleColumns),
+                implode(', ', $salePlaceholders)
             );
-            $stmtSale->execute([$eventId, $organizerId, $calculatedTotal]);
+            $stmtSale = $db->prepare($sqlSale);
+            $stmtSale->execute($saleValues);
             $saleId = (int)$stmtSale->fetchColumn();
 
             // 4. Inserção de Itens e baixa de estoque
@@ -148,5 +165,25 @@ class SalesDomainService
             }
             throw $e;
         }
+    }
+
+    private static function columnExists(PDO $db, string $table, string $column): bool
+    {
+        static $cache = [];
+        $key = $table . '.' . $column;
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+        $stmt = $db->prepare("
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = :table
+              AND column_name = :column
+            LIMIT 1
+        ");
+        $stmt->execute([':table' => $table, ':column' => $column]);
+        $cache[$key] = (bool)$stmt->fetchColumn();
+        return $cache[$key];
     }
 }
