@@ -5,6 +5,7 @@ import PrivateRoute from "./components/PrivateRoute";
 import DashboardLayout from "./layouts/DashboardLayout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import AnalyticalDashboard from "./pages/AnalyticalDashboard";
 import Events from "./pages/Events";
 import EventDetails from "./pages/EventDetails";
 import Tickets from "./pages/Tickets";
@@ -70,6 +71,7 @@ export default function App() {
           <Route element={<PrivateRoute />}>
             <Route element={<DashboardLayout />}>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/analytics" element={<AnalyticalDashboard />} />
               <Route path="/events" element={<Events />} />
               <Route path="/events/:id" element={<EventDetails />} />
               <Route path="/tickets" element={<Tickets />} />

@@ -98,6 +98,7 @@ if ($raw && ($decoded = json_decode($raw, true)) !== null) {
     $controllers = [
         'auth'     => BASE_PATH . '/src/Controllers/AuthController.php',
         'admin'    => BASE_PATH . '/src/Controllers/AdminController.php',
+        'analytics'=> BASE_PATH . '/src/Controllers/AnalyticsController.php',
         'cards'    => BASE_PATH . '/src/Controllers/CardController.php',
         'organizer'=> BASE_PATH . '/src/Controllers/OrganizerController.php',
         'events'   => BASE_PATH . '/src/Controllers/EventController.php',

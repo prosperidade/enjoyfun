@@ -629,6 +629,7 @@ backend/src/Services/WalletSecurityService.php
 - `php -l backend/src/Controllers/BarController.php`
 - `php -l backend/src/Controllers/FoodController.php`
 - `php -l backend/src/Controllers/ShopController.php`
+
 - validação manual do trecho alterado em `frontend/src/pages/POS.jsx`
 - tentativa de `eslint` no frontend não executada nesta etapa pelo mesmo bloqueio já conhecido de ausência de `eslint.config.*` compatível com ESLint 9
 
@@ -669,6 +670,7 @@ backend/src/Services/WalletSecurityService.php
 - `php -l backend/src/Controllers/BarController.php`
 - `php -l backend/src/Controllers/FoodController.php`
 - `php -l backend/src/Controllers/ShopController.php`
+
 - validação manual do trecho alterado em `frontend/src/pages/POS.jsx`
 - tentativa de `eslint` no frontend não executada nesta etapa pelo mesmo bloqueio já conhecido de ausência de `eslint.config.*` compatível com ESLint 9
 
@@ -842,3 +844,98 @@ backend/src/Services/WalletSecurityService.php
 - `php -l backend/src/Controllers/BarController.php`
 - `php -l backend/src/Controllers/FoodController.php`
 - `php -l backend/src/Controllers/ShopController.php`
+
+## POS Fase 3 — Fechamento Oficial
+
+- **Responsável:** Codex
+- **Status:** Concluída
+- **Escopo:** fechamento formal da consolidação backend do Sales Engine no POS
+- **Base de fechamento:** consolidação das PRs 1, 2 e 3 da Fase 3 sem reabrir implementação
+- **Próxima ação sugerida:** iniciar o registro da Fase 4 em `docs/progresso3.md`, sem executar a fase neste fechamento
+- **Bloqueios / dependências:** sem bloqueio técnico novo; permanece apenas a validação operacional final cruzada dos três setores
+
+### Consolidação oficial da fase
+- A Fase 3 foi concluída com a extração da leitura analítica setorial para `SalesReportService`.
+- A Fase 3 foi concluída com a extração do CRUD e catálogo setorial para `ProductService`.
+- `BarController.php`, `FoodController.php` e `ShopController.php` foram mantidos como controllers de transição, porém agora delegando o núcleo repetido para services compartilhados.
+- A duplicação estrutural entre Bar, Food e Shop foi reduzida no backend sem romper os contratos já consumidos pelo POS.
+- As respostas HTTP dos endpoints setoriais ficaram mais consistentes e previsíveis no shape operacional já esperado pelo frontend.
+
+### Consolidado das 3 PRs entregues
+- PR 1 consolidou `SalesReportService` como fonte comum de relatórios setoriais e do contexto setorial de insights.
+- PR 2 consolidou `ProductService` como fonte comum de catálogo e CRUD setorial, levando Food e Shop ao mesmo baseline de segurança aplicado no Bar.
+- PR 3 consolidou a padronização de respostas e o afinamento final dos controllers, deixando a camada HTTP mais fina, mais homogênea e mais previsível.
+
+### Critérios de aceite da fase
+- Relatórios setoriais repetidos deixaram de ficar espalhados inline nos três controllers.
+- CRUD e catálogo de produtos deixaram de ficar espalhados inline nos três controllers.
+- Os controllers setoriais passaram a atuar principalmente como camada de entrada, delegação e resposta.
+- O backend do POS passou a operar com services compartilhados para leitura analítica e catálogo setorial.
+- O contrato esperado pelo frontend do POS foi preservado durante a consolidação.
+
+### Estado final consolidado
+- A Fase 3 fica oficialmente concluída com o backend do POS consolidado em services compartilhados e controllers afinados.
+- `SalesReportService` passa a ser a base comum de relatórios e contexto setorial.
+- `ProductService` passa a ser a base comum de catálogo e CRUD setorial.
+- `SalesDomainService` permanece como núcleo transacional compartilhado do checkout já endurecido nas fases anteriores.
+
+### Escopo preservado explicitamente
+- Sem mexer em dashboard.
+- Sem expandir escopo além do POS.
+- Sem criar regra nova de negócio.
+- Checkout e sync permanecem como endurecimentos já entregues nas fases anteriores, sem redesign nesta fase de consolidação.
+
+### Pendência remanescente de fechamento operacional
+- Permanece apenas a validação operacional final cruzada de Bar, Food e Shop.
+- Essa validação remanescente cobre conferência manual de produto, relatório, checkout e insights após a convergência das respostas.
+- Eventuais drifts observados nesta conferência devem ser tratados primeiro como validação final de convergência, e não como abertura automática de nova frente técnica neste fechamento.
+
+### Transição formal
+- O ciclo documental da Fase 3 se encerra neste arquivo `docs/progresso2.md`.
+- Os próximos registros referentes à Fase 4 do POS devem passar a ser feitos em `docs/progresso3.md`.
+
+## POS — Fechamento operacional pós-Fase 4
+
+- **Responsável:** Codex
+- **Status:** Entregue e congelado
+- **Escopo:** registro consolidado dos hotfixes operacionais executados após a estabilização estrutural do POS, sem abrir nova fase de refatoração
+- **Diretriz atualizada:** as correções já resolvidas nesta frente permanecem registradas em `docs/progresso2.md`; `docs/progresso3.md` fica reservado apenas para frentes novas abertas hoje
+
+### Correções consolidadas neste fechamento
+- O fluxo de Tickets deixou de manter duas fontes de verdade entre filtros da tela e modal de venda rápida.
+- A `Venda Rápida` passou a usar diretamente o filtro atual de:
+  - evento
+  - lote
+  - comissário
+- A troca de evento no fluxo de Tickets passou a invalidar corretamente lote/comissário incompatíveis com o novo contexto.
+- O botão de scanner em Tickets voltou para o lado de `Venda Rápida`.
+- O acesso ao scanner a partir de Tickets passou a abrir diretamente o contexto de `portaria`, sem cair na escolha genérica de setores.
+- O scanner de validação voltou a aceitar operação rápida com foco estável no input manual.
+- O scanner passou a ter botão visível de saída, retornando o operador para `/tickets`.
+- O checkout compartilhado voltou a resolver corretamente os services globais de auditoria e carteira.
+- A resolução da carteira foi endurecida para aceitar:
+  - `digital_cards.id::text`
+  - `card_token` quando existir
+  - fallback compatível por `user_id` em fluxos legados com `customer_id`
+- O loop visual da sincronização offline no frontend foi interrompido com trava de reentrada e sincronização inicial estável.
+- O filtro `1h` da timeline setorial passou a usar o relógio do banco, alinhando a série do gráfico com os filtros temporais já usados em cards e listagens.
+
+### Arquivos alcançados neste ciclo operacional
+- `frontend/src/pages/Tickets.jsx`
+- `frontend/src/pages/Operations/Scanner.jsx`
+- `frontend/src/hooks/useNetwork.js`
+- `backend/src/Services/SalesDomainService.php`
+- `backend/src/Services/WalletSecurityService.php`
+- `backend/src/Services/SalesReportService.php`
+
+### Estado operacional consolidado
+- Compras voltaram a ser registradas em `bar`, `food` e `shop`.
+- Os gráficos setoriais voltaram a ser alimentados pela cadeia real de vendas.
+- O replay offline voltou a atravessar a cadeia principal de checkout.
+- O scanner da portaria voltou ao fluxo correto de validação.
+- O fluxo de Tickets voltou a operar sem modal redundante na `Venda Rápida`.
+
+### Congelamento desta frente
+- O sistema tocado nesta sequência fica congelado neste estado como baseline operacional validado.
+- A próxima fase deve partir deste baseline, sem reabrir estes hotfixes como refactor amplo.
+- Eventual regressão daqui em diante deve ser tratada como bug pontual sobre baseline congelado, e não como reabertura automática da frente anterior.

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   LayoutDashboard,
+  BarChart3,
   CalendarDays,
   Ticket,
   CreditCard,
@@ -29,6 +30,12 @@ const nav = [
     to: "/",
     icon: LayoutDashboard,
     label: "Dashboard",
+    roles: ["admin", "organizer"],
+  },
+  {
+    to: "/analytics",
+    icon: BarChart3,
+    label: "Dashboard Analítico",
     roles: ["admin", "organizer"],
   },
   {

@@ -9,7 +9,9 @@ class WalletSecurityService
      */
     public static function processTransaction(PDO $db, string $cardReference, float $amount, string $type, int $organizerId, array $metadata = []): array
     {
-        if (empty($cardReference)) {
+        $cardReference = trim($cardReference);
+
+        if ($cardReference === '') {
             throw new RuntimeException('Identificador do cartão é obrigatório.', 400);
         }
 
@@ -29,10 +31,7 @@ class WalletSecurityService
                 $ownTransaction = true;
             }
 
-            // Chave canônica da carteira no projeto atual: digital_cards.id::text
-            $walletStmt = $db->prepare('SELECT id, balance FROM digital_cards WHERE id::text = ? AND organizer_id = ? AND is_active = true FOR UPDATE');
-            $walletStmt->execute([$cardReference, $organizerId]);
-            $wallet = $walletStmt->fetch(PDO::FETCH_ASSOC);
+            $wallet = self::resolveWallet($db, $cardReference, $organizerId);
 
             if (!$wallet) {
                 if ($ownTransaction) $db->rollBack();
@@ -89,6 +88,85 @@ class WalletSecurityService
             }
             throw $e;
         }
+    }
+
+    private static function resolveWallet(PDO $db, string $cardReference, int $organizerId): array|false
+    {
+        $stmtById = $db->prepare(
+            'SELECT id, balance
+             FROM digital_cards
+             WHERE id::text = ?
+               AND organizer_id = ?
+               AND is_active = true
+             FOR UPDATE'
+        );
+        $stmtById->execute([$cardReference, $organizerId]);
+        $wallet = $stmtById->fetch(PDO::FETCH_ASSOC);
+        if ($wallet) {
+            return $wallet;
+        }
+
+        if (self::columnExists($db, 'digital_cards', 'card_token')) {
+            $stmtByToken = $db->prepare(
+                'SELECT id, balance
+                 FROM digital_cards
+                 WHERE card_token = ?
+                   AND organizer_id = ?
+                   AND is_active = true
+                 FOR UPDATE'
+            );
+            $stmtByToken->execute([$cardReference, $organizerId]);
+            $wallet = $stmtByToken->fetch(PDO::FETCH_ASSOC);
+            if ($wallet) {
+                return $wallet;
+            }
+        }
+
+        if (ctype_digit($cardReference) && self::columnExists($db, 'digital_cards', 'user_id')) {
+            $stmtByUser = $db->prepare(
+                'SELECT id, balance
+                 FROM digital_cards
+                 WHERE user_id = ?
+                   AND organizer_id = ?
+                   AND is_active = true
+                 ORDER BY updated_at DESC NULLS LAST, created_at DESC
+                 LIMIT 1
+                 FOR UPDATE'
+            );
+            $stmtByUser->execute([(int)$cardReference, $organizerId]);
+            $wallet = $stmtByUser->fetch(PDO::FETCH_ASSOC);
+            if ($wallet) {
+                return $wallet;
+            }
+        }
+
+        return false;
+    }
+
+    private static function columnExists(PDO $db, string $table, string $column): bool
+    {
+        static $cache = [];
+        $key = $table . '.' . $column;
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+
+        $stmt = $db->prepare("
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = :table
+              AND column_name = :column
+            LIMIT 1
+        ");
+        $stmt->execute([
+            ':table' => $table,
+            ':column' => $column,
+        ]);
+
+        $cache[$key] = (bool)$stmt->fetchColumn();
+
+        return $cache[$key];
     }
 
     /**

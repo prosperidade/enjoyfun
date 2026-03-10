@@ -135,6 +135,20 @@ Gerenciar todas as listas especiais e credenciais de acesso não operacionais.
 - taxa de presença
 - no-show
 
+## 4.5 Diretriz complementar para artistas e DJs
+Artistas e DJs continuam dentro de `Guest Management` para credenciamento, acesso, listas e presença.
+
+Mas isso não cobre a operação logística artística.
+
+Quando a plataforma evoluir essa frente, a regra oficial passa a ser:
+- acesso e credencial continuam no ecossistema de participantes
+- logística artística nasce em módulo operacional próprio
+- esse módulo não deve ser tratado apenas por evento ou apenas por artista
+- ele deve ser estruturado por:
+  - evento
+  - palco
+  - artista
+
 ---
 
 ## 5. Workforce Ops — escopo oficial
@@ -360,6 +374,79 @@ Responsável por:
 
 ---
 
+## 15. Frente futura reconhecida — Artist Logistics Ops
+
+## 15.1 Objetivo
+Centralizar a operação logística de artistas e atrações sem misturar essa responsabilidade ao Guest Management nem ao Workforce Ops.
+
+## 15.2 Estrutura oficial do módulo
+O módulo deve nascer em três eixos:
+- por evento
+- por palco
+- por artista
+
+## 15.3 Regra obrigatória de palco
+Eventos com múltiplos palcos exigem segmentação explícita por palco.
+
+O palco impacta diretamente:
+- agenda do artista
+- passagem de som
+- montagem e desmontagem
+- deslocamento interno
+- prioridade operacional
+- risco de atraso
+- equipe responsável
+- custo operacional ligado ao palco
+
+## 15.4 Campos mínimos esperados por artista/atração
+- `event_id`
+- `stage_id`
+- `participant_id` ou `artist_id`
+- horário de passagem de som
+- horário de apresentação
+- janela crítica de chegada
+- equipe ou responsável do palco
+- custo logístico
+- cachê
+- custo total
+
+## 15.5 Leituras operacionais obrigatórias
+- quais artistas estão em cada palco
+- qual palco está com maior risco operacional
+- quais chegadas impactam qual palco
+- quais artistas têm passagem de som pendente por palco
+- quais custos estão concentrados em cada palco
+
+## 15.6 Visões mínimas recomendadas
+### Por palco
+- line-up
+- pendências
+- gargalos
+- status logístico
+- custos do palco
+
+### Consolidada do evento
+- comparação entre palcos
+- artistas por palco
+- custo por palco
+- riscos por palco
+
+### Por artista
+- agenda
+- palco vinculado
+- janela crítica
+- responsável operacional
+- custo logístico
+- cachê
+- custo total
+
+## 15.7 Regra de separação de domínio
+`Artist Logistics Ops` não deve nascer dentro do dashboard analítico.
+
+Ele pode futuramente alimentar dashboards com resumos, mas o domínio operacional precisa existir separado para evitar acoplamento indevido.
+
+---
+
 ## 15. Resultado esperado
 
 Ao seguir esta especificação, a EnjoyFun passa a ter uma base sólida para:
@@ -370,4 +457,3 @@ Ao seguir esta especificação, a EnjoyFun passa a ter uma base sólida para:
 - presença e no-show por categoria
 - eventos longos e festivais
 - dashboards operacionais muito mais úteis
-

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '../lib/db';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -27,15 +27,22 @@ function normalizePendingSyncRecord(record) {
 export function useNetwork() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
+  const isSyncingRef = useRef(false);
+  const didInitialSyncRef = useRef(false);
 
   const syncOfflineData = useCallback(async () => {
-    if (isSyncing || !navigator.onLine) return;
+    if (isSyncingRef.current || !navigator.onLine) return;
+
+    isSyncingRef.current = true;
+    setIsSyncing(true);
     
     try {
       const pending = await db.offlineQueue.where('status').equals('pending').toArray();
-      if (pending.length === 0) return;
+      if (pending.length === 0) {
+        toast.dismiss('sync');
+        return;
+      }
 
-      setIsSyncing(true);
       toast.loading(`Sincronizando ${pending.length} registros offline...`, { id: 'sync' });
 
       // Transform array for the bulk API endpoint
@@ -56,14 +63,17 @@ export function useNetwork() {
         } else {
           toast.success(`${processedIds.length} registros sincronizados!`, { id: 'sync' });
         }
+      } else {
+        toast.error('Nao foi possivel concluir a sincronizacao offline.', { id: 'sync' });
       }
     } catch (err) {
       console.error('Offline Sync error:', err);
       toast.error('Ocorreu um erro ao sincronizar em background.', { id: 'sync' });
     } finally {
+      isSyncingRef.current = false;
       setIsSyncing(false);
     }
-  }, [isSyncing]);
+  }, []);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -80,7 +90,8 @@ export function useNetwork() {
     window.addEventListener('offline', handleOffline);
 
     // Initial check on mount just in case
-    if (navigator.onLine) {
+    if (navigator.onLine && !didInitialSyncRef.current) {
+      didInitialSyncRef.current = true;
       syncOfflineData();
     }
 

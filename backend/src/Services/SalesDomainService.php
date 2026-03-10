@@ -107,7 +107,7 @@ class SalesDomainService
             $newBalance = null;
             if ($cardId) {
                 try {
-                    $txResult = WalletSecurityService::processTransaction(
+                    $txResult = \WalletSecurityService::processTransaction(
                         $db,
                         $cardId,
                         $calculatedTotal,
@@ -117,8 +117,8 @@ class SalesDomainService
                     );
                     $newBalance = $txResult['balance_after'];
                 } catch (Exception $e) {
-                    AuditService::logFailure(
-                        AuditService::SALE_CHECKOUT, 'card', $cardId,
+                    \AuditService::logFailure(
+                        \AuditService::SALE_CHECKOUT, 'card', $cardId,
                         $e->getMessage(), $operator, 
                         ['metadata' => ['total' => $calculatedTotal, 'sector' => $sector]]
                     );
@@ -210,8 +210,8 @@ class SalesDomainService
             $db->commit();
 
             // Logging de sucesso genérico do domínio
-            AuditService::log(
-                AuditService::SALE_CHECKOUT, 'sale', $saleId,
+            \AuditService::log(
+                \AuditService::SALE_CHECKOUT, 'sale', $saleId,
                 [], ['total' => $calculatedTotal, 'items_count' => count($items)],
                 $operator, 'success',
                 ['event_id' => $eventId, 'metadata' => ['sector' => $sector]]

@@ -115,6 +115,19 @@ Responsável por:
 - presença
 - refeições
 
+### Artist Logistics Domain
+Responsável por:
+- operação logística de artistas e atrações
+- agenda por evento
+- agenda por palco
+- line-up operacional
+- passagem de som
+- montagem e desmontagem
+- deslocamento interno
+- equipe responsável por palco
+- risco operacional por artista e por palco
+- custo logístico e custo total da operação artística
+
 ### Messaging Domain
 Responsável por:
 - envio de email
@@ -242,6 +255,13 @@ Responsável por:
 - `MealControlService`
 - `PresenceService`
 
+## 5.8.1 Artist Logistics Domain
+- `ArtistLogisticsService`
+- `ArtistScheduleService`
+- `StageOperationService`
+- `ArtistRiskService`
+- `ArtistCostService`
+
 ## 5.9 Messaging Domain
 - `MessagingService`
 - `EmailService` (evoluir o existente)
@@ -329,6 +349,50 @@ Permanece temporariamente para o módulo atual.
 2. criar base nova de participantes
 3. introduzir workforce sem quebrar o que existe
 4. migrar gradualmente o que hoje está em guests para uma visão mais ampla
+
+## 7.3 Diretriz futura para artistas
+Artistas e DJs continuam pertencendo ao ecossistema de participantes para efeitos de credenciamento e acesso.
+
+Mas a logística operacional desses perfis não deve nascer dentro de `GuestController` nem dentro de `WorkforceController`.
+
+Ela deve evoluir como um domínio especializado próprio:
+- `Artist Logistics Domain`
+
+### Eixos obrigatórios do domínio
+- por evento
+- por palco
+- por artista
+
+### Regra estrutural obrigatória
+Eventos com múltiplos palcos exigem segmentação explícita por palco, porque a operação muda por:
+- agenda
+- passagem de som
+- montagem
+- desmontagem
+- deslocamento interno
+- prioridade operacional
+- risco de atraso
+- equipe responsável
+- custo logístico ligado ao palco
+
+### Campos mínimos esperados
+- `event_id`
+- `stage_id`
+- `participant_id` ou `artist_id`
+- `soundcheck_at`
+- `performance_at`
+- `arrival_critical_window`
+- `stage_owner_team`
+- `logistic_cost`
+- `artist_fee`
+- `total_cost`
+
+### Leituras obrigatórias futuras
+- quais artistas estão em cada palco
+- qual palco concentra maior risco operacional
+- quais chegadas impactam qual palco
+- quais artistas estão com passagem de som pendente por palco
+- quais custos estão concentrados em cada palco
 
 ---
 
@@ -507,4 +571,3 @@ Ao seguir esta arquitetura, a EnjoyFun passa a ter:
 - melhor governança multi-tenant
 - frontend alinhado ao produto
 - estrutura pronta para white label, canais, financeiro e IA por organizador
-

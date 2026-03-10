@@ -1,20 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Camera, CheckCircle2, XCircle, MapPin, Keyboard, AlertTriangle, Loader2 } from 'lucide-react';
+import { Camera, CheckCircle2, XCircle, MapPin, Keyboard, AlertTriangle, Loader2, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../lib/api';
 
+const OPERATION_MODES = ['portaria', 'bar', 'food', 'shop', 'parking'];
+
 export default function Scanner() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [scanResult, setScanResult] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [cameraError, setCameraError] = useState('');
-  
+  const requestedMode = searchParams.get('mode');
+  const fixedMode = OPERATION_MODES.includes(requestedMode || '') ? requestedMode : '';
+  const returnTo = location.state?.returnTo || (fixedMode === 'portaria' ? '/tickets' : '/');
+
   // O Staff escolhe onde ele está trabalhando (vazio para forçar a escolha)
-  const [operationMode, setOperationMode] = useState(''); 
+  const [operationMode, setOperationMode] = useState(fixedMode || ''); 
   const [manualCode, setManualCode] = useState('');
   
   const scannerRef = useRef(null);
+  const manualInputRef = useRef(null);
   const qrCodeRegionId = "qr-reader";
 
   // Inicia a câmera
@@ -39,7 +49,7 @@ export default function Scanner() {
           scannerRef.current.pause();
           handleScan(decodedText);
         },
-        (errorMessage) => {}
+        () => {}
       );
     } catch (err) {
       console.error(err);
@@ -61,14 +71,49 @@ export default function Scanner() {
     return stopScanner;
   }, []);
 
+  useEffect(() => {
+    if (fixedMode) {
+      setOperationMode(fixedMode);
+    }
+  }, [fixedMode]);
+
   // Processa a leitura
   const handleScan = async (qrData) => {
     setIsProcessing(true);
     try {
-      const { data } = await api.post('/scanner/process', {
-        token: qrData,
-        mode: operationMode
-      });
+      let data;
+
+      if (operationMode === 'portaria') {
+        try {
+          const ticketResponse = await api.post('/tickets/validate', {
+            dynamic_token: qrData,
+          });
+
+          data = {
+            message: ticketResponse.data?.message || 'Acesso liberado!',
+            data: {
+              ...ticketResponse.data?.data,
+              info: 'Ingresso validado',
+            },
+          };
+        } catch (ticketErr) {
+          if (ticketErr.response?.status !== 404) {
+            throw ticketErr;
+          }
+
+          const fallbackResponse = await api.post('/scanner/process', {
+            token: qrData,
+            mode: operationMode
+          });
+          data = fallbackResponse.data;
+        }
+      } else {
+        const response = await api.post('/scanner/process', {
+          token: qrData,
+          mode: operationMode
+        });
+        data = response.data;
+      }
 
       setScanResult({
         type: 'success',
@@ -101,6 +146,23 @@ export default function Scanner() {
     }
   };
 
+  useEffect(() => {
+    if (!operationMode || scanResult || isProcessing) return;
+
+    const keepManualFocus = () => {
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      if (activeTag === 'button') return;
+
+      if (manualInputRef.current && document.activeElement !== manualInputRef.current) {
+        manualInputRef.current.focus();
+      }
+    };
+
+    keepManualFocus();
+    const focusInterval = setInterval(keepManualFocus, 500);
+    return () => clearInterval(focusInterval);
+  }, [isProcessing, operationMode, scanResult]);
+
   // Submissão manual
   const handleManualSubmit = (e) => {
     e.preventDefault();
@@ -127,19 +189,37 @@ export default function Scanner() {
 
   // Trocar de setor reseta a câmera e o estado do scanner
   const handleChangeSector = () => {
+    if (fixedMode) {
+      return;
+    }
     stopScanner();
     setOperationMode('');
     setScanResult(null);
     setManualCode('');
   };
 
+  const handleExitScanner = async () => {
+    stopScanner();
+    navigate(returnTo);
+  };
+
   return (
     <div className="max-w-md mx-auto space-y-6 pb-20">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-white flex items-center justify-center gap-2">
-          <Camera className="text-brand" /> Scanner PDV
-        </h1>
-        <p className="text-sm text-gray-400 mt-1">Validação de Ingressos e Cartões</p>
+      <div className="space-y-4">
+        <button
+          type="button"
+          onClick={handleExitScanner}
+          className="inline-flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-700"
+        >
+          <ArrowLeft size={16} /> Voltar
+        </button>
+
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white flex items-center justify-center gap-2">
+            <Camera className="text-brand" /> Scanner PDV
+          </h1>
+          <p className="text-sm text-gray-400 mt-1">Validação de Ingressos e Cartões</p>
+        </div>
       </div>
 
       {!operationMode ? (
@@ -162,9 +242,11 @@ export default function Scanner() {
                 Setor: {operationMode}
               </span>
             </div>
-            <button onClick={handleChangeSector} className="bg-gray-800 hover:bg-gray-700 text-white text-sm py-1.5 px-4 rounded-lg transition-colors font-medium">
-               Trocar Setor
-            </button>
+            {!fixedMode ? (
+              <button onClick={handleChangeSector} className="bg-gray-800 hover:bg-gray-700 text-white text-sm py-1.5 px-4 rounded-lg transition-colors font-medium">
+                 Trocar Setor
+              </button>
+            ) : null}
           </div>
 
           <div className="relative rounded-2xl overflow-hidden bg-black border-2 border-gray-800 shadow-2xl aspect-square flex items-center justify-center">
@@ -224,12 +306,16 @@ export default function Scanner() {
             </h3>
             <div className="flex gap-2">
               <input 
+                ref={manualInputRef}
                 type="text" 
                 placeholder="Ex: EF-IMP-1234ABCD"
                 className="input flex-1"
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
                 disabled={!!scanResult}
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
               />
               <button type="submit" className="btn-primary whitespace-nowrap" disabled={!manualCode.trim() || !!scanResult}>
                 Validar

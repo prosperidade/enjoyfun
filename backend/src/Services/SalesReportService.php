@@ -248,7 +248,7 @@ class SalesReportService
 
     private static function resolveSalesChartWindow(PDO $db, int $eventId, string $timeFilter): array
     {
-        $now = new DateTimeImmutable('now');
+        $now = self::fetchDatabaseNow($db);
         $endAt = $now->setTime((int)$now->format('H'), 0, 0);
 
         if ($timeFilter === 'total') {
@@ -282,6 +282,17 @@ class SalesReportService
         $startAt = $hoursAgo->setTime((int)$hoursAgo->format('H'), 0, 0);
 
         return [$startAt, $endAt];
+    }
+
+    private static function fetchDatabaseNow(PDO $db): DateTimeImmutable
+    {
+        $stmt = $db->query("SELECT NOW() AS now_at");
+        $value = $stmt ? $stmt->fetchColumn() : false;
+        if (!$value) {
+            return new DateTimeImmutable('now');
+        }
+
+        return new DateTimeImmutable((string)$value);
     }
 
     private static function buildWhereTimeClause(string $salesAlias, string $timeFilter): string

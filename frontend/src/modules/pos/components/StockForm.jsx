@@ -1,0 +1,103 @@
+export default function StockForm({
+  currentSector,
+  onCancel,
+  onSubmit,
+  prodForm,
+  savingProduct,
+  sectorTitle,
+  setProdForm,
+  showAddForm,
+}) {
+  if (!showAddForm) {
+    return null;
+  }
+
+  return (
+    <div className="bg-gray-900 p-6 rounded-2xl border border-purple-800/40">
+      <h3 className="text-white font-bold mb-4">
+        {prodForm.id ? "Editar" : "Novo"} Produto
+      </h3>
+      <form
+        onSubmit={onSubmit}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
+      >
+        <div className="lg:col-span-1">
+          <label className="text-xs text-gray-500 block mb-1">Setor</label>
+          <select
+            className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
+            value={prodForm.sector}
+            disabled
+          >
+            <option value={currentSector}>{sectorTitle}</option>
+          </select>
+        </div>
+        <div className="lg:col-span-1">
+          <label className="text-xs text-gray-500 block mb-1">Nome</label>
+          <input
+            className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
+            required
+            value={prodForm.name}
+            onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Preço (R$)</label>
+          <input
+            className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
+            type="number"
+            step="0.01"
+            required
+            value={prodForm.price}
+            onChange={(e) => setProdForm({ ...prodForm, price: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Estoque</label>
+          <input
+            className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
+            type="number"
+            required
+            value={prodForm.stock_qty}
+            onChange={(e) =>
+              setProdForm({
+                ...prodForm,
+                stock_qty: e.target.value,
+              })
+            }
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Mínimo</label>
+          <input
+            className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
+            type="number"
+            required
+            value={prodForm.low_stock_threshold}
+            onChange={(e) =>
+              setProdForm({
+                ...prodForm,
+                low_stock_threshold: e.target.value,
+              })
+            }
+          />
+        </div>
+        <div className="lg:col-span-5 flex justify-end gap-2 mt-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 text-gray-500 text-xs hover:text-white"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={savingProduct}
+            className="bg-purple-600 px-6 py-2 rounded-lg text-white text-xs font-bold hover:bg-purple-500"
+          >
+            {savingProduct ? "..." : "Salvar"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

@@ -1,354 +1,90 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { useNavigate } from "react-router-dom"; // ADICIONADO
-import {
-  ShoppingCart,
-  Plus,
-  Minus,
-  Trash2,
-  Package,
-  AlertTriangle,
-  Check,
-  QrCode,
-  Clock,
-  Beer,
-  UtensilsCrossed,
-  Shirt,
-  Wifi,
-  WifiOff,
-  ArrowLeft,
-  Coffee,
-  GlassWater,
-  CupSoda,
-  Pizza,
-  Zap
-} from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { db } from "../lib/db";
 import { useNetwork } from "../hooks/useNetwork";
 import toast from "react-hot-toast";
 import api from "../lib/api";
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar as RechartsBar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-} from "recharts";
-
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    let items = [];
-    if (data.items_detail) {
-      try {
-        items =
-          typeof data.items_detail === "string"
-            ? JSON.parse(data.items_detail)
-            : data.items_detail;
-      } catch (err) {
-        console.error("Erro parse tooltip", err);
-      }
-    }
-    return (
-      <div className="bg-gray-900 border border-gray-700 p-3 rounded-xl shadow-xl z-50">
-        <p className="text-gray-400 text-xs mb-1">{label}</p>
-        <p className="text-green-400 font-bold text-lg mb-2">
-          R$ {parseFloat(data.revenue || 0).toFixed(2)}
-        </p>
-        {items.length > 0 && (
-          <div className="space-y-1">
-            {items.map((it, idx) => (
-              <div
-                key={idx}
-                className="text-xs text-gray-300 flex justify-between gap-4"
-              >
-                <span>
-                  {it.qty}x {it.name}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-  return null;
-};
-
-const getProductIcon = (name, sector) => {
-  const defaultSize = 28;
-  const defaultClass = "text-gray-400";
-  
-  if (!name) return sector === "food" ? <UtensilsCrossed size={defaultSize} className="text-orange-400" /> : sector === "shop" ? <Shirt size={defaultSize} className="text-blue-400" /> : <Beer size={defaultSize} className="text-purple-400" />;
-  
-  const n = String(name).toLowerCase();
-  if (n.includes("vodka") || n.includes("combo")) return <Beer size={defaultSize} className="text-indigo-400" />;
-  if (n.includes("whisky") || n.includes("old par")) return <Coffee size={defaultSize} className="text-amber-600" />; // using coffee as a glass approx
-  if (n.includes("pizza")) return <Pizza size={defaultSize} className="text-red-400" />;
-  if (n.includes("xeque mate") || n.includes("mate")) return <CupSoda size={defaultSize} className="text-green-500" />;
-  if (n.includes("agua") || n.includes("água")) return <GlassWater size={defaultSize} className="text-blue-300" />;
-  if (n.includes("gatorade") || n.includes("energetico") || n.includes("energético")) return <Zap size={defaultSize} className="text-yellow-400" />;
-  if (n.includes("hamburguer") || n.includes("burger")) return <UtensilsCrossed size={defaultSize} className="text-orange-500" />;
-  
-  return sector === "food" ? <UtensilsCrossed size={defaultSize} className="text-orange-400" /> : sector === "shop" ? <Shirt size={defaultSize} className="text-blue-400" /> : <Beer size={defaultSize} className="text-purple-400" />;
-};
+import CartPanel from "../modules/pos/components/CartPanel";
+import CheckoutPanel from "../modules/pos/components/CheckoutPanel";
+import PosHeader from "../modules/pos/components/PosHeader";
+import PosToolbar from "../modules/pos/components/PosToolbar";
+import ProductGrid from "../modules/pos/components/ProductGrid";
+import InsightChat from "../modules/pos/components/InsightChat";
+import ProductMixChart from "../modules/pos/components/ProductMixChart";
+import ReportsPanel from "../modules/pos/components/ReportsPanel";
+import ReportsControls from "../modules/pos/components/ReportsControls";
+import ReportSummaryCards from "../modules/pos/components/ReportSummaryCards";
+import SalesTimelineChart from "../modules/pos/components/SalesTimelineChart";
+import StockForm from "../modules/pos/components/StockForm";
+import StockList from "../modules/pos/components/StockList";
+import StockPanel from "../modules/pos/components/StockPanel";
+import { usePosCart } from "../modules/pos/hooks/usePosCart";
+import { usePosCatalog } from "../modules/pos/hooks/usePosCatalog";
+import { usePosOfflineSync } from "../modules/pos/hooks/usePosOfflineSync";
+import { usePosReports } from "../modules/pos/hooks/usePosReports";
+import { createProductForm } from "../modules/pos/utils/createProductForm";
+import { getSectorInfo } from "../modules/pos/utils/getSectorInfo";
 
 export default function POS({ fixedSector = "bar" }) {
-  const navigate = useNavigate(); // ADICIONADO
+  const navigate = useNavigate();
   const { syncOfflineData } = useNetwork();
-
-  // Estados Gerais
   const [tab, setTab] = useState("pos");
-  const [events, setEvents] = useState([]);
-  const [eventId, setEventId] = useState("1");
-  const [loading, setLoading] = useState(false);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const [, setOfflineQueue] = useState([]);
-
-  // Setor Info
-  const [currentSector, setCurrentSector] = useState(fixedSector);
-
-  useEffect(() => {
-    setCurrentSector(fixedSector);
-    setCart([]);
-  }, [fixedSector]);
-
-  const getSectorInfo = () => {
-    if (currentSector === "food")
-      return {
-        icon: <UtensilsCrossed className="text-orange-400" size={28} />,
-        title: "ALIMENTAÇÃO",
-        fallbackIcon: <UtensilsCrossed className="text-orange-400" size={32} />
-      };
-    if (currentSector === "shop")
-      return {
-        icon: <Shirt className="text-blue-400" size={28} />,
-        title: "LOJA",
-        fallbackIcon: <Shirt className="text-blue-400" size={32} />
-      };
-    return {
-      icon: <Beer className="text-purple-400" size={28} />,
-      title: "BAR",
-      fallbackIcon: <Beer className="text-purple-400" size={32} />
-    };
-  };
-
-  const sectorInfo = getSectorInfo();
-
-  // Estados de Carrinho e Vendas
-  const [products, setProducts] = useState([]);
-  const [cart, setCart] = useState([]);
-  const [total, setTotal] = useState(0);
+  const currentSector = fixedSector;
+  const sectorInfo = getSectorInfo(currentSector);
   const [cardToken, setCardToken] = useState("");
   const [processingSale, setProcessingSale] = useState(false);
-
-  // Estados de Relatórios, Gráficos e IA Gemini
-  const [_recentSales, setRecentSales] = useState([]);
-  const [reportData, setReportData] = useState(null);
-  const [loadingInsight, setLoadingInsight] = useState(false);
-  const [chatHistory, setChatHistory] = useState([]);
-  const [timeFilter, setTimeFilter] = useState("24h");
-  const [aiQuestion, setAiQuestion] = useState("");
-  const latestSalesRequestRef = useRef(0);
-
-  // Estados do Formulário de Estoque
   const [showAddForm, setShowAddForm] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
-  const [prodForm, setProdForm] = useState({
-    id: null,
-    name: "",
-    price: "",
-    stock_qty: "",
-    low_stock_threshold: 5,
-    sector: fixedSector,
+  const [prodForm, setProdForm] = useState(() => createProductForm(fixedSector));
+
+  const {
+    events,
+    eventId,
+    loading,
+    loadProducts,
+    products,
+    setEventId,
+  } = usePosCatalog({
+    currentSector,
   });
 
-  const buildOfflineSaleItem = useCallback((payload, offlineId, createdOfflineAt = null) => ({
-    offline_id: offlineId,
-    payload_type: "sale",
-    payload: {
-      ...payload,
-      sector: payload.sector ?? currentSector,
-      card_id:
-        payload.card_id ??
-        payload.qr_token ??
-        payload.card_token ??
-        payload.customer_id ??
-        null,
-    },
-    created_offline_at: createdOfflineAt ?? new Date().toISOString(),
-    sector: payload.sector ?? currentSector,
-  }), [currentSector]);
+  const {
+    addToCart,
+    cart,
+    clearCart,
+    removeFromCart,
+    total,
+    updateQuantity,
+  } = usePosCart();
 
-  // Sincronização Offline
-  const syncQueue = useCallback(async () => {
-    const rawQueue = JSON.parse(
-      localStorage.getItem(`offline_sales_${currentSector}`) || "[]",
-    );
-    if (!rawQueue.length) return;
+  const {
+    isOffline,
+    buildOfflineSaleItem,
+    enqueueOfflineSale,
+  } = usePosOfflineSync({
+    currentSector,
+    syncOfflineData,
+  });
 
-    const q = rawQueue
-      .map((item) => {
-        if (!item?.offline_id) return null;
-        return buildOfflineSaleItem(
-          item.payload ?? item.data ?? {},
-          item.offline_id,
-          item.created_offline_at ?? item.created_at ?? null,
-        );
-      })
-      .filter(Boolean);
-
-    if (!q.length) return;
-
-    try {
-      const { data } = await api.post("/sync", { items: q });
-      const processedIds = new Set(
-        data?.data?.processed_ids ?? q.map((item) => item.offline_id),
-      );
-      const failedCount = Number(data?.data?.failed ?? 0);
-
-      const remaining = rawQueue.filter(
-        (item) => !processedIds.has(item?.offline_id),
-      );
-      localStorage.setItem(
-        `offline_sales_${currentSector}`,
-        JSON.stringify(remaining),
-      );
-      setOfflineQueue(remaining);
-
-      if (failedCount > 0) {
-        toast.error(
-          `${processedIds.size} venda(s) sincronizada(s) e ${failedCount} pendente(s).`,
-        );
-      } else {
-        toast.success(`${processedIds.size} venda(s) sincronizada(s)!`);
-      }
-    } catch {
-      toast.error("Falha na sincronização.");
-    }
-  }, [buildOfflineSaleItem, currentSector]);
+  const {
+    aiQuestion,
+    chatHistory,
+    loadingInsight,
+    loadRecentSales,
+    reportData,
+    requestInsight,
+    setAiQuestion,
+    setTimeFilter,
+    timeFilter,
+  } = usePosReports({
+    currentSector,
+    eventId,
+  });
 
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOffline(false);
-      syncQueue();
-      syncOfflineData();
-    };
-    const handleOffline = () => setIsOffline(true);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, [syncQueue, syncOfflineData]);
-
-  useEffect(() => {
-    api
-      .get("/events")
-      .then((r) => setEvents(r.data.data || []))
-      .catch(() => {});
-  }, []);
-
-  const loadProducts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.get(
-        `/${currentSector}/products?event_id=${eventId}`,
-      );
-      if (res.data?.data) {
-        setProducts(
-          res.data.data.map((p) => ({
-            ...p,
-            price: parseFloat(p.price),
-            icon: getProductIcon(p.name, p.sector),
-          })),
-        );
-      }
-    } catch (err) {
-      console.error("Erro ao listar catálogo", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentSector, eventId]);
-
-  const loadRecentSales = useCallback(async () => {
-    const requestId = latestSalesRequestRef.current + 1;
-    latestSalesRequestRef.current = requestId;
-
-    try {
-      const res = await api.get(
-        `/${currentSector}/sales?event_id=${eventId}&filter=${timeFilter}`,
-      );
-      if (requestId !== latestSalesRequestRef.current) {
-        return;
-      }
-
-      if (res.data?.data) {
-        if (res.data.data.recent_sales) {
-          setRecentSales(res.data.data.recent_sales);
-          if (res.data.data.report) {
-            setReportData(res.data.data.report);
-          }
-        } else {
-          setRecentSales(res.data.data);
-          if (res.data.data.report) {
-            setReportData(res.data.data.report);
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Erro ao carregar vendas", err);
-    }
-  }, [currentSector, eventId, timeFilter]);
-
-  useEffect(() => {
-    loadProducts();
-    loadRecentSales();
-
-    // Polling contínuo (Auto-refresh) para garantir a Timeline em Real-time
-    const intervalId = setInterval(() => {
-      loadRecentSales();
-    }, 30000);
-
-    // Limpeza mandatória exigida na validação técnica para evitar memory leaks
-    return () => clearInterval(intervalId);
-  }, [loadProducts, loadRecentSales]);
-
-  useEffect(() => {
-    setTotal(cart.reduce((acc, item) => acc + item.price * item.quantity, 0));
-  }, [cart]);
-
-  const addToCart = (product) => {
-    setCart((prev) => {
-      const existing = prev.find((p) => p.id === product.id);
-      if (existing) {
-        return prev.map((p) =>
-          p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p,
-        );
-      }
-      return [...prev, { ...product, quantity: 1 }];
-    });
-  };
-
-  const updateQuantity = (id, delta) => {
-    setCart((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          const newQ = p.quantity + delta;
-          return newQ > 0 ? { ...p, quantity: newQ } : p;
-        }
-        return p;
-      }),
-    );
-  };
-
-  const removeFromCart = (id) =>
-    setCart((prev) => prev.filter((p) => p.id !== id));
+    clearCart();
+  }, [clearCart, fixedSector]);
 
   const handleCheckout = async () => {
     if (cart.length === 0 || !cardToken) return;
@@ -369,14 +105,9 @@ export default function POS({ fixedSector = "bar" }) {
     };
 
     if (isOffline) {
-      const q = JSON.parse(
-        localStorage.getItem(`offline_sales_${currentSector}`) || "[]",
-      );
-      q.push(buildOfflineSaleItem(payload, offlineId));
-      localStorage.setItem(`offline_sales_${currentSector}`, JSON.stringify(q));
-      setOfflineQueue(q);
+      enqueueOfflineSale(payload, offlineId);
       toast.success("Venda salva offline!");
-      setCart([]);
+      clearCart();
       setCardToken("");
     } else {
       try {
@@ -385,7 +116,7 @@ export default function POS({ fixedSector = "bar" }) {
           offline_id: offlineId,
         });
         toast.success("Venda Realizada!", { icon: "✅" });
-        setCart([]);
+        clearCart();
         setCardToken("");
         loadProducts();
         loadRecentSales();
@@ -399,7 +130,7 @@ export default function POS({ fixedSector = "bar" }) {
             status: "pending",
           });
           toast.success("Salvo Offline!", { icon: "💾" });
-          setCart([]);
+          clearCart();
           setCardToken("");
           syncOfflineData();
         } else {
@@ -429,14 +160,7 @@ export default function POS({ fixedSector = "bar" }) {
         toast.success("Cadastrado!");
       }
       setShowAddForm(false);
-      setProdForm({
-        id: null,
-        name: "",
-        price: "",
-        stock_qty: "",
-        low_stock_threshold: 5,
-        sector: currentSector,
-      });
+      setProdForm(createProductForm(currentSector));
       loadProducts();
     } catch {
       toast.error("Erro ao salvar.");
@@ -469,623 +193,107 @@ export default function POS({ fixedSector = "bar" }) {
     }
   };
 
-  const requestInsight = async () => {
-    if (!aiQuestion.trim()) return;
-    const q = aiQuestion;
-    setAiQuestion("");
-    setChatHistory((prev) => [...prev, { role: "user", content: q }]);
-    setLoadingInsight(true);
-    try {
-      // Passo 1: busca dados analíticos do backend
-      const dataRes = await api.post(
-        `/${currentSector}/insights?filter=${timeFilter}`,
-        { event_id: eventId, question: q },
-      );
-
-      const ctx = dataRes.data?.data?.context;
-      let insight = "";
-
-      if (ctx) {
-        // Passo 2: Envia contexto e a pergunta pro backend processar de forma segura
-        const aiRes = await api.post('/ai/insight', { context: ctx, question: q });
-        insight = aiRes.data?.data?.insight || "Nenhum insight retornado pela IA.";
-      } else if (dataRes.data?.data?.insight) {
-        // Fallback: retorno direto
-        insight = dataRes.data.data.insight;
-      }
-
-      setChatHistory((prev) => [
-        ...prev,
-        { role: "ai", content: insight || "Sem resposta da IA." },
-      ]);
-    } catch (err) {
-      console.error("Erro na IA:", err);
-      // Se for erro do backend (ex: 429 com mensagem tratada), exibe a mensagem amigável dele
-      const msg = err.response?.data?.message || err.message;
-      setChatHistory((prev) => [
-        ...prev,
-        { role: "ai", content: `Erro na conexão com IA: ${msg}` },
-      ]);
-    } finally {
-      setLoadingInsight(false);
-    }
-  };
-
   // ─── RENDERIZAÇÃO PRINCIPAL ───
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
-      {/* ─── CABEÇALHO GLOBAL (BOTÃO VOLTAR + STATUS) ─── */}
-      <header className="h-16 px-6 border-b border-gray-800 flex items-center justify-between bg-gray-950/50 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate("/")}
-            className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-all flex items-center justify-center"
-            title="Voltar ao Dashboard"
-          >
-            <ArrowLeft size={20} />
-          </button>
-
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-900 rounded-lg border border-gray-800">
-              {sectorInfo.icon}
-            </div>
-            <div>
-              <h1 className="font-bold text-sm tracking-widest text-white uppercase">
-                PDV {sectorInfo.title}
-              </h1>
-              <p className="text-[10px] text-gray-500 font-medium uppercase tracking-tighter">
-                EnjoyFun v2.0 • Unidade Digital
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {isOffline ? (
-            <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-full text-red-400 text-xs font-black tracking-widest uppercase shadow-[0_0_15px_rgba(239,68,68,0.2)] animate-pulse">
-              <WifiOff size={16} /> <span className="mt-0.5">OFFLINE MODE</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full text-green-400 text-[10px] font-bold tracking-wider">
-              <Wifi size={14} /> <span>ONLINE</span>
-            </div>
-          )}
-        </div>
-      </header>
+      <PosHeader
+        isOffline={isOffline}
+        navigate={navigate}
+        sectorInfo={sectorInfo}
+      />
 
       {/* ─── CONTEÚDO SCROLLABLE DO POS ─── */}
       <main className="flex-1 overflow-y-auto p-6 scrollbar-hide">
         <div className="max-w-7xl mx-auto flex flex-col gap-6">
-          {/* BARRA DE CONTROLE LOCAL */}
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-gray-900/40 p-4 rounded-2xl border border-gray-800/60">
-            <div>
-              <h1 className="text-2xl font-black text-white flex items-center gap-3 tracking-wide">
-                {sectorInfo.icon} POS EnjoyFun{" "}
-                <span className="text-gray-500 font-medium">
-                  | {sectorInfo.title}
-                </span>
-              </h1>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              <select
-                className="w-full sm:w-72 bg-gray-950 border border-gray-700 text-white rounded-xl px-4 py-3 text-sm font-medium focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all outline-none"
-                value={eventId}
-                onChange={(e) => setEventId(e.target.value)}
-              >
-                {events.map((ev) => (
-                  <option key={ev.id} value={ev.id}>
-                    {ev.name}
-                  </option>
-                ))}
-              </select>
-
-              <div className="flex gap-2 bg-gray-950 p-1.5 rounded-xl border border-gray-800 w-full sm:w-auto">
-                <button
-                  onClick={() => setTab("pos")}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${tab === "pos" ? "bg-purple-600 text-white shadow-lg shadow-purple-900/20" : "text-gray-400 hover:text-white hover:bg-gray-800"}`}
-                >
-                  <ShoppingCart size={16} /> VENDA
-                </button>
-                <button
-                  onClick={() => setTab("stock")}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${tab === "stock" ? "bg-purple-600 text-white shadow-lg shadow-purple-900/20" : "text-gray-400 hover:text-white hover:bg-gray-800"}`}
-                >
-                  <Package size={16} /> ESTOQUE
-                </button>
-                <button
-                  onClick={() => setTab("reports")}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${tab === "reports" ? "bg-purple-600 text-white shadow-lg shadow-purple-900/20" : "text-gray-400 hover:text-white hover:bg-gray-800"}`}
-                >
-                  📊 BI & IA
-                </button>
-              </div>
-            </div>
-          </div>
+          <PosToolbar
+            eventId={eventId}
+            events={events}
+            sectorInfo={sectorInfo}
+            setEventId={setEventId}
+            setTab={setTab}
+            tab={tab}
+          />
 
           {/* ABA POS */}
           {tab === "pos" && (
             <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
-              <div className="flex-[2] overflow-y-auto pr-2 pb-4">
-                {loading ? (
-                  <div className="flex justify-center py-20 text-purple-500">
-                    <span className="animate-spin border-4 border-t-transparent border-purple-500 rounded-full w-10 h-10" />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {products
-                      .filter(
-                        (p) => (p.sector || currentSector) === currentSector,
-                      )
-                      .map((product) => (
-                        <button
-                          key={product.id}
-                          onClick={() => addToCart(product)}
-                          disabled={product.stock_qty <= 0}
-                          className={`p-4 rounded-2xl border flex flex-col items-center justify-center gap-3 transition-all active:scale-95 ${product.stock_qty > 0 ? (product.stock_qty <= (product.low_stock_threshold || 5) ? "bg-red-900/20 border-red-500/50 hover:border-red-400" : "hover:border-purple-500 bg-gray-800/40 border-gray-700/50") : "opacity-40 cursor-not-allowed bg-gray-900 border-gray-800"}`}
-                        >
-                          <div className="flex items-center justify-center w-12 h-12 bg-gray-900/50 rounded-full mb-1">
-                            {product.icon || sectorInfo.fallbackIcon}
-                          </div>
-                          <div className="text-center w-full">
-                            <p className="text-white font-semibold text-sm leading-tight truncate">
-                              {product.name}
-                            </p>
-                            <p className="text-purple-300 font-bold mt-1">
-                              R$ {product.price.toFixed(2)}
-                            </p>
-                            <p
-                              className={`text-xs mt-1 font-bold ${product.stock_qty <= (product.low_stock_threshold || 5) ? "text-red-500" : "text-gray-500"}`}
-                            >
-                              {product.stock_qty > 0
-                                ? `${product.stock_qty} un.`
-                                : "Esgotado"}
-                            </p>
-                          </div>
-                        </button>
-                      ))}
-                  </div>
-                )}
-              </div>
+              <ProductGrid
+                currentSector={currentSector}
+                fallbackIcon={sectorInfo.fallbackIcon}
+                loading={loading}
+                onAddToCart={addToCart}
+                products={products}
+              />
 
-              <div className="flex-1 bg-gray-900 border border-gray-800 rounded-2xl flex flex-col overflow-hidden min-h-[500px]">
-                <div className="px-5 py-4 bg-gray-800/80 border-b border-gray-700 flex items-center justify-between font-bold text-white shadow-sm">
-                  <span>Carrinho de Venda</span>
-                  <span className="bg-purple-600 px-3 py-1 rounded-full text-xs flex items-center gap-1">
-                    <ShoppingCart size={14} /> {cart.length}
-                  </span>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-900/40">
-                  {cart.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-4 mt-8">
-                      <div className="p-6 bg-gray-800/30 rounded-full border border-gray-800 border-dashed">
-                        <ShoppingCart size={40} className="text-gray-600 border-gray-700" />
-                      </div>
-                      <div className="text-center">
-                        <p className="font-semibold text-gray-400">Caixa Livre</p>
-                        <p className="text-xs mt-1 max-w-[200px]">Adicione produtos clicando nos botões ao lado.</p>
-                      </div>
-                    </div>
-                  ) : (
-                    cart.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex flex-col gap-3 p-3.5 bg-gray-800/60 border border-gray-700 rounded-xl shadow-sm transition-all hover:border-gray-600"
-                      >
-                        <div className="flex justify-between text-sm text-white font-semibold">
-                          <span className="truncate pr-2">{item.name}</span>
-                          <span className="text-purple-300 whitespace-nowrap">
-                            R$ {(item.price * item.quantity).toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <div className="flex items-center bg-gray-900 rounded-lg p-1 border border-gray-700">
-                            <button
-                              onClick={() => updateQuantity(item.id, -1)}
-                              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
-                            >
-                              <Minus size={16} />
-                            </button>
-                            <span className="w-10 text-center text-sm font-bold text-white">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => updateQuantity(item.id, 1)}
-                              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors"
-                            >
-                              <Plus size={16} />
-                            </button>
-                          </div>
-                          <button
-                            onClick={() => removeFromCart(item.id)}
-                            className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                            title="Remover"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div className="p-5 bg-gray-900 border-t border-gray-700 shadow-[0_-10px_30px_rgba(0,0,0,0.3)] z-10">
-                  <div className="relative mb-4">
-                    <QrCode size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                    <input
-                      value={cardToken}
-                      onChange={(e) => setCardToken(e.target.value)}
-                      placeholder="ESCANEIE O QR CLIENTE"
-                      autoFocus
-                      className="w-full bg-gray-950 border border-gray-700 text-white rounded-xl pl-10 pr-4 py-3.5 text-sm font-semibold outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all placeholder:text-gray-600"
-                    />
-                  </div>
-                  <div className="flex justify-between items-center mb-4 text-white">
-                    <span className="text-gray-400">Total</span>
-                    <span className="text-2xl font-extrabold">
-                      R$ {total.toFixed(2)}
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleCheckout}
-                    disabled={cart.length === 0 || processingSale || !cardToken}
-                    className={`w-full py-4 rounded-xl font-bold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${isOffline ? "bg-amber-600 hover:bg-amber-500 shadow-[0_0_15px_rgba(217,119,6,0.2)]" : "bg-purple-600 hover:bg-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.3)]"}`}
-                  >
-                    {processingSale ? (
-                      <span className="animate-pulse">PROCESSANDO...</span>
-                    ) : isOffline ? (
-                      <>
-                        <WifiOff size={18} /> SALVAR OFFLINE
-                      </>
-                    ) : (
-                      <>
-                        <Check size={18} /> FINALIZAR PAGAMENTO
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
+              <CartPanel
+                cart={cart}
+                onRemoveFromCart={removeFromCart}
+                onUpdateQuantity={updateQuantity}
+              >
+                <CheckoutPanel
+                  cardToken={cardToken}
+                  canCheckout={cart.length > 0 && Boolean(cardToken)}
+                  isOffline={isOffline}
+                  onCardTokenChange={setCardToken}
+                  onCheckout={handleCheckout}
+                  processingSale={processingSale}
+                  total={total}
+                />
+              </CartPanel>
             </div>
           )}
 
           {/* ABA ESTOQUE */}
           {tab === "stock" && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center bg-gray-900 border border-gray-800 p-4 rounded-xl">
-                <p className="text-gray-400 text-sm">
-                  Controle de Inventário: {sectorInfo.title}
-                </p>
-                <button
-                  onClick={() => setShowAddForm(!showAddForm)}
-                  className="flex items-center gap-2 bg-purple-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-purple-500"
-                >
-                  <Plus size={16} /> Adicionar Produto
-                </button>
-              </div>
+            <StockPanel
+              onToggleForm={() => setShowAddForm(!showAddForm)}
+              sectorTitle={sectorInfo.title}
+            >
+              <StockForm
+                currentSector={currentSector}
+                onCancel={() => setShowAddForm(false)}
+                onSubmit={handleAddProduct}
+                prodForm={prodForm}
+                savingProduct={savingProduct}
+                sectorTitle={sectorInfo.title}
+                setProdForm={setProdForm}
+                showAddForm={showAddForm}
+              />
 
-              {showAddForm && (
-                <div className="bg-gray-900 p-6 rounded-2xl border border-purple-800/40">
-                  <h3 className="text-white font-bold mb-4">
-                    {prodForm.id ? "Editar" : "Novo"} Produto
-                  </h3>
-                  <form
-                    onSubmit={handleAddProduct}
-                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
-                  >
-                    <div className="lg:col-span-1">
-                      <label className="text-xs text-gray-500 block mb-1">
-                        Setor
-                      </label>
-                      <select
-                        className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
-                        value={prodForm.sector}
-                        disabled
-                      >
-                        <option value={currentSector}>
-                          {sectorInfo.title}
-                        </option>
-                      </select>
-                    </div>
-                    <div className="lg:col-span-1">
-                      <label className="text-xs text-gray-500 block mb-1">
-                        Nome
-                      </label>
-                      <input
-                        className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
-                        required
-                        value={prodForm.name}
-                        onChange={(e) =>
-                          setProdForm({ ...prodForm, name: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 block mb-1">
-                        Preço (R$)
-                      </label>
-                      <input
-                        className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
-                        type="number"
-                        step="0.01"
-                        required
-                        value={prodForm.price}
-                        onChange={(e) =>
-                          setProdForm({ ...prodForm, price: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 block mb-1">
-                        Estoque
-                      </label>
-                      <input
-                        className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
-                        type="number"
-                        required
-                        value={prodForm.stock_qty}
-                        onChange={(e) =>
-                          setProdForm({
-                            ...prodForm,
-                            stock_qty: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 block mb-1">
-                        Mínimo
-                      </label>
-                      <input
-                        className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
-                        type="number"
-                        required
-                        value={prodForm.low_stock_threshold}
-                        onChange={(e) =>
-                          setProdForm({
-                            ...prodForm,
-                            low_stock_threshold: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="lg:col-span-5 flex justify-end gap-2 mt-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowAddForm(false)}
-                        className="px-4 py-2 text-gray-500 text-xs hover:text-white"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={savingProduct}
-                        className="bg-purple-600 px-6 py-2 rounded-lg text-white text-xs font-bold hover:bg-purple-500"
-                      >
-                        {savingProduct ? "..." : "Salvar"}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              )}
-
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-                {products.length === 0 ? (
-                  <p className="text-center py-8 text-gray-500 text-sm">
-                    Vazio.
-                  </p>
-                ) : (
-                  products.map((p) => (
-                    <div
-                      key={p.id}
-                      className="flex items-center gap-4 p-4 mb-2 bg-gray-950/50 border border-gray-800 rounded-xl transition-colors hover:border-gray-700"
-                    >
-                      <div className="flex items-center justify-center w-10 h-10 bg-gray-900 rounded-full border border-gray-800">
-                        {p.icon || sectorInfo.fallbackIcon}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-white">
-                          {p.name}{" "}
-                          <span className="text-[10px] bg-gray-700 px-1.5 rounded uppercase ml-2 text-gray-400">
-                            {p.sector}
-                          </span>
-                        </p>
-                        <p className="text-xs text-gray-500">ID: #{p.id}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {p.stock_qty <= (p.low_stock_threshold || 5) && (
-                          <AlertTriangle
-                            size={14}
-                            className="text-yellow-500"
-                          />
-                        )}
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${p.stock_qty <= (p.low_stock_threshold || 5) ? "bg-yellow-500/10 text-yellow-500" : "bg-green-500/10 text-green-500"}`}
-                        >
-                          {p.stock_qty} un.
-                        </span>
-                      </div>
-                      <p className="text-gray-300 font-bold w-24 text-right">
-                        R$ {p.price.toFixed(2)}
-                      </p>
-                      <div className="flex items-center gap-2 ml-4">
-                        <button
-                          onClick={() => handleEditClick(p)}
-                          className="p-1.5 text-blue-400 hover:bg-blue-900/30 rounded-lg"
-                        >
-                          ✎
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProduct(p.id)}
-                          className="p-1.5 text-red-500 hover:bg-red-900/30 rounded-lg"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+              <StockList
+                fallbackIcon={sectorInfo.fallbackIcon}
+                onDelete={handleDeleteProduct}
+                onEdit={handleEditClick}
+                products={products}
+              />
+            </StockPanel>
           )}
 
           {/* ABA BI & IA */}
           {tab === "reports" && (
-            <div className="space-y-6">
-              <div className="bg-gray-900/70 border border-gray-800 p-4 rounded-2xl">
-                <p className="text-[11px] font-black tracking-[0.25em] uppercase text-indigo-400">
-                  Relatorio Setorial
-                </p>
-                <h2 className="text-xl font-black text-white mt-2">
-                  Indicadores operacionais do setor {sectorInfo.title}
-                </h2>
-                <p className="text-sm text-gray-400 mt-1">
-                  Cards, historico e mix abaixo refletem apenas o setor atual.
-                </p>
-              </div>
+            <ReportsPanel>
+              <ReportsControls
+                aiQuestion={aiQuestion}
+                loadingInsight={loadingInsight}
+                onAiQuestionChange={setAiQuestion}
+                onInsightComposerKeyDown={(e) =>
+                  e.key === "Enter" && requestInsight()
+                }
+                onRequestInsight={requestInsight}
+                onTimeFilterChange={setTimeFilter}
+                sectorTitle={sectorInfo.title}
+                timeFilter={timeFilter}
+              />
 
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-gray-900 border border-gray-800 p-4 rounded-xl">
-                <div className="flex flex-wrap gap-2 bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50 w-full sm:w-auto overflow-x-auto">
-                  {["1h", "5h", "24h", "total"].map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setTimeFilter(f)}
-                      className={`flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition-all ${timeFilter === f ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/20" : "text-gray-400 hover:text-white hover:bg-gray-700"}`}
-                    >
-                      {f.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                  <input
-                    value={aiQuestion}
-                    onChange={(e) => setAiQuestion(e.target.value)}
-                    placeholder="Pergunte à IA (ex: qual horário de pico?)"
-                    className="flex-1 sm:w-72 bg-gray-950 border border-indigo-500/30 text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-600"
-                    onKeyDown={(e) => e.key === "Enter" && requestInsight()}
-                  />
-                  <button
-                    onClick={requestInsight}
-                    disabled={loadingInsight}
-                    className="bg-indigo-600 px-6 py-3 rounded-xl text-white text-sm font-bold hover:bg-indigo-500 transition-colors whitespace-nowrap shadow-lg shadow-indigo-900/20"
-                  >
-                    {loadingInsight ? "..." : "✨ Analisar"}
-                  </button>
-                </div>
-              </div>
+              <ReportSummaryCards reportData={reportData} />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-purple-900/20 border border-purple-800/50 p-6 rounded-2xl">
-                  <h3 className="text-gray-400 text-xs font-bold uppercase">
-                    Faturamento do Setor
-                  </h3>
-                  <p className="text-3xl font-extrabold text-white mt-2">
-                    R$ {parseFloat(reportData?.total_revenue || 0).toFixed(2)}
-                  </p>
-                </div>
-                <div className="bg-indigo-900/20 border border-indigo-800/50 p-6 rounded-2xl">
-                  <h3 className="text-gray-400 text-xs font-bold uppercase">
-                    Itens Vendidos no Setor
-                  </h3>
-                  <p className="text-3xl font-extrabold text-white mt-2">
-                    {reportData?.total_items || 0} un.
-                  </p>
-                </div>
-              </div>
-
-              {chatHistory.length > 0 && (
-                <div className="bg-gray-900/80 border border-indigo-500/30 p-5 rounded-2xl flex flex-col gap-4 max-h-[400px] overflow-y-auto w-full mx-auto">
-                  {chatHistory.map((msg, i) => (
-                    <div
-                      key={i}
-                      className={`p-4 rounded-2xl text-sm max-w-[90%] sm:max-w-[75%] shadow-sm ${msg.role === "user" ? "bg-indigo-600 text-white self-end ml-auto rounded-tr-sm" : "bg-gray-800 border border-gray-700 text-gray-200 self-start rounded-tl-sm"}`}
-                    >
-                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <InsightChat chatHistory={chatHistory} />
 
               <div className="flex flex-col gap-8 w-full">
-                <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
-                  <h3 className="text-white font-bold mb-4">
-                    Timeline de Vendas do Setor
-                  </h3>
-                  {reportData?.sales_chart?.length ? (
-                    <ResponsiveContainer width="100%" height={320}>
-                      <AreaChart data={reportData.sales_chart}>
-                        <defs>
-                          <linearGradient
-                            id="colorRevenue"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="5%"
-                              stopColor="#9333ea"
-                              stopOpacity={0.8}
-                            />
-                            <stop
-                              offset="95%"
-                              stopColor="#9333ea"
-                              stopOpacity={0}
-                            />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke="#374151"
-                          vertical={false}
-                        />
-                        <XAxis dataKey="time" stroke="#9ca3af" fontSize={10} />
-                        <YAxis
-                          stroke="#9ca3af"
-                          fontSize={10}
-                          tickFormatter={(v) => `R$${v}`}
-                        />
-                        <RechartsTooltip content={<CustomTooltip />} />
-                        <Area
-                          type="monotone"
-                          dataKey="revenue"
-                          stroke="#a855f7"
-                          fillOpacity={1}
-                          fill="url(#colorRevenue)"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <p className="text-center text-gray-600 text-sm py-20">
-                      Sem dados históricos.
-                    </p>
-                  )}
-                </div>
-
-                <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
-                  <h3 className="text-white font-bold mb-4">
-                    Mix de Produtos do Setor
-                  </h3>
-                  {reportData?.mix_chart?.length ? (
-                    <ResponsiveContainer width="100%" height={320}>
-                      <BarChart data={reportData.mix_chart} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
-                        <XAxis type="number" stroke="#9ca3af" fontSize={10} />
-                        <YAxis dataKey="name" type="category" stroke="#9ca3af" fontSize={10} width={100} />
-                        <RechartsTooltip 
-                          cursor={{fill: '#1f2937'}}
-                          contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }}
-                          itemStyle={{ color: '#a855f7' }}
-                        />
-                        <RechartsBar dataKey="qty" fill="#a855f7" radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <p className="text-center text-gray-600 text-sm py-20">
-                      Sem dados do mix.
-                    </p>
-                  )}
-                </div>
+                <SalesTimelineChart reportData={reportData} />
+                <ProductMixChart reportData={reportData} />
               </div>
-            </div>
+            </ReportsPanel>
           )}
         </div>
       </main>

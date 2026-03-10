@@ -7,10 +7,11 @@ import {
   Clock,
   Eye,
   Send,
+  Camera,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { QRCodeCanvas } from "qrcode.react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import * as otplib from "otplib";
 
 const { totp } = otplib;
@@ -33,12 +34,6 @@ const statusLabel = {
   active: "Ativo",
 };
 
-const EMPTY_SALE_FORM = {
-  ticketTypeId: "",
-  batchId: "",
-  commissaryId: "",
-};
-
 export default function Tickets() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [tickets, setTickets] = useState([]);
@@ -50,15 +45,18 @@ export default function Tickets() {
   const [commissaries, setCommissaries] = useState([]);
   const [batchFilter, setBatchFilter] = useState("");
   const [commissaryFilter, setCommissaryFilter] = useState("");
-  const [showSaleModal, setShowSaleModal] = useState(false);
-  const [saleForm, setSaleForm] = useState(EMPTY_SALE_FORM);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const requestedEventId = searchParams.get("event_id");
 
-  const selectedSaleBatch = useMemo(
-    () => batches.find((batch) => String(batch.id) === saleForm.batchId) || null,
-    [batches, saleForm.batchId]
+  const selectedBatch = useMemo(
+    () => batches.find((batch) => String(batch.id) === String(batchFilter)) || null,
+    [batches, batchFilter]
+  );
+
+  const effectiveBatchFilter = useMemo(
+    () => (selectedBatch ? String(selectedBatch.id) : ""),
+    [selectedBatch]
   );
 
   const effectiveEventId = useMemo(() => {
@@ -72,10 +70,24 @@ export default function Tickets() {
     return events[0] ? String(events[0].id) : "";
   }, [eventId, events, requestedEventId]);
 
-  const currentEvent = useMemo(
-    () => events.find((event) => String(event.id) === String(effectiveEventId)) || null,
-    [events, effectiveEventId]
-  );
+  const resolvedTicketTypeId = useMemo(() => {
+    if (selectedBatch?.ticket_type_id) {
+      return String(selectedBatch.ticket_type_id);
+    }
+
+    if (ticketTypes.length === 1) {
+      return String(ticketTypes[0].id);
+    }
+
+    return "";
+  }, [selectedBatch, ticketTypes]);
+
+  const effectiveCommissaryFilter = useMemo(() => {
+    const selectedCommissary = commissaries.find(
+      (commissary) => String(commissary.id) === String(commissaryFilter)
+    );
+    return selectedCommissary ? String(selectedCommissary.id) : "";
+  }, [commissaries, commissaryFilter]);
 
   const dynamicToken = useMemo(() => {
     if (!selectedTicket) return "";
@@ -164,8 +176,8 @@ export default function Tickets() {
     setLoading(true);
     const params = {};
     if (effectiveEventId) params.event_id = effectiveEventId;
-    if (batchFilter) params.ticket_batch_id = batchFilter;
-    if (commissaryFilter) params.commissary_id = commissaryFilter;
+    if (effectiveBatchFilter) params.ticket_batch_id = effectiveBatchFilter;
+    if (effectiveCommissaryFilter) params.commissary_id = effectiveCommissaryFilter;
 
     api.get("/tickets", { params })
       .then((r) => {
@@ -194,7 +206,7 @@ export default function Tickets() {
         }
       })
       .finally(() => setLoading(false));
-  }, [effectiveEventId, batchFilter, commissaryFilter]);
+  }, [effectiveBatchFilter, effectiveCommissaryFilter, effectiveEventId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -207,40 +219,37 @@ export default function Tickets() {
     setEventId(nextEventId);
     setBatchFilter("");
     setCommissaryFilter("");
-    setSaleForm(EMPTY_SALE_FORM);
     syncEventQuery(nextEventId);
   };
 
-  const openQuickSale = () => {
-    if (!effectiveEventId) {
-      toast.error("Selecione um evento.");
-      return;
-    }
-    if (ticketTypes.length === 0) {
-      toast.error("Este evento ainda não possui tipos de ingresso cadastrados. Edite o evento e cadastre ao menos um tipo.");
-      return;
-    }
-    setSaleForm(EMPTY_SALE_FORM);
-    setShowSaleModal(true);
-  };
-
   const handleQuickSale = async () => {
-    if (!effectiveEventId) return toast.error("Selecione um evento.");
-    if (!saleForm.ticketTypeId) return toast.error("Selecione um tipo de ingresso.");
+    if (!effectiveEventId) {
+      return toast.error("Selecione um evento.");
+    }
+
+    if (ticketTypes.length === 0) {
+      return toast.error("Este evento ainda não possui tipos de ingresso cadastrados. Edite o evento e cadastre ao menos um tipo.");
+    }
+
+    if (effectiveBatchFilter && !selectedBatch) {
+      return toast.error("Selecione um lote válido.");
+    }
+
+    if (!resolvedTicketTypeId) {
+      return toast.error("Selecione um lote nos filtros para definir o tipo do ingresso.");
+    }
 
     const loadId = toast.loading("Emitindo ingresso...");
     try {
       const payload = {
         event_id: Number(effectiveEventId),
-        ticket_type_id: Number(saleForm.ticketTypeId),
-        ticket_batch_id: saleForm.batchId ? Number(saleForm.batchId) : null,
-        commissary_id: saleForm.commissaryId ? Number(saleForm.commissaryId) : null,
+        ticket_type_id: Number(resolvedTicketTypeId),
+        ticket_batch_id: effectiveBatchFilter ? Number(effectiveBatchFilter) : null,
+        commissary_id: effectiveCommissaryFilter ? Number(effectiveCommissaryFilter) : null,
       };
       const { data } = await api.post("/tickets", payload);
       if (data.success) {
         toast.success("Ingresso gerado!", { id: loadId });
-        setShowSaleModal(false);
-        setSaleForm(EMPTY_SALE_FORM);
         fetchTickets();
       }
     } catch (err) {
@@ -277,7 +286,14 @@ export default function Tickets() {
           <p className="text-gray-500 text-sm mt-1">{tickets.length} ingressos comerciais ativos</p>
         </div>
         <div className="flex flex-wrap gap-3 w-full sm:w-auto">
-          <button onClick={openQuickSale} className="btn-primary flex-1 sm:flex-none justify-center">
+          <Link
+            to="/scanner?mode=portaria"
+            state={{ returnTo: "/tickets" }}
+            className="btn-outline flex-1 sm:flex-none justify-center"
+          >
+            <Camera size={18} /> Scanner
+          </Link>
+          <button onClick={handleQuickSale} className="btn-primary flex-1 sm:flex-none justify-center">
             <Plus size={18} /> Venda Rápida
           </button>
         </div>
@@ -292,13 +308,13 @@ export default function Tickets() {
               <option key={event.id} value={event.id}>{event.name}</option>
             ))}
           </select>
-          <select className="select" name="ticket_batch_filter" value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)} disabled={!effectiveEventId}>
+          <select className="select" name="ticket_batch_filter" value={effectiveBatchFilter} onChange={(e) => setBatchFilter(e.target.value)} disabled={!effectiveEventId}>
             <option value="">Todos os lotes</option>
             {batches.map((batch) => (
               <option key={batch.id} value={batch.id}>{batch.name}</option>
             ))}
           </select>
-          <select className="select" name="ticket_commissary_filter" value={commissaryFilter} onChange={(e) => setCommissaryFilter(e.target.value)} disabled={!effectiveEventId}>
+          <select className="select" name="ticket_commissary_filter" value={effectiveCommissaryFilter} onChange={(e) => setCommissaryFilter(e.target.value)} disabled={!effectiveEventId}>
             <option value="">Todos os comissários</option>
             {commissaries.map((commissary) => (
               <option key={commissary.id} value={commissary.id}>{commissary.name}</option>
@@ -353,96 +369,6 @@ export default function Tickets() {
           </table>
         </div>
       )}
-
-      {showSaleModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
-          <div className="card max-w-xl w-full border-brand/40 space-y-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="section-title">Emitir Ingresso Comercial</h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  Evento: <span className="text-white">{currentEvent?.name || "Não selecionado"}</span>
-                </p>
-              </div>
-              <button type="button" className="text-gray-500 hover:text-white" onClick={() => setShowSaleModal(false)}>
-                <XCircle size={24} />
-              </button>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="input-label">Tipo de ingresso *</label>
-                <select
-                  className="select"
-                  name="sale_ticket_type"
-                  value={saleForm.ticketTypeId}
-                  onChange={(e) => setSaleForm((current) => ({ ...current, ticketTypeId: e.target.value }))}
-                  disabled={Boolean(selectedSaleBatch?.ticket_type_id)}
-                >
-                  <option value="">Selecione o tipo</option>
-                  {ticketTypes.map((type) => (
-                    <option key={type.id} value={type.id}>{type.name}</option>
-                  ))}
-                </select>
-                {selectedSaleBatch?.ticket_type_id ? (
-                  <p className="text-xs text-amber-300 mt-1">
-                    Este lote está vinculado a um tipo de ingresso específico e a emissão respeitará esse vínculo.
-                  </p>
-                ) : null}
-              </div>
-
-              <div>
-                <label className="input-label">Lote</label>
-                <select
-                  className="select"
-                  name="sale_batch"
-                  value={saleForm.batchId}
-                  onChange={(e) => {
-                    const nextBatchId = e.target.value;
-                    const nextBatch = batches.find((batch) => String(batch.id) === nextBatchId);
-                    setSaleForm((current) => ({
-                      ...current,
-                      batchId: nextBatchId,
-                      ticketTypeId: nextBatch?.ticket_type_id
-                        ? String(nextBatch.ticket_type_id)
-                        : current.ticketTypeId,
-                    }));
-                  }}
-                >
-                  <option value="">Sem lote</option>
-                  {batches.map((batch) => (
-                    <option key={batch.id} value={batch.id}>{batch.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="input-label">Comissário</label>
-                <select
-                  className="select"
-                  name="sale_commissary"
-                  value={saleForm.commissaryId}
-                  onChange={(e) => setSaleForm((current) => ({ ...current, commissaryId: e.target.value }))}
-                >
-                  <option value="">Sem comissário</option>
-                  {commissaries.map((commissary) => (
-                    <option key={commissary.id} value={commissary.id}>{commissary.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button type="button" className="btn-primary flex-1" onClick={handleQuickSale}>
-                Emitir Ingresso
-              </button>
-              <button type="button" className="btn-outline flex-1" onClick={() => setShowSaleModal(false)}>
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {selectedTicket ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
