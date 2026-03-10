@@ -7,10 +7,10 @@ class WalletSecurityService
      *
      * @throws RuntimeException
      */
-    public static function processTransaction(PDO $db, string $cardToken, float $amount, string $type, int $organizerId, array $metadata = []): array
+    public static function processTransaction(PDO $db, string $cardReference, float $amount, string $type, int $organizerId, array $metadata = []): array
     {
-        if (empty($cardToken)) {
-            throw new RuntimeException('Token do cartão é obrigatório', 400);
+        if (empty($cardReference)) {
+            throw new RuntimeException('Identificador do cartão é obrigatório.', 400);
         }
 
         if ($amount <= 0) {
@@ -29,9 +29,9 @@ class WalletSecurityService
                 $ownTransaction = true;
             }
 
-            // Lock the row to prevent race conditions
+            // Chave canônica da carteira no projeto atual: digital_cards.id::text
             $walletStmt = $db->prepare('SELECT id, balance FROM digital_cards WHERE id::text = ? AND organizer_id = ? AND is_active = true FOR UPDATE');
-            $walletStmt->execute([$cardToken, $organizerId]);
+            $walletStmt->execute([$cardReference, $organizerId]);
             $wallet = $walletStmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$wallet) {

@@ -171,6 +171,16 @@ function serializeCommissary(commissary) {
   };
 }
 
+function mergePendingEdit(items, pendingItem, matchKey) {
+  if (!pendingItem || !Number.isInteger(pendingItem.id)) {
+    return items;
+  }
+
+  return items.map((item) => (
+    item[matchKey] === pendingItem[matchKey] ? pendingItem : item
+  ));
+}
+
 export default function Events() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
@@ -280,6 +290,8 @@ export default function Events() {
   }, [editingEventId, searchParams, showForm, startEditEvent]);
 
   const upsertBatchDraft = () => {
+    const isEditingExistingBatch = Number.isInteger(batchForm.id);
+
     if (!batchForm.name.trim()) {
       toast.error("Informe o nome do lote.");
       return;
@@ -310,6 +322,14 @@ export default function Events() {
         : [...prev, nextItem];
     });
     setBatchForm(EMPTY_BATCH_FORM);
+
+    if (editingEventId) {
+      toast.success(
+        isEditingExistingBatch
+          ? "Lote atualizado no formulário. Clique em 'Salvar Evento e Configurações' para gravar no banco."
+          : "Lote adicionado ao formulário. Clique em 'Salvar Evento e Configurações' para gravar no banco."
+      );
+    }
   };
 
   const editBatchDraft = (item) => {
@@ -332,6 +352,8 @@ export default function Events() {
   };
 
   const upsertTicketTypeDraft = () => {
+    const isEditingExistingType = Number.isInteger(ticketTypeForm.id);
+
     if (!ticketTypeForm.name.trim()) {
       toast.error("Informe o nome do tipo de ingresso.");
       return;
@@ -369,6 +391,14 @@ export default function Events() {
     }));
 
     setTicketTypeForm(EMPTY_TICKET_TYPE_FORM);
+
+    if (editingEventId) {
+      toast.success(
+        isEditingExistingType
+          ? "Tipo atualizado no formulário. Clique em 'Salvar Evento e Configurações' para gravar no banco."
+          : "Tipo adicionado ao formulário. Clique em 'Salvar Evento e Configurações' para gravar no banco."
+      );
+    }
   };
 
   const editTicketTypeDraft = (item) => {
@@ -396,6 +426,8 @@ export default function Events() {
   };
 
   const upsertCommissaryDraft = () => {
+    const isEditingExistingCommissary = Number.isInteger(commissaryForm.id);
+
     if (!commissaryForm.name.trim()) {
       toast.error("Informe o nome do comissário.");
       return;
@@ -430,6 +462,14 @@ export default function Events() {
         : [...prev, nextItem];
     });
     setCommissaryForm(EMPTY_COMMISSARY_FORM);
+
+    if (editingEventId) {
+      toast.success(
+        isEditingExistingCommissary
+          ? "Comissário atualizado no formulário. Clique em 'Salvar Evento e Configurações' para gravar no banco."
+          : "Comissário adicionado ao formulário. Clique em 'Salvar Evento e Configurações' para gravar no banco."
+      );
+    }
   };
 
   const editCommissaryDraft = (item) => {
@@ -453,13 +493,50 @@ export default function Events() {
     e.preventDefault();
     setSaving(true);
 
+    const ticketTypesForSave = mergePendingEdit(
+      ticketTypes,
+      Number.isInteger(ticketTypeForm.id)
+        ? {
+            ...ticketTypeForm,
+            name: ticketTypeForm.name.trim(),
+          }
+        : null,
+      "id"
+    );
+
+    const batchesForSave = mergePendingEdit(
+      draftBatches,
+      Number.isInteger(batchForm.id)
+        ? {
+            ...batchForm,
+            name: batchForm.name.trim(),
+            code: batchForm.code.trim(),
+            ticket_type_name: getTicketTypeLabel(batchForm.ticket_type_id),
+          }
+        : null,
+      "id"
+    );
+
+    const commissariesForSave = mergePendingEdit(
+      draftCommissaries,
+      Number.isInteger(commissaryForm.id)
+        ? {
+            ...commissaryForm,
+            name: commissaryForm.name.trim(),
+            email: commissaryForm.email.trim(),
+            phone: commissaryForm.phone.trim(),
+          }
+        : null,
+      "id"
+    );
+
     const payload = {
       ...form,
       capacity: form.capacity === "" ? 0 : Number(form.capacity),
       commercial_config: {
-        ticket_types: ticketTypes.map(serializeTicketType),
-        batches: draftBatches.map(serializeBatch),
-        commissaries: draftCommissaries.map(serializeCommissary),
+        ticket_types: ticketTypesForSave.map(serializeTicketType),
+        batches: batchesForSave.map(serializeBatch),
+        commissaries: commissariesForSave.map(serializeCommissary),
       },
     };
 

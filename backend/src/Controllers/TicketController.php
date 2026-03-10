@@ -630,6 +630,8 @@ function listTicketTypes(array $query): void
             if (!$stmtEvent->fetchColumn()) {
                 jsonError('Evento não encontrado para este organizador.', 404);
             }
+
+            ensureLegacyCommercialTicketType($db, $eventId, $organizerId);
         }
 
         $sql = "
@@ -655,6 +657,67 @@ function listTicketTypes(array $query): void
         jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC));
     } catch (Throwable $e) {
         jsonError('Erro ao listar tipos de ingresso: ' . $e->getMessage(), 500);
+    }
+}
+
+function ensureLegacyCommercialTicketType(PDO $db, int $eventId, int $organizerId): void
+{
+    $stmtTypes = $db->prepare('
+        SELECT COUNT(*)
+        FROM ticket_types
+        WHERE event_id = ? AND (organizer_id = ? OR organizer_id IS NULL)
+    ');
+    $stmtTypes->execute([$eventId, $organizerId]);
+    if ((int)$stmtTypes->fetchColumn() > 0) {
+        return;
+    }
+
+    ensureTicketCommercialTable($db, 'ticket_batches');
+
+    $stmtBatches = $db->prepare('
+        SELECT id, COALESCE(price, 0)::float AS price
+        FROM ticket_batches
+        WHERE event_id = ? AND organizer_id = ?
+        ORDER BY price ASC, id ASC
+    ');
+    $stmtBatches->execute([$eventId, $organizerId]);
+    $batches = $stmtBatches->fetchAll(PDO::FETCH_ASSOC);
+    if (!$batches) {
+        return;
+    }
+
+    $defaultPrice = 0.0;
+    foreach ($batches as $batch) {
+        $price = (float)($batch['price'] ?? 0);
+        if ($price > 0 && ($defaultPrice <= 0 || $price < $defaultPrice)) {
+            $defaultPrice = $price;
+        }
+    }
+
+    $db->beginTransaction();
+    try {
+        $stmtInsert = $db->prepare("
+            INSERT INTO ticket_types
+                (event_id, name, price, created_at, updated_at, organizer_id)
+            VALUES (?, 'Ingresso Comercial', ?, NOW(), NOW(), ?)
+            RETURNING id
+        ");
+        $stmtInsert->execute([$eventId, $defaultPrice, $organizerId]);
+        $ticketTypeId = (int)$stmtInsert->fetchColumn();
+
+        $stmtBackfill = $db->prepare('
+            UPDATE ticket_batches
+            SET ticket_type_id = ?, updated_at = NOW()
+            WHERE event_id = ? AND organizer_id = ? AND ticket_type_id IS NULL
+        ');
+        $stmtBackfill->execute([$ticketTypeId, $eventId, $organizerId]);
+
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
     }
 }
 

@@ -33,7 +33,8 @@ function getInsight(array $body): void
 
     // Montando o prompt
     $prompt = sprintf(
-        "PERÍODO: %s\nFATURAMENTO TOTAL: R$ %s\nITENS VENDIDOS: %s und\nTOP PRODUTOS (JSON): %s\nESTOQUE CRÍTICO (JSON): %s\n\nTAREFAS E RESTRIÇÕES:\n1. Avalie o ritmo de vendas e saúde do faturamento.\n2. Destaque os campeões de venda.\n3. Alerte sobre itens perto do limite do estoque.\n4. Sugira 2 ações práticas e imediatas aplicáveis **DENTRO** do evento em tempo real (ex: promoção relâmpago no bar, remanejamento de vendedores).\n5. **EXTREMAMENTE IMPORTANTE**: NÃO sugira campanhas de redes sociais, tráfego ou vendas fora do escopo do evento atual.\n\nPERGUNTA DO OPERADOR: %s",
+        "SETOR EM ANÁLISE: %s\nPERÍODO: %s\nFATURAMENTO TOTAL: R$ %s\nITENS VENDIDOS: %s und\nTOP PRODUTOS (JSON): %s\nESTOQUE CRÍTICO (JSON): %s\n\nTAREFAS E RESTRIÇÕES:\n1. Avalie o ritmo de vendas e saúde do faturamento.\n2. Destaque os campeões de venda.\n3. Alerte sobre itens perto do limite do estoque.\n4. Sugira 2 ações práticas e imediatas aplicáveis **DENTRO** do evento em tempo real (ex: promoção relâmpago no bar, remanejamento de vendedores).\n5. **EXTREMAMENTE IMPORTANTE**: NÃO sugira campanhas de redes sociais, tráfego ou vendas fora do escopo do evento atual.\n\nPERGUNTA DO OPERADOR: %s",
+        strtoupper((string)($context['sector'] ?? 'N/A')),
         $context['time_filter'] ?? 'N/A',
         $context['total_revenue'] ?? '0',
         $context['total_items'] ?? '0',

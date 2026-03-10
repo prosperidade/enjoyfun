@@ -8,19 +8,22 @@
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
-    requireAuth(); // Require logged-in user (optional: require specific roles like 'staff')
+    $operator = requireAuth(); // Require logged-in user (optional: require specific roles like 'staff')
+    require_once __DIR__ . '/../Services/SalesDomainService.php';
 
     if ($method !== 'POST') {
         jsonError('Method not allowed.', 405);
     }
 
-    $items = $body['items'] ?? [];
+    $items = $body['items'] ?? $body['records'] ?? [];
     if (!is_array($items) || empty($items)) {
         jsonSuccess(['processed' => 0], 'No items to sync.');
     }
 
     $db = Database::getInstance();
     $processedCount = 0;
+    $processedIds = [];
+    $failedIds = [];
     $errors = [];
 
     // O Postgress usa BEGIN / COMMIT / ROLLBACK via PDO natively.
@@ -37,6 +40,10 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         try {
             $db->beginTransaction();
 
+            if ($type === 'sale') {
+                $payload = normalizeOfflineSalePayload($payload, $item);
+            }
+
             // 1. Verificar duplicidade (Idempotência)
             $check = $db->prepare('SELECT id FROM offline_queue WHERE offline_id = $1 FOR UPDATE SKIP LOCKED');
             $check->execute([$offlineId]);
@@ -44,6 +51,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
                 // Já processado antes, apenas pula silenciosamente
                 $db->rollBack();
                 $processedCount++;
+                $processedIds[] = $offlineId;
                 continue;
             }
 
@@ -66,13 +74,17 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
             // 3. Processar a regra de negócio baseada no Type
             if ($type === 'sale') {
-                processSale($db, $payload, $offlineId);
+                processSale($db, $operator, $payload, $offlineId);
+            } else {
+                throw new Exception("Tipo de payload offline não suportado: {$type}.", 422);
             }
 
             $db->commit();
             $processedCount++;
+            $processedIds[] = $offlineId;
         } catch (Throwable $e) {
             $db->rollBack();
+            $failedIds[] = $offlineId;
             $errors[] = [
                 'offline_id' => $offlineId,
                 'error'      => $e->getMessage()
@@ -88,92 +100,85 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         echo json_encode([
             'success' => true,
             'message' => 'Parcialmente sincronizado.',
-            'data'    => ['processed' => $processedCount, 'failed' => count($errors), 'errors' => $errors]
+            'data'    => [
+                'processed' => $processedCount,
+                'failed' => count($errors),
+                'processed_ids' => $processedIds,
+                'failed_ids' => $failedIds,
+                'errors' => $errors
+            ]
         ]);
         exit;
     }
 
-    jsonSuccess(['processed' => $processedCount], "$processedCount itens sincronizados com sucesso.");
+    jsonSuccess([
+        'processed' => $processedCount,
+        'failed' => 0,
+        'processed_ids' => $processedIds,
+        'failed_ids' => [],
+    ], "$processedCount itens sincronizados com sucesso.");
 }
 
 /**
  * Processa a lógica de venda
  */
-function processSale(PDO $db, array $payload, string $offlineId): void
+function processSale(PDO $db, array $operator, array $payload, string $offlineId): void
 {
-    $eventId = $payload['event_id'] ?? 1;
-    $total   = (float)($payload['total_amount'] ?? 0);
-    $items   = $payload['items'] ?? [];
-    $cardToken = $payload['card_token'] ?? null; // Null para vendas sem cartão
+    $eventId = (int)($payload['event_id'] ?? 0);
+    $total = (float)($payload['total_amount'] ?? 0);
+    $items = $payload['items'] ?? [];
+    $sector = strtolower(trim((string)($payload['sector'] ?? 'bar')));
+    $cardId = $payload['card_id'] ?? null;
 
-    // Buscar o ID real do cartão a partir do token (se fornecido)
-    $cardId = null;
-    $card = null;
-    if ($cardToken) {
-        $stmtCardCheck = $db->prepare('SELECT id, balance FROM digital_cards WHERE card_token = ? FOR UPDATE');
-        $stmtCardCheck->execute([$cardToken]);
-        $card = $stmtCardCheck->fetch(PDO::FETCH_ASSOC);
-
-        if (!$card) {
-            throw new Exception("Cartão não encontrado (Token: $cardToken).");
-        }
-        if ($card['balance'] < $total) {
-            throw new Exception("Saldo insuficiente no cartão (Token: $cardToken).");
-        }
-        $cardId = $card['id'];
+    if ($eventId <= 0) {
+        throw new Exception('Evento inválido para sincronização offline.', 422);
+    }
+    if (!in_array($sector, ['bar', 'food', 'shop'], true)) {
+        throw new Exception('Setor inválido para sincronização offline.', 422);
+    }
+    if (!is_array($items) || empty($items)) {
+        throw new Exception('Nenhum item encontrado para sincronização offline.', 422);
     }
 
-    // Inserir a venda
-    $stmtSale = $db->prepare('
-        INSERT INTO sales (event_id, card_id, total_amount, status, is_offline, offline_id, synced_at)
-        VALUES (?, ?, ?, ?, ?, ?, NOW()) RETURNING id
-    ');
-    $stmtSale->execute([$eventId, $cardId, $total, 'completed', 'true', $offlineId]);
-    $saleId = $stmtSale->fetchColumn();
+    \EnjoyFun\Services\SalesDomainService::processCheckout(
+        $db,
+        $operator,
+        $eventId,
+        $items,
+        $sector,
+        $total,
+        $cardId,
+        [
+            'offline_id' => $offlineId,
+            'is_offline' => true,
+        ]
+    );
+}
 
-    // Inserir os Itens e deduzir estoque
-    $stmtItem = $db->prepare('
-        INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal)
-        VALUES ($1, $2, $3, $4, $5)
-    ');
-    
-    $stmtStock = $db->prepare('
-        UPDATE products SET stock_qty = stock_qty - $1, updated_at = NOW()
-        WHERE id = $2 AND stock_qty >= $1
-    ');
+function normalizeOfflineSalePayload(array $payload, array $item): array
+{
+    $cardId = trim((string)($payload['card_id']
+        ?? $payload['qr_token']
+        ?? $payload['card_token']
+        ?? $payload['customer_id']
+        ?? ''));
 
-    foreach ($items as $item) {
-        $stmtItem->execute([
-            $saleId,
-            $item['product_id'],
-            $item['quantity'],
-            $item['unit_price'],
-            $item['subtotal']
-        ]);
-
-        $stmtStock->execute([$item['quantity'], $item['product_id']]);
+    $normalizedItems = [];
+    foreach (($payload['items'] ?? []) as $saleItem) {
+        $normalizedItems[] = [
+            'product_id' => (int)($saleItem['product_id'] ?? 0),
+            'quantity' => (int)($saleItem['quantity'] ?? 0),
+            'name' => $saleItem['name'] ?? null,
+            'unit_price' => isset($saleItem['unit_price']) ? (float)$saleItem['unit_price'] : null,
+            'subtotal' => isset($saleItem['subtotal']) ? (float)$saleItem['subtotal'] : null,
+        ];
     }
 
-    // Se a venda usou cartão digital, debita saldo e gera logs
-    if ($cardId && $card) {
-        $newBalance = $card['balance'] - $total;
-        $stmtCardUpdate = $db->prepare('UPDATE digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?');
-        $stmtCardUpdate->execute([$newBalance, $cardId]);
-
-        $stmtTx = $db->prepare('
-            INSERT INTO card_transactions (card_id, event_id, sale_id, amount, balance_before, balance_after, type, is_offline, offline_id, synced_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-        ');
-        $stmtTx->execute([
-            $cardId,
-            $eventId,
-            $saleId,
-            -$total,
-            $card['balance'],
-            $newBalance,
-            'debit',
-            'true',
-            $offlineId
-        ]);
-    }
+    return [
+        'event_id' => (int)($payload['event_id'] ?? 0),
+        'total_amount' => (float)($payload['total_amount'] ?? 0),
+        'sector' => strtolower(trim((string)($payload['sector'] ?? $item['sector'] ?? 'bar'))),
+        'card_id' => $cardId !== '' ? $cardId : null,
+        'items' => $normalizedItems,
+    ];
 }

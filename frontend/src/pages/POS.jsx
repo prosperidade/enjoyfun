@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useNavigate } from "react-router-dom"; // ADICIONADO
 import {
@@ -153,6 +153,7 @@ export default function POS({ fixedSector = "bar" }) {
   const [chatHistory, setChatHistory] = useState([]);
   const [timeFilter, setTimeFilter] = useState("24h");
   const [aiQuestion, setAiQuestion] = useState("");
+  const latestSalesRequestRef = useRef(0);
 
   // Estados do Formulário de Estoque
   const [showAddForm, setShowAddForm] = useState(false);
@@ -166,21 +167,70 @@ export default function POS({ fixedSector = "bar" }) {
     sector: fixedSector,
   });
 
+  const buildOfflineSaleItem = useCallback((payload, offlineId, createdOfflineAt = null) => ({
+    offline_id: offlineId,
+    payload_type: "sale",
+    payload: {
+      ...payload,
+      sector: payload.sector ?? currentSector,
+      card_id:
+        payload.card_id ??
+        payload.qr_token ??
+        payload.card_token ??
+        payload.customer_id ??
+        null,
+    },
+    created_offline_at: createdOfflineAt ?? new Date().toISOString(),
+    sector: payload.sector ?? currentSector,
+  }), [currentSector]);
+
   // Sincronização Offline
   const syncQueue = useCallback(async () => {
-    const q = JSON.parse(
+    const rawQueue = JSON.parse(
       localStorage.getItem(`offline_sales_${currentSector}`) || "[]",
     );
+    if (!rawQueue.length) return;
+
+    const q = rawQueue
+      .map((item) => {
+        if (!item?.offline_id) return null;
+        return buildOfflineSaleItem(
+          item.payload ?? item.data ?? {},
+          item.offline_id,
+          item.created_offline_at ?? item.created_at ?? null,
+        );
+      })
+      .filter(Boolean);
+
     if (!q.length) return;
+
     try {
-      await api.post("/sync", { records: q });
-      toast.success(`${q.length} venda(s) sincronizada(s)!`);
-      localStorage.setItem(`offline_sales_${currentSector}`, "[]");
-      setOfflineQueue([]);
+      const { data } = await api.post("/sync", { items: q });
+      const processedIds = new Set(
+        data?.data?.processed_ids ?? q.map((item) => item.offline_id),
+      );
+      const failedCount = Number(data?.data?.failed ?? 0);
+
+      const remaining = rawQueue.filter(
+        (item) => !processedIds.has(item?.offline_id),
+      );
+      localStorage.setItem(
+        `offline_sales_${currentSector}`,
+        JSON.stringify(remaining),
+      );
+      setOfflineQueue(remaining);
+
+      if (failedCount > 0) {
+        toast.error(
+          `${processedIds.size} venda(s) sincronizada(s) e ${failedCount} pendente(s).`,
+        );
+      } else {
+        toast.success(`${processedIds.size} venda(s) sincronizada(s)!`);
+      }
     } catch {
       toast.error("Falha na sincronização.");
     }
-  }, [currentSector]);
+  }, [buildOfflineSaleItem, currentSector]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -227,17 +277,28 @@ export default function POS({ fixedSector = "bar" }) {
   }, [currentSector, eventId]);
 
   const loadRecentSales = useCallback(async () => {
+    const requestId = latestSalesRequestRef.current + 1;
+    latestSalesRequestRef.current = requestId;
+
     try {
       const res = await api.get(
         `/${currentSector}/sales?event_id=${eventId}&filter=${timeFilter}`,
       );
+      if (requestId !== latestSalesRequestRef.current) {
+        return;
+      }
+
       if (res.data?.data) {
         if (res.data.data.recent_sales) {
           setRecentSales(res.data.data.recent_sales);
-          setReportData(res.data.data.report);
+          if (res.data.data.report) {
+            setReportData(res.data.data.report);
+          }
         } else {
           setRecentSales(res.data.data);
-          setReportData(null);
+          if (res.data.data.report) {
+            setReportData(res.data.data.report);
+          }
         }
       }
     } catch (err) {
@@ -296,7 +357,8 @@ export default function POS({ fixedSector = "bar" }) {
     const payload = {
       event_id: eventId,
       total_amount: total,
-      qr_token: cardToken,
+      card_id: cardToken,
+      sector: currentSector,
       items: cart.map((item) => ({
         product_id: item.id,
         name: item.name,
@@ -310,7 +372,7 @@ export default function POS({ fixedSector = "bar" }) {
       const q = JSON.parse(
         localStorage.getItem(`offline_sales_${currentSector}`) || "[]",
       );
-      q.push({ offline_id: offlineId, payload: payload });
+      q.push(buildOfflineSaleItem(payload, offlineId));
       localStorage.setItem(`offline_sales_${currentSector}`, JSON.stringify(q));
       setOfflineQueue(q);
       toast.success("Venda salva offline!");
@@ -333,12 +395,8 @@ export default function POS({ fixedSector = "bar" }) {
           (err.response && err.response.status >= 500)
         ) {
           await db.offlineQueue.add({
-            offline_id: offlineId,
-            payload_type: "sale",
-            payload: payload,
+            ...buildOfflineSaleItem(payload, offlineId),
             status: "pending",
-            created_offline_at: new Date().toISOString(),
-            sector: currentSector,
           });
           toast.success("Salvo Offline!", { icon: "💾" });
           setCart([]);
@@ -872,6 +930,18 @@ export default function POS({ fixedSector = "bar" }) {
           {/* ABA BI & IA */}
           {tab === "reports" && (
             <div className="space-y-6">
+              <div className="bg-gray-900/70 border border-gray-800 p-4 rounded-2xl">
+                <p className="text-[11px] font-black tracking-[0.25em] uppercase text-indigo-400">
+                  Relatorio Setorial
+                </p>
+                <h2 className="text-xl font-black text-white mt-2">
+                  Indicadores operacionais do setor {sectorInfo.title}
+                </h2>
+                <p className="text-sm text-gray-400 mt-1">
+                  Cards, historico e mix abaixo refletem apenas o setor atual.
+                </p>
+              </div>
+
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-gray-900 border border-gray-800 p-4 rounded-xl">
                 <div className="flex flex-wrap gap-2 bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50 w-full sm:w-auto overflow-x-auto">
                   {["1h", "5h", "24h", "total"].map((f) => (
@@ -905,7 +975,7 @@ export default function POS({ fixedSector = "bar" }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-purple-900/20 border border-purple-800/50 p-6 rounded-2xl">
                   <h3 className="text-gray-400 text-xs font-bold uppercase">
-                    Faturamento
+                    Faturamento do Setor
                   </h3>
                   <p className="text-3xl font-extrabold text-white mt-2">
                     R$ {parseFloat(reportData?.total_revenue || 0).toFixed(2)}
@@ -913,7 +983,7 @@ export default function POS({ fixedSector = "bar" }) {
                 </div>
                 <div className="bg-indigo-900/20 border border-indigo-800/50 p-6 rounded-2xl">
                   <h3 className="text-gray-400 text-xs font-bold uppercase">
-                    Vendidos
+                    Itens Vendidos no Setor
                   </h3>
                   <p className="text-3xl font-extrabold text-white mt-2">
                     {reportData?.total_items || 0} un.
@@ -937,7 +1007,7 @@ export default function POS({ fixedSector = "bar" }) {
               <div className="flex flex-col gap-8 w-full">
                 <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
                   <h3 className="text-white font-bold mb-4">
-                    Timeline de Vendas
+                    Timeline de Vendas do Setor
                   </h3>
                   {reportData?.sales_chart?.length ? (
                     <ResponsiveContainer width="100%" height={320}>
@@ -992,7 +1062,7 @@ export default function POS({ fixedSector = "bar" }) {
 
                 <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
                   <h3 className="text-white font-bold mb-4">
-                    Mix de Produtos
+                    Mix de Produtos do Setor
                   </h3>
                   {reportData?.mix_chart?.length ? (
                     <ResponsiveContainer width="100%" height={320}>

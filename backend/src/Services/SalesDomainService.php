@@ -26,7 +26,8 @@ class SalesDomainService
         array $items,
         string $sector,
         float $expectedTotal = 0.0,
-        ?string $cardId = null
+        ?string $cardId = null,
+        array $options = []
     ): array {
         $organizerId = (int)($operator['organizer_id'] ?? 0);
         if ($organizerId <= 0) {
@@ -40,23 +41,57 @@ class SalesDomainService
         try {
             $db->beginTransaction();
 
+            $existingSaleId = self::findExistingSaleByOfflineId(
+                $db,
+                $eventId,
+                $organizerId,
+                (string)($options['offline_id'] ?? '')
+            );
+            if ($existingSaleId !== null) {
+                $db->commit();
+                return [
+                    'sale_id' => $existingSaleId,
+                    'new_balance' => null,
+                    'already_processed' => true,
+                ];
+            }
+
             // 1. Cálculo seguro do total re-lendo os preços do banco (anti-fraude)
             $calculatedTotal = 0.0;
+            $resolvedItems = [];
             foreach ($items as $item) {
+                $productId = (int)($item['product_id'] ?? 0);
+                $quantity = (int)($item['quantity'] ?? 0);
+                if ($productId <= 0 || $quantity <= 0) {
+                    throw new Exception("Item de checkout inválido.", 422);
+                }
+
                 // Valida o produto garantindo que pertence ao evento, ao organizador e (se definido) ao setor correto
                 $stmtP = $db->prepare(
-                    "SELECT price FROM products 
+                    "SELECT id, name, price FROM products 
                      WHERE id = ? AND event_id = ? AND organizer_id = ? 
                      AND (sector = ? OR sector IS NULL)"
                 );
-                $stmtP->execute([$item['product_id'], $eventId, $organizerId, $sector]);
-                $price = (float)$stmtP->fetchColumn();
+                $stmtP->execute([$productId, $eventId, $organizerId, $sector]);
+                $product = $stmtP->fetch(PDO::FETCH_ASSOC);
                 
-                if ($price <= 0) {
-                    throw new Exception("Produto não encontrado, setor incompatível ou preço inválido: " . $item['product_id']);
+                if (!$product) {
+                    throw new Exception("Produto não encontrado ou setor incompatível: " . $productId, 404);
                 }
+
+                $price = (float)$product['price'];
+                if ($price <= 0) {
+                    throw new Exception("Produto com preço inválido: " . $productId, 422);
+                }
+
+                $resolvedItems[] = [
+                    'product_id' => (int)$product['id'],
+                    'name' => (string)($product['name'] ?? ('Produto #' . $productId)),
+                    'quantity' => $quantity,
+                    'price' => $price,
+                ];
                 
-                $calculatedTotal += $price * (int)$item['quantity'];
+                $calculatedTotal += $price * $quantity;
             }
 
             if ($calculatedTotal <= 0) {
@@ -106,6 +141,20 @@ class SalesDomainService
                 $salePlaceholders[] = '?';
                 $saleValues[] = (int)($operator['id'] ?? 0);
             }
+            if (!empty($options['is_offline']) && self::columnExists($db, 'sales', 'is_offline')) {
+                $saleColumns[] = 'is_offline';
+                $salePlaceholders[] = '?';
+                $saleValues[] = 'true';
+            }
+            if (!empty($options['offline_id']) && self::columnExists($db, 'sales', 'offline_id')) {
+                $saleColumns[] = 'offline_id';
+                $salePlaceholders[] = '?';
+                $saleValues[] = (string)$options['offline_id'];
+            }
+            if (!empty($options['is_offline']) && self::columnExists($db, 'sales', 'synced_at')) {
+                $saleColumns[] = 'synced_at';
+                $salePlaceholders[] = 'NOW()';
+            }
 
             $sqlSale = sprintf(
                 "INSERT INTO sales (%s) VALUES (%s) RETURNING id",
@@ -117,30 +166,44 @@ class SalesDomainService
             $saleId = (int)$stmtSale->fetchColumn();
 
             // 4. Inserção de Itens e baixa de estoque
-            $stmtPPrice = $db->prepare("SELECT price FROM products WHERE id = ?");
             $stmtInsertItem = $db->prepare(
                 "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)"
             );
             $stmtUpdateStock = $db->prepare(
-                "UPDATE products SET stock_qty = stock_qty - ? WHERE id = ?"
+                "UPDATE products
+                 SET stock_qty = stock_qty - ?, updated_at = NOW()
+                 WHERE id = ?
+                   AND event_id = ?
+                   AND organizer_id = ?
+                   AND (sector = ? OR sector IS NULL)
+                   AND stock_qty >= ?"
             );
 
-            foreach ($items as $item) {
-                $stmtPPrice->execute([$item['product_id']]);
-                $price = (float)$stmtPPrice->fetchColumn();
-                $subtotal = $price * (int)$item['quantity'];
+            foreach ($resolvedItems as $item) {
+                $subtotal = $item['price'] * $item['quantity'];
+
+                $stmtUpdateStock->execute([
+                    $item['quantity'],
+                    $item['product_id'],
+                    $eventId,
+                    $organizerId,
+                    $sector,
+                    $item['quantity']
+                ]);
+
+                if ($stmtUpdateStock->rowCount() !== 1) {
+                    throw new Exception(
+                        "Estoque insuficiente para o produto: {$item['name']}.",
+                        409
+                    );
+                }
 
                 $stmtInsertItem->execute([
                     $saleId, 
                     $item['product_id'], 
                     $item['quantity'], 
-                    $price, 
+                    $item['price'], 
                     $subtotal
-                ]);
-
-                $stmtUpdateStock->execute([
-                    $item['quantity'], 
-                    $item['product_id']
                 ]);
             }
 
@@ -185,5 +248,26 @@ class SalesDomainService
         $stmt->execute([':table' => $table, ':column' => $column]);
         $cache[$key] = (bool)$stmt->fetchColumn();
         return $cache[$key];
+    }
+
+    private static function findExistingSaleByOfflineId(PDO $db, int $eventId, int $organizerId, string $offlineId): ?int
+    {
+        if ($offlineId === '' || !self::columnExists($db, 'sales', 'offline_id')) {
+            return null;
+        }
+
+        $stmt = $db->prepare("
+            SELECT id
+            FROM public.sales
+            WHERE event_id = ?
+              AND organizer_id = ?
+              AND offline_id = ?
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $stmt->execute([$eventId, $organizerId, $offlineId]);
+        $saleId = $stmt->fetchColumn();
+
+        return $saleId !== false ? (int)$saleId : null;
     }
 }

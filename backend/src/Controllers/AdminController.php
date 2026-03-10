@@ -15,7 +15,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
 function getDashboardStats(): void
 {
-    require_once __DIR__ . '/../Services/DashboardDomainService.php';
+    require_once __DIR__ . '/../Services/DashboardService.php';
     
     // 1. Pega os dados do Organizador
     $operator = requireAuth();
@@ -25,7 +25,7 @@ function getDashboardStats(): void
 
     try {
         $db = Database::getInstance();
-        $data = \EnjoyFun\Services\DashboardDomainService::getExecutiveDashboard($db, $organizerId, $eventId);
+        $data = \EnjoyFun\Services\DashboardService::getExecutiveDashboard($db, $organizerId, $eventId);
         jsonSuccess($data);
     } catch (Exception $e) {
         jsonError("Error fetching dashboard stats: " . $e->getMessage(), 500);

@@ -517,9 +517,36 @@ function normalizeCommercialCommissaryPayload(array $item): array
 function persistEventCommercialConfig(PDO $db, int $eventId, int $organizerId, array $commercialConfig): void
 {
     ensureEventCommercialSchemaReady($db);
-    $ticketTypeMap = syncEventTicketTypes($db, $eventId, $organizerId, $commercialConfig['ticket_types'] ?? []);
-    syncEventBatches($db, $eventId, $organizerId, $commercialConfig['batches'] ?? [], $ticketTypeMap);
+    $batches = $commercialConfig['batches'] ?? [];
+    $ticketTypes = buildTicketTypesForLegacyCommercialFlow($commercialConfig['ticket_types'] ?? [], $batches);
+    $ticketTypeMap = syncEventTicketTypes($db, $eventId, $organizerId, $ticketTypes);
+    syncEventBatches($db, $eventId, $organizerId, $batches, $ticketTypeMap);
     syncEventCommissaries($db, $eventId, $organizerId, $commercialConfig['commissaries'] ?? []);
+}
+
+function buildTicketTypesForLegacyCommercialFlow(array $ticketTypes, array $batches): array
+{
+    if (count($ticketTypes) > 0 || count($batches) === 0) {
+        return $ticketTypes;
+    }
+
+    $basePrice = 0.0;
+    foreach ($batches as $batch) {
+        if (!is_array($batch)) {
+            continue;
+        }
+        $price = (float)($batch['price'] ?? 0);
+        if ($price > 0 && ($basePrice <= 0 || $price < $basePrice)) {
+            $basePrice = $price;
+        }
+    }
+
+    return [[
+        'id' => null,
+        'client_key' => 'legacy-default-ticket-type',
+        'name' => 'Ingresso Comercial',
+        'price' => $basePrice,
+    ]];
 }
 
 function ensureEventCommercialSchemaReady(PDO $db): void

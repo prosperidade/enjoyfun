@@ -777,3 +777,192 @@ Checks executados (diagnóstico somente, sem alterações de código):
 ✅ nl -ba docs/progresso1.md | sed -n '1,130p'
 
 Sem screenshot, pois não houve mudança de frontend (apenas análise).
+
+1) Criação de evento + configuração comercial
+Usuário abre Events.jsx e preenche dados do evento + blocos de tipos, lotes e comissários no mesmo form.
+
+Front envia POST /events (novo) ou PUT /events/:id (edição), com commercial_config contendo:
+
+ticket_types
+
+batches
+
+commissaries
+
+Backend (EventController) normaliza payload e executa transação:
+
+grava/atualiza evento
+
+sincroniza tipos
+
+sincroniza lotes
+
+sincroniza comissários
+
+2) Entrada de tipos de ingresso
+Entram no próprio formulário de Events.jsx, antes/de forma conjunta a lotes/comissários.
+
+Persistência por syncEventTicketTypes no EventController (create/update/delete por reconciliação).
+
+3) Entrada de lotes
+Também em Events.jsx, vinculáveis a tipo de ingresso específico.
+
+Persistência no mesmo ciclo de PUT/POST /events por syncEventBatches com validações de estoque, período, vínculo de tipo etc.
+
+4) Entrada de comissários
+Também em Events.jsx, mesmo ciclo transacional.
+
+Persistência por syncEventCommissaries (upsert + bloqueio de remoção com histórico).
+
+5) Venda/configuração inicial de tickets
+Tickets.jsx carrega eventos e, por evento selecionado, carrega tipos/lotes/comissários via:
+
+GET /tickets/types?event_id=...
+
+GET /tickets/batches?event_id=...
+
+GET /tickets/commissaries?event_id=...
+
+Emissão rápida no modal chama POST /tickets com event_id, ticket_type_id, e opcionalmente ticket_batch_id e commissary_id.
+
+TicketController::storeTicket valida escopo, lote, comissário, disponibilidade e registra comissão snapshot quando aplicável.
+
+6) Telas e endpoints envolvidos (sequência real)
+Telas: Events.jsx → EventDetails.jsx (visão/atalho editar) → Tickets.jsx (venda/operação).
+
+Endpoints principais:
+
+Eventos: GET /events, POST /events, PUT/PATCH /events/:id, GET /events/:id, DELETE /events/:id
+
+Tickets domínio comercial: GET /tickets/types, GET/POST /tickets/batches, GET/POST /tickets/commissaries, GET /tickets, POST /tickets, POST /tickets/:id/transfer, POST /tickets/validate
+
+Roteamento API: recursos events e tickets ativos em index.php.
+
+C. O que está bem estruturado
+
+Transação forte no núcleo de criação/edição de evento + comercial via EventController (beginTransaction/commit/rollback).
+
+Sincronização por reconciliação (upsert + remoção protegida) para tipos/lotes/comissários, com validações de integridade operacional (não remover tipo/lote/comissário com vínculos).
+
+Venda de ticket com regras comerciais relevantes: lote ativo, janela de venda, lotação, vínculo lote→tipo e comissário ativo, além de snapshot de comissão por ticket.
+
+Multi-tenant aplicado nos pontos críticos desse domínio (organizer_id em listagem, get, emissão, lotes/comissários).
+
+Coerência frontend entre telas: EventDetails e Tickets puxam os mesmos endpoints comerciais por evento.
+
+D. O que está frágil ou quebrado
+
+Busca em Events.jsx aparenta incompleta: frontend manda search/per_page, mas listEvents() não usa query params; hoje busca não filtra no backend (UX enganosa).
+
+Acoplamento forte da criação de evento à migration 008: mesmo sem configurar nada comercial, createEvent sempre chama persistEventCommercialConfig e falha se schema comercial ausente.
+
+Mascaramento de erro em createEvent: exceções de negócio (ex. 409 migration ausente) são devolvidas como 500 no catch final; em updateEvent isso já está melhor tratado com status propagado.
+
+Permissão de criação de evento ampla: createEvent usa requireAuth() sem restringir role, diferente de update/delete que exigem admin/organizer.
+
+Dependência silenciosa de AuthMiddleware para titular: emissão usa user['name'] fallback “Participante”; hoje middleware já fornece name, mas isso já foi ponto histórico de bug/documentação desatualizada.
+
+E. Drift de banco/modelagem identificado
+
+schema_real.sql e 008_tickets_commercial_model.sql estão alinhados no essencial:
+
+criação de ticket_batches, commissaries, ticket_commissions
+
+ALTER TABLE tickets com ticket_batch_id e commissary_id
+
+constraints/FKs/índices comerciais correspondentes
+
+Não há criação dinâmica de estrutura em runtime no domínio analisado: controllers só verificam existência via information_schema e retornam erro 409 quando ausente.
+
+Risco real de ambiente parcial existe: se 008 não aplicada, partes do fluxo quebram (especialmente criação/edição via EventController, e filtros/CRUD comerciais de TicketController).
+
+Em documentação, há histórico de ambiente local precisando aplicar 008 manualmente, confirmando esse risco operacional entre ambientes.
+
+F. Bugs reais e riscos operacionais
+
+Busca de eventos não efetiva (bug funcional UX).
+
+Evidência: frontend envia search; backend ignora query no SQL.
+
+Criação de evento pode quebrar por schema comercial ausente mesmo sem uso comercial explícito.
+
+Evidência: createEvent sempre executa persistEventCommercialConfig → ensureEventCommercialSchemaReady obrigatório.
+
+Código HTTP em createEvent pode mascarar causa de negócio (retorna 500 genérico).
+
+Evidência: catch sem preservar code de exceção; em update existe preservação.
+
+Risco de autorização mais ampla do que esperado para criar evento.
+
+Evidência: create sem lista de roles, update/delete com restrição explícita.
+
+Drift documental relevante: CLAUDE.md ainda cita bugs de transfer/organizer filter no TicketController, mas código atual já tem rota de transfer no dispatch e filtros por organizer_id.
+
+G. Próxima PR ideal para esse domínio (sem implementar agora)
+
+Prioridade 1 (corrigir primeiro)
+
+Ajustar listEvents para suportar search/per_page de fato (coerência UI/API).
+
+Corrigir tratamento de erro em createEvent para preservar códigos 4xx do domínio comercial.
+
+Revisar regra de autorização para createEvent (alinhar com update/delete).
+
+Prioridade 2 (em seguida)
+
+Endurecer observabilidade do fluxo comercial (mensagens mais específicas no frontend para erros 409 de migration/ambiente).
+
+Revisar redundâncias frontend/backend em filtro “commercial only” de tickets (hoje existe nos dois lados).
+
+Prioridade 3 (pode esperar)
+
+Melhorias UX de navegação entre EventDetails e edição comercial (mais feedback de status/config incompleta).
+
+Harmonizar docs legadas (CLAUDE.md, trechos antigos) com estado real do código.
+
+Não mexer agora
+
+Não mexer em dashboard/finance/workforce (fora do escopo solicitado).
+
+Não remodelar schema além da consolidação já existente da 008 (evitar churn sem necessidade).
+
+H. Lista objetiva de arquivos que deverão ser mexidos na próxima fase
+
+backend/src/Controllers/EventController.php (search real, autorização create, propagação de erro em create).
+
+frontend/src/pages/Events.jsx (UX de busca e mensagens alinhadas ao backend).
+
+docs/progresso1.md (registrar correções e evidências).
+
+CLAUDE.md (atualizar diagnóstico legado para refletir estado atual do TicketController).
+
+Compatibilidade com a operação da EnjoyFun (resposta direta)
+Serve para operação comercial real? Sim, em ambiente com migration 008 aplicada e com uso do fluxo Events -> Tickets; o core comercial está funcional e transacional.
+
+Está forte para crescer? Parcialmente: base está boa, mas precisa consolidar pontos de coerência API/UX e hardening de erro/autorização antes de expandir features.
+
+Precisa consolidação estrutural antes de novas features? Sim, principalmente nos itens de Prioridade 1 para reduzir risco operacional e drift entre ambientes.
+
+Checks executados (diagnóstico):
+
+✅ rg --files -g 'AGENTS.md'
+
+✅ rg -n "..." docs/progresso.md docs/progresso1.md docs/diagnostico.md CLAUDE.md
+
+✅ rg -n "..." database/schema_real.sql database/008_tickets_commercial_model.sql
+
+✅ nl -ba frontend/src/pages/Events.jsx
+
+✅ nl -ba frontend/src/pages/EventDetails.jsx
+
+✅ nl -ba frontend/src/pages/Tickets.jsx
+
+✅ nl -ba backend/src/Controllers/EventController.php
+
+✅ nl -ba backend/src/Controllers/TicketController.php
+
+✅ nl -ba backend/public/index.php
+
+✅ nl -ba backend/src/Services/AuditService.php
+
+✅ nl -ba backend/src/Middleware/AuthMiddleware.php

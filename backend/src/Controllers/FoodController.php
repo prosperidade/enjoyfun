@@ -8,6 +8,8 @@
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     require_once __DIR__ . '/../Services/GeminiService.php';
+    require_once __DIR__ . '/../Services/ProductService.php';
+    require_once __DIR__ . '/../Services/SalesReportService.php';
 
     // AJUSTE: O match agora ignora se o sub é null em GET simples para aceitar Query Strings
     match (true) {
@@ -22,18 +24,8 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         
         $method === 'POST' && $id === 'insights' => requestGeminiInsight($body),
         
-        default => notFound($method, $id)
+        default => jsonError("Alimentação: Endpoint não encontrado", 404)
     };
-}
-
-function notFound(string $method, ?string $id): void
-{
-    http_response_code(404);
-    echo json_encode([
-        'success' => false, 
-        'message' => "Endpoint Alimentação não encontrado: {$method} /{$id}"
-    ]);
-    exit;
 }
 
 function listProducts(): void
@@ -46,22 +38,10 @@ function listProducts(): void
     
     try {
         $db = Database::getInstance();
-        $stmt = $db->prepare("
-            SELECT id, event_id, name, CAST(price AS FLOAT) as price, stock_qty, sector, low_stock_threshold
-            FROM public.products
-            WHERE event_id = ? AND organizer_id = ? AND sector = 'food'
-            ORDER BY name ASC
-        ");
-        $stmt->execute([$eventId, $organizerId]);
-        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        header('Content-Type: application/json');
-        echo json_encode(['success' => true, 'data' => $products]);
-        exit;
+        $products = \EnjoyFun\Services\ProductService::listBySector($db, (int)$eventId, $organizerId, 'food');
+        jsonSuccess($products);
     } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-        exit;
+        jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 500);
     }
 }
 
@@ -73,33 +53,16 @@ function createProduct(array $body): void
     
     try {
         $db = Database::getInstance();
-        $eventId = (int)($body['event_id'] ?? 1);
-        
-        // Bloqueio de Duplicatas
-        $stmtCheck = $db->prepare("SELECT id FROM public.products WHERE LOWER(name) = LOWER(?) AND event_id = ? AND organizer_id = ? AND sector = 'food'");
-        $stmtCheck->execute([trim($body['name']), $eventId, $organizerId]);
-        if ($stmtCheck->fetchColumn()) {
-            jsonError('Produto já cadastrado neste setor.', 409);
-        }
-
-        $stmt = $db->prepare("
-            INSERT INTO public.products (event_id, organizer_id, name, price, stock_qty, sector, low_stock_threshold) 
-            VALUES (?, ?, ?, ?, ?, 'food', ?) RETURNING id
-        ");
-        $stmt->execute([
-            $eventId,
+        $data = \EnjoyFun\Services\ProductService::createForSector(
+            $db,
+            (int)($body['event_id'] ?? 1),
             $organizerId,
-            trim($body['name']),
-            (float)$body['price'],
-            (int)$body['stock_qty'],
-            (int)($body['min_stock'] ?? $body['low_stock_threshold'] ?? 5)
-        ]);
-        echo json_encode(['success' => true, 'data' => ['id' => $stmt->fetchColumn()]]);
-        exit;
+            'food',
+            $body
+        );
+        jsonSuccess($data, 'Produto criado com sucesso.');
     } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-        exit;
+        jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 500);
     }
 }
 
@@ -110,33 +73,24 @@ function updateProduct(int $id, array $body): void
     if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     try {
         $db = Database::getInstance();
-        $minStock = (int)($body['min_stock'] ?? $body['low_stock_threshold'] ?? 5);
-        $stmt = $db->prepare("
-            UPDATE public.products SET name = ?, price = ?, stock_qty = ?, low_stock_threshold = ?, updated_at = NOW() 
-            WHERE id = ? AND organizer_id = ?
-        ");
-        $stmt->execute([$body['name'], (float)$body['price'], (int)$body['stock_qty'], $minStock, $id, $organizerId]);
-        echo json_encode(['success' => true]);
-        exit;
+        \EnjoyFun\Services\ProductService::updateForSector($db, $id, $organizerId, 'food', $body);
+        jsonSuccess(null, 'Produto atualizado.');
     } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-        exit;
+        jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 500);
     }
 }
 
 function deleteProduct(int $id): void
 {
-    requireAuth();
+    $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     try {
         $db = Database::getInstance();
-        $db->prepare("DELETE FROM public.products WHERE id = ? AND sector = 'food'")->execute([$id]);
-        echo json_encode(['success' => true]);
-        exit;
+        \EnjoyFun\Services\ProductService::deleteForSector($db, $id, $organizerId, 'food');
+        jsonSuccess(null, 'Produto deletado.');
     } catch (Exception $e) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => "Erro ao deletar item da alimentação."]);
-        exit;
+        jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 500);
     }
 }
 
@@ -147,123 +101,19 @@ function listRecentSales(): void
     if ($organizerId <= 0) jsonError('Organizer inválido', 403);
     $eventId = $_GET['event_id'] ?? 1;
     $timeFilter = $_GET['filter'] ?? '24h';
-    
-    $whereTime = "AND s.created_at >= NOW() - INTERVAL '24 hours' AND s.created_at <= NOW()";
-    if ($timeFilter === '1h') $whereTime = "AND s.created_at >= NOW() - INTERVAL '1 hour' AND s.created_at <= NOW()";
-    elseif ($timeFilter === '5h') $whereTime = "AND s.created_at >= NOW() - INTERVAL '5 hours' AND s.created_at <= NOW()";
-    elseif ($timeFilter === 'total') $whereTime = "AND s.created_at <= NOW()";
-    $salesScopeFilter = "AND (s.organizer_id = ? OR (s.organizer_id IS NULL AND EXISTS (SELECT 1 FROM events e_scope WHERE e_scope.id = s.event_id AND e_scope.organizer_id = ?)))";
-    $sectorExpr = "LOWER(COALESCE(NULLIF(TRIM(p.sector), ''), NULLIF(TRIM(s.sector), ''), 'food'))";
 
     try {
         $db = Database::getInstance();
-        // Busca as 10 vendas recentes usando apenas colunas reais da tabela sales
-        $sql = "
-            SELECT s.id, s.total_amount, s.created_at, s.status,
-                COALESCE((SELECT SUM(quantity) FROM sale_items WHERE sale_id = s.id), 0) as total_items,
-                (
-                    SELECT json_agg(json_build_object('name', COALESCE(p2.name, CONCAT('Produto #', si2.product_id::text)), 'qty', si2.quantity))
-                    FROM sale_items si2
-                    LEFT JOIN products p2 ON p2.id = si2.product_id
-                    WHERE si2.sale_id = s.id
-                      AND LOWER(COALESCE(NULLIF(TRIM(p2.sector), ''), NULLIF(TRIM(s.sector), ''), 'food')) = 'food'
-                ) as items_detail
-            FROM sales s 
-            WHERE s.event_id = ?
-              $salesScopeFilter
-              AND EXISTS (
-                  SELECT 1
-                  FROM sale_items si3
-                  LEFT JOIN products p3 ON p3.id = si3.product_id
-                  WHERE si3.sale_id = s.id
-                    AND LOWER(COALESCE(NULLIF(TRIM(p3.sector), ''), NULLIF(TRIM(s.sector), ''), 'food')) = 'food'
-              )
-              $whereTime
-            ORDER BY s.created_at DESC LIMIT 10
-        ";
-        $stmt = $db->prepare($sql);
-        $stmt->execute([$eventId, $organizerId, $organizerId]);
-        $recentSales = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $stmtSum = $db->prepare("
-            SELECT COALESCE(SUM(si.subtotal), 0) 
-            FROM sale_items si 
-            JOIN sales s ON si.sale_id = s.id 
-            LEFT JOIN products p ON p.id = si.product_id
-            WHERE s.event_id = ?
-              $salesScopeFilter
-              AND s.status = 'completed'
-              AND $sectorExpr = 'food'
-              $whereTime
-        ");
-        $stmtSum->execute([$eventId, $organizerId, $organizerId]);
-        $totalRevenue = (float) $stmtSum->fetchColumn();
-
-        $stmtItems = $db->prepare("
-            SELECT COALESCE(SUM(si.quantity), 0) 
-            FROM sale_items si 
-            JOIN sales s ON si.sale_id = s.id 
-            LEFT JOIN products p ON p.id = si.product_id
-            WHERE s.event_id = ?
-              $salesScopeFilter
-              AND s.status = 'completed'
-              AND $sectorExpr = 'food'
-              $whereTime
-        ");
-        $stmtItems->execute([$eventId, $organizerId, $organizerId]);
-        $totalItems = (int) $stmtItems->fetchColumn();
-
-        $sqlChart = "
-            SELECT TO_CHAR(DATE_TRUNC('hour', s.created_at), 'HH24:00') as time, SUM(si.subtotal) as revenue 
-            FROM sale_items si
-            JOIN sales s ON si.sale_id = s.id
-            LEFT JOIN products p ON p.id = si.product_id
-            WHERE s.event_id = ?
-              $salesScopeFilter
-              AND s.status = 'completed'
-              AND $sectorExpr = 'food'
-              $whereTime
-            GROUP BY DATE_TRUNC('hour', s.created_at)
-            ORDER BY DATE_TRUNC('hour', s.created_at) ASC
-        ";
-        $stmtChart = $db->prepare($sqlChart);
-        $stmtChart->execute([$eventId, $organizerId, $organizerId]);
-        $salesChart = $stmtChart->fetchAll(PDO::FETCH_ASSOC);
-
-        $sqlMix = "
-            SELECT COALESCE(p.name, CONCAT('Produto #', si.product_id::text)) as name, SUM(si.quantity) as qty
-            FROM sale_items si 
-            JOIN sales s ON si.sale_id = s.id 
-            LEFT JOIN products p ON si.product_id = p.id 
-            WHERE s.event_id = ?
-              $salesScopeFilter
-              AND s.status = 'completed'
-              AND $sectorExpr = 'food'
-              $whereTime
-            GROUP BY COALESCE(p.name, CONCAT('Produto #', si.product_id::text)) 
-            ORDER BY qty DESC
-        ";
-        $stmtMix = $db->prepare($sqlMix);
-        $stmtMix->execute([$eventId, $organizerId, $organizerId]);
-        $mixChart = $stmtMix->fetchAll(PDO::FETCH_ASSOC);
-
-        echo json_encode([
-            'success' => true, 
-            'data' => [
-                'recent_sales' => $recentSales,
-                'report' => [
-                    'total_revenue' => $totalRevenue, 
-                    'total_items' => $totalItems,
-                    'sales_chart' => $salesChart,
-                    'mix_chart' => $mixChart
-                ]
-            ]
-        ]);
-        exit;
+        $payload = \EnjoyFun\Services\SalesReportService::buildSectorSalesPayload(
+            $db,
+            (int)$eventId,
+            $organizerId,
+            'food',
+            $timeFilter
+        );
+        jsonSuccess($payload);
     } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-        exit;
+        jsonError($e->getMessage(), 500);
     }
 }
 
@@ -292,13 +142,9 @@ function checkout(array $body): void
             $totalAmount,
             $cardId
         );
-
-        echo json_encode(['success' => true, 'message' => 'Venda realizada com sucesso!', 'data' => $result]);
-        exit;
+        jsonSuccess($result, 'Venda realizada com sucesso!');
     } catch (Exception $e) {
-        http_response_code($e->getCode() >= 400 ? $e->getCode() : 400);
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-        exit;
+        jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 400);
     }
 }
 
@@ -342,64 +188,21 @@ function requestGeminiInsight(array $body): void
     $eventId    = (int)($body['event_id'] ?? $_GET['event_id'] ?? 1);
     $timeFilter = $body['filter'] ?? $_GET['filter'] ?? '24h';
 
-    $whereTime = "AND s.created_at >= NOW() - INTERVAL '24 hours' AND s.created_at <= NOW()";
-    if ($timeFilter === '1h')        $whereTime = "AND s.created_at >= NOW() - INTERVAL '1 hour' AND s.created_at <= NOW()";
-    elseif ($timeFilter === '5h')    $whereTime = "AND s.created_at >= NOW() - INTERVAL '5 hours' AND s.created_at <= NOW()";
-    elseif ($timeFilter === 'total') $whereTime = "AND s.created_at <= NOW()";
-
     try {
         $db = Database::getInstance();
-
-        $stmtRev = $db->prepare(
-            "SELECT COALESCE(SUM(total_amount), 0) FROM sales s
-             WHERE s.event_id = ? AND s.organizer_id = ? AND s.status = 'completed' $whereTime"
+        $context = \EnjoyFun\Services\SalesReportService::buildSectorInsightContext(
+            $db,
+            $eventId,
+            $organizerId,
+            'food',
+            $timeFilter
         );
-        $stmtRev->execute([$eventId, $organizerId]);
-        $totalRevenue = (float)$stmtRev->fetchColumn();
-
-        $stmtQty = $db->prepare(
-            "SELECT COALESCE(SUM(si.quantity), 0) FROM sale_items si
-             JOIN sales s ON si.sale_id = s.id
-             WHERE s.event_id = ? AND s.organizer_id = ? AND s.status = 'completed' $whereTime"
-        );
-        $stmtQty->execute([$eventId, $organizerId]);
-        $totalItems = (int)$stmtQty->fetchColumn();
-
-        // Top produtos exclusivos do setor FOOD
-        $stmtMix = $db->prepare(
-            "SELECT p.name, SUM(si.quantity) AS qty
-             FROM sale_items si
-             JOIN sales s    ON si.sale_id    = s.id
-             JOIN products p ON si.product_id = p.id
-             WHERE s.event_id = ? AND s.organizer_id = ? AND s.status = 'completed'
-               AND p.sector = 'food' $whereTime
-             GROUP BY p.name ORDER BY qty DESC LIMIT 10"
-        );
-        $stmtMix->execute([$eventId, $organizerId]);
-        $topProducts = $stmtMix->fetchAll(PDO::FETCH_ASSOC);
-
-        $stmtStock = $db->prepare(
-            "SELECT name, stock_qty, low_stock_threshold FROM products
-             WHERE event_id = ? AND organizer_id = ? AND sector = 'food'
-             ORDER BY stock_qty ASC LIMIT 10"
-        );
-        $stmtStock->execute([$eventId, $organizerId]);
-        $stockLevels = $stmtStock->fetchAll(PDO::FETCH_ASSOC);
 
         // Retorna dados para o frontend chamar o Gemini diretamente
         jsonSuccess([
-            'context' => [
-                'total_revenue' => $totalRevenue,
-                'total_items'   => $totalItems,
-                'top_products'  => $topProducts,
-                'stock_levels'  => $stockLevels,
-                'time_filter'   => $timeFilter,
-                'sector'        => 'food',
-            ]
+            'context' => $context
         ]);
     } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-        exit;
+        jsonError($e->getMessage(), 500);
     }
 }

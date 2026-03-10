@@ -1,0 +1,33 @@
+import { Link } from "react-router-dom";
+import { ArrowUpRight } from "lucide-react";
+
+export default function StatCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+  to,
+  loading,
+  subtitle,
+  compact = false,
+}) {
+  const baseClassName = compact
+    ? "stat-card group relative overflow-hidden min-h-[170px]"
+    : "stat-card group relative overflow-hidden";
+
+  return (
+    <Link to={to || "#"} className={baseClassName}>
+      <div className={`absolute top-0 right-0 h-24 w-24 rounded-full mix-blend-overlay opacity-10 blur-2xl ${color} -mr-8 -mt-8`} />
+      <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
+        {Icon && <Icon size={20} className="text-white" />}
+      </div>
+      <div className="stat-value">{loading ? "—" : value}</div>
+      <div className="stat-label">{label}</div>
+      {subtitle && <div className="mt-1 text-[10px] text-gray-500">{subtitle}</div>}
+      <ArrowUpRight
+        size={14}
+        className="mt-auto self-end text-gray-600 transition-colors group-hover:text-white"
+      />
+    </Link>
+  );
+}
