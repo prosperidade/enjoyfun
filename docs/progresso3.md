@@ -854,3 +854,236 @@ A fase será conduzida em etapas e dividida em PRs menores, com prioridade para 
 - Este encerramento documenta apenas a conclusao da primeira frente da Fase 5.
 - A Fase 5 permanece oficialmente aberta para etapas futuras.
 - Nenhuma nova frente fica declarada como iniciada neste encerramento.
+
+## Meals Control — Abertura Oficial
+
+- **Responsável:** Codex
+- **Status:** Frente aberta
+- **Objetivo da frente:** tratar `Meals Control` como frente propria de hardening operacional e afinamento funcional progressivo, separada de Analytics e priorizando integridade de contrato antes de qualquer refinamento visual
+
+### Escopo inicial
+- Endurecer contrato e integridade do backend do Meals.
+- Tornar o modulo seguro para o contexto real do workspace antes de qualquer ajuste de UX.
+- Preservar `Meals` como dominio ligado a `Workforce Ops`.
+- Conduzir a frente em PRs pequenos, progressivos e operacionais.
+
+### Diagnostico consolidado
+- `Meals Control` ja existe, mas precisa de hardening antes de refinamento.
+- O maior risco atual do modulo nao e visual; e semantico, contratual e operacional.
+- O workspace real ainda nao sustenta uso completo por dia/turno porque nao ha base real de `event_days` e `event_shifts`.
+- O saldo por dia/turno ainda nao e sustentado pela base real do workspace.
+- `POST /meals` tem fragilidade de integridade e risco de combinacoes incoerentes entre participante, evento, dia e turno.
+- Existe risco real de cenarios cross-event.
+- Ha dependencia sensivel de schema e migrations, especialmente nas camadas auxiliares de settings e custo.
+- Os filtros atuais ainda sao frageis e nao devem ser tratados como frente visual antes do hardening.
+- `meal_unit_cost` nao deve ser tratado como base confiavel nesta abertura porque o schema real do workspace ainda nao sustenta essa leitura como camada forte.
+- Nenhuma implementacao visual nova esta autorizada antes do hardening do backend.
+
+### Ordem oficial das PRs
+1. `PR 1 — Hardening de contrato e integridade backend`
+2. `PR 2 — Diagnostico operacional embutido e leitura segura`
+3. `PR 3 — Coerencia de filtros no frontend`
+4. `PR 4 — Afinamento da leitura operacional`
+5. `PR 5 — Camada financeira condicional`
+6. `PR 6 — Consolidacao e validacao E2E`
+
+## Meals Control — PR 1: Hardening de contrato e integridade backend
+
+- **Responsável:** Codex
+- **Status:** Entregue
+- **Objetivo:** endurecer o contrato backend do Meals para impedir combinacoes incoerentes entre participante, evento, dia e turno, preservando o restante do modulo intacto
+
+### Escopo executado
+- Validacao de `event_day_id` contra `event_id` no backend do Meals.
+- Validacao de `event_shift_id` contra `event_day_id`.
+- Bloqueio de cenarios cross-event nas rotas de Meals.
+- Endurecimento de `POST /meals`.
+- Endurecimento adicional de `GET /meals/balance` e `GET /meals`.
+- Inclusao de erros operacionais claros para combinacoes invalidas de contexto.
+
+### Arquivos envolvidos
+- `backend/src/Controllers/MealController.php`
+- `docs/progresso3.md`
+
+### Validacoes adicionadas ou endurecidas
+- `GET /meals/balance` agora valida explicitamente se `event_day_id` pertence ao `event_id` informado.
+- `GET /meals/balance` agora valida explicitamente se `event_shift_id` pertence ao `event_day_id` informado.
+- `GET /meals` agora valida coerencia entre `event_id`, `event_day_id` e `event_shift_id` quando filtros combinados sao enviados.
+- `POST /meals` agora resolve primeiro o participante e o seu `event_id` real.
+- `POST /meals` agora valida que o `event_day_id` pertence ao mesmo evento do participante.
+- `POST /meals` agora valida que o `event_shift_id` pertence ao `event_day_id` e ao mesmo contexto do evento.
+
+### Comportamentos invalidos agora bloqueados
+- Baixa de refeicao com `event_day_id` de outro evento.
+- Baixa de refeicao com `event_shift_id` vinculado a outro dia.
+- Baixa de refeicao com combinacao cross-event entre participante e dia.
+- Consultas de saldo com `event_id` e `event_day_id` incoerentes.
+- Consultas de historico com `event_shift_id` fora do contexto do dia/evento informado.
+
+### Riscos controlados
+- O modulo deixa de aceitar combinacoes operacionais incoerentes logo no backend.
+- O hardening foi mantido no controller atual, sem abrir service layer ampla nesta PR.
+- Nenhuma camada visual, financeira ou analitica foi tocada nesta etapa.
+
+### Validacoes executadas
+- `php -l backend/src/Controllers/MealController.php`
+
+### Pendencias para o PR 2
+- Expor estados explicitos de base insuficiente para dias, turnos e custo unitario.
+- Separar com mais clareza o que e consumo real e o que e projecao.
+- Preparar o payload para leitura segura antes de corrigir filtros e UX no frontend.
+
+## Meals Control — PR 2: Diagnostico operacional embutido e leitura segura
+
+- **Responsável:** Codex
+- **Status:** Entregue
+- **Objetivo:** preparar o backend do Meals para leitura segura do estado operacional real, expondo metadados de readiness, base insuficiente e separacao explicita entre saldo operacional e projecao, sem abrir UX nesta etapa
+
+### Escopo executado
+- Inclusao de guardas explicitas para dependencias criticas de schema na leitura do saldo.
+- Amplificacao de `GET /meals/balance` com metadados operacionais e diagnosticos embutidos.
+- Separacao aditiva entre `operational_summary` e `projection_summary`.
+- Exposicao de status e issues para dias, turnos, fallback de configuracao, consumo real e custo unitario.
+- Inclusao do `config_source` por participante para preparar leitura futura sem alterar a tela nesta PR.
+
+### Arquivos envolvidos
+- `backend/src/Controllers/MealController.php`
+- `docs/progresso3.md`
+
+### O que passou a ser exposto pelo backend
+- `operational_summary` separado da camada de projecao.
+- `projection_summary` com status explicito de habilitacao por `meal_unit_cost`.
+- `diagnostics.status` com estados `ready`, `partial` ou `insufficient`.
+- `diagnostics.issues` com motivos objetivos de base incompleta ou leitura degradada.
+- `diagnostics.event` com contagem de dias e turnos.
+- `diagnostics.configuration` com uso de override por membro, baseline por cargo e fallback default.
+- `diagnostics.consumption` com indicacao de existencia ou ausencia de consumo real.
+- `diagnostics.finance` com disponibilidade real da camada de custo.
+
+### Leituras seguras adicionadas
+- Ausencia de `event_shifts` no evento ou no dia selecionado passa a ser sinalizada no payload.
+- Ausencia de consumo real do dia passa a ser sinalizada no payload.
+- Uso de fallback default de refeicoes passa a ser sinalizado no payload.
+- Ausencia de `meal_unit_cost` no schema passa a ser sinalizada no payload.
+- Tabelas criticas ausentes agora retornam erro operacional explicito em vez de depender de falha SQL indireta.
+
+### Escopo preservado
+- Nenhuma mudanca visual foi feita em `MealsControl.jsx`.
+- Nenhum filtro foi alterado nesta PR.
+- Nenhuma camada financeira nova foi aberta.
+- Nenhum refactor amplo para service layer foi iniciado.
+
+### Validacoes executadas
+- `php -l backend/src/Controllers/MealController.php`
+
+### Pendencias para o PR 3
+- Corrigir coerencia de filtros no frontend, especialmente turno e setor.
+- Passar a consumir de forma progressiva os novos metadados do backend.
+- Melhorar estados vazios e mensagens sem alterar a semantica operacional consolidada nesta PR.
+
+## Meals Control — PR 3: Coerencia de filtros no frontend
+
+- **Responsável:** Codex
+- **Status:** Entregue
+- **Objetivo:** alinhar a tela `MealsControl.jsx` ao backend real do Meals, corrigindo filtros, estados vazios e mensagens operacionais sem reabrir semantica backend
+
+### Escopo executado
+- Correcao do comportamento de filtros de evento, dia, turno, cargo e setor.
+- Correcao da incoerencia de `Todos os turnos`.
+- Consumo dos metadados `diagnostics`, `operational_summary` e `projection_summary` no frontend.
+- Melhoria dos estados vazios e mensagens operacionais com foco em base insuficiente, saldo parcial e custo indisponivel.
+- Preservacao do restante da tela dentro do escopo operacional atual.
+
+### Arquivos envolvidos
+- `frontend/src/pages/MealsControl.jsx`
+- `docs/progresso3.md`
+
+### Correcoes feitas nos filtros
+- A troca de evento agora limpa o recorte operacional anterior antes de carregar dias e turnos do novo evento.
+- O filtro de turno deixou de auto-selecionar o primeiro turno quando o backend aceita ausencia de turno.
+- `Todos os turnos` agora permanece realmente ativo quando nao ha turno selecionado.
+- O filtro de setor deixou de ser texto livre e passou a usar opcoes coerentes derivadas da base atual carregada.
+- O filtro de cargo agora reseta de forma segura quando o valor selecionado nao existe mais na lista atual.
+
+### Melhorias feitas na leitura operacional
+- A tela agora usa `operational_summary` para os cards operacionais.
+- A tela agora usa `projection_summary` para a camada de custo sem inventar disponibilidade.
+- `diagnostics` passou a alimentar avisos claros para:
+  - evento sem dias
+  - dia sem turnos
+  - leitura parcial
+  - saldo teorico
+  - equipe usando fallback default
+  - custo indisponivel
+  - custo nao configurado
+- O estado vazio da tabela deixou de ser generico e passou a explicar o problema operacional do recorte atual.
+
+### Comportamento de `Todos os turnos`
+- `Todos os turnos` deixou de ser incoerente.
+- Quando o dia nao possui turnos cadastrados, a tela permanece explicitamente em modo sem recorte por turno.
+- O operador passa a ver mensagem operacional clara de que o backend aceita operacao sem turno para aquele dia.
+
+### Tratamento de setor
+- O setor agora e filtrado por `select`, nao por texto livre.
+- As opcoes passam a refletir a base carregada atualmente a partir de cargos e itens retornados pelo backend.
+- Isso reduz drift entre o que o operador digita e o que o backend realmente suporta por igualdade exata.
+
+### Escopo preservado
+- Nenhuma alteracao foi feita no backend nesta PR.
+- Nenhuma nova regra de refeicao foi criada.
+- Nenhum redesign amplo do Meals foi aberto.
+- Nenhuma camada financeira nova foi aberta.
+- Nenhuma integracao com Analytics foi iniciada.
+
+### Validacoes executadas
+- `npx eslint src/pages/MealsControl.jsx`
+
+### Pendencias para o PR 4
+- Refinar a leitura operacional da tabela e dos cards sem ampliar escopo funcional.
+- Tornar mais visivel a fonte de configuracao da cota (`member_override`, `role_settings`, `default`) quando isso agregar valor operacional.
+- Avaliar pequenos ajustes de apresentacao para leitura mais rapida do saldo, mantendo a tela enxuta.
+
+## Meals Control — PR 4: Alinhamento do frontend ao workspace real
+
+- **Responsável:** Codex
+- **Status:** Entregue
+- **Objetivo:** alinhar `MealsControl.jsx` ao estado real do workspace e ao payload ja entregue pelo backend, para que a tela reflita corretamente setores, membros do workforce, turnos e cotas configuradas antes de qualquer refinamento visual adicional
+
+### Escopo executado
+- Revisao da forma como a tela consome o payload de `GET /meals/balance`.
+- Inclusao da base real de `workforce/assignments` como leitura complementar do evento para evitar falso estado de vazio quando o workspace nao possui `event_days`.
+- Correcao da leitura de setores, membros, turnos e refeicoes configuradas no frontend.
+- Ajuste da tabela e dos cards para distinguir saldo real de Meals versus base real do Workforce.
+- Exposicao visual de `config_source` quando o saldo real do Meals esta disponivel.
+
+### Arquivos envolvidos
+- `frontend/src/pages/MealsControl.jsx`
+- `docs/progresso3.md`
+
+### Causas identificadas
+- Setores nao refletiam corretamente porque a tela dependia demais de `items` do Meals, que por sua vez exigem `event_day_id`; quando o evento nao tinha dias, os setores do evento desapareciam do painel.
+- Membros do workforce nao refletiam corretamente porque os cards e a tabela eram alimentados quase apenas pelo saldo de Meals, e nao pela base real de assignments do evento.
+- Turnos nao refletiam corretamente porque a tela olhava apenas para `event_shifts`/saldo e nao para o vinculo real de turno nos `workforce_assignments`.
+- Refeicoes configuradas nao refletiam corretamente porque a cota resolvida por membro/cargo/default ja existia em `workforce/assignments`, mas nao era usada como base complementar quando o saldo diario nao podia ser carregado.
+
+### O que foi ajustado
+- A tela agora consulta a base real de `workforce/assignments` por evento.
+- Os cards passam a refletir a base real do Workforce quando o saldo diario de Meals nao pode ser calculado por falta de dia operacional.
+- A tabela passa a mostrar membros reais do Workforce, setor real, turno vinculado ou ausencia de vinculo e refeicoes configuradas resolvidas.
+- O filtro de setor agora se ancora na base real de assignments do evento.
+- `config_source` passou a aparecer quando o saldo real de Meals esta disponivel, tornando a origem da cota visivel na tabela.
+
+### Escopo preservado
+- Nenhuma alteracao foi feita no backend nesta PR.
+- Nenhuma nova regra de refeicao foi criada.
+- Nenhuma camada financeira nova foi aberta.
+- Nenhum redesign amplo foi iniciado.
+- Nenhuma integracao com Analytics foi aberta.
+
+### Validacoes executadas
+- `npx eslint src/pages/MealsControl.jsx`
+
+### Nova recomendacao de ordem dos proximos PRs
+1. `PR 5 — Afinamento da leitura operacional`
+2. `PR 6 — Camada financeira condicional`
+3. `PR 7 — Consolidacao e validacao E2E`

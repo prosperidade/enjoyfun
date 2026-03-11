@@ -19,7 +19,11 @@ function getMealsBalance(array $query): void
     $user = requireAuth(['admin', 'organizer', 'manager', 'staff']);
     $db = Database::getInstance();
     $organizerId = resolveOrganizerId($user);
+    mealEnsureMealsReadSchema($db);
+
     $hasRoleSettings = mealTableExists($db, 'workforce_role_settings');
+    $hasMemberSettings = mealTableExists($db, 'workforce_member_settings');
+    $hasMealUnitCostColumn = columnExists($db, 'organizer_financial_settings', 'meal_unit_cost');
 
     $eventId = (int)($query['event_id'] ?? 0);
     $eventDayId = (int)($query['event_day_id'] ?? 0);
@@ -35,13 +39,10 @@ function getMealsBalance(array $query): void
         jsonError('event_day_id é obrigatório para cálculo de saldo diário.', 400);
     }
 
-    $stmtEvent = $db->prepare("SELECT id FROM events WHERE id = ? AND organizer_id = ?");
-    $stmtEvent->execute([$eventId, $organizerId]);
-    if (!$stmtEvent->fetchColumn()) {
-        jsonError('Evento não encontrado ou sem acesso.', 404);
-    }
+    mealResolveEventContext($db, $organizerId, $eventId, $eventDayId, $eventShiftId);
+    $eventScope = mealBuildEventScopeDiagnostics($db, $eventId, $eventDayId, $eventShiftId);
 
-    if (columnExists($db, 'organizer_financial_settings', 'meal_unit_cost')) {
+    if ($hasMealUnitCostColumn) {
         $stmtMealCost = $db->prepare("
             SELECT COALESCE(meal_unit_cost, 0)
             FROM organizer_financial_settings
@@ -59,6 +60,16 @@ function getMealsBalance(array $query): void
     $roleSettingsJoin = $hasRoleSettings
         ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id AND wrs.organizer_id = :organizer_id"
         : "";
+    $configSourceExpr = $hasRoleSettings
+        ? "CASE
+                WHEN wms.participant_id IS NOT NULL THEN 'member_override'
+                WHEN wrs.role_id IS NOT NULL THEN 'role_settings'
+                ELSE 'default'
+           END"
+        : "CASE
+                WHEN wms.participant_id IS NOT NULL THEN 'member_override'
+                ELSE 'default'
+           END";
 
     $sql = "
         SELECT
@@ -69,6 +80,7 @@ function getMealsBalance(array $query): void
             r.id AS role_id,
             r.name AS role_name,
             {$mealsExpr}::int AS meals_per_day,
+            {$configSourceExpr} AS config_source,
             COALESCE(day_meals.total_day, 0) AS consumed_day,
             COALESCE(shift_meals.total_shift, 0) AS consumed_shift
         FROM workforce_assignments wa
@@ -127,12 +139,21 @@ function getMealsBalance(array $query): void
         'consumed_day_cost_total' => 0.0,
         'remaining_day_cost_total' => 0.0,
     ];
+    $configSources = [
+        'member_override' => 0,
+        'role_settings' => 0,
+        'default' => 0,
+    ];
 
-    $normalizedItems = array_map(function ($row) use (&$summary, $mealUnitCost) {
+    $normalizedItems = array_map(function ($row) use (&$summary, &$configSources, $mealUnitCost) {
         $mealsPerDay = (int)$row['meals_per_day'];
         $consumedDay = (int)$row['consumed_day'];
         $consumedShift = (int)$row['consumed_shift'];
         $remainingDay = max(0, $mealsPerDay - $consumedDay);
+        $configSource = (string)($row['config_source'] ?? 'default');
+        if (!array_key_exists($configSource, $configSources)) {
+            $configSource = 'default';
+        }
 
         $summary['members']++;
         $summary['meals_per_day_total'] += $mealsPerDay;
@@ -142,6 +163,7 @@ function getMealsBalance(array $query): void
         $summary['estimated_day_cost_total'] += ($mealsPerDay * $mealUnitCost);
         $summary['consumed_day_cost_total'] += ($consumedDay * $mealUnitCost);
         $summary['remaining_day_cost_total'] += ($remainingDay * $mealUnitCost);
+        $configSources[$configSource]++;
 
         return [
             'participant_id' => (int)$row['participant_id'],
@@ -151,6 +173,7 @@ function getMealsBalance(array $query): void
             'role_id' => (int)$row['role_id'],
             'role_name' => $row['role_name'],
             'meals_per_day' => $mealsPerDay,
+            'config_source' => $configSource,
             'consumed_day' => $consumedDay,
             'remaining_day' => $remainingDay,
             'consumed_shift' => $consumedShift,
@@ -165,6 +188,30 @@ function getMealsBalance(array $query): void
     $summary['consumed_day_cost_total'] = round((float)$summary['consumed_day_cost_total'], 2);
     $summary['remaining_day_cost_total'] = round((float)$summary['remaining_day_cost_total'], 2);
 
+    $operationalSummary = [
+        'members' => (int)$summary['members'],
+        'meals_per_day_total' => (int)$summary['meals_per_day_total'],
+        'consumed_day_total' => (int)$summary['consumed_day_total'],
+        'remaining_day_total' => (int)$summary['remaining_day_total'],
+        'consumed_shift_total' => (int)$summary['consumed_shift_total'],
+    ];
+    $projectionSummary = [
+        'enabled' => $hasMealUnitCostColumn,
+        'meal_unit_cost' => round($mealUnitCost, 2),
+        'estimated_day_cost_total' => round((float)$summary['estimated_day_cost_total'], 2),
+        'consumed_day_cost_total' => round((float)$summary['consumed_day_cost_total'], 2),
+        'remaining_day_cost_total' => round((float)$summary['remaining_day_cost_total'], 2),
+    ];
+    $diagnostics = mealBuildBalanceDiagnostics(
+        $eventScope,
+        $configSources,
+        $operationalSummary,
+        $hasMemberSettings,
+        $hasRoleSettings,
+        $hasMealUnitCostColumn,
+        $mealUnitCost
+    );
+
     jsonSuccess([
         'filters' => [
             'event_id' => $eventId,
@@ -178,6 +225,9 @@ function getMealsBalance(array $query): void
             'consumed_day_cost_total' => 'consumed_day_total * meal_unit_cost',
             'remaining_day_cost_total' => 'remaining_day_total * meal_unit_cost'
         ],
+        'operational_summary' => $operationalSummary,
+        'projection_summary' => $projectionSummary,
+        'diagnostics' => $diagnostics,
         'summary' => $summary,
         'items' => $normalizedItems,
     ], 'Saldo operacional de refeições carregado.');
@@ -189,13 +239,21 @@ function listMeals(array $query): void
     $db = Database::getInstance();
     $organizerId = resolveOrganizerId($user);
 
-    $eventId = $query['event_id'] ?? null;
-    $eventDayId = $query['event_day_id'] ?? null;
-    $eventShiftId = $query['event_shift_id'] ?? null;
+    $eventId = (int)($query['event_id'] ?? 0);
+    $eventDayId = (int)($query['event_day_id'] ?? 0);
+    $eventShiftId = (int)($query['event_shift_id'] ?? 0);
 
-    if (!$eventId && !$eventDayId) {
+    if ($eventId <= 0 && $eventDayId <= 0) {
         jsonError('event_id ou event_day_id é obrigatório.', 400);
     }
+
+    mealResolveEventContext(
+        $db,
+        $organizerId,
+        $eventId > 0 ? $eventId : null,
+        $eventDayId > 0 ? $eventDayId : null,
+        $eventShiftId > 0 ? $eventShiftId : null
+    );
 
     $sql = "
         SELECT pm.id, pm.consumed_at,
@@ -212,15 +270,15 @@ function listMeals(array $query): void
 
     $params = [':org_id' => $organizerId];
 
-    if ($eventId) {
+    if ($eventId > 0) {
         $sql .= " AND ep.event_id = :evt_id";
         $params[':evt_id'] = $eventId;
     }
-    if ($eventDayId) {
+    if ($eventDayId > 0) {
         $sql .= " AND pm.event_day_id = :day_id";
         $params[':day_id'] = $eventDayId;
     }
-    if ($eventShiftId) {
+    if ($eventShiftId > 0) {
         $sql .= " AND pm.event_shift_id = :shift_id";
         $params[':shift_id'] = $eventShiftId;
     }
@@ -241,19 +299,21 @@ function registerMeal(array $body): void
 
     $participantId = $body['participant_id'] ?? null;
     $qrToken = trim((string)($body['qr_token'] ?? ''));
-    $eventDayId = $body['event_day_id'] ?? null;
-    $eventShiftId = $body['event_shift_id'] ?? null;
+    $eventDayId = (int)($body['event_day_id'] ?? 0);
+    $eventShiftId = (int)($body['event_shift_id'] ?? 0);
 
-    if ((!$participantId && !$qrToken) || !$eventDayId) {
+    if ((!$participantId && !$qrToken) || $eventDayId <= 0) {
         jsonError('participant_id (ou qr_token) e event_day_id são obrigatórios.', 400);
     }
 
-    // Validate Participant tenant
+    // Validate Participant tenant and recover event context from participant itself.
     $stmtPart = $db->prepare("
-        SELECT ep.id FROM event_participants ep
+        SELECT ep.id, ep.event_id
+        FROM event_participants ep
         JOIN events e ON e.id = ep.event_id
         WHERE " . ($participantId ? "ep.id = :participant_id" : "ep.qr_token = :qr_token") . "
           AND e.organizer_id = :organizer_id
+        LIMIT 1
     ");
     $params = [':organizer_id' => $organizerId];
     if ($participantId) {
@@ -262,9 +322,12 @@ function registerMeal(array $body): void
         $params[':qr_token'] = $qrToken;
     }
     $stmtPart->execute($params);
-    $resolvedParticipantId = $stmtPart->fetchColumn();
-    if (!$resolvedParticipantId) jsonError('Participante inválido ou sem acesso.', 403);
-    $participantId = (int)$resolvedParticipantId;
+    $participant = $stmtPart->fetch(PDO::FETCH_ASSOC);
+    if (!$participant) jsonError('Participante inválido ou sem acesso.', 403);
+    $participantId = (int)$participant['id'];
+    $participantEventId = (int)$participant['event_id'];
+
+    mealResolveEventContext($db, $organizerId, $participantEventId, $eventDayId, $eventShiftId);
 
     // Validação por configuração: refeições por dia
     $cfg = mealResolveOperationalConfig($db, $participantId);
@@ -316,6 +379,195 @@ function columnExists(PDO $db, string $table, string $column): bool
     $stmt->execute([':table' => $table, ':column' => $column]);
     $cache[$key] = (bool)$stmt->fetchColumn();
     return $cache[$key];
+}
+
+function mealResolveEventContext(PDO $db, int $organizerId, ?int $eventId, ?int $eventDayId, ?int $eventShiftId): array
+{
+    $resolvedEventId = $eventId !== null && $eventId > 0 ? $eventId : null;
+    $resolvedEventDayId = $eventDayId !== null && $eventDayId > 0 ? $eventDayId : null;
+    $resolvedEventShiftId = $eventShiftId !== null && $eventShiftId > 0 ? $eventShiftId : null;
+
+    if ($resolvedEventId !== null) {
+        $stmtEvent = $db->prepare("SELECT id FROM events WHERE id = ? AND organizer_id = ? LIMIT 1");
+        $stmtEvent->execute([$resolvedEventId, $organizerId]);
+        if (!$stmtEvent->fetchColumn()) {
+            jsonError('Evento não encontrado ou sem acesso.', 404);
+        }
+    }
+
+    if ($resolvedEventDayId !== null) {
+        $stmtDay = $db->prepare("
+            SELECT ed.id, ed.event_id
+            FROM event_days ed
+            JOIN events e ON e.id = ed.event_id
+            WHERE ed.id = ? AND e.organizer_id = ?
+            LIMIT 1
+        ");
+        $stmtDay->execute([$resolvedEventDayId, $organizerId]);
+        $day = $stmtDay->fetch(PDO::FETCH_ASSOC);
+        if (!$day) {
+            jsonError('event_day_id inválido ou fora do contexto operacional do organizador.', 404);
+        }
+
+        $dayEventId = (int)$day['event_id'];
+        if ($resolvedEventId !== null && $dayEventId !== $resolvedEventId) {
+            jsonError('event_day_id não pertence ao event_id informado.', 400);
+        }
+
+        $resolvedEventId = $dayEventId;
+    }
+
+    if ($resolvedEventShiftId !== null) {
+        $stmtShift = $db->prepare("
+            SELECT es.id, es.event_day_id, ed.event_id
+            FROM event_shifts es
+            JOIN event_days ed ON ed.id = es.event_day_id
+            JOIN events e ON e.id = ed.event_id
+            WHERE es.id = ? AND e.organizer_id = ?
+            LIMIT 1
+        ");
+        $stmtShift->execute([$resolvedEventShiftId, $organizerId]);
+        $shift = $stmtShift->fetch(PDO::FETCH_ASSOC);
+        if (!$shift) {
+            jsonError('event_shift_id inválido ou fora do contexto operacional do organizador.', 404);
+        }
+
+        $shiftDayId = (int)$shift['event_day_id'];
+        $shiftEventId = (int)$shift['event_id'];
+
+        if ($resolvedEventDayId !== null && $shiftDayId !== $resolvedEventDayId) {
+            jsonError('event_shift_id não pertence ao event_day_id informado.', 400);
+        }
+
+        if ($resolvedEventId !== null && $shiftEventId !== $resolvedEventId) {
+            jsonError('event_shift_id não pertence ao event_id informado.', 400);
+        }
+
+        $resolvedEventDayId = $shiftDayId;
+        $resolvedEventId = $shiftEventId;
+    }
+
+    return [
+        'event_id' => $resolvedEventId,
+        'event_day_id' => $resolvedEventDayId,
+        'event_shift_id' => $resolvedEventShiftId,
+    ];
+}
+
+function mealEnsureMealsReadSchema(PDO $db): void
+{
+    $requiredTables = [
+        'event_days',
+        'event_participants',
+        'participant_meals',
+        'people',
+        'workforce_assignments',
+        'workforce_member_settings',
+        'workforce_roles',
+    ];
+
+    foreach ($requiredTables as $table) {
+        if (!mealTableExists($db, $table)) {
+            jsonError("Base operacional de refeições indisponível: tabela obrigatória '{$table}' ausente.", 409);
+        }
+    }
+}
+
+function mealBuildEventScopeDiagnostics(PDO $db, int $eventId, int $eventDayId, int $eventShiftId): array
+{
+    $stmtDayCount = $db->prepare("SELECT COUNT(*) FROM event_days WHERE event_id = ?");
+    $stmtDayCount->execute([$eventId]);
+    $eventDaysCount = (int)$stmtDayCount->fetchColumn();
+
+    $stmtShiftEventCount = $db->prepare("
+        SELECT COUNT(*)
+        FROM event_shifts es
+        JOIN event_days ed ON ed.id = es.event_day_id
+        WHERE ed.event_id = ?
+    ");
+    $stmtShiftEventCount->execute([$eventId]);
+    $eventShiftsCount = (int)$stmtShiftEventCount->fetchColumn();
+
+    $stmtShiftDayCount = $db->prepare("SELECT COUNT(*) FROM event_shifts WHERE event_day_id = ?");
+    $stmtShiftDayCount->execute([$eventDayId]);
+    $selectedDayShiftCount = (int)$stmtShiftDayCount->fetchColumn();
+
+    return [
+        'event_days_count' => $eventDaysCount,
+        'event_shifts_count' => $eventShiftsCount,
+        'selected_day_shift_count' => $selectedDayShiftCount,
+        'selected_shift_id' => $eventShiftId > 0 ? $eventShiftId : null,
+    ];
+}
+
+function mealBuildBalanceDiagnostics(
+    array $eventScope,
+    array $configSources,
+    array $operationalSummary,
+    bool $hasMemberSettings,
+    bool $hasRoleSettings,
+    bool $hasMealUnitCostColumn,
+    float $mealUnitCost
+): array {
+    $issues = [];
+
+    if (($eventScope['event_days_count'] ?? 0) <= 0) {
+        $issues[] = 'event_has_no_days';
+    }
+    if (($eventScope['event_shifts_count'] ?? 0) <= 0) {
+        $issues[] = 'event_has_no_shifts';
+    }
+    if (($eventScope['selected_day_shift_count'] ?? 0) <= 0) {
+        $issues[] = 'selected_day_has_no_shifts';
+    }
+    if (($operationalSummary['members'] ?? 0) <= 0) {
+        $issues[] = 'no_assignments_in_scope';
+    }
+    if (($configSources['default'] ?? 0) > 0) {
+        $issues[] = 'members_using_default_meal_fallback';
+    }
+    if (($operationalSummary['consumed_day_total'] ?? 0) <= 0) {
+        $issues[] = 'no_real_meal_consumption_for_day';
+    }
+    if (!$hasMealUnitCostColumn) {
+        $issues[] = 'meal_unit_cost_schema_unavailable';
+    } elseif ($mealUnitCost <= 0) {
+        $issues[] = 'meal_unit_cost_not_configured';
+    }
+
+    $status = empty($issues) ? 'ready' : ((($operationalSummary['members'] ?? 0) > 0) ? 'partial' : 'insufficient');
+
+    return [
+        'status' => $status,
+        'issues' => $issues,
+        'schema' => [
+            'member_settings_table' => $hasMemberSettings,
+            'role_settings_table' => $hasRoleSettings,
+            'meal_unit_cost_column' => $hasMealUnitCostColumn,
+        ],
+        'event' => [
+            'event_days_count' => (int)($eventScope['event_days_count'] ?? 0),
+            'event_shifts_count' => (int)($eventScope['event_shifts_count'] ?? 0),
+            'selected_day_shift_count' => (int)($eventScope['selected_day_shift_count'] ?? 0),
+            'selected_shift_id' => $eventScope['selected_shift_id'] ?? null,
+        ],
+        'configuration' => [
+            'members_using_member_settings' => (int)($configSources['member_override'] ?? 0),
+            'members_using_role_settings' => (int)($configSources['role_settings'] ?? 0),
+            'members_using_default_fallback' => (int)($configSources['default'] ?? 0),
+        ],
+        'consumption' => [
+            'has_real_consumption' => (($operationalSummary['consumed_day_total'] ?? 0) > 0),
+            'consumed_day_total' => (int)($operationalSummary['consumed_day_total'] ?? 0),
+            'consumed_shift_total' => (int)($operationalSummary['consumed_shift_total'] ?? 0),
+        ],
+        'finance' => [
+            'projection_enabled' => $hasMealUnitCostColumn,
+            'meal_unit_cost_available' => $hasMealUnitCostColumn,
+            'meal_unit_cost_configured' => $hasMealUnitCostColumn && $mealUnitCost > 0,
+            'meal_unit_cost' => round($mealUnitCost, 2),
+        ],
+    ];
 }
 
 function mealResolveOperationalConfig(PDO $db, int $participantId): array
