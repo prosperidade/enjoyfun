@@ -1083,7 +1083,81 @@ A fase será conduzida em etapas e dividida em PRs menores, com prioridade para 
 ### Validacoes executadas
 - `npx eslint src/pages/MealsControl.jsx`
 
+## Meals Control — PR 5: Afinamento da leitura operacional
+
+- **Responsável:** Codex
+- **Status:** Entregue
+- **Objetivo:** refinar a leitura operacional de `MealsControl.jsx` para que tabela, cards e recorte atual fiquem mais escaneaveis, claros e uteis para operacao, sem abrir backend novo nem nova frente funcional
+
+### Escopo executado
+- Reorganizacao da tabela para concentrar leitura por participante em blocos mais rapidos de interpretar.
+- Reforco visual da origem da cota (`config_source`) quando o saldo real do Meals esta disponivel.
+- Reforco da leitura de cota, consumo, saldo e vinculo de turno sem alterar a semantica dos dados.
+- Reforco explicito da diferenca entre saldo real de Meals, base complementar do Workforce e camada financeira apenas condicional.
+- Ajuste dos cards operacionais para comunicar melhor fallback, consumo, saldo zerado e ausencia de turno.
+
+### Arquivos envolvidos
+- `frontend/src/pages/MealsControl.jsx`
+- `docs/progresso3.md`
+
+### O que foi ajustado na tabela
+- A tabela deixou de espalhar a leitura operacional em muitas colunas curtas e passou a agrupar por linha:
+  - pessoa
+  - cota
+  - leitura operacional
+  - turno
+  - base/QR
+- Cada linha agora destaca com mais rapidez:
+  - consumo ja realizado
+  - ausencia de saldo
+  - ausencia de turno
+  - origem da cota quando disponivel
+- `config_source` passou a aparecer com badge proprio para diferenciar melhor:
+  - `member_override`
+  - `role_settings`
+  - `default`
+- O bloco de leitura operacional da linha agora explicita:
+  - permitidas
+  - consumidas no dia
+  - consumidas no turno
+  - saldo restante
+- O bloco de turno agora deixa explicita a diferenca entre:
+  - vinculo real de turno no Workforce
+  - ausencia de vinculo
+- O bloco final da linha agora deixa claro se a leitura esta em:
+  - `Saldo real Meals`
+  - `Base Workforce`
+
+### O que foi ajustado nos cards
+- Os cards operacionais passaram a exibir badge de contexto para a fonte da leitura.
+- No modo de saldo real do Meals, os cards agora deixam mais visivel:
+  - distribuicao da origem da cota
+  - quantidade de participantes com consumo
+  - quantidade de participantes sem saldo
+  - quantidade de participantes sem vinculo de turno visivel
+- No modo complementar do Workforce, os cards agora deixam mais explicito que:
+  - a base e real do workspace
+  - o saldo diario do Meals ainda nao esta disponivel naquele recorte
+  - a ausencia de turno continua visivel e nao e escondida
+
+### Camada financeira nesta PR
+- A camada financeira foi mantida secundaria e explicitamente condicional.
+- Os cards de custo ganharam contexto visual proprio para deixar claro que:
+  - nao representam painel financeiro
+  - dependem de `meal_unit_cost`
+  - podem ficar indisponiveis no ambiente real
+
+### Escopo preservado
+- Nenhuma alteracao foi feita no backend nesta PR.
+- Nenhuma nova regra de refeicao foi criada.
+- Nenhuma nova integracao foi aberta.
+- Nenhum filtro novo foi criado.
+- Nenhum redesign amplo da tela foi iniciado.
+- Nenhuma mistura com Analytics foi feita.
+
+### Validacoes executadas
+- `npx eslint src/pages/MealsControl.jsx`
+
 ### Nova recomendacao de ordem dos proximos PRs
-1. `PR 5 — Afinamento da leitura operacional`
-2. `PR 6 — Camada financeira condicional`
-3. `PR 7 — Consolidacao e validacao E2E`
+1. `PR 6 — Camada financeira condicional`
+2. `PR 7 — Consolidacao e validacao E2E`

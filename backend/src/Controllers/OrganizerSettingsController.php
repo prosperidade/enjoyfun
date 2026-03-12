@@ -176,35 +176,79 @@ function buildPublicAssetUrl(string $path): string
 
 function ensureOrganizerSettingsTable(PDO $db): void
 {
-    // Cria a tabela base se não existir
-    $db->exec(
-        "CREATE TABLE IF NOT EXISTS organizer_settings (
-            id BIGSERIAL PRIMARY KEY,
-            organizer_id BIGINT NOT NULL UNIQUE,
-            app_name VARCHAR(120) NOT NULL DEFAULT 'EnjoyFun',
-            primary_color VARCHAR(7) NOT NULL DEFAULT '#7C3AED',
-            secondary_color VARCHAR(7) NOT NULL DEFAULT '#DB2777',
-            logo_url TEXT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-            updated_at TIMESTAMP NULL
-        )"
-    );
+    if (!organizerSettingsTableExists($db)) {
+        jsonError(
+            'Readiness de ambiente inválida: tabela `organizer_settings` ausente. Aplique a migration obrigatória antes de usar configurações do organizador.',
+            409
+        );
+    }
 
-    // Adiciona colunas de mensageria se ainda não existirem (idempotente)
-    $messagingCols = [
-        'resend_api_key TEXT NULL',
-        'email_sender   VARCHAR(320) NULL',
-        'wa_api_url     TEXT NULL',
-        'wa_token       TEXT NULL',
-        'wa_instance    VARCHAR(120) NULL',
+    $requiredColumns = [
+        'organizer_id',
+        'app_name',
+        'primary_color',
+        'secondary_color',
+        'logo_url',
+        'updated_at',
+        'resend_api_key',
+        'email_sender',
+        'wa_api_url',
+        'wa_token',
+        'wa_instance',
     ];
-    foreach ($messagingCols as $colDef) {
-        $colName = strtok($colDef, ' ');
-        try {
-            $db->exec("ALTER TABLE organizer_settings ADD COLUMN IF NOT EXISTS {$colDef}");
-        } catch (\Throwable $e) {
-            // Coluna já existe em alguns drivers que não suportam IF NOT EXISTS
-            error_log("[OrgSettings] Coluna '{$colName}' já existe ou erro: " . $e->getMessage());
+
+    $missingColumns = [];
+    foreach ($requiredColumns as $column) {
+        if (!organizerSettingsColumnExists($db, $column)) {
+            $missingColumns[] = $column;
         }
     }
+
+    if (!empty($missingColumns)) {
+        jsonError(
+            'Readiness de ambiente inválida: `organizer_settings` incompleta (faltando: ' .
+            implode(', ', $missingColumns) .
+            '). Aplique a migration obrigatória antes de usar configurações do organizador.',
+            409
+        );
+    }
+}
+
+function organizerSettingsTableExists(PDO $db): bool
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'organizer_settings'
+        LIMIT 1
+    ");
+    $stmt->execute();
+    $cache = (bool)$stmt->fetchColumn();
+    return $cache;
+}
+
+function organizerSettingsColumnExists(PDO $db, string $column): bool
+{
+    static $cache = [];
+    if (array_key_exists($column, $cache)) {
+        return $cache[$column];
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'organizer_settings'
+          AND column_name = :column
+        LIMIT 1
+    ");
+    $stmt->execute([':column' => $column]);
+    $cache[$column] = (bool)$stmt->fetchColumn();
+    return $cache[$column];
 }

@@ -4,7 +4,7 @@ import { getProductIcon } from "../utils/getProductIcon";
 
 export function usePosCatalog({ currentSector }) {
   const [events, setEvents] = useState([]);
-  const [eventId, setEventId] = useState("1");
+  const [eventId, setEventId] = useState("");
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
 
@@ -16,11 +16,18 @@ export function usePosCatalog({ currentSector }) {
   }, []);
 
   const loadProducts = useCallback(async () => {
+    const normalizedEventId = Number(eventId);
+    if (normalizedEventId <= 0) {
+      setProducts([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await api.get(
-        `/${currentSector}/products?event_id=${eventId}`,
+        `/${currentSector}/products?event_id=${normalizedEventId}`,
       );
 
       if (res.data?.data) {

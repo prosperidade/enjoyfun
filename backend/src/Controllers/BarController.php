@@ -23,15 +23,25 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
     };
 }
 
+function barRequireEventId(mixed $rawEventId): int
+{
+    $eventId = (int)($rawEventId ?? 0);
+    if ($eventId <= 0) {
+        jsonError('event_id é obrigatório para operações do POS.', 422);
+    }
+
+    return $eventId;
+}
+
 function listProducts(): void
 {
     $operator = requireAuth();
     $organizerId = (int)($operator['organizer_id'] ?? 0);
     if ($organizerId <= 0) jsonError('Organizer inválido', 403);
-    $eventId = $_GET['event_id'] ?? 1;
+    $eventId = barRequireEventId($_GET['event_id'] ?? null);
     try {
         $db = Database::getInstance();
-        $products = \EnjoyFun\Services\ProductService::listBySector($db, (int)$eventId, $organizerId, 'bar');
+        $products = \EnjoyFun\Services\ProductService::listBySector($db, $eventId, $organizerId, 'bar');
         jsonSuccess($products);
     } catch (Exception $e) {
         jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 500);
@@ -48,7 +58,7 @@ function createProduct(array $body): void
         $db = Database::getInstance();
         $data = \EnjoyFun\Services\ProductService::createForSector(
             $db,
-            (int)($body['event_id'] ?? 1),
+            barRequireEventId($body['event_id'] ?? null),
             $organizerId,
             'bar',
             $body
@@ -92,7 +102,7 @@ function listRecentSales(): void
     $operator = requireAuth();
     $organizerId = (int)($operator['organizer_id'] ?? 0);
     if ($organizerId <= 0) jsonError('Organizer inválido', 403);
-    $eventId = isset($_GET['event_id']) && is_numeric($_GET['event_id']) ? (int)$_GET['event_id'] : 1;
+    $eventId = barRequireEventId($_GET['event_id'] ?? null);
     $timeFilter = $_GET['filter'] ?? '24h';
 
     try {
@@ -117,7 +127,7 @@ function checkout(array $body): void
 
     require_once __DIR__ . '/../Services/SalesDomainService.php';
 
-    $eventId       = (int)($body['event_id']      ?? 1);
+    $eventId       = barRequireEventId($body['event_id'] ?? null);
     $items         = $body['items']                ?? [];
     $totalAmount   = (float)($body['total_amount'] ?? 0);
     // POS.jsx envia como 'qr_token' — aceitar todos os aliases possíveis
@@ -175,7 +185,7 @@ function requestGeminiInsight(array $body): void
     $organizerId = (int)($operator['organizer_id'] ?? 0);
     if ($organizerId <= 0) jsonError('Organizer inválido', 403);
 
-    $eventId    = (int)($body['event_id'] ?? $_GET['event_id'] ?? 1);
+    $eventId    = barRequireEventId($body['event_id'] ?? $_GET['event_id'] ?? null);
     $timeFilter = $body['filter'] ?? $_GET['filter'] ?? '24h';
 
     try {

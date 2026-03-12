@@ -32,6 +32,7 @@ function getIssueLabel(code) {
     selected_day_has_no_shifts: "O dia selecionado ainda não possui turnos cadastrados.",
     no_assignments_in_scope: "Nenhum membro com assignment válido foi encontrado no recorte atual.",
     members_using_default_meal_fallback: "Parte da equipe está usando cota default, sem configuração específica.",
+    ambiguous_meal_baseline_in_scope: "Parte da equipe está com baseline de refeições ambíguo neste recorte.",
     no_real_meal_consumption_for_day: "Ainda não há consumo real registrado para o dia selecionado.",
     meal_unit_cost_schema_unavailable: "O custo de refeição está indisponível neste ambiente.",
     meal_unit_cost_not_configured: "O custo de refeição ainda não foi configurado.",
@@ -44,20 +45,39 @@ function getConfigSourceLabel(source) {
     member_override: "Config. do membro",
     role_settings: "Config. do cargo",
     default: "Fallback default",
+    ambiguous: "Baseline ambíguo",
   };
   return labels[source] || "Origem não informada";
+}
+
+function getConfigSourceBadgeClass(source) {
+  const labels = {
+    member_override: "badge badge-green",
+    role_settings: "badge badge-blue",
+    default: "badge badge-yellow",
+    ambiguous: "badge badge-red",
+  };
+  return labels[source] || "badge badge-gray";
+}
+
+function getConfigSourceBadgeLabel(source) {
+  const labels = {
+    member_override: "Cota própria",
+    role_settings: "Cota do cargo",
+    default: "Fallback",
+    ambiguous: "Ambígua",
+  };
+  return labels[source] || "Sem origem";
 }
 
 export default function MealsControl() {
   const [events, setEvents] = useState([]);
   const [eventDays, setEventDays] = useState([]);
   const [eventShifts, setEventShifts] = useState([]);
-  const [roles, setRoles] = useState([]);
 
   const [eventId, setEventId] = useState("");
   const [eventDayId, setEventDayId] = useState("");
   const [eventShiftId, setEventShiftId] = useState("");
-  const [roleId, setRoleId] = useState("");
   const [sector, setSector] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -86,17 +106,14 @@ export default function MealsControl() {
 
   const loadStaticData = async (evtId) => {
     if (!evtId) return;
-    const [daysRes, shiftsRes, rolesRes] = await Promise.all([
+    const [daysRes, shiftsRes] = await Promise.all([
       api.get(`/event-days?event_id=${evtId}`),
       api.get(`/event-shifts?event_id=${evtId}`),
-      api.get("/workforce/roles"),
     ]);
     const days = daysRes.data?.data || [];
     const shifts = shiftsRes.data?.data || [];
-    const nextRoles = rolesRes.data?.data || [];
     setEventDays(days);
     setEventShifts(shifts);
-    setRoles(nextRoles);
     setPayload(createEmptyPayload());
 
     setEventDayId((prev) => {
@@ -139,7 +156,6 @@ export default function MealsControl() {
           event_id: eventId,
           event_day_id: eventDayId,
           event_shift_id: eventShiftId || undefined,
-          role_id: roleId || undefined,
           sector: sector.trim() || undefined,
         },
       });
@@ -154,7 +170,6 @@ export default function MealsControl() {
       const unit = Number(
         data.projection_summary?.meal_unit_cost ??
         data.summary?.meal_unit_cost ??
-        mealUnitCost ??
         0
       );
       setMealUnitCost(unit);
@@ -217,15 +232,14 @@ export default function MealsControl() {
     }
     loadBalance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, eventDayId, eventShiftId, roleId, sector]);
+  }, [eventId, eventDayId, eventShiftId, sector]);
 
   const availableSectors = useMemo(() => {
-    const values = [
-      ...workforceBaseItems.map((item) => String(item.sector || "").trim().toLowerCase()),
-      ...roles.map((role) => String(role.sector || "").trim().toLowerCase()),
-    ].filter(Boolean);
+    const values = workforceBaseItems
+      .map((item) => String(item.sector || "").trim().toLowerCase())
+      .filter(Boolean);
     return [...new Set(values)].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [roles, workforceBaseItems]);
+  }, [workforceBaseItems]);
 
   useEffect(() => {
     if (sector && !availableSectors.includes(String(sector).trim().toLowerCase())) {
@@ -233,30 +247,23 @@ export default function MealsControl() {
     }
   }, [availableSectors, sector]);
 
-  useEffect(() => {
-    if (roleId && !roles.some((role) => String(role.id) === String(roleId))) {
-      setRoleId("");
-    }
-  }, [roleId, roles]);
-
   const filteredWorkforceItems = useMemo(() => {
     return workforceBaseItems.filter((item) => {
-      if (roleId && String(item.role_id) !== String(roleId)) {
-        return false;
-      }
       if (sector && String(item.sector || "").trim().toLowerCase() !== String(sector).trim().toLowerCase()) {
         return false;
       }
       return true;
     });
-  }, [roleId, sector, workforceBaseItems]);
+  }, [sector, workforceBaseItems]);
 
   const workforceSummary = useMemo(() => {
     const sectors = new Set();
+    const uniqueParticipants = new Set();
     let mealsPerDayTotal = 0;
     let assignmentsWithShift = 0;
 
     filteredWorkforceItems.forEach((item) => {
+      uniqueParticipants.add(String(item.participant_id || `assignment:${item.id}`));
       const normalizedSector = String(item.sector || "").trim().toLowerCase();
       if (normalizedSector) {
         sectors.add(normalizedSector);
@@ -268,7 +275,8 @@ export default function MealsControl() {
     });
 
     return {
-      members: filteredWorkforceItems.length,
+      members: uniqueParticipants.size,
+      assignmentRows: filteredWorkforceItems.length,
       sectorsCount: sectors.size,
       mealsPerDayTotal,
       assignmentsWithShift,
@@ -324,11 +332,11 @@ export default function MealsControl() {
     consumed_shift_total: summary.consumed_shift_total,
   };
   const projectionSummary = payload.projectionSummary || {
-    enabled: true,
-    meal_unit_cost: summary.meal_unit_cost ?? mealUnitCost,
-    estimated_day_cost_total: summary.estimated_day_cost_total ?? 0,
-    consumed_day_cost_total: summary.consumed_day_cost_total ?? 0,
-    remaining_day_cost_total: summary.remaining_day_cost_total ?? 0,
+    enabled: false,
+    meal_unit_cost: 0,
+    estimated_day_cost_total: 0,
+    consumed_day_cost_total: 0,
+    remaining_day_cost_total: 0,
   };
   const diagnostics = payload.diagnostics || null;
 
@@ -336,21 +344,39 @@ export default function MealsControl() {
     projectionSummary.meal_unit_cost ?? summary.meal_unit_cost ?? mealUnitCost ?? 0
   );
   const projectionEnabled = Boolean(projectionSummary.enabled);
+  const hasSelectedShift = Boolean(eventShiftId);
+  const hasConfiguredEventDays = eventDays.length > 0;
   const diagnosticsIssues = useMemo(() => diagnostics?.issues || [], [diagnostics]);
-  const showWorkforceFallback = Boolean(eventId) && (!eventDayId || eventDays.length === 0);
+  const operationalDiagnosticsIssues = useMemo(
+    () => diagnosticsIssues.filter((issue) => !issue.startsWith("meal_unit_cost_")),
+    [diagnosticsIssues]
+  );
+  const financialDiagnosticsIssues = useMemo(
+    () => diagnosticsIssues.filter((issue) => issue.startsWith("meal_unit_cost_")),
+    [diagnosticsIssues]
+  );
+  const showWorkforceFallback = Boolean(eventId) && !hasConfiguredEventDays;
+  const canUseRealMeals = Boolean(eventId) && hasConfiguredEventDays && Boolean(eventDayId);
+  const canRegisterMeal = canUseRealMeals;
+  const configBreakdown = diagnostics?.configuration || {
+    members_using_member_settings: 0,
+    members_using_role_settings: 0,
+    members_using_default_fallback: 0,
+    members_with_ambiguous_baseline: 0,
+  };
   const emptyTableMessage = !eventId
     ? "Selecione um evento para iniciar a leitura operacional."
-    : eventDays.length === 0
-      ? workforceSummary.members > 0
-        ? "Este evento ainda não possui dias operacionais, mas já há equipe alocada no Workforce."
-        : "Este evento ainda não possui dias operacionais cadastrados."
+    : showWorkforceFallback
+      ? sector
+        ? "Nenhum membro da base complementar do Workforce foi encontrado para o setor selecionado."
+        : workforceSummary.members > 0
+          ? "Este evento está em modo complementar do Workforce porque ainda não possui dias operacionais configurados."
+          : "Este evento ainda não possui dias operacionais nem equipe visível na base complementar do Workforce."
       : !eventDayId
-        ? workforceSummary.members > 0
-          ? "Selecione um dia operacional para trocar da base do Workforce para o saldo real de Meals."
-          : "Selecione um dia operacional para carregar o saldo."
-        : diagnosticsIssues.includes("no_assignments_in_scope")
+        ? "Selecione um dia operacional do evento para carregar o saldo real de Meals."
+        : operationalDiagnosticsIssues.includes("no_assignments_in_scope")
           ? "Nenhum membro com assignment válido foi encontrado neste recorte operacional."
-          : roleId || sector
+          : sector
             ? "Nenhum membro encontrado para os filtros atuais."
             : "Nenhum membro encontrado para o dia selecionado.";
   const notices = useMemo(() => {
@@ -365,19 +391,19 @@ export default function MealsControl() {
       return list;
     }
 
-    if (eventDays.length === 0) {
+    if (showWorkforceFallback) {
       list.push({
-        tone: "warn",
-        title: "Evento sem dias operacionais",
+        tone: "info",
+        title: "Modo complementar do Workforce",
         body: workforceSummary.members > 0
-          ? `Este evento ainda não possui \`event_days\`, então o saldo por dia não pode ser calculado. A base atual do Workforce mostra ${workforceSummary.members} membros em ${workforceSummary.sectorsCount} setor(es).`
-          : "Este evento ainda não possui `event_days`. O saldo por dia não pode ser carregado neste contexto.",
+          ? `Este evento ainda não possui \`event_days\`. Disponível agora: base complementar do Workforce por pessoa/setor. Indisponível agora: saldo real por dia, registro de refeição e projeção financeira diária. Base atual: ${workforceSummary.members} pessoa(s) em ${workforceSummary.assignmentRows} assignment(s).`
+          : "Este evento ainda não possui `event_days`. O Meals permanece em modo complementar até existir base diária do evento.",
       });
       if (workforceSummary.members > 0 && workforceSummary.assignmentsWithShift <= 0) {
         list.push({
           tone: "info",
-          title: "Equipe sem vínculo de turno",
-          body: "Os assignments do Workforce deste evento ainda não estão vinculados a turnos.",
+          title: "Assignments sem vínculo de turno",
+          body: "Os assignments visíveis no Workforce ainda não possuem vínculo de turno. Isso não impede a leitura complementar da equipe, mas impede recorte operacional por turno.",
         });
       }
       return list;
@@ -387,7 +413,7 @@ export default function MealsControl() {
       list.push({
         tone: "warn",
         title: "Dia não selecionado",
-        body: "Selecione um dia operacional para consultar o saldo de refeições.",
+        body: "Selecione um dia operacional do evento para habilitar o saldo real de Meals, o recorte por turno e o registro de refeição.",
       });
       return list;
     }
@@ -400,7 +426,7 @@ export default function MealsControl() {
       });
     }
 
-    if (diagnostics?.status === "partial") {
+    if (diagnostics?.status === "partial" && operationalDiagnosticsIssues.length > 0) {
       list.push({
         tone: "warn",
         title: "Leitura operacional parcial",
@@ -408,7 +434,7 @@ export default function MealsControl() {
       });
     }
 
-    if (diagnosticsIssues.includes("no_real_meal_consumption_for_day")) {
+    if (operationalDiagnosticsIssues.includes("no_real_meal_consumption_for_day")) {
       list.push({
         tone: "info",
         title: "Saldo ainda teórico",
@@ -416,7 +442,7 @@ export default function MealsControl() {
       });
     }
 
-    if (diagnosticsIssues.includes("members_using_default_meal_fallback")) {
+    if (operationalDiagnosticsIssues.includes("members_using_default_meal_fallback")) {
       list.push({
         tone: "warn",
         title: "Equipe com fallback default",
@@ -424,32 +450,262 @@ export default function MealsControl() {
       });
     }
 
-    if (diagnosticsIssues.includes("meal_unit_cost_schema_unavailable")) {
+    if (operationalDiagnosticsIssues.includes("ambiguous_meal_baseline_in_scope")) {
       list.push({
-        tone: "neutral",
-        title: "Custo indisponível",
-        body: "A camada de custo de refeição não está disponível neste ambiente porque `meal_unit_cost` não existe no schema real.",
-      });
-    } else if (diagnosticsIssues.includes("meal_unit_cost_not_configured")) {
-      list.push({
-        tone: "neutral",
-        title: "Custo não configurado",
-        body: "O custo unitário de refeição ainda não foi configurado. A leitura financeira permanece zerada.",
+        tone: "warn",
+        title: "Baseline ambíguo no recorte",
+        body: "Parte da equipe tem conflito real de cota neste recorte. O consumo real continua visível, mas a cota e o saldo derivado desse subconjunto não são confiáveis.",
       });
     }
 
     return list;
   }, [
     diagnostics?.status,
-    diagnosticsIssues,
     eventDayId,
-    eventDays.length,
     eventId,
     filteredShifts.length,
+    showWorkforceFallback,
+    operationalDiagnosticsIssues,
     workforceSummary.assignmentsWithShift,
+    workforceSummary.assignmentRows,
+    workforceSummary.members,
+  ]);
+
+  const tableRows = useMemo(() => {
+    if (showWorkforceFallback) {
+      return filteredWorkforceItems.map((item) => ({
+        key: `workforce-${item.id ?? item.participant_id}`,
+        participantId: item.participant_id,
+        name: item.person_name,
+        roleName: item.role_name,
+        sector: item.sector || "geral",
+        mealsPerDay: Number(item.meals_per_day || 0),
+        configSource: null,
+        consumedDay: null,
+        remainingDay: null,
+        consumedShift: null,
+        shiftName: item.shift_name || "",
+        shiftId: item.shift_id ? Number(item.shift_id) : null,
+        qrToken: item.qr_token || "",
+        sourceLabel: "Base Workforce",
+        sourceDescription: "Base real complementar do evento",
+        sourceBadgeClass: "badge badge-gray",
+      }));
+    }
+
+    return (payload.items || []).map((item) => {
+      const assignmentsInScope = Number(item.assignments_in_scope || 0);
+      const hasMultipleAssignments = Boolean(item.has_multiple_assignments);
+      const hasMultipleRoles = Boolean(item.has_multiple_roles);
+        const hasMultipleSectors = Boolean(item.has_multiple_sectors);
+        const hasMultipleShifts = Boolean(item.has_multiple_shifts);
+        const hasAmbiguousBaseline = Boolean(item.has_ambiguous_baseline);
+        const shiftId = item.shift_id ? Number(item.shift_id) : null;
+        const roleName = item.role_name || (hasMultipleRoles ? "Cargos múltiplos" : "Cargo não unívoco");
+        const sectorLabel = item.sector || (hasMultipleSectors ? "Setores múltiplos" : "Setor não unívoco");
+
+      return {
+        key: `meal-${item.participant_id}`,
+        participantId: item.participant_id,
+        name: item.participant_name,
+        roleName,
+        sector: sectorLabel,
+        mealsPerDay: item.meals_per_day === null || item.meals_per_day === undefined
+          ? null
+          : Number(item.meals_per_day),
+        configSource: item.config_source || "default",
+        baselineStatus: item.baseline_status || (hasAmbiguousBaseline ? "ambiguous" : "resolved"),
+        hasAmbiguousBaseline,
+        consumedDay: Number(item.consumed_day || 0),
+        remainingDay: item.remaining_day === null || item.remaining_day === undefined
+          ? null
+          : Number(item.remaining_day),
+        consumedShift: Number(item.consumed_shift || 0),
+        shiftName: item.shift_name || "",
+        shiftId,
+        assignmentsInScope,
+        hasMultipleAssignments,
+        hasMultipleRoles,
+        hasMultipleSectors,
+        hasMultipleShifts,
+        qrToken: item.qr_token || "",
+        sourceLabel: "Saldo real Meals",
+        sourceDescription: hasAmbiguousBaseline
+          ? "Consumo real preservado, mas a cota deste participante ficou ambígua no recorte."
+          : assignmentsInScope > 1
+            ? `Saldo real por participante com ${assignmentsInScope} assignments no recorte.`
+          : "Saldo real Meals com contexto complementar consolidado do Workforce.",
+        sourceBadgeClass: "badge badge-green",
+      };
+    });
+  }, [
+    filteredWorkforceItems,
+    payload.items,
+    showWorkforceFallback,
+  ]);
+
+  const tableHighlights = useMemo(() => {
+      return {
+        consumedMembers: tableRows.filter((row) => Number(row.consumedDay || 0) > 0).length,
+        exhaustedMembers: tableRows.filter(
+          (row) => row.remainingDay !== null && Number(row.remainingDay) <= 0
+        ).length,
+        ambiguousBaselineMembers: tableRows.filter((row) => row.hasAmbiguousBaseline).length,
+        withoutUniqueShiftMembers: tableRows.filter((row) => !row.shiftId).length,
+        multiAssignmentMembers: tableRows.filter((row) => Number(row.assignmentsInScope || 0) > 1).length,
+      };
+  }, [tableRows]);
+
+  const operationalCards = useMemo(() => {
+    if (showWorkforceFallback) {
+      return [
+        {
+          label: "Pessoas no Workforce",
+          value: workforceSummary.members,
+          valueClassName: "text-white",
+          helper: workforceSummary.assignmentRows > workforceSummary.members
+            ? `Base complementar com ${workforceSummary.assignmentRows} assignments reais para ${workforceSummary.members} pessoa(s).`
+            : "Base complementar do evento enquanto o saldo diário ainda não pode ser lido.",
+          badge: "Base Workforce",
+          badgeClassName: "badge badge-gray",
+        },
+        {
+          label: "Assignments visíveis",
+          value: workforceSummary.assignmentRows,
+          valueClassName: "text-white",
+          helper: "Medida explicitamente em assignments para não fingir consolidação diária inexistente.",
+          badge: "Assignment-level",
+          badgeClassName: "badge badge-blue",
+        },
+        {
+          label: "Setores visíveis",
+          value: workforceSummary.sectorsCount,
+          valueClassName: "text-blue-400",
+          helper: "Setores vindos da base real do Workforce para este evento.",
+          badge: "Workspace real",
+          badgeClassName: "badge badge-gray",
+        },
+      ];
+    }
+
+    return [
+      {
+        label: "Membros",
+        value: operationalSummary.members,
+        valueClassName: "text-white",
+        helper: "Saldo real de Meals carregado para o dia selecionado.",
+        badge: "Saldo real Meals",
+        badgeClassName: "badge badge-green",
+      },
+      {
+        label: "Cota dia",
+        value: operationalSummary.meals_per_day_total,
+        valueClassName: "text-white",
+        helper: configBreakdown.members_with_ambiguous_baseline > 0
+          ? "Parte da equipe segue com baseline ambíguo e fica fora da cota derivada confiável."
+          : configBreakdown.members_using_default_fallback > 0
+            ? `Parte da equipe (${configBreakdown.members_using_default_fallback}) ainda usa fallback default neste recorte.`
+            : "Cota diária consolidada para o recorte operacional do dia.",
+        badge: configBreakdown.members_with_ambiguous_baseline > 0 ? "Origem parcial" : "Origem visível",
+        badgeClassName: configBreakdown.members_with_ambiguous_baseline > 0 ? "badge badge-yellow" : "badge badge-blue",
+      },
+      {
+        label: "Consumidas dia",
+        value: operationalSummary.consumed_day_total,
+        valueClassName: "text-amber-400",
+        helper: `${tableHighlights.consumedMembers} participante(s) ja consumiram no dia.`,
+        badge: tableHighlights.consumedMembers > 0 ? "Com consumo" : "Sem consumo",
+        badgeClassName: tableHighlights.consumedMembers > 0 ? "badge badge-blue" : "badge badge-gray",
+      },
+      {
+        label: "Saldo dia",
+        value: operationalSummary.remaining_day_total,
+        valueClassName: tableHighlights.exhaustedMembers > 0 ? "text-red-400" : "text-green-400",
+        helper: `${tableHighlights.exhaustedMembers} participante(s) sem saldo restante.`,
+        badge: tableHighlights.exhaustedMembers > 0 ? "Sem saldo" : "Saldo ok",
+        badgeClassName: tableHighlights.exhaustedMembers > 0 ? "badge badge-red" : "badge badge-green",
+      },
+      {
+        label: hasSelectedShift ? "Consumidas turno" : "Consumo no recorte",
+        value: operationalSummary.consumed_shift_total,
+        valueClassName: "text-blue-400",
+        helper: hasSelectedShift
+          ? tableHighlights.withoutUniqueShiftMembers > 0
+            ? `${tableHighlights.withoutUniqueShiftMembers} participante(s) seguem sem vínculo único de turno no Workforce.`
+            : "Turno selecionado com vínculo operacional visível no recorte."
+          : "Sem turno selecionado, o backend retorna o consumo agregado do dia neste recorte.",
+        badge: hasSelectedShift
+          ? (tableHighlights.withoutUniqueShiftMembers > 0 ? "Turno parcial" : "Turno ok")
+          : "Sem recorte turno",
+        badgeClassName: hasSelectedShift
+          ? (tableHighlights.withoutUniqueShiftMembers > 0 ? "badge badge-yellow" : "badge badge-blue")
+          : "badge badge-gray",
+      },
+    ];
+  }, [
+    configBreakdown.members_using_default_fallback,
+    configBreakdown.members_with_ambiguous_baseline,
+    hasSelectedShift,
+    operationalSummary.consumed_day_total,
+    operationalSummary.consumed_shift_total,
+    operationalSummary.meals_per_day_total,
+    operationalSummary.members,
+    operationalSummary.remaining_day_total,
+    showWorkforceFallback,
+    tableHighlights.consumedMembers,
+    tableHighlights.exhaustedMembers,
+    tableHighlights.withoutUniqueShiftMembers,
+    workforceSummary.assignmentRows,
     workforceSummary.members,
     workforceSummary.sectorsCount,
   ]);
+
+  const readingContext = !eventId
+    ? {
+        title: "Selecione um evento",
+        body: "O Meals precisa de um evento para definir se a tela vai operar com saldo real do dia ou com a base complementar do Workforce.",
+        badge: "Aguardando contexto",
+        badgeClassName: "badge badge-gray",
+      }
+    : showWorkforceFallback
+      ? {
+          title: "Base complementar do Workforce",
+          body: "Este evento ainda não possui `event_days`. A tela mostra equipe, setor e cota configurada a partir da base real do Workforce. Saldo real por dia, recorte útil de turno e registro de refeição ficam indisponíveis neste modo.",
+          badge: "Base Workforce",
+          badgeClassName: "badge badge-gray",
+        }
+      : !eventDayId
+        ? {
+            title: "Aguardando dia operacional",
+            body: "Os dias deste evento já existem, mas o saldo real do Meals só pode ser carregado quando um `event_day` for selecionado.",
+            badge: "Selecione o dia",
+            badgeClassName: "badge badge-yellow",
+          }
+        : {
+            title: "Saldo real do Meals ativo",
+            body: hasSelectedShift
+              ? "A tela está lendo saldo e consumo reais do dia com recorte de turno aplicado. Turno e ausência de turno continuam visíveis como apoio complementar do Workforce."
+              : "A tela está lendo saldo e consumo reais do dia. Sem turno selecionado, o consumo do recorte permanece agregado no dia.",
+            badge: "Saldo real Meals",
+            badgeClassName: "badge badge-green",
+          };
+
+  const registerMealMessage = showWorkforceFallback
+    ? "Registro de refeição indisponível: este evento ainda não possui `event_days`, então o módulo permanece em modo complementar do Workforce."
+    : !eventDayId
+      ? "Selecione um dia operacional para habilitar o registro de refeição."
+      : hasSelectedShift
+        ? "Registro de refeição ativo para o dia e turno selecionados."
+        : "Registro de refeição ativo para o dia selecionado. Sem turno, a baixa fica agregada no recorte diário.";
+
+  const handleRefresh = async () => {
+    if (!eventId) return;
+    if (showWorkforceFallback) {
+      await loadWorkforceBase(eventId);
+      return;
+    }
+    await loadBalance();
+  };
 
   const bannerClassByTone = {
     neutral: "border-gray-800 bg-gray-900/70 text-gray-200",
@@ -464,15 +720,23 @@ export default function MealsControl() {
     try {
       const res = await api.get("/organizer-finance/settings");
       const settings = res.data?.data || {};
-      await api.put("/organizer-finance/settings", {
+      const saveRes = await api.put("/organizer-finance/settings", {
         currency: settings.currency || "BRL",
         tax_rate: Number(settings.tax_rate ?? 0),
         meal_unit_cost: safeValue
       });
-      setMealUnitCost(safeValue);
-      toast.success("Valor unitário de refeição atualizado.");
+      const persistedSettings = saveRes.data?.data || {};
+      const persistedUnit = Number(persistedSettings.meal_unit_cost ?? 0);
+      const persistedMatchesRequest = Math.abs(persistedUnit - safeValue) < 0.005;
+      setMealUnitCost(persistedUnit);
+      setMealCostDraft(persistedUnit);
       setMealCostModalOpen(false);
       await loadBalance();
+      if (persistedMatchesRequest) {
+        toast.success("Valor unitário de refeição atualizado.");
+      } else {
+        toast.error("O ambiente atual não sustentou `meal_unit_cost`. A projeção financeira continua indisponível.");
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || "Erro ao salvar valor unitário da refeição.");
     } finally {
@@ -493,18 +757,17 @@ export default function MealsControl() {
         </div>
         <button
           className="btn-secondary flex items-center gap-2"
-          onClick={loadBalance}
-          disabled={loading}
+          onClick={handleRefresh}
+          disabled={loading || !eventId}
         >
           <RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Atualizar
         </button>
         <button
           className="btn-secondary flex items-center gap-2"
           onClick={() => {
-            setMealCostDraft(currentMealUnitCost);
+            setMealCostDraft(mealUnitCost);
             setMealCostModalOpen(true);
           }}
-          disabled={!projectionEnabled}
         >
           <Settings2 size={16} /> Valor Refeição
         </button>
@@ -524,7 +787,7 @@ export default function MealsControl() {
         </div>
       )}
 
-      <div className="card p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+      <div className="card p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         <select className="input" value={eventId} onChange={(e) => setEventId(e.target.value)}>
           <option value="">Selecione o evento...</option>
           {events.map((ev) => (
@@ -534,8 +797,17 @@ export default function MealsControl() {
           ))}
         </select>
 
-        <select className="input" value={eventDayId} onChange={(e) => setEventDayId(e.target.value)}>
-          <option value="">Selecione o dia...</option>
+        <select
+          className="input"
+          value={eventDayId}
+          onChange={(e) => setEventDayId(e.target.value)}
+          disabled={!eventId || showWorkforceFallback}
+        >
+          <option value="">
+            {showWorkforceFallback
+              ? "Evento sem dias operacionais"
+              : "Selecione o dia..."}
+          </option>
           {eventDays.map((d) => (
             <option key={d.id} value={d.id}>
               {d.date}
@@ -543,20 +815,24 @@ export default function MealsControl() {
           ))}
         </select>
 
-        <select className="input" value={eventShiftId} onChange={(e) => setEventShiftId(e.target.value)}>
-          <option value="">{filteredShifts.length > 0 ? "Todos os turnos" : "Todos os turnos (sem turnos cadastrados)"}</option>
+        <select
+          className="input"
+          value={eventShiftId}
+          onChange={(e) => setEventShiftId(e.target.value)}
+          disabled={!eventId || showWorkforceFallback || !eventDayId}
+        >
+          <option value="">
+            {showWorkforceFallback
+              ? "Turnos indisponíveis sem dias operacionais"
+              : !eventDayId
+                ? "Selecione um dia primeiro"
+                : filteredShifts.length > 0
+                  ? "Todos os turnos"
+                  : "Dia sem turnos cadastrados"}
+          </option>
           {filteredShifts.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
-            </option>
-          ))}
-        </select>
-
-        <select className="input" value={roleId} onChange={(e) => setRoleId(e.target.value)}>
-          <option value="">Todos os cargos</option>
-          {roles.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
             </option>
           ))}
         </select>
@@ -580,122 +856,285 @@ export default function MealsControl() {
               placeholder="Cole o token QR (ou link /invite?token=...)"
               value={qrInput}
               onChange={(e) => setQrInput(e.target.value)}
-              disabled={registering}
+              disabled={registering || !canRegisterMeal}
             />
           </div>
-          <button className="btn-primary whitespace-nowrap" disabled={registering}>
+          <button className="btn-primary whitespace-nowrap" disabled={registering || !canRegisterMeal}>
             {registering ? "Registrando..." : "Registrar Refeição"}
           </button>
         </div>
+        <p className="mt-3 text-xs text-gray-500">{registerMealMessage}</p>
       </form>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div className="card p-3">
-          <p className="text-xs text-gray-500">{showWorkforceFallback ? "Membros workforce" : "Membros"}</p>
-          <p className="text-xl font-bold text-white">{showWorkforceFallback ? workforceSummary.members : operationalSummary.members}</p>
-        </div>
-        <div className="card p-3">
-          <p className="text-xs text-gray-500">{showWorkforceFallback ? "Refeições configuradas" : "Cota dia"}</p>
-          <p className="text-xl font-bold text-white">{showWorkforceFallback ? workforceSummary.mealsPerDayTotal : operationalSummary.meals_per_day_total}</p>
-        </div>
-        <div className="card p-3">
-          <p className="text-xs text-gray-500">{showWorkforceFallback ? "Assignments com turno" : "Consumidas dia"}</p>
-          <p className="text-xl font-bold text-amber-400">{showWorkforceFallback ? workforceSummary.assignmentsWithShift : operationalSummary.consumed_day_total}</p>
-        </div>
-        <div className="card p-3">
-          <p className="text-xs text-gray-500">{showWorkforceFallback ? "Assignments sem turno" : "Saldo dia"}</p>
-          <p className="text-xl font-bold text-green-400">{showWorkforceFallback ? workforceSummary.assignmentsWithoutShift : operationalSummary.remaining_day_total}</p>
-        </div>
-        <div className="card p-3">
-          <p className="text-xs text-gray-500">{showWorkforceFallback ? "Setores no evento" : "Consumidas turno"}</p>
-          <p className="text-xl font-bold text-blue-400">{showWorkforceFallback ? workforceSummary.sectorsCount : operationalSummary.consumed_shift_total}</p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+        {operationalCards.map((card) => (
+          <div key={card.label} className="card p-3 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-xs text-gray-500">{card.label}</p>
+              <span className={card.badgeClassName}>{card.badge}</span>
+            </div>
+            <p className={`text-xl font-bold ${card.valueClassName}`}>{card.value}</p>
+            <p className="text-xs text-gray-500">{card.helper}</p>
+          </div>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div className="card p-3">
-          <p className="text-xs text-gray-500">Valor unitário refeição</p>
-          <p className="text-lg font-bold text-white">{projectionEnabled ? formatCurrency(currentMealUnitCost) : "Indisponível"}</p>
+      {canUseRealMeals && (
+        <div className="card p-4 space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-white">Camada financeira complementar</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Mantida visualmente secundaria e condicional ao schema e a configuracao real de `meal_unit_cost`.
+              </p>
+              {!projectionEnabled && (
+                <p className="mt-2 text-xs text-gray-500">
+                  {financialDiagnosticsIssues.includes("meal_unit_cost_schema_unavailable")
+                    ? "A leitura operacional do Meals continua ativa. Apenas a projeção financeira está indisponível neste ambiente."
+                    : financialDiagnosticsIssues.includes("meal_unit_cost_not_configured")
+                      ? "A leitura operacional do Meals continua ativa. Apenas a projeção financeira segue zerada até configurar `meal_unit_cost`."
+                      : "A leitura operacional do Meals continua ativa. Apenas a projeção financeira deste recorte está degradada."}
+                </p>
+              )}
+            </div>
+            <span className={projectionEnabled ? "badge badge-gray" : "badge badge-yellow"}>
+              {projectionEnabled ? "Leitura condicional" : "Projeção indisponível"}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
+              <p className="text-xs text-gray-500">Valor unitário refeição</p>
+              <p className="text-lg font-bold text-white">{projectionEnabled ? formatCurrency(currentMealUnitCost) : "Indisponível"}</p>
+            </div>
+            <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
+              <p className="text-xs text-gray-500">Custo estimado (dia)</p>
+              <p className="text-lg font-bold text-emerald-400">
+                {projectionEnabled ? formatCurrency(projectionSummary.estimated_day_cost_total) : "Indisponível"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
+              <p className="text-xs text-gray-500">Custo consumido (dia)</p>
+              <p className="text-lg font-bold text-amber-400">
+                {projectionEnabled ? formatCurrency(projectionSummary.consumed_day_cost_total) : "Indisponível"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
+              <p className="text-xs text-gray-500">Custo saldo (dia)</p>
+              <p className="text-lg font-bold text-cyan-400">
+                {projectionEnabled ? formatCurrency(projectionSummary.remaining_day_cost_total) : "Indisponível"}
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="card p-3">
-          <p className="text-xs text-gray-500">Custo estimado (dia)</p>
-          <p className="text-lg font-bold text-emerald-400">
-            {projectionEnabled ? formatCurrency(projectionSummary.estimated_day_cost_total) : "Indisponível"}
-          </p>
-        </div>
-        <div className="card p-3">
-          <p className="text-xs text-gray-500">Custo consumido (dia)</p>
-          <p className="text-lg font-bold text-amber-400">
-            {projectionEnabled ? formatCurrency(projectionSummary.consumed_day_cost_total) : "Indisponível"}
-          </p>
-        </div>
-        <div className="card p-3">
-          <p className="text-xs text-gray-500">Custo saldo (dia)</p>
-          <p className="text-lg font-bold text-cyan-400">
-            {projectionEnabled ? formatCurrency(projectionSummary.remaining_day_cost_total) : "Indisponível"}
-          </p>
-        </div>
-      </div>
+      )}
 
-      {diagnosticsIssues.length > 0 && (
+      {operationalDiagnosticsIssues.length > 0 && (
         <div className="card p-4">
           <p className="text-sm font-semibold text-white">Leitura operacional do recorte</p>
           <ul className="mt-2 space-y-1 text-sm text-gray-300">
-            {diagnosticsIssues.map((issue) => (
+            {operationalDiagnosticsIssues.map((issue) => (
               <li key={issue}>- {getIssueLabel(issue)}</li>
             ))}
           </ul>
         </div>
       )}
 
+      <div className="card p-4 space-y-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-white">{readingContext.title}</p>
+            <p className="mt-1 text-xs text-gray-500">{readingContext.body}</p>
+          </div>
+          <span className={readingContext.badgeClassName}>{readingContext.badge}</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {!showWorkforceFallback && configBreakdown.members_using_default_fallback > 0 && (
+            <span className="badge badge-yellow">
+              Default {configBreakdown.members_using_default_fallback}
+            </span>
+          )}
+          {!showWorkforceFallback && configBreakdown.members_with_ambiguous_baseline > 0 && (
+            <span className="badge badge-red">
+              Ambígua {configBreakdown.members_with_ambiguous_baseline}
+            </span>
+          )}
+          {!showWorkforceFallback && tableHighlights.exhaustedMembers > 0 && (
+            <span className="badge badge-red">
+              Sem saldo {tableHighlights.exhaustedMembers}
+            </span>
+          )}
+          {!showWorkforceFallback && tableHighlights.multiAssignmentMembers > 0 && (
+            <span className="badge badge-gray">
+              Multi-assignment {tableHighlights.multiAssignmentMembers}
+            </span>
+          )}
+          {tableHighlights.withoutUniqueShiftMembers > 0 && (
+            <span className="badge badge-yellow">
+              Sem turno único {tableHighlights.withoutUniqueShiftMembers}
+            </span>
+          )}
+        </div>
+      </div>
+
       <div className="table-wrapper">
         <table className="table">
           <thead>
             <tr>
-              <th>Nome</th>
-              <th>Cargo</th>
-              <th>Setor</th>
-              <th>{showWorkforceFallback ? "Refeições/dia" : "Cota/dia"}</th>
-              <th>{showWorkforceFallback ? "Turno configurado" : "Consumidas dia"}</th>
-              <th>{showWorkforceFallback ? "Origem da leitura" : "Saldo"}</th>
-              <th>{showWorkforceFallback ? "Vínculo de turno" : "Consumidas turno"}</th>
-              <th>Ref QR</th>
+              <th>Pessoa</th>
+              <th>Cota</th>
+              <th>Leitura operacional</th>
+              <th>Turno</th>
+              <th>Base / QR</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center">
+                <td colSpan={5} className="py-8 text-center">
                   <div className="spinner w-6 h-6 mx-auto" />
                 </td>
               </tr>
             ) : (showWorkforceFallback ? filteredWorkforceItems.length === 0 : payload.items.length === 0) ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-sm text-gray-500">
+                <td colSpan={5} className="py-8 text-center text-sm text-gray-500">
                   {emptyTableMessage}
                 </td>
               </tr>
             ) : (
-              (showWorkforceFallback ? filteredWorkforceItems : payload.items).map((item) => (
-                <tr key={item.participant_id}>
-                  <td className="text-white font-medium">{showWorkforceFallback ? item.person_name : item.participant_name}</td>
-                  <td>{item.role_name}</td>
-                  <td>{item.sector || "geral"}</td>
-                  <td>
-                    <div className="flex flex-col">
-                      <span>{item.meals_per_day}</span>
-                      {!showWorkforceFallback && (
-                        <span className="text-[11px] text-gray-500">{getConfigSourceLabel(item.config_source)}</span>
+              tableRows.map((row) => (
+                <tr
+                  key={row.key}
+                  className={
+                    row.hasAmbiguousBaseline
+                      ? "bg-red-950/10"
+                      : row.remainingDay !== null && row.remainingDay <= 0
+                      ? "bg-red-950/10"
+                      : !row.shiftId
+                        ? "bg-amber-950/10"
+                        : row.configSource === "default"
+                          ? "bg-yellow-950/10"
+                          : Number(row.consumedDay || 0) > 0
+                            ? "bg-emerald-950/10"
+                            : ""
+                  }
+                >
+                  <td className="align-top">
+                    <div className="space-y-2">
+                      <div>
+                        <p className="font-medium text-white">{row.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {row.roleName} · {row.sector || "geral"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {!showWorkforceFallback && Number(row.assignmentsInScope || 0) > 1 && (
+                          <span className="badge badge-gray">
+                            {row.assignmentsInScope} assignments
+                          </span>
+                        )}
+                        {!showWorkforceFallback && row.hasAmbiguousBaseline && (
+                          <span className="badge badge-red">Baseline ambíguo</span>
+                        )}
+                        {!showWorkforceFallback && (row.hasMultipleRoles || row.hasMultipleSectors || row.hasMultipleShifts) && (
+                          <span className="badge badge-gray">Contexto múltiplo</span>
+                        )}
+                        {!showWorkforceFallback && Number(row.consumedDay || 0) > 0 && (
+                          <span className="badge badge-blue">Consumiu {row.consumedDay}</span>
+                        )}
+                        {!showWorkforceFallback && row.remainingDay !== null && row.remainingDay <= 0 && (
+                          <span className="badge badge-red">Sem saldo</span>
+                        )}
+                        {!row.shiftId && (
+                          <span className="badge badge-yellow">Sem turno</span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="align-top">
+                    <div className="space-y-2">
+                      <p className="text-lg font-semibold text-white">{row.mealsPerDay ?? "N/D"}</p>
+                      {!showWorkforceFallback && row.configSource ? (
+                        <>
+                          <span className={getConfigSourceBadgeClass(row.configSource)}>
+                            {getConfigSourceBadgeLabel(row.configSource)}
+                          </span>
+                          <p className="text-[11px] text-gray-500">
+                            {row.hasAmbiguousBaseline
+                              ? "Conflito real entre assignments/cargos neste recorte."
+                              : getConfigSourceLabel(row.configSource)}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-[11px] text-gray-500">
+                          Configuracao resolvida no Workforce.
+                        </p>
                       )}
                     </div>
                   </td>
-                  <td>{showWorkforceFallback ? (item.shift_name || "Sem turno") : item.consumed_day}</td>
-                  <td className={showWorkforceFallback ? "text-gray-300" : "font-semibold text-green-400"}>
-                    {showWorkforceFallback ? "Base Workforce" : item.remaining_day}
+                  <td className="align-top">
+                    {showWorkforceFallback ? (
+                      <div className="space-y-1 text-sm">
+                        <p className="font-semibold text-gray-200">Sem saldo real do Meals</p>
+                        <p className="text-xs text-gray-500">
+                          A leitura atual mostra apenas a cota configurada no Workforce.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1 text-sm">
+                        <p className={`font-semibold ${
+                          row.remainingDay === null
+                            ? "text-red-400"
+                            : row.remainingDay <= 0
+                              ? "text-red-400"
+                              : "text-green-400"
+                        }`}>
+                          {row.remainingDay === null ? "Saldo derivado indisponível" : `Saldo restante: ${row.remainingDay}`}
+                        </p>
+                        {row.mealsPerDay !== null ? (
+                          <p className="text-xs text-gray-400">Permitidas: {row.mealsPerDay}</p>
+                        ) : (
+                          <p className="text-xs text-gray-400">Cota não confiável neste recorte.</p>
+                        )}
+                        <p className="text-xs text-gray-400">Consumidas dia: {row.consumedDay}</p>
+                        <p className="text-xs text-gray-400">
+                          {hasSelectedShift
+                            ? `Consumidas turno: ${row.consumedShift}`
+                            : `Consumo no recorte: ${row.consumedShift} (agregado do dia)`}
+                        </p>
+                      </div>
+                    )}
                   </td>
-                  <td>{showWorkforceFallback ? (item.shift_id ? `Turno #${item.shift_id}` : "Sem vínculo") : item.consumed_shift}</td>
-                  <td className="text-xs text-gray-500">
-                    {(item.qr_token || "").slice(-10) || "-"}
+                  <td className="align-top">
+                    <div className="space-y-2">
+                      <span className={row.shiftId ? "badge badge-blue" : row.hasMultipleShifts ? "badge badge-yellow" : "badge badge-red"}>
+                        {row.shiftId
+                          ? (row.shiftName || `Turno #${row.shiftId}`)
+                          : row.hasMultipleShifts
+                            ? "Turnos múltiplos"
+                            : "Sem vínculo"}
+                      </span>
+                      <p className="text-xs text-gray-500">
+                        {row.shiftId
+                          ? "Turno complementar unívoco visível na base do Workforce."
+                          : row.hasMultipleShifts
+                            ? "O participante possui mais de um contexto de turno no Workforce; o saldo continua consolidado por pessoa."
+                            : "Ausencia de turno mantida explicita na leitura operacional."}
+                      </p>
+                    </div>
+                  </td>
+                  <td className="align-top">
+                    <div className="space-y-2">
+                      <span className={row.sourceBadgeClass}>{row.sourceLabel}</span>
+                      <p className="text-xs text-gray-500">{row.sourceDescription}</p>
+                      {!showWorkforceFallback && (
+                        <p className="text-xs text-gray-500">
+                          Assignments no recorte: {row.assignmentsInScope}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        QR: {(row.qrToken || "").slice(-10) || "-"}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ))

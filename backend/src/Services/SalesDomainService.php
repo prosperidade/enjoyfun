@@ -39,7 +39,10 @@ class SalesDomainService
         }
 
         try {
-            $db->beginTransaction();
+            $ownsTransaction = !$db->inTransaction();
+            if ($ownsTransaction) {
+                $db->beginTransaction();
+            }
 
             $existingSaleId = self::findExistingSaleByOfflineId(
                 $db,
@@ -48,7 +51,9 @@ class SalesDomainService
                 (string)($options['offline_id'] ?? '')
             );
             if ($existingSaleId !== null) {
-                $db->commit();
+                if ($ownsTransaction && $db->inTransaction()) {
+                    $db->commit();
+                }
                 return [
                     'sale_id' => $existingSaleId,
                     'new_balance' => null,
@@ -207,7 +212,9 @@ class SalesDomainService
                 ]);
             }
 
-            $db->commit();
+            if ($ownsTransaction && $db->inTransaction()) {
+                $db->commit();
+            }
 
             // Logging de sucesso genérico do domínio
             \AuditService::log(
@@ -223,7 +230,7 @@ class SalesDomainService
             ];
 
         } catch (Exception $e) {
-            if ($db->inTransaction()) {
+            if (!empty($ownsTransaction) && $db->inTransaction()) {
                 $db->rollBack();
             }
             throw $e;

@@ -82,16 +82,24 @@ export default function POS({ fixedSector = "bar" }) {
     eventId,
   });
 
+  const hasValidEventContext = Number(eventId) > 0;
+
   useEffect(() => {
     clearCart();
   }, [clearCart, fixedSector]);
 
   const handleCheckout = async () => {
+    if (!hasValidEventContext) {
+      toast.error(
+        "Selecione um evento valido antes de finalizar ou salvar a venda offline.",
+      );
+      return;
+    }
     if (cart.length === 0 || !cardToken) return;
     setProcessingSale(true);
     const offlineId = uuidv4();
     const payload = {
-      event_id: eventId,
+      event_id: Number(eventId),
       total_amount: total,
       card_id: cardToken,
       sector: currentSector,
@@ -143,13 +151,17 @@ export default function POS({ fixedSector = "bar" }) {
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
+    if (!hasValidEventContext) {
+      toast.error("Selecione um evento valido antes de salvar o produto.");
+      return;
+    }
     setSavingProduct(true);
     try {
       const payload = {
         ...prodForm,
         price: parseFloat(prodForm.price),
         stock_qty: parseInt(prodForm.stock_qty, 10),
-        event_id: eventId,
+        event_id: Number(eventId),
         sector: currentSector,
       };
       if (prodForm.id) {
@@ -232,7 +244,16 @@ export default function POS({ fixedSector = "bar" }) {
               >
                 <CheckoutPanel
                   cardToken={cardToken}
-                  canCheckout={cart.length > 0 && Boolean(cardToken)}
+                  canCheckout={
+                    cart.length > 0 &&
+                    Boolean(cardToken) &&
+                    hasValidEventContext
+                  }
+                  checkoutHint={
+                    hasValidEventContext
+                      ? null
+                      : "Selecione um evento valido para habilitar o checkout."
+                  }
                   isOffline={isOffline}
                   onCardTokenChange={setCardToken}
                   onCheckout={handleCheckout}

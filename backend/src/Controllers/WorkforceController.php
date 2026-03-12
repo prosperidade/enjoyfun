@@ -211,21 +211,6 @@ function getRoleSettings(int $roleId): void
 
     ensureWorkforceRoleSettingsTable($db);
 
-    if (!tableExists($db, 'workforce_role_settings')) {
-        jsonSuccess([
-            'role_id' => $roleId,
-            'max_shifts_event' => 1,
-            'shift_hours' => 8,
-            'meals_per_day' => 4,
-            'payment_amount' => 0,
-            'cost_bucket' => inferCostBucketFromRoleName((string)($role['name'] ?? '')),
-            'leader_name' => '',
-            'leader_cpf' => '',
-            'leader_phone' => '',
-            'source' => 'default'
-        ]);
-    }
-
     $hasLeaderName = columnExists($db, 'workforce_role_settings', 'leader_name');
     $hasLeaderCpf = columnExists($db, 'workforce_role_settings', 'leader_cpf');
     $hasLeaderPhone = columnExists($db, 'workforce_role_settings', 'leader_phone');
@@ -298,10 +283,6 @@ function upsertRoleSettings(int $roleId, array $body): void
         jsonError('Sem permissão para este cargo.', 403);
     }
     ensureWorkforceRoleSettingsTable($db);
-
-    if (!tableExists($db, 'workforce_role_settings')) {
-        jsonError('Estrutura de configuração por cargo indisponível. Aplique a migration desta rodada.', 409);
-    }
 
     $maxShiftsEvent = max(0, (int)($body['max_shifts_event'] ?? 1));
     $shiftHours = max(0, (float)($body['shift_hours'] ?? 8));
@@ -413,9 +394,6 @@ function listAssignments(array $query): void
     $eventId = $query['event_id'] ?? null;
     if (!$eventId) jsonError('event_id é obrigatório para consultar escalas.', 400);
 
-    // Garante QR token para equipe já existente sem token.
-    backfillMissingQrTokensForEvent($db, (int)$eventId, $organizerId);
-
     $requestedSector = normalizeSector((string)($query['sector'] ?? ''));
     $requestedRoleId = (int)($query['role_id'] ?? 0);
     $hasRoleSettings = tableExists($db, 'workforce_role_settings');
@@ -478,8 +456,24 @@ function listAssignments(array $query): void
 
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC));
+    $missingQrTokens = 0;
+    foreach ($rows as &$row) {
+        $isMissingQr = !isset($row['qr_token']) || trim((string)$row['qr_token']) === '';
+        $row['qr_token_missing'] = $isMissingQr;
+        if ($isMissingQr) {
+            $missingQrTokens++;
+        }
+    }
+    unset($row);
+
+    $message = '';
+    if ($missingQrTokens > 0) {
+        $message = "{$missingQrTokens} participante(s) sem qr_token. A leitura não executa mais backfill automático; regularize pelo fluxo explícito de escrita.";
+    }
+
+    jsonSuccess($rows, $message);
 }
 
 function createAssignment(array $body): void
@@ -1101,54 +1095,42 @@ function tableExists(PDO $db, string $table): bool
 
 function ensureWorkforceRoleSettingsTable(PDO $db): void
 {
-    try {
-        if (!tableExists($db, 'workforce_role_settings')) {
-            $db->exec("
-                CREATE TABLE IF NOT EXISTS workforce_role_settings (
-                    id SERIAL PRIMARY KEY,
-                    organizer_id INTEGER NOT NULL,
-                    role_id INTEGER NOT NULL UNIQUE,
-                    max_shifts_event INTEGER NOT NULL DEFAULT 1,
-                    shift_hours NUMERIC(10,2) NOT NULL DEFAULT 8,
-                    meals_per_day INTEGER NOT NULL DEFAULT 4,
-                    payment_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
-                    cost_bucket VARCHAR(20) NOT NULL DEFAULT 'operational',
-                    leader_name VARCHAR(150) NULL,
-                    leader_cpf VARCHAR(20) NULL,
-                    leader_phone VARCHAR(40) NULL,
-                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
-                )
-            ");
-        }
-    } catch (\Throwable $e) {
-        return;
-    }
-
     if (!tableExists($db, 'workforce_role_settings')) {
-        return;
+        jsonError(
+            'Readiness de ambiente inválida: tabela `workforce_role_settings` ausente. Aplique a migration obrigatória antes de usar configurações por cargo.',
+            409
+        );
     }
 
-    $statements = [
-        "ALTER TABLE workforce_role_settings ADD COLUMN IF NOT EXISTS leader_name VARCHAR(150) NULL",
-        "ALTER TABLE workforce_role_settings ADD COLUMN IF NOT EXISTS leader_cpf VARCHAR(20) NULL",
-        "ALTER TABLE workforce_role_settings ADD COLUMN IF NOT EXISTS leader_phone VARCHAR(40) NULL",
-        "
-            CREATE INDEX IF NOT EXISTS idx_workforce_role_settings_organizer
-            ON workforce_role_settings (organizer_id)
-        ",
-        "
-            CREATE INDEX IF NOT EXISTS idx_workforce_role_settings_role
-            ON workforce_role_settings (role_id)
-        ",
+    $requiredColumns = [
+        'organizer_id',
+        'role_id',
+        'max_shifts_event',
+        'shift_hours',
+        'meals_per_day',
+        'payment_amount',
+        'cost_bucket',
+        'leader_name',
+        'leader_cpf',
+        'leader_phone',
+        'created_at',
+        'updated_at',
     ];
 
-    foreach ($statements as $statement) {
-        try {
-            $db->exec($statement);
-        } catch (\Throwable $e) {
-            // Compatibilidade: não falhar requests operacionais por falta de DDL.
+    $missingColumns = [];
+    foreach ($requiredColumns as $column) {
+        if (!columnExists($db, 'workforce_role_settings', $column)) {
+            $missingColumns[] = $column;
         }
+    }
+
+    if (!empty($missingColumns)) {
+        jsonError(
+            'Readiness de ambiente inválida: `workforce_role_settings` incompleta (faltando: ' .
+            implode(', ', $missingColumns) .
+            '). Aplique a migration obrigatória antes de usar configurações por cargo.',
+            409
+        );
     }
 }
 

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { requestCodeApi, verifyCodeApi } from '../../api/auth';
+import { persistSession } from '../../lib/session';
 
 // TODO: Em produção, buscar o organizer_id real via slug no backend
 const MOCK_ORGANIZER_ID = 1;
@@ -43,7 +44,7 @@ export default function CustomerLogin() {
   const handleIdentifierChange = (e) => {
     const val = e.target.value;
     // If it looks like a phone (no @ and starts with digits / spaces / parens)
-    if (!val.includes('@') && /^[\d\s()+\-]*$/.test(val)) {
+    if (!val.includes('@') && /^[\d\s()+-]*$/.test(val)) {
       setIdentifier(formatPhone(val));
     } else {
       setIdentifier(val);
@@ -77,10 +78,7 @@ export default function CustomerLogin() {
     try {
       const result = await verifyCodeApi(apiIdentifier, otp.trim(), MOCK_ORGANIZER_ID);
 
-      // Persiste sessão idêntico ao login normal
-      localStorage.setItem('access_token',  result.access_token);
-      localStorage.setItem('refresh_token', result.refresh_token);
-      localStorage.setItem('enjoyfun_user', JSON.stringify(result.user));
+      persistSession(result);
 
       toast.success(`Bem-vindo, ${result.user?.name || 'Cliente'}! 🎉`);
       navigate(`/app/${slug}/home`, { replace: true });
@@ -94,13 +92,6 @@ export default function CustomerLogin() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // ── Retry / change method ──────────────────────────────────────────────
-  const handleRetry = () => {
-    setStep(1);
-    setIdentifier('');
-    setOtp('');
   };
 
   // ── Dynamic step-2 instruction ────────────────────────────────────────

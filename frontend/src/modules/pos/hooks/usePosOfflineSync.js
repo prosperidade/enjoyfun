@@ -2,32 +2,47 @@ import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import api from "../../../lib/api";
 
+function hasValidEventId(eventId) {
+  return Number(eventId) > 0;
+}
+
 export function usePosOfflineSync({ currentSector, syncOfflineData }) {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [, setOfflineQueue] = useState([]);
 
   const buildOfflineSaleItem = useCallback(
-    (payload, offlineId, createdOfflineAt = null) => ({
-      offline_id: offlineId,
-      payload_type: "sale",
-      payload: {
-        ...payload,
+    (payload, offlineId, createdOfflineAt = null) => {
+      const normalizedEventId = Number(payload?.event_id);
+
+      return {
+        offline_id: offlineId,
+        payload_type: "sale",
+        payload: {
+          ...payload,
+          event_id: hasValidEventId(normalizedEventId) ? normalizedEventId : null,
+          sector: payload.sector ?? currentSector,
+          card_id:
+            payload.card_id ??
+            payload.qr_token ??
+            payload.card_token ??
+            payload.customer_id ??
+            null,
+        },
+        created_offline_at: createdOfflineAt ?? new Date().toISOString(),
         sector: payload.sector ?? currentSector,
-        card_id:
-          payload.card_id ??
-          payload.qr_token ??
-          payload.card_token ??
-          payload.customer_id ??
-          null,
-      },
-      created_offline_at: createdOfflineAt ?? new Date().toISOString(),
-      sector: payload.sector ?? currentSector,
-    }),
+      };
+    },
     [currentSector],
   );
 
   const enqueueOfflineSale = useCallback(
     (payload, offlineId) => {
+      if (!hasValidEventId(payload?.event_id)) {
+        throw new Error(
+          "Selecione um evento valido antes de salvar a venda offline.",
+        );
+      }
+
       const queue = JSON.parse(
         localStorage.getItem(`offline_sales_${currentSector}`) || "[]",
       );
@@ -64,10 +79,22 @@ export function usePosOfflineSync({ currentSector, syncOfflineData }) {
 
     if (!queue.length) return;
 
+    const validQueue = queue.filter((item) =>
+      hasValidEventId(item?.payload?.event_id),
+    );
+    const invalidCount = queue.length - validQueue.length;
+
+    if (invalidCount > 0) {
+      toast.error(
+        `${invalidCount} venda(s) offline permanecem pendentes sem evento valido.`,
+      );
+    }
+    if (!validQueue.length) return;
+
     try {
-      const { data } = await api.post("/sync", { items: queue });
+      const { data } = await api.post("/sync", { items: validQueue });
       const processedIds = new Set(
-        data?.data?.processed_ids ?? queue.map((item) => item.offline_id),
+        data?.data?.processed_ids ?? validQueue.map((item) => item.offline_id),
       );
       const failedCount = Number(data?.data?.failed ?? 0);
 
@@ -80,12 +107,12 @@ export function usePosOfflineSync({ currentSector, syncOfflineData }) {
       );
       setOfflineQueue(remaining);
 
-      if (failedCount > 0) {
-        toast.error(
-          `${processedIds.size} venda(s) sincronizada(s) e ${failedCount} pendente(s).`,
-        );
-      } else {
-        toast.success(`${processedIds.size} venda(s) sincronizada(s)!`);
+        if (failedCount > 0 || invalidCount > 0) {
+          toast.error(
+          `${processedIds.size} venda(s) sincronizada(s), ${failedCount} pendente(s) por falha e ${invalidCount} sem evento valido.`,
+          );
+        } else {
+          toast.success(`${processedIds.size} venda(s) sincronizada(s)!`);
       }
     } catch {
       toast.error("Falha na sincronização.");

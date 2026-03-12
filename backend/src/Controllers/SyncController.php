@@ -45,7 +45,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
             }
 
             // 1. Verificar duplicidade (Idempotência)
-            $check = $db->prepare('SELECT id FROM offline_queue WHERE offline_id = $1 FOR UPDATE SKIP LOCKED');
+            $check = $db->prepare('SELECT id FROM offline_queue WHERE offline_id = ? FOR UPDATE SKIP LOCKED');
             $check->execute([$offlineId]);
             if ($check->fetch()) {
                 // Já processado antes, apenas pula silenciosamente
@@ -58,10 +58,13 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
             // 2. Registrar na fila offline (Auditoria)
             $stmtQ = $db->prepare('
                 INSERT INTO offline_queue (event_id, device_id, payload_type, payload, offline_id, status, created_offline_at, processed_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
             ');
-            $eventId  = $payload['event_id'] ?? 1;
-            $deviceId = $_SERVER['HTTP_X_DEVICE_ID'] ?? 'browser_pos';
+            $eventId  = (int)($payload['event_id'] ?? 0);
+            if ($eventId <= 0) {
+                throw new Exception('Evento inválido para sincronização offline.', 422);
+            }
+            $deviceId = trim((string)($_SERVER['HTTP_X_DEVICE_ID'] ?? 'browser_pos'));
             $stmtQ->execute([
                 $eventId,
                 $deviceId,
@@ -83,7 +86,9 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
             $processedCount++;
             $processedIds[] = $offlineId;
         } catch (Throwable $e) {
-            $db->rollBack();
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
             $failedIds[] = $offlineId;
             $errors[] = [
                 'offline_id' => $offlineId,

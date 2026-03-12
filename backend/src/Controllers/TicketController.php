@@ -191,12 +191,20 @@ function storeTicket(array $body): void
             FROM ticket_types
             WHERE id = ?
               AND event_id = ?
-              AND (organizer_id = ? OR organizer_id IS NULL)
+              AND organizer_id = ?
             LIMIT 1
         ");
         $stmt->execute([$typeId, $eventId, $organizerId]);
         $type = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$type) throw new RuntimeException("Tipo de ingresso não encontrado.", 404);
+        if (!$type) {
+            if (legacyNullScopedTicketTypeExists($db, $eventId, $organizerId, $typeId)) {
+                throw new RuntimeException(
+                    'Tipo de ingresso legado sem organizer_id detectado para este evento. Regularize o vínculo de escopo antes de emitir ingressos.',
+                    409
+                );
+            }
+            throw new RuntimeException("Tipo de ingresso não encontrado.", 404);
+        }
 
         $batch = null;
         if ($ticketBatchId !== null) {
@@ -631,7 +639,12 @@ function listTicketTypes(array $query): void
                 jsonError('Evento não encontrado para este organizador.', 404);
             }
 
-            ensureLegacyCommercialTicketType($db, $eventId, $organizerId);
+            if (legacyCommercialTicketTypeBackfillRequired($db, $eventId, $organizerId)) {
+                jsonError(
+                    'Base comercial legada detectada para o evento: existem lotes sem tipo comercial padrão. GET não executa mais correção automática; regularize por fluxo explícito de escrita.',
+                    409
+                );
+            }
         }
 
         $sql = "
@@ -639,7 +652,11 @@ function listTicketTypes(array $query): void
                 tt.id,
                 tt.event_id,
                 tt.name,
-                COALESCE(tt.price, 0)::float AS price
+                COALESCE(tt.price, 0)::float AS price,
+                CASE
+                    WHEN tt.organizer_id IS NULL THEN 'legacy_null'
+                    ELSE 'organizer'
+                END AS scope_origin
             FROM ticket_types tt
             INNER JOIN events e ON e.id = tt.event_id
             WHERE e.organizer_id = :org_id
@@ -658,6 +675,32 @@ function listTicketTypes(array $query): void
     } catch (Throwable $e) {
         jsonError('Erro ao listar tipos de ingresso: ' . $e->getMessage(), 500);
     }
+}
+
+function legacyNullScopedTicketTypeExists(PDO $db, int $eventId, int $organizerId, ?int $ticketTypeId = null): bool
+{
+    $sql = "
+        SELECT 1
+        FROM ticket_types tt
+        INNER JOIN events e ON e.id = tt.event_id
+        WHERE tt.event_id = :event_id
+          AND tt.organizer_id IS NULL
+          AND e.organizer_id = :org_id
+    ";
+    if ($ticketTypeId !== null) {
+        $sql .= ' AND tt.id = :ticket_type_id';
+    }
+    $sql .= ' LIMIT 1';
+
+    $stmt = $db->prepare($sql);
+    $stmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+    $stmt->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
+    if ($ticketTypeId !== null) {
+        $stmt->bindValue(':ticket_type_id', $ticketTypeId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+
+    return (bool)$stmt->fetchColumn();
 }
 
 function ensureLegacyCommercialTicketType(PDO $db, int $eventId, int $organizerId): void
@@ -719,6 +762,30 @@ function ensureLegacyCommercialTicketType(PDO $db, int $eventId, int $organizerI
         }
         throw $e;
     }
+}
+
+function legacyCommercialTicketTypeBackfillRequired(PDO $db, int $eventId, int $organizerId): bool
+{
+    $stmtTypes = $db->prepare('
+        SELECT COUNT(*)
+        FROM ticket_types
+        WHERE event_id = ? AND (organizer_id = ? OR organizer_id IS NULL)
+    ');
+    $stmtTypes->execute([$eventId, $organizerId]);
+    if ((int)$stmtTypes->fetchColumn() > 0) {
+        return false;
+    }
+
+    ensureTicketCommercialTable($db, 'ticket_batches');
+
+    $stmtBatches = $db->prepare('
+        SELECT COUNT(*)
+        FROM ticket_batches
+        WHERE event_id = ? AND organizer_id = ? AND ticket_type_id IS NULL
+    ');
+    $stmtBatches->execute([$eventId, $organizerId]);
+
+    return (int)$stmtBatches->fetchColumn() > 0;
 }
 
 function listTicketBatches(array $query): void
@@ -800,9 +867,17 @@ function createTicketBatch(array $body): void
         if (!$stmtEvent->fetchColumn()) jsonError('Evento não encontrado para este organizador.', 404);
 
         if ($ticketTypeId !== null) {
-            $stmtType = $db->prepare('SELECT id FROM ticket_types WHERE id = ? AND event_id = ? AND (organizer_id = ? OR organizer_id IS NULL) LIMIT 1');
+            $stmtType = $db->prepare('SELECT id FROM ticket_types WHERE id = ? AND event_id = ? AND organizer_id = ? LIMIT 1');
             $stmtType->execute([$ticketTypeId, $eventId, $organizerId]);
-            if (!$stmtType->fetchColumn()) jsonError('ticket_type_id inválido para este evento.', 422);
+            if (!$stmtType->fetchColumn()) {
+                if (legacyNullScopedTicketTypeExists($db, $eventId, $organizerId, $ticketTypeId)) {
+                    jsonError(
+                        'ticket_type_id aponta para tipo comercial legado sem organizer_id. Regularize o escopo do tipo antes de vincular ao lote.',
+                        409
+                    );
+                }
+                jsonError('ticket_type_id inválido para este evento.', 422);
+            }
         }
 
         if ($code === '') $code = null;

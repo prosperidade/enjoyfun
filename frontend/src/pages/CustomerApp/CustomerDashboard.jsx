@@ -4,6 +4,8 @@ import { PlusCircle, QrCode, History, LogOut, Wallet, Ticket, MapPin, CalendarDa
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
 import { getCustomerBalanceApi, getMyTicketsApi } from '../../api/customer';
+import { logoutApi } from '../../api/auth';
+import { clearSession, getRefreshToken, getStoredUser } from '../../lib/session';
 
 const MOCK_ORGANIZER_ID = 1; // TODO: resolver via slug
 
@@ -11,16 +13,11 @@ export default function CustomerDashboard() {
   const { slug }   = useParams();
   const navigate   = useNavigate();
 
-  // Lê usuário do localStorage (persistido após OTP login)
-  const user = (() => {
-    try { return JSON.parse(localStorage.getItem('enjoyfun_user')) || {}; }
-    catch { return {}; }
-  })();
+  const user = getStoredUser() || {};
 
-  const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('enjoyfun_user');
+  const handleLogout = async () => {
+    await logoutApi(getRefreshToken());
+    clearSession();
     toast.success('Saiu com sucesso.');
     navigate(`/app/${slug}`, { replace: true });
   };
@@ -139,18 +136,22 @@ export default function CustomerDashboard() {
         <div>
           <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Ações rápidas</p>
           <div className="grid grid-cols-3 gap-3">
-            {actions.map(({ label, icon: Icon, color, bg, onClick }) => (
-              <button
-                key={label}
-                onClick={onClick}
-                className={`flex flex-col items-center gap-2 py-4 px-2 rounded-2xl border ${bg} transition-all active:scale-95`}
-              >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bg} border`}>
-                  <Icon size={20} className={color} />
-                </div>
-                <span className="text-xs text-gray-300 font-medium text-center leading-tight">{label}</span>
-              </button>
-            ))}
+            {actions.map((action) => {
+              const IconComponent = action.icon;
+
+              return (
+                <button
+                  key={action.label}
+                  onClick={action.onClick}
+                  className={`flex flex-col items-center gap-2 py-4 px-2 rounded-2xl border ${action.bg} transition-all active:scale-95`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${action.bg} border`}>
+                    <IconComponent size={20} className={action.color} />
+                  </div>
+                  <span className="text-xs text-gray-300 font-medium text-center leading-tight">{action.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

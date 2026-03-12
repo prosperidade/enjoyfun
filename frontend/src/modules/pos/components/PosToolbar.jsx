@@ -23,6 +23,9 @@ export default function PosToolbar({
           value={eventId}
           onChange={(e) => setEventId(e.target.value)}
         >
+          <option value="" disabled>
+            Selecione um evento
+          </option>
           {events.map((ev) => (
             <option key={ev.id} value={ev.id}>
               {ev.name}

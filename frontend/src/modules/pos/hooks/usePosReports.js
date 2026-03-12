@@ -11,12 +11,19 @@ export function usePosReports({ currentSector, eventId }) {
   const latestSalesRequestRef = useRef(0);
 
   const loadRecentSales = useCallback(async () => {
+    const normalizedEventId = Number(eventId);
+    if (normalizedEventId <= 0) {
+      setRecentSales([]);
+      setReportData(null);
+      return;
+    }
+
     const requestId = latestSalesRequestRef.current + 1;
     latestSalesRequestRef.current = requestId;
 
     try {
       const res = await api.get(
-        `/${currentSector}/sales?event_id=${eventId}&filter=${timeFilter}`,
+        `/${currentSector}/sales?event_id=${normalizedEventId}&filter=${timeFilter}`,
       );
       if (requestId !== latestSalesRequestRef.current) {
         return;
@@ -52,6 +59,16 @@ export function usePosReports({ currentSector, eventId }) {
 
   const requestInsight = useCallback(async () => {
     if (!aiQuestion.trim()) return;
+    if (Number(eventId) <= 0) {
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          content: "Selecione um evento valido antes de consultar insights.",
+        },
+      ]);
+      return;
+    }
 
     const question = aiQuestion;
     setAiQuestion("");
@@ -61,7 +78,7 @@ export function usePosReports({ currentSector, eventId }) {
     try {
       const dataRes = await api.post(
         `/${currentSector}/insights?filter=${timeFilter}`,
-        { event_id: eventId, question },
+        { event_id: Number(eventId), question },
       );
 
       const ctx = dataRes.data?.data?.context;

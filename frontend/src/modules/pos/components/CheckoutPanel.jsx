@@ -3,6 +3,7 @@ import { Check, QrCode, WifiOff } from "lucide-react";
 export default function CheckoutPanel({
   cardToken,
   canCheckout,
+  checkoutHint,
   isOffline,
   onCardTokenChange,
   onCheckout,
@@ -28,6 +29,9 @@ export default function CheckoutPanel({
         <span className="text-gray-400">Total</span>
         <span className="text-2xl font-extrabold">R$ {total.toFixed(2)}</span>
       </div>
+      {checkoutHint ? (
+        <p className="mb-4 text-sm text-amber-300">{checkoutHint}</p>
+      ) : null}
       <button
         onClick={onCheckout}
         disabled={!canCheckout || processingSale}

@@ -568,7 +568,7 @@ function ensureEventCommercialSchemaReady(PDO $db): void
 function syncEventTicketTypes(PDO $db, int $eventId, int $organizerId, array $items): array
 {
     $stmtExisting = $db->prepare('
-        SELECT id, name
+        SELECT id, name, organizer_id
         FROM ticket_types
         WHERE event_id = ? AND (organizer_id = ? OR organizer_id IS NULL)
         ORDER BY id ASC
@@ -600,6 +600,12 @@ function syncEventTicketTypes(PDO $db, int $eventId, int $organizerId, array $it
             if (!isset($existingById[$item['id']])) {
                 throw new RuntimeException('Tipo de ingresso inválido para este evento.', 404);
             }
+            if ($existingById[$item['id']]['organizer_id'] === null) {
+                throw new RuntimeException(
+                    "Tipo de ingresso \"{$name}\" está em escopo legado sem organizer_id. Regularize o vínculo antes de editar este tipo.",
+                    409
+                );
+            }
 
             $stmtUpdate = $db->prepare("
                 UPDATE ticket_types
@@ -607,7 +613,7 @@ function syncEventTicketTypes(PDO $db, int $eventId, int $organizerId, array $it
                     name = ?,
                     price = ?,
                     updated_at = NOW()
-                WHERE id = ? AND event_id = ? AND (organizer_id = ? OR organizer_id IS NULL)
+                WHERE id = ? AND event_id = ? AND organizer_id = ?
             ");
             $stmtUpdate->execute([
                 $name,
@@ -647,16 +653,45 @@ function syncEventTicketTypes(PDO $db, int $eventId, int $organizerId, array $it
         if (in_array($existingId, $keptIds, true)) {
             continue;
         }
+        if ($existing['organizer_id'] === null) {
+            continue;
+        }
 
         assertTicketTypeRemovable($db, $existingId, $eventId, $organizerId, $existing['name']);
         $stmtDelete = $db->prepare('
             DELETE FROM ticket_types
-            WHERE id = ? AND event_id = ? AND (organizer_id = ? OR organizer_id IS NULL)
+            WHERE id = ? AND event_id = ? AND organizer_id = ?
         ');
         $stmtDelete->execute([$existingId, $eventId, $organizerId]);
     }
 
     return $map;
+}
+
+function eventHasLegacyNullScopedTicketType(PDO $db, int $eventId, int $organizerId, ?int $ticketTypeId = null): bool
+{
+    $sql = '
+        SELECT 1
+        FROM ticket_types tt
+        INNER JOIN events e ON e.id = tt.event_id
+        WHERE tt.event_id = :event_id
+          AND tt.organizer_id IS NULL
+          AND e.organizer_id = :organizer_id
+    ';
+    if ($ticketTypeId !== null) {
+        $sql .= ' AND tt.id = :ticket_type_id';
+    }
+    $sql .= ' LIMIT 1';
+
+    $stmt = $db->prepare($sql);
+    $stmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+    $stmt->bindValue(':organizer_id', $organizerId, PDO::PARAM_INT);
+    if ($ticketTypeId !== null) {
+        $stmt->bindValue(':ticket_type_id', $ticketTypeId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+
+    return (bool)$stmt->fetchColumn();
 }
 
 function syncEventBatches(PDO $db, int $eventId, int $organizerId, array $items, array $ticketTypeMap = []): void
@@ -707,11 +742,17 @@ function syncEventBatches(PDO $db, int $eventId, int $organizerId, array $items,
             $stmtType = $db->prepare('
                 SELECT id
                 FROM ticket_types
-                WHERE id = ? AND event_id = ? AND (organizer_id = ? OR organizer_id IS NULL)
+                WHERE id = ? AND event_id = ? AND organizer_id = ?
                 LIMIT 1
             ');
             $stmtType->execute([$resolvedTicketTypeId, $eventId, $organizerId]);
             if (!$stmtType->fetchColumn()) {
+                if (eventHasLegacyNullScopedTicketType($db, $eventId, $organizerId, $resolvedTicketTypeId)) {
+                    throw new RuntimeException(
+                        "Tipo de ingresso legado sem organizer_id detectado no lote \"{$name}\". Regularize o escopo do tipo antes de vincular ao lote.",
+                        409
+                    );
+                }
                 throw new RuntimeException("Tipo de ingresso inválido no lote \"{$name}\".", 422);
             }
         }

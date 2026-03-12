@@ -3,6 +3,10 @@ import { db } from '../lib/db';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
+function hasValidEventId(eventId) {
+  return Number(eventId) > 0;
+}
+
 function normalizePendingSyncRecord(record) {
   const payload = record?.payload ?? record?.data ?? {};
   const cardId =
@@ -17,6 +21,7 @@ function normalizePendingSyncRecord(record) {
     payload_type: record?.payload_type ?? record?.type ?? 'sale',
     payload: {
       ...payload,
+      event_id: hasValidEventId(payload?.event_id) ? Number(payload.event_id) : null,
       sector: payload?.sector ?? record?.sector ?? 'bar',
       card_id: cardId,
     },
@@ -45,8 +50,21 @@ export function useNetwork() {
 
       toast.loading(`Sincronizando ${pending.length} registros offline...`, { id: 'sync' });
 
-      // Transform array for the bulk API endpoint
-      const payloadOut = pending.map(normalizePendingSyncRecord);
+      const normalizedPending = pending.map(normalizePendingSyncRecord);
+      const invalidPending = normalizedPending.filter(
+        (record) => !hasValidEventId(record?.payload?.event_id),
+      );
+      const payloadOut = normalizedPending.filter((record) =>
+        hasValidEventId(record?.payload?.event_id),
+      );
+
+      if (payloadOut.length === 0) {
+        toast.error(
+          'Existem registros offline pendentes sem evento valido. A sincronizacao foi bloqueada.',
+          { id: 'sync' },
+        );
+        return;
+      }
 
       const { data } = await api.post('/sync', { items: payloadOut });
       
@@ -58,8 +76,11 @@ export function useNetwork() {
           await db.offlineQueue.bulkDelete(processedIds);
         }
 
-        if (failedCount > 0) {
-          toast.error(`${processedIds.length} registros sincronizados e ${failedCount} pendentes.`, { id: 'sync' });
+        if (failedCount > 0 || invalidPending.length > 0) {
+          toast.error(
+            `${processedIds.length} registros sincronizados, ${failedCount} pendentes por falha e ${invalidPending.length} sem evento valido.`,
+            { id: 'sync' },
+          );
         } else {
           toast.success(`${processedIds.length} registros sincronizados!`, { id: 'sync' });
         }

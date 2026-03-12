@@ -2,7 +2,7 @@
  * EnjoyFun 2.0 — Auth API Service
  *
  * All functions return the full Axios response data.
- * Token persistence is handled by AuthContext (localStorage).
+ * Token persistence is handled by the frontend session manager.
  *
  * Usage:
  *   import { loginApi, registerApi, refreshApi, logoutApi, meApi } from './auth';
@@ -18,7 +18,6 @@ import api from '../lib/api';
  */
 export async function loginApi(email, password) {
   const response = await api.post('/auth/login', { email, password });
-  console.log('>>> RAW AXIOS RESPONSE.DATA:', response.data);
   return response.data?.data;  // { user, access_token, refresh_token, expires_in }
 }
 
@@ -73,7 +72,7 @@ export async function logoutApi(refreshToken) {
 
 // ── Current user ───────────────────────────────────────────────────────────
 /**
- * @returns {Promise<User>}  – requires a valid Bearer token in localStorage
+ * @returns {Promise<User>}  – requires a valid Bearer token in the current session
  */
 export async function meApi() {
   const { data } = await api.get('/auth/me');
