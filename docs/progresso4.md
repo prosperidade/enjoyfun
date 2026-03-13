@@ -1363,3 +1363,136 @@
   - ausência de regressão em transação/fila
   - preservação dos erros de negócio
 - Ainda falta, se desejado em rodada própria, uma prova viva controlada de sucesso completo do replay offline em ambiente seguro.
+
+## Hardening — checkpoint de fechamento do bloco atual
+
+- **Responsável:** Codex
+- **Status:** Consolidado
+- **Objetivo:** fechar o bloco atual de hardening com leitura objetiva do que já está comprovado, do que ficou mitigado e do que ainda depende de validação viva positiva
+
+### Estado consolidado do bloco atual
+- **Resolvido com evidência de código e validação dirigida**
+  - contexto operacional do POS/sync offline sem `event_id` implícito
+  - sessão web atual sem persistência de `access_token` e `refresh_token` em `localStorage`
+  - parada das mutações silenciosas nos GETs críticos priorizados
+  - remoção de auto-DDL em request nos fluxos priorizados, com readiness explícita em vez de compatibilidade estrutural automática
+  - endurecimento de escrita comercial crítica para não aceitar `ticket_type` legado com `organizer_id IS NULL` como se fosse escopo válido do organizer
+  - correção estrutural do sync offline com `event_id` válido:
+    - sem quebra por `device_id` nulo
+    - sem mascaramento por transação aninhada
+- **Mitigado, mas não eliminado estruturalmente**
+  - sessão web continua token-based no JavaScript, agora restrita a `sessionStorage`, reduzindo exposição prática mas sem virar auth `HttpOnly`
+  - compatibilidade legado/null continua aceita em alguns caminhos de leitura não críticos, de forma mais delimitada, mas ainda existente no sistema atual
+
+### Limites remanescentes reais
+- Ainda falta prova viva positiva de um replay offline completo bem-sucedido até `processed = 1` em ambiente seguro.
+- A trilha ainda não teve reprodução viva do caminho de falha de readiness por schema ausente, porque o ambiente validado estava estruturalmente completo.
+- A rejeição viva de escopo legado/null em escrita comercial crítica ficou endurecida por código, mas ainda não teve cenário real reproduzível com base legada compatível no ambiente validado.
+
+### O que ainda depende de validação viva positiva
+- **Sync offline**
+  - comprovar um caso completo de sucesso com `event_id` válido, `device_id` válido e payload consistente
+- **Readiness explícita**
+  - comprovar resposta diagnóstica em ambiente realmente incompleto, sem forçar degradação artificial do ambiente principal
+- **Escopo legado/null**
+  - comprovar em cenário real que escrita comercial crítica rejeita registro legado/null quando ele de fato existir na base
+
+### Próxima frente recomendada
+- **1. Validação viva positiva controlada dos caminhos ainda sem prova de sucesso**
+  - é a menor continuação correta para fechar o bloco com evidência prática, sem abrir nova frente técnica
+- **2. Hardening do armazenamento/local persistence do POS offline**
+  - segue como risco real remanescente de operação local e já apareceu como ponto frágil após o endurecimento de contexto e sync
+- **3. Endurecimento pontual do legado/null fora da escrita comercial crítica**
+  - apenas nos fluxos de leitura operacional onde a compatibilidade ainda puder gerar ambiguidade real de escopo
+
+## Hardening — endurecer compatibilidade de escopo legado/null fora do comercial crítico
+
+- **Responsável:** Codex
+- **Status:** Executado
+- **Objetivo:** reduzir ambiguidade de escopo legado/null fora do comercial crítico sem reabrir multitenancy ampla
+
+### Diagnóstico fechado
+- O principal ponto perigoso encontrado fora do comercial crítico estava em `GET /participants/categories`:
+  - a leitura retornava `participant_categories` com `organizer_id = ? OR organizer_id IS NULL`
+  - porém os fluxos operacionais de escrita que consomem essa lista (`POST /participants`, `PUT /participants/:id`, `POST /participants/import`) já validam **somente** categorias do organizer
+  - isso deixava a UI apta a exibir opções legadas/globais que a própria escrita rejeita depois
+- Compatibilidade ainda aceitável por enquanto:
+  - leituras auxiliares de dashboard/report que aceitam `organizer_id IS NULL` apenas quando condicionadas por vínculo do `event_id` ao organizer
+  - checagens referenciais como a de `ProductService`, onde o legado/null ainda é usado apenas para não ignorar venda antiga ligada ao mesmo contexto operacional
+- Portanto, o menor endurecimento correto nesta rodada era alinhar o endpoint de categorias com o contrato real de escrita, sem reabrir os serviços de leitura já condicionados por evento
+
+### Patch executado
+- `backend/src/Controllers/ParticipantController.php`
+  - `listCategories()` passou a listar apenas categorias com `organizer_id = ?`
+  - as categorias retornadas agora carregam `scope_origin = organizer`
+  - quando não houver categorias do organizer, mas existir legado global `organizer_id IS NULL`, o endpoint responde `409` explícito em vez de mascarar com fallback legado
+  - quando não houver nem categorias do organizer nem legado global, o endpoint responde `422` explícito
+- `frontend/src/pages/ParticipantsTabs/AddParticipantModal.jsx`
+  - removido o fallback hardcoded de categorias
+  - o modal passou a exibir diagnóstico explícito quando a rota não retorna categorias válidas
+  - a seleção e o submit ficam bloqueados quando não há categoria válida do organizer
+
+### Validação executada
+- Sintaxe
+  - `php -l backend/src/Controllers/ParticipantController.php`
+- Frontend
+  - `npx eslint src/pages/ParticipantsTabs/AddParticipantModal.jsx`
+- Observação de lint
+  - `npm run lint` do frontend continua falhando por erros preexistentes fora do escopo desta rodada; o arquivo alterado passou isoladamente
+
+### Estado operacional resultante
+- Ficou mais explícito/seguro:
+  - a leitura de categorias usada pela operação não promete mais categorias legado/null que a escrita não aceita
+  - a UI deixa de mascarar ausência de base com opções hardcoded
+- Permanece como compatibilidade aceitável por enquanto:
+  - leituras auxiliares com legado/null condicionado por evento, onde o escopo ainda é controlado e não alimenta escrita ambígua direta
+
+## Workforce — Correção da propagação indevida do gerente na lista importada
+
+- **Responsável:** Codex
+- **Status:** Executado
+- **Data:** 2026-03-12
+- **Frente:** Workforce (operacional)
+- **Escopo:** backend exclusivo — `backend/src/Controllers/WorkforceController.php`
+- **Guardrail:** não misturado com Meals, Analytics, V4 ou hardening geral
+
+### Problema atacado
+
+Depois que o gerente era configurado em um cargo (ex: "Gerente de Bar"), ao importar uma lista de membros **estando dentro desse cargo**, todos os importados ficavam com o cargo do gerente.
+
+### Causa raiz identificada
+
+- `importWorkforce()` possui um guard `managerialRedirect` que deve redirecionar importados para um cargo operacional quando o cargo selecionado é gerencial.
+- Esse guard só ativava quando `resolveRoleCostBucket()` retornava `'managerial'` — o que exige que a tabela `workforce_role_settings` tenha uma entry explícita com `cost_bucket = 'managerial'` para aquele cargo.
+- Quando o cargo gerencial foi criado sem passar pelo fluxo de configuração de custo (tabela sem entry, ou `cost_bucket` não salvo), `resolveRoleCostBucket()` retornava `'operational'` por fallback de `normalizeCostBucket('')`.
+- Resultado: o guard não disparava e o `$defaultRoleId` permanecia como o ID do cargo gerencial. Todos os importados ficavam nesse cargo.
+
+### Patch executado
+
+- `backend/src/Controllers/WorkforceController.php`
+  - Guard `managerialRedirect` na função `importWorkforce()` (linha 732) passou a usar verificação dupla:
+    - `$isManagerialByBucket`: checa se `cost_bucket = 'managerial'` está salvo no banco (lógica anterior preservada)
+    - `$isManagerialByName`: infere via `inferCostBucketFromRoleName()` — já existente no mesmo arquivo — se o nome do cargo contém indicadores gerenciais ("gerente", "diretor", "coordenador", "supervisor", "lider", "chefe", "gestor", "manager")
+  - O redirect agora dispara se **qualquer uma** das duas condições for verdadeira.
+  - Nenhuma outra função foi alterada.
+  - Comportamento preservado: cargos operacionais sem indicadores gerenciais no nome continuam importando normalmente para o cargo correto.
+
+### Validação executada
+- `php -l backend/src/Controllers/WorkforceController.php` → `No syntax errors detected`
+- Revisão visual das linhas 732-740 após o patch
+- Confirmação de que `inferCostBucketFromRoleName()` já existia (linha 1146) com os mesmos indicadores usados também no frontend
+
+### Cenários cobertos pelo fix
+
+| Cargo | cost_bucket salvo | Antes do fix | Depois do fix |
+|---|---|---|---|
+| "Gerente de Bar" | ausente/vazio | Todos importados viram gerente ❌ | Redirect → "Equipe BAR" ✅ |
+| "Gerente de Bar" | `managerial` | Redirect funciona ✅ | Redirect funciona ✅ |
+| "Operador de Bar" | qualquer | Importados no cargo correto ✅ | Comportamento preservado ✅ |
+| "Diretor de Food" | ausente/vazio | Todos importados viram diretor ❌ | Redirect → "Equipe FOOD" ✅ |
+
+### Limites desta rodada
+- Não houve validação viva contra banco real (ambiente sem PostgreSQL acessível via PHP local).
+- Não foi aberto redesign do Workforce.
+- Não foram tocados Meals, Analytics, V4 ou hardening geral.
+- O cargo gerencial continua existindo e com seus membros próprios — apenas a importação em lote ficou protegida da contaminação.

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useNavigate } from "react-router-dom";
-import { db } from "../lib/db";
 import { useNetwork } from "../hooks/useNetwork";
 import toast from "react-hot-toast";
 import api from "../lib/api";
@@ -60,7 +59,6 @@ export default function POS({ fixedSector = "bar" }) {
 
   const {
     isOffline,
-    buildOfflineSaleItem,
     enqueueOfflineSale,
   } = usePosOfflineSync({
     currentSector,
@@ -112,12 +110,15 @@ export default function POS({ fixedSector = "bar" }) {
       })),
     };
 
-    if (isOffline) {
-      enqueueOfflineSale(payload, offlineId);
-      toast.success("Venda salva offline!");
-      clearCart();
-      setCardToken("");
-    } else {
+    try {
+      if (isOffline) {
+        await enqueueOfflineSale(payload, offlineId);
+        toast.success("Venda salva offline!");
+        clearCart();
+        setCardToken("");
+        return;
+      }
+
       try {
         await api.post(`/${currentSector}/checkout`, {
           ...payload,
@@ -133,10 +134,7 @@ export default function POS({ fixedSector = "bar" }) {
           err.message === "Network Error" ||
           (err.response && err.response.status >= 500)
         ) {
-          await db.offlineQueue.add({
-            ...buildOfflineSaleItem(payload, offlineId),
-            status: "pending",
-          });
+          await enqueueOfflineSale(payload, offlineId);
           toast.success("Salvo Offline!", { icon: "💾" });
           clearCart();
           setCardToken("");
@@ -145,8 +143,11 @@ export default function POS({ fixedSector = "bar" }) {
           toast.error(err.response?.data?.message || "Erro na venda.");
         }
       }
+    } catch {
+      toast.error("Nao foi possivel salvar a venda offline localmente.");
+    } finally {
+      setProcessingSale(false);
     }
-    setProcessingSale(false);
   };
 
   const handleAddProduct = async (e) => {

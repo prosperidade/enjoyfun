@@ -86,6 +86,7 @@ export default function MealsControl() {
   const [payload, setPayload] = useState(createEmptyPayload);
   const [workforceBaseItems, setWorkforceBaseItems] = useState([]);
   const [mealUnitCost, setMealUnitCost] = useState(0);
+  const [mealUnitCostAvailable, setMealUnitCostAvailable] = useState(null);
   const [mealCostModalOpen, setMealCostModalOpen] = useState(false);
   const [mealCostDraft, setMealCostDraft] = useState(0);
   const [savingMealCost, setSavingMealCost] = useState(false);
@@ -186,10 +187,13 @@ export default function MealsControl() {
       const res = await api.get("/organizer-finance/settings");
       const settings = res.data?.data || {};
       const unitCost = Number(settings.meal_unit_cost ?? 0);
+      const unitCostAvailable = settings.meal_unit_cost_available !== false;
       setMealUnitCost(unitCost);
+      setMealUnitCostAvailable(unitCostAvailable);
       setMealCostDraft(unitCost);
     } catch {
       setMealUnitCost(0);
+      setMealUnitCostAvailable(null);
       setMealCostDraft(0);
     }
   };
@@ -715,11 +719,21 @@ export default function MealsControl() {
 
   const saveMealCost = async (e) => {
     e.preventDefault();
+    if (mealUnitCostAvailable === false) {
+      toast.error("O ambiente atual não sustenta `meal_unit_cost`. O ajuste permanece indisponível nesta base.");
+      return;
+    }
     const safeValue = Math.max(0, Number(mealCostDraft || 0));
     setSavingMealCost(true);
     try {
       const res = await api.get("/organizer-finance/settings");
       const settings = res.data?.data || {};
+      const unitCostAvailable = settings.meal_unit_cost_available !== false;
+      setMealUnitCostAvailable(unitCostAvailable);
+      if (!unitCostAvailable) {
+        toast.error("O ambiente atual não sustenta `meal_unit_cost`. O ajuste permanece indisponível nesta base.");
+        return;
+      }
       const saveRes = await api.put("/organizer-finance/settings", {
         currency: settings.currency || "BRL",
         tax_rate: Number(settings.tax_rate ?? 0),
@@ -727,12 +741,14 @@ export default function MealsControl() {
       });
       const persistedSettings = saveRes.data?.data || {};
       const persistedUnit = Number(persistedSettings.meal_unit_cost ?? 0);
+      const persistedUnitAvailable = persistedSettings.meal_unit_cost_available !== false;
       const persistedMatchesRequest = Math.abs(persistedUnit - safeValue) < 0.005;
       setMealUnitCost(persistedUnit);
+      setMealUnitCostAvailable(persistedUnitAvailable);
       setMealCostDraft(persistedUnit);
       setMealCostModalOpen(false);
       await loadBalance();
-      if (persistedMatchesRequest) {
+      if (persistedUnitAvailable && persistedMatchesRequest) {
         toast.success("Valor unitário de refeição atualizado.");
       } else {
         toast.error("O ambiente atual não sustentou `meal_unit_cost`. A projeção financeira continua indisponível.");
@@ -1166,8 +1182,15 @@ export default function MealsControl() {
                   className="input mt-1 w-full"
                   value={mealCostDraft}
                   onChange={(e) => setMealCostDraft(Number(e.target.value))}
+                  disabled={mealUnitCostAvailable === false || savingMealCost}
                 />
               </label>
+              {mealUnitCostAvailable === false && (
+                <p className="text-xs text-amber-300">
+                  Este ambiente não possui a coluna `meal_unit_cost` em `organizer_financial_settings`.
+                  O ajuste fica bloqueado ate a migration/readiness correta da base.
+                </p>
+              )}
               <p className="text-xs text-gray-500">
                 O consumo total é calculado automaticamente com base em turnos e refeições configurados no Workforce.
               </p>
@@ -1176,7 +1199,11 @@ export default function MealsControl() {
                 <button type="button" onClick={() => setMealCostModalOpen(false)} className="btn-secondary">
                   Cancelar
                 </button>
-                <button type="submit" disabled={savingMealCost} className="btn-primary flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={savingMealCost || mealUnitCostAvailable === false}
+                  className="btn-primary flex items-center gap-2"
+                >
                   <Save size={16} /> Salvar
                 </button>
               </div>

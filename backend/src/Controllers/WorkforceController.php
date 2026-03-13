@@ -730,9 +730,13 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
     }
 
     $managerialRedirect = false;
-    if ($targetRoleId > 0 && $requestedRoleBucket === 'managerial') {
-        $targetRoleId = ensureSectorDefaultRole($db, $organizerId, $targetSector);
-        $managerialRedirect = true;
+    if ($targetRoleId > 0) {
+        $isManagerialByBucket = ($requestedRoleBucket === 'managerial');
+        $isManagerialByName   = ($requestedRoleName !== null && inferCostBucketFromRoleName($requestedRoleName) === 'managerial');
+        if ($isManagerialByBucket || $isManagerialByName) {
+            $targetRoleId = ensureSectorDefaultRole($db, $organizerId, $targetSector);
+            $managerialRedirect = true;
+        }
     }
 
     $defaultRoleId = $targetRoleId > 0 ? $targetRoleId : ensureSectorDefaultRole($db, $organizerId, $targetSector);

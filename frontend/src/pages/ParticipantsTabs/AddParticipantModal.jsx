@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 export default function AddParticipantModal({ isOpen, onClose, eventId, onAdded }) {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [categoriesError, setCategoriesError] = useState("");
   
   const [formData, setFormData] = useState({
     name: "",
@@ -17,17 +18,19 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, onAdded 
 
   useEffect(() => {
     if (isOpen) {
+      setCategories([]);
+      setCategoriesError("");
+      setFormData((current) => ({ ...current, category_id: "" }));
       api.get("/participants/categories") 
-        .then(res => setCategories(res.data.data || []))
-        .catch(() => {
-          // Hardcode temp while no actual route exists to fetch categories
-          setCategories([
-            { id: 1, name: "Convidado VIP", type: "guest" },
-            { id: 2, name: "Artista", type: "artist" },
-            { id: 3, name: "DJ", type: "dj" },
-            { id: 4, name: "Permuta", type: "permuta" },
-            { id: 5, name: "Staff", type: "staff" },
-          ]);
+        .then(res => {
+          setCategories(res.data.data || []);
+          setCategoriesError("");
+        })
+        .catch((error) => {
+          setCategories([]);
+          setCategoriesError(
+            error.response?.data?.message || "Não foi possível carregar categorias válidas para este organizador."
+          );
         });
     }
   }, [isOpen]);
@@ -36,6 +39,9 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, onAdded 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (categories.length === 0) {
+      return toast.error(categoriesError || "Nenhuma categoria válida disponível para este organizador.");
+    }
     if (!formData.name || !formData.category_id) {
       return toast.error("Nome e Categoria são obrigatórios.");
     }
@@ -115,9 +121,15 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, onAdded 
 
             <div>
               <label className="text-xs font-medium text-gray-400 mb-1 block">Categoria Oficial *</label>
+              {categoriesError ? (
+                <p className="mb-2 rounded-lg border border-amber-700/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
+                  {categoriesError}
+                </p>
+              ) : null}
               <select 
                 className="select w-full block" 
                 required
+                disabled={categories.length === 0}
                 value={formData.category_id}
                 onChange={e => setFormData({...formData, category_id: e.target.value})}
               >
@@ -137,7 +149,7 @@ export default function AddParticipantModal({ isOpen, onClose, eventId, onAdded 
           <button 
             type="submit" 
             form="participant-form"
-            disabled={loading}
+            disabled={loading || categories.length === 0}
             className="btn-primary"
           >
              {loading ? <div className="spinner" /> : <Save size={18} />}

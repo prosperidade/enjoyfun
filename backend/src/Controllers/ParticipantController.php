@@ -557,15 +557,38 @@ function resolveOrganizerId(array $user): int
     return (int)($user['organizer_id'] ?? 0);
 }
 
+function legacyNullParticipantCategoriesExist(PDO $db): bool
+{
+    $stmt = $db->query("SELECT 1 FROM participant_categories WHERE organizer_id IS NULL LIMIT 1");
+    return (bool)$stmt->fetchColumn();
+}
+
 function listCategories(): void
 {
     $user = requireAuth(['admin', 'organizer', 'manager', 'staff']);
     $db = Database::getInstance();
     $organizerId = resolveOrganizerId($user);
 
-    $stmt = $db->prepare("SELECT id, name, type FROM participant_categories WHERE organizer_id = ? OR organizer_id IS NULL ORDER BY id ASC");
+    $stmt = $db->prepare("
+        SELECT id, name, type, 'organizer' AS scope_origin
+        FROM participant_categories
+        WHERE organizer_id = ?
+        ORDER BY id ASC
+    ");
     $stmt->execute([$organizerId]);
-    jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC));
+    $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (!empty($categories)) {
+        jsonSuccess($categories);
+    }
+
+    if (legacyNullParticipantCategoriesExist($db)) {
+        jsonError(
+            'Base legada global detectada em participant_categories. GET /participants/categories não expõe mais organizer_id IS NULL porque POST/PUT/import aceitam apenas categorias do organizer. Cadastre ou migre categorias próprias do organizer.',
+            409
+        );
+    }
+
+    jsonError('Nenhuma categoria de participantes cadastrada para este organizador.', 422);
 }
 
 function canBypassParticipantSectorAcl(array $user): bool

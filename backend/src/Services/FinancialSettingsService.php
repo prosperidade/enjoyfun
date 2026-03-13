@@ -25,6 +25,7 @@ class FinancialSettingsService
                 'currency' => 'BRL',
                 'tax_rate' => 0.0,
                 'meal_unit_cost' => 0.0,
+                'meal_unit_cost_available' => $hasMealUnitCost,
                 'created_at' => null,
                 'updated_at' => null
             ];
@@ -36,6 +37,7 @@ class FinancialSettingsService
             'currency' => self::normalizeCurrency((string)($row['currency'] ?? 'BRL')),
             'tax_rate' => (float)($row['tax_rate'] ?? 0),
             'meal_unit_cost' => (float)($row['meal_unit_cost'] ?? 0),
+            'meal_unit_cost_available' => $hasMealUnitCost,
             'created_at' => $row['created_at'] ?? null,
             'updated_at' => $row['updated_at'] ?? null
         ];
