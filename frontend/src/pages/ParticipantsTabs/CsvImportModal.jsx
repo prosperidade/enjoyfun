@@ -11,8 +11,8 @@ export default function CsvImportModal({
   mode = "guest",
   workforceRoleId = null,
   workforceSector = "",
-  workforceRoleName = "",
-  workforceRoleCostBucket = "operational"
+  workforceRoleCostBucket = "operational",
+  managerUserId = null
 }) {
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
@@ -70,8 +70,6 @@ export default function CsvImportModal({
       reader.onload = async (e) => {
         const text = e.target.result;
         const rows = text.split("\n");
-        const headers = rows[0].split(",").map(h => h.trim().toLowerCase());
-        
         const participants = [];
         
         // Skip header
@@ -103,6 +101,7 @@ export default function CsvImportModal({
                   event_id: eventId,
                   role_id: workforceRoleId || undefined,
                   sector: workforceSector || undefined,
+                  forced_manager_user_id: managerUserId || undefined,
                   file_name: file.name,
                   participants
                 }
@@ -161,7 +160,9 @@ export default function CsvImportModal({
                         {mode === "workforce" && (
                           <>
                             <p className="text-blue-300 mb-2">
-                              Importação vinculada ao cargo: <strong>{workforceRoleName || "Cargo selecionado"}</strong>
+                              {managerUserId
+                                ? `Importação vinculada ao Gerente/Líder atual na tabela.`
+                                : `Importação vinculada ao cargo selecionado.`}
                             </p>
                             {String(workforceRoleCostBucket || "").toLowerCase() === "managerial" && (
                               <p className="text-amber-300">

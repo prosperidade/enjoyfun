@@ -26,6 +26,14 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         return;
     }
 
+    if ($id === 'managers') {
+        match (true) {
+            $method === 'GET'    => listManagers($query),
+            default => jsonError('Endpoint de Managers não encontrado.', 404),
+        };
+        return;
+    }
+
     if ($id === 'member-settings') {
         match (true) {
             $method === 'GET' && $sub !== null => getMemberSettings((int)$sub),
@@ -383,6 +391,84 @@ function upsertRoleSettings(int $roleId, array $body): void
 // ASSIGNMENTS (Alocações da Equipe)
 // ----------------------------------------------------
 
+function listManagers(array $query): void
+{
+    $user = requireAuth(['admin', 'organizer', 'manager', 'staff']);
+    $db = Database::getInstance();
+    $organizerId = resolveOrganizerId($user);
+    $userSector = resolveUserSector($db, $user);
+    $canBypassSector = canBypassSectorAcl($user);
+
+    $eventId = $query['event_id'] ?? null;
+    if (!$eventId) jsonError('event_id é obrigatório para consultar gerentes.', 400);
+
+    $hasRoleSettings = tableExists($db, 'workforce_role_settings');
+    $bucketExpr = $hasRoleSettings
+        ? "COALESCE(wrs.cost_bucket, 'operational')"
+        : "'operational'";
+
+    $sql = "
+        SELECT
+               ep.id as participant_id,
+               p.name as person_name,
+               p.email as person_email,
+               p.phone,
+               ep.qr_token,
+               r.id as role_id,
+               r.name as role_name,
+               wa.sector,
+               COALESCE(wa.manager_user_id, u.id) AS user_id
+        FROM workforce_assignments wa
+        JOIN event_participants ep ON ep.id = wa.participant_id
+        JOIN people p ON p.id = ep.person_id
+        JOIN workforce_roles r ON r.id = wa.role_id
+        LEFT JOIN users u
+               ON LOWER(TRIM(COALESCE(u.email, ''))) = LOWER(TRIM(COALESCE(p.email, '')))
+              AND (u.organizer_id = :org_id OR u.id = :org_id)
+        " . ($hasRoleSettings ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id AND wrs.organizer_id = :org_id" : "") . "
+        WHERE ep.event_id = :evt_id
+          AND p.organizer_id = :org_id
+          AND {$bucketExpr} = 'managerial'
+    ";
+
+    $params = [':evt_id' => $eventId, ':org_id' => $organizerId];
+
+    if (!$canBypassSector && $userSector !== 'all') {
+        $sql .= " AND LOWER(COALESCE(wa.sector, '')) = :sector";
+        $params[':sector'] = $userSector;
+    }
+
+    $sql .= " ORDER BY p.name ASC";
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Compute team count per manager
+    $countSql = "
+        SELECT manager_user_id, COUNT(*) as team_size
+        FROM workforce_assignments wa
+        JOIN event_participants ep ON ep.id = wa.participant_id
+        WHERE ep.event_id = :evt_id
+          AND wa.manager_user_id IS NOT NULL
+        GROUP BY manager_user_id
+    ";
+    $countStmt = $db->prepare($countSql);
+    $countStmt->execute([':evt_id' => $eventId]);
+    $teamCounts = [];
+    while ($cRow = $countStmt->fetch(PDO::FETCH_ASSOC)) {
+        $teamCounts[(int)$cRow['manager_user_id']] = (int)$cRow['team_size'];
+    }
+
+    foreach ($rows as &$row) {
+        $uid = (int)($row['user_id'] ?? 0);
+        $row['team_size'] = $uid > 0 ? ($teamCounts[$uid] ?? 0) : 0;
+    }
+    unset($row);
+
+    jsonSuccess($rows);
+}
+
 function listAssignments(array $query): void
 {
     $user = requireAuth(['admin', 'organizer', 'manager', 'staff']);
@@ -396,6 +482,7 @@ function listAssignments(array $query): void
 
     $requestedSector = normalizeSector((string)($query['sector'] ?? ''));
     $requestedRoleId = (int)($query['role_id'] ?? 0);
+    $managerUserId = (int)($query['manager_user_id'] ?? 0);
     $hasRoleSettings = tableExists($db, 'workforce_role_settings');
     $effectiveSector = null;
 
@@ -405,14 +492,20 @@ function listAssignments(array $query): void
         $effectiveSector = $userSector !== 'all' ? $userSector : ($requestedSector ?: null);
     }
 
-    $whereSector = '';
+    $whereParams = '';
     $params = [':evt_id' => $eventId, ':org_id' => $organizerId];
+
     if ($effectiveSector) {
-        $whereSector = ' AND LOWER(COALESCE(wa.sector, \'\')) = :sector';
+        $whereParams .= ' AND LOWER(COALESCE(wa.sector, \'\')) = :sector';
         $params[':sector'] = $effectiveSector;
     }
     if ($requestedRoleId > 0) {
+        $whereParams .= ' AND wa.role_id = :role_id';
         $params[':role_id'] = $requestedRoleId;
+    }
+    if ($managerUserId > 0) {
+        $whereParams .= ' AND wa.manager_user_id = :manager_user_id';
+        $params[':manager_user_id'] = $managerUserId;
     }
 
     $maxShiftsExpr = $hasRoleSettings
@@ -431,8 +524,10 @@ function listAssignments(array $query): void
         ? "COALESCE(wrs.cost_bucket, 'operational')"
         : "'operational'";
     $sql = "
-        SELECT wa.id, wa.sector, wa.created_at,
-               ep.id as participant_id, ep.qr_token, p.name as person_name, p.phone,
+        SELECT wa.id, wa.sector, wa.created_at, wa.manager_user_id,
+               ep.id as participant_id, ep.category_id, ep.qr_token,
+               p.name as person_name, p.name as name,
+               p.email as person_email, p.email as email, p.phone,
                r.id as role_id, r.name as role_name,
                es.id as shift_id, es.name as shift_name, ed.date as shift_date,
                {$maxShiftsExpr}::int AS max_shifts_event,
@@ -449,8 +544,7 @@ function listAssignments(array $query): void
         LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
         " . ($hasRoleSettings ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id AND wrs.organizer_id = :org_id" : "") . "
         WHERE ep.event_id = :evt_id AND p.organizer_id = :org_id
-        {$whereSector}
-        " . ($requestedRoleId > 0 ? " AND wa.role_id = :role_id" : "") . "
+        {$whereParams}
         ORDER BY p.name ASC
     ";
 
@@ -488,6 +582,7 @@ function createAssignment(array $body): void
     $roleId = $body['role_id'] ?? null;
     $sector = normalizeSector((string)($body['sector'] ?? ''));
     $eventShiftId = $body['event_shift_id'] ?? null;
+    $requestedManagerUserId = (int)($body['manager_user_id'] ?? 0);
 
     if (!$participantId || !$roleId) {
         jsonError('Dados necessários: participant_id, role_id.', 400);
@@ -504,12 +599,15 @@ function createAssignment(array $body): void
 
     // Validate Participant
     $stmtPart = $db->prepare("
-        SELECT e.id FROM event_participants ep
+        SELECT e.id AS event_id FROM event_participants ep
         JOIN events e ON e.id = ep.event_id
         WHERE ep.id = ? AND e.organizer_id = ?
+        LIMIT 1
     ");
     $stmtPart->execute([$participantId, $organizerId]);
-    if (!$stmtPart->fetchColumn()) jsonError('Participante inválido ou não peretence ao tenant.', 403);
+    $participantRow = $stmtPart->fetch(PDO::FETCH_ASSOC);
+    if (!$participantRow) jsonError('Participante inválido ou não peretence ao tenant.', 403);
+    $eventId = (int)($participantRow['event_id'] ?? 0);
     ensureParticipantQrToken($db, (int)$participantId);
 
     // Validate Role
@@ -537,6 +635,19 @@ function createAssignment(array $body): void
 
     if (columnExists($db, 'workforce_assignments', 'manager_user_id') && columnExists($db, 'workforce_assignments', 'source_file_name')) {
         $managerUserId = $canBypassSector ? null : (int)($user['id'] ?? 0);
+        if ($requestedManagerUserId > 0) {
+            if (!$canBypassSector && (int)($user['id'] ?? 0) !== $requestedManagerUserId) {
+                jsonError('Você só pode alocar equipe vinculada à sua própria liderança.', 403);
+            }
+            $managerContext = findManagerContextForEvent($db, $organizerId, $eventId, $requestedManagerUserId, $sector ?: $roleSector);
+            if (!$managerContext) {
+                jsonError('Gerente inválido para este evento/setor.', 422);
+            }
+            $managerUserId = $requestedManagerUserId;
+            if (!$sector && !empty($managerContext['sector'])) {
+                $sector = normalizeSector((string)$managerContext['sector']);
+            }
+        }
         $stmt = $db->prepare("
             INSERT INTO workforce_assignments (participant_id, role_id, sector, event_shift_id, manager_user_id, source_file_name, created_at)
             VALUES (?, ?, ?, ?, ?, ?, NOW())
@@ -743,11 +854,24 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
     $assignedRole = getRoleById($db, $organizerId, $defaultRoleId);
     $assignedRoleName = (string)($assignedRole['name'] ?? ('Equipe ' . strtoupper($targetSector ?: 'GERAL')));
     $defaultCategoryId = resolveDefaultCategoryId($db, $organizerId);
+    $supportsManagerBinding = columnExists($db, 'workforce_assignments', 'manager_user_id') && columnExists($db, 'workforce_assignments', 'source_file_name');
     $managerUserId = $canBypassSector ? null : (int)($user['id'] ?? 0);
+    $forcedManagerId = (int)($body['forced_manager_user_id'] ?? 0);
+    if ($forcedManagerId > 0) {
+        if (!$canBypassSector && (int)($user['id'] ?? 0) !== $forcedManagerId) {
+            jsonError('Você só pode importar equipe vinculada à sua própria liderança.', 403);
+        }
+        $managerContext = findManagerContextForEvent($db, $organizerId, $eventId, $forcedManagerId, $targetSector);
+        if (!$managerContext) {
+            jsonError('Gerente inválido para este evento/setor.', 422);
+        }
+        $managerUserId = $forcedManagerId;
+    }
     $source = $fileName ?: 'workforce_import.csv';
 
     $imported = 0;
     $assigned = 0;
+    $relinked = 0;
     $skipped = 0;
     $errors = [];
 
@@ -801,7 +925,7 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
             $existingAssignmentId = $stmtExistingAssignment->fetchColumn();
 
             if (!$existingAssignmentId) {
-                if (columnExists($db, 'workforce_assignments', 'manager_user_id') && columnExists($db, 'workforce_assignments', 'source_file_name')) {
+                if ($supportsManagerBinding) {
                     $stmtAssign = $db->prepare("
                         INSERT INTO workforce_assignments (participant_id, role_id, sector, event_shift_id, manager_user_id, source_file_name, created_at)
                         VALUES (?, ?, ?, NULL, ?, ?, NOW())
@@ -815,6 +939,29 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
                     $stmtAssign->execute([$participantId, $defaultRoleId, $targetSector]);
                 }
                 $assigned++;
+                continue;
+            }
+
+            if ($supportsManagerBinding && $managerUserId !== null) {
+                $stmtRebind = $db->prepare("
+                    UPDATE workforce_assignments
+                    SET manager_user_id = ?, source_file_name = ?
+                    WHERE id = ?
+                      AND (
+                          COALESCE(manager_user_id, 0) <> ?
+                          OR COALESCE(source_file_name, '') <> ?
+                      )
+                ");
+                $stmtRebind->execute([
+                    $managerUserId ?: null,
+                    $source,
+                    $existingAssignmentId,
+                    $managerUserId,
+                    $source
+                ]);
+                if ($stmtRebind->rowCount() > 0) {
+                    $relinked++;
+                }
             }
         }
 
@@ -836,11 +983,60 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
         'managerial_redirect' => $managerialRedirect,
         'imported' => $imported,
         'assigned' => $assigned,
+        'relinked' => $relinked,
         'skipped' => $skipped,
         'errors' => $errors
     ], $managerialRedirect
         ? "Importação concluída no cargo operacional '{$assignedRoleName}'. O cargo gerencial '{$requestedRoleName}' foi preservado apenas para a liderança do setor."
         : "Importação concluída para o setor '{$targetSector}'.");
+}
+
+function findManagerContextForEvent(PDO $db, int $organizerId, int $eventId, int $managerUserId, string $sector = ''): ?array
+{
+    if ($managerUserId <= 0 || $eventId <= 0) {
+        return null;
+    }
+
+    $hasRoleSettings = tableExists($db, 'workforce_role_settings');
+    $bucketExpr = $hasRoleSettings
+        ? "COALESCE(wrs.cost_bucket, 'operational')"
+        : "'operational'";
+
+    $sectorFilter = '';
+    $params = [
+        ':event_id' => $eventId,
+        ':organizer_id' => $organizerId,
+        ':manager_user_id' => $managerUserId
+    ];
+    if ($sector !== '') {
+        $sectorFilter = " AND LOWER(COALESCE(wa.sector, '')) = :sector";
+        $params[':sector'] = normalizeSector($sector);
+    }
+
+    $stmt = $db->prepare("
+        SELECT
+            ep.id AS participant_id,
+            COALESCE(wa.manager_user_id, u.id) AS user_id,
+            wa.sector
+        FROM workforce_assignments wa
+        JOIN event_participants ep ON ep.id = wa.participant_id
+        JOIN people p ON p.id = ep.person_id
+        JOIN workforce_roles r ON r.id = wa.role_id
+        LEFT JOIN users u
+               ON LOWER(TRIM(COALESCE(u.email, ''))) = LOWER(TRIM(COALESCE(p.email, '')))
+              AND (u.organizer_id = :organizer_id OR u.id = :organizer_id)
+        " . ($hasRoleSettings ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id AND wrs.organizer_id = :organizer_id" : "") . "
+        WHERE ep.event_id = :event_id
+          AND p.organizer_id = :organizer_id
+          AND {$bucketExpr} = 'managerial'
+          AND COALESCE(wa.manager_user_id, u.id) = :manager_user_id
+          {$sectorFilter}
+        ORDER BY ep.id ASC
+        LIMIT 1
+    ");
+    $stmt->execute($params);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
 }
 
 function resolveOrganizerId(array $user): int

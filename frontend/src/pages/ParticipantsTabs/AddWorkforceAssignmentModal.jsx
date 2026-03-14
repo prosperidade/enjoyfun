@@ -17,7 +17,9 @@ export default function AddWorkforceAssignmentModal({
   onAdded,
   presetRoleId = "",
   presetSector = "",
-  lockRole = false
+  lockRole = false,
+  lockSector = false,
+  managerUserId = null
 }) {
   const [loading, setLoading] = useState(false);
   const [staffList, setStaffList] = useState([]);
@@ -127,7 +129,8 @@ export default function AddWorkforceAssignmentModal({
         participant_id: formData.participant_id,
         role_id: finalRoleId,
         sector: formData.sector,
-        event_shift_id: formData.event_shift_id || null
+        event_shift_id: formData.event_shift_id || null,
+        manager_user_id: managerUserId || undefined
       });
 
       toast.success("Staff alocado com sucesso!");
@@ -244,6 +247,7 @@ export default function AddWorkforceAssignmentModal({
                 placeholder="Ex: Bar Alpha, Palco Principal, Acessos..."
                 className="input w-full bg-gray-800 border-gray-700 h-12 text-sm font-medium focus:border-brand/40" 
                 value={formData.sector}
+                disabled={lockSector}
                 onChange={e => setFormData({...formData, sector: e.target.value})}
               />
             </div>

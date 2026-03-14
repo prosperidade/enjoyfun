@@ -1,12 +1,8 @@
 --
--- LEGACY HISTORICAL SNAPSHOT
--- DO NOT USE AS BASELINE. USE database/schema_current.sql.
---
---
 -- PostgreSQL database dump
 --
 
-\restrict G8bGWl4X5HhrDccJ3wUd56GRUDLyendLalCSV4PAJg2RJPK7MPPYrPE8wbm7xYa
+\restrict urBGbC0AVF0k4hgkSUOkRoX7Sje23HnZRAH4nfzmfZ85IztELJxTBuuZSJARXe6
 
 -- Dumped from database version 18.2
 -- Dumped by pg_dump version 18.2
@@ -31,7 +27,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: 
+-- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: -
 --
 
 COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
@@ -45,14 +41,14 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner: 
+-- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner: -
 --
 
 COMMENT ON EXTENSION "uuid-ossp" IS 'generate universally unique identifiers (UUIDs)';
 
 
 --
--- Name: audit_log_immutable(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: audit_log_immutable(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.audit_log_immutable() RETURNS trigger
@@ -60,10 +56,8 @@ CREATE FUNCTION public.audit_log_immutable() RETURNS trigger
     AS $$ BEGIN RAISE EXCEPTION 'audit_log e append-only. Operacao % nao permitida.', TG_OP; END; $$;
 
 
-ALTER FUNCTION public.audit_log_immutable() OWNER TO postgres;
-
 --
--- Name: update_timestamp(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: update_timestamp(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.update_timestamp() RETURNS trigger
@@ -71,10 +65,8 @@ CREATE FUNCTION public.update_timestamp() RETURNS trigger
     AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$;
 
 
-ALTER FUNCTION public.update_timestamp() OWNER TO postgres;
-
 --
--- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
@@ -87,14 +79,12 @@ END;
 $$;
 
 
-ALTER FUNCTION public.update_updated_at_column() OWNER TO postgres;
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: ai_usage_logs; Type: TABLE; Schema: public; Owner: postgres
+-- Name: ai_usage_logs; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.ai_usage_logs (
@@ -112,10 +102,8 @@ CREATE TABLE public.ai_usage_logs (
 );
 
 
-ALTER TABLE public.ai_usage_logs OWNER TO postgres;
-
 --
--- Name: ai_usage_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: ai_usage_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.ai_usage_logs_id_seq
@@ -127,17 +115,15 @@ CREATE SEQUENCE public.ai_usage_logs_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.ai_usage_logs_id_seq OWNER TO postgres;
-
 --
--- Name: ai_usage_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: ai_usage_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.ai_usage_logs_id_seq OWNED BY public.ai_usage_logs.id;
 
 
 --
--- Name: audit_log; Type: TABLE; Schema: public; Owner: postgres
+-- Name: audit_log; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.audit_log (
@@ -161,10 +147,8 @@ CREATE TABLE public.audit_log (
 );
 
 
-ALTER TABLE public.audit_log OWNER TO postgres;
-
 --
--- Name: audit_log_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: audit_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.audit_log_id_seq
@@ -175,17 +159,15 @@ CREATE SEQUENCE public.audit_log_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.audit_log_id_seq OWNER TO postgres;
-
 --
--- Name: audit_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: audit_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.audit_log_id_seq OWNED BY public.audit_log.id;
 
 
 --
--- Name: card_transactions; Type: TABLE; Schema: public; Owner: postgres
+-- Name: card_transactions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.card_transactions (
@@ -208,10 +190,8 @@ CREATE TABLE public.card_transactions (
 );
 
 
-ALTER TABLE public.card_transactions OWNER TO postgres;
-
 --
--- Name: card_transactions_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: card_transactions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.card_transactions_id_seq
@@ -223,17 +203,57 @@ CREATE SEQUENCE public.card_transactions_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.card_transactions_id_seq OWNER TO postgres;
-
 --
--- Name: card_transactions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: card_transactions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.card_transactions_id_seq OWNED BY public.card_transactions.id;
 
 
 --
--- Name: dashboard_snapshots; Type: TABLE; Schema: public; Owner: postgres
+-- Name: commissaries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.commissaries (
+    id integer NOT NULL,
+    organizer_id integer NOT NULL,
+    event_id integer NOT NULL,
+    name character varying(120) NOT NULL,
+    email character varying(160),
+    phone character varying(40),
+    status character varying(20) DEFAULT 'active'::character varying NOT NULL,
+    commission_mode character varying(20) DEFAULT 'percent'::character varying NOT NULL,
+    commission_value numeric(10,2) DEFAULT 0.00 NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_commissaries_mode CHECK (((commission_mode)::text = ANY ((ARRAY['percent'::character varying, 'fixed'::character varying])::text[]))),
+    CONSTRAINT chk_commissaries_status CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying])::text[]))),
+    CONSTRAINT chk_commissaries_value_non_negative CHECK ((commission_value >= (0)::numeric))
+);
+
+
+--
+-- Name: commissaries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.commissaries_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: commissaries_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.commissaries_id_seq OWNED BY public.commissaries.id;
+
+
+--
+-- Name: dashboard_snapshots; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.dashboard_snapshots (
@@ -247,10 +267,8 @@ CREATE TABLE public.dashboard_snapshots (
 );
 
 
-ALTER TABLE public.dashboard_snapshots OWNER TO postgres;
-
 --
--- Name: dashboard_snapshots_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: dashboard_snapshots_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.dashboard_snapshots_id_seq
@@ -262,17 +280,15 @@ CREATE SEQUENCE public.dashboard_snapshots_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.dashboard_snapshots_id_seq OWNER TO postgres;
-
 --
--- Name: dashboard_snapshots_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: dashboard_snapshots_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.dashboard_snapshots_id_seq OWNED BY public.dashboard_snapshots.id;
 
 
 --
--- Name: digital_cards; Type: TABLE; Schema: public; Owner: postgres
+-- Name: digital_cards; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.digital_cards (
@@ -286,10 +302,8 @@ CREATE TABLE public.digital_cards (
 );
 
 
-ALTER TABLE public.digital_cards OWNER TO postgres;
-
 --
--- Name: event_days; Type: TABLE; Schema: public; Owner: postgres
+-- Name: event_days; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.event_days (
@@ -302,10 +316,8 @@ CREATE TABLE public.event_days (
 );
 
 
-ALTER TABLE public.event_days OWNER TO postgres;
-
 --
--- Name: event_days_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: event_days_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.event_days_id_seq
@@ -317,17 +329,15 @@ CREATE SEQUENCE public.event_days_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.event_days_id_seq OWNER TO postgres;
-
 --
--- Name: event_days_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: event_days_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.event_days_id_seq OWNED BY public.event_days.id;
 
 
 --
--- Name: event_participants; Type: TABLE; Schema: public; Owner: postgres
+-- Name: event_participants; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.event_participants (
@@ -342,10 +352,8 @@ CREATE TABLE public.event_participants (
 );
 
 
-ALTER TABLE public.event_participants OWNER TO postgres;
-
 --
--- Name: event_participants_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: event_participants_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.event_participants_id_seq
@@ -357,17 +365,15 @@ CREATE SEQUENCE public.event_participants_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.event_participants_id_seq OWNER TO postgres;
-
 --
--- Name: event_participants_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: event_participants_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.event_participants_id_seq OWNED BY public.event_participants.id;
 
 
 --
--- Name: event_shifts; Type: TABLE; Schema: public; Owner: postgres
+-- Name: event_shifts; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.event_shifts (
@@ -380,10 +386,8 @@ CREATE TABLE public.event_shifts (
 );
 
 
-ALTER TABLE public.event_shifts OWNER TO postgres;
-
 --
--- Name: event_shifts_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: event_shifts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.event_shifts_id_seq
@@ -395,17 +399,15 @@ CREATE SEQUENCE public.event_shifts_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.event_shifts_id_seq OWNER TO postgres;
-
 --
--- Name: event_shifts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: event_shifts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.event_shifts_id_seq OWNED BY public.event_shifts.id;
 
 
 --
--- Name: events; Type: TABLE; Schema: public; Owner: postgres
+-- Name: events; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.events (
@@ -428,10 +430,8 @@ CREATE TABLE public.events (
 );
 
 
-ALTER TABLE public.events OWNER TO postgres;
-
 --
--- Name: events_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.events_id_seq
@@ -443,17 +443,15 @@ CREATE SEQUENCE public.events_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.events_id_seq OWNER TO postgres;
-
 --
--- Name: events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.events_id_seq OWNED BY public.events.id;
 
 
 --
--- Name: guests; Type: TABLE; Schema: public; Owner: postgres
+-- Name: guests; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.guests (
@@ -472,10 +470,8 @@ CREATE TABLE public.guests (
 );
 
 
-ALTER TABLE public.guests OWNER TO postgres;
-
 --
--- Name: guests_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: guests_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.guests_id_seq
@@ -487,17 +483,15 @@ CREATE SEQUENCE public.guests_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.guests_id_seq OWNER TO postgres;
-
 --
--- Name: guests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: guests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.guests_id_seq OWNED BY public.guests.id;
 
 
 --
--- Name: offline_queue; Type: TABLE; Schema: public; Owner: postgres
+-- Name: offline_queue; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.offline_queue (
@@ -514,10 +508,8 @@ CREATE TABLE public.offline_queue (
 );
 
 
-ALTER TABLE public.offline_queue OWNER TO postgres;
-
 --
--- Name: offline_queue_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: offline_queue_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.offline_queue_id_seq
@@ -529,17 +521,15 @@ CREATE SEQUENCE public.offline_queue_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.offline_queue_id_seq OWNER TO postgres;
-
 --
--- Name: offline_queue_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: offline_queue_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.offline_queue_id_seq OWNED BY public.offline_queue.id;
 
 
 --
--- Name: organizer_ai_config; Type: TABLE; Schema: public; Owner: postgres
+-- Name: organizer_ai_config; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.organizer_ai_config (
@@ -553,10 +543,8 @@ CREATE TABLE public.organizer_ai_config (
 );
 
 
-ALTER TABLE public.organizer_ai_config OWNER TO postgres;
-
 --
--- Name: organizer_ai_config_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: organizer_ai_config_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.organizer_ai_config_id_seq
@@ -568,17 +556,15 @@ CREATE SEQUENCE public.organizer_ai_config_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.organizer_ai_config_id_seq OWNER TO postgres;
-
 --
--- Name: organizer_ai_config_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: organizer_ai_config_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.organizer_ai_config_id_seq OWNED BY public.organizer_ai_config.id;
 
 
 --
--- Name: organizer_channels; Type: TABLE; Schema: public; Owner: postgres
+-- Name: organizer_channels; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.organizer_channels (
@@ -592,10 +578,8 @@ CREATE TABLE public.organizer_channels (
 );
 
 
-ALTER TABLE public.organizer_channels OWNER TO postgres;
-
 --
--- Name: organizer_channels_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: organizer_channels_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.organizer_channels_id_seq
@@ -607,17 +591,15 @@ CREATE SEQUENCE public.organizer_channels_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.organizer_channels_id_seq OWNER TO postgres;
-
 --
--- Name: organizer_channels_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: organizer_channels_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.organizer_channels_id_seq OWNED BY public.organizer_channels.id;
 
 
 --
--- Name: organizer_financial_settings; Type: TABLE; Schema: public; Owner: postgres
+-- Name: organizer_financial_settings; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.organizer_financial_settings (
@@ -626,14 +608,13 @@ CREATE TABLE public.organizer_financial_settings (
     currency character varying(10) DEFAULT 'BRL'::character varying,
     tax_rate numeric(5,2) DEFAULT 0.00,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    meal_unit_cost numeric(12,2) DEFAULT 0.00 NOT NULL
 );
 
 
-ALTER TABLE public.organizer_financial_settings OWNER TO postgres;
-
 --
--- Name: organizer_financial_settings_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: organizer_financial_settings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.organizer_financial_settings_id_seq
@@ -645,17 +626,15 @@ CREATE SEQUENCE public.organizer_financial_settings_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.organizer_financial_settings_id_seq OWNER TO postgres;
-
 --
--- Name: organizer_financial_settings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: organizer_financial_settings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.organizer_financial_settings_id_seq OWNED BY public.organizer_financial_settings.id;
 
 
 --
--- Name: organizer_payment_gateways; Type: TABLE; Schema: public; Owner: postgres
+-- Name: organizer_payment_gateways; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.organizer_payment_gateways (
@@ -669,10 +648,8 @@ CREATE TABLE public.organizer_payment_gateways (
 );
 
 
-ALTER TABLE public.organizer_payment_gateways OWNER TO postgres;
-
 --
--- Name: organizer_payment_gateways_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: organizer_payment_gateways_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.organizer_payment_gateways_id_seq
@@ -684,17 +661,15 @@ CREATE SEQUENCE public.organizer_payment_gateways_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.organizer_payment_gateways_id_seq OWNER TO postgres;
-
 --
--- Name: organizer_payment_gateways_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: organizer_payment_gateways_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.organizer_payment_gateways_id_seq OWNED BY public.organizer_payment_gateways.id;
 
 
 --
--- Name: organizer_settings; Type: TABLE; Schema: public; Owner: postgres
+-- Name: organizer_settings; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.organizer_settings (
@@ -719,10 +694,8 @@ CREATE TABLE public.organizer_settings (
 );
 
 
-ALTER TABLE public.organizer_settings OWNER TO postgres;
-
 --
--- Name: otp_codes; Type: TABLE; Schema: public; Owner: postgres
+-- Name: otp_codes; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.otp_codes (
@@ -734,10 +707,8 @@ CREATE TABLE public.otp_codes (
 );
 
 
-ALTER TABLE public.otp_codes OWNER TO postgres;
-
 --
--- Name: otp_codes_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: otp_codes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.otp_codes_id_seq
@@ -749,17 +720,15 @@ CREATE SEQUENCE public.otp_codes_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.otp_codes_id_seq OWNER TO postgres;
-
 --
--- Name: otp_codes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: otp_codes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.otp_codes_id_seq OWNED BY public.otp_codes.id;
 
 
 --
--- Name: parking_records; Type: TABLE; Schema: public; Owner: postgres
+-- Name: parking_records; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.parking_records (
@@ -782,10 +751,8 @@ CREATE TABLE public.parking_records (
 );
 
 
-ALTER TABLE public.parking_records OWNER TO postgres;
-
 --
--- Name: parking_records_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: parking_records_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.parking_records_id_seq
@@ -797,17 +764,15 @@ CREATE SEQUENCE public.parking_records_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.parking_records_id_seq OWNER TO postgres;
-
 --
--- Name: parking_records_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: parking_records_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.parking_records_id_seq OWNED BY public.parking_records.id;
 
 
 --
--- Name: participant_access_rules; Type: TABLE; Schema: public; Owner: postgres
+-- Name: participant_access_rules; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.participant_access_rules (
@@ -820,10 +785,8 @@ CREATE TABLE public.participant_access_rules (
 );
 
 
-ALTER TABLE public.participant_access_rules OWNER TO postgres;
-
 --
--- Name: participant_access_rules_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: participant_access_rules_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.participant_access_rules_id_seq
@@ -835,17 +798,15 @@ CREATE SEQUENCE public.participant_access_rules_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.participant_access_rules_id_seq OWNER TO postgres;
-
 --
--- Name: participant_access_rules_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: participant_access_rules_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.participant_access_rules_id_seq OWNED BY public.participant_access_rules.id;
 
 
 --
--- Name: participant_categories; Type: TABLE; Schema: public; Owner: postgres
+-- Name: participant_categories; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.participant_categories (
@@ -857,10 +818,8 @@ CREATE TABLE public.participant_categories (
 );
 
 
-ALTER TABLE public.participant_categories OWNER TO postgres;
-
 --
--- Name: participant_categories_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: participant_categories_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.participant_categories_id_seq
@@ -872,17 +831,15 @@ CREATE SEQUENCE public.participant_categories_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.participant_categories_id_seq OWNER TO postgres;
-
 --
--- Name: participant_categories_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: participant_categories_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.participant_categories_id_seq OWNED BY public.participant_categories.id;
 
 
 --
--- Name: participant_checkins; Type: TABLE; Schema: public; Owner: postgres
+-- Name: participant_checkins; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.participant_checkins (
@@ -894,10 +851,8 @@ CREATE TABLE public.participant_checkins (
 );
 
 
-ALTER TABLE public.participant_checkins OWNER TO postgres;
-
 --
--- Name: participant_checkins_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: participant_checkins_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.participant_checkins_id_seq
@@ -909,17 +864,15 @@ CREATE SEQUENCE public.participant_checkins_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.participant_checkins_id_seq OWNER TO postgres;
-
 --
--- Name: participant_checkins_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: participant_checkins_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.participant_checkins_id_seq OWNED BY public.participant_checkins.id;
 
 
 --
--- Name: participant_meals; Type: TABLE; Schema: public; Owner: postgres
+-- Name: participant_meals; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.participant_meals (
@@ -931,10 +884,8 @@ CREATE TABLE public.participant_meals (
 );
 
 
-ALTER TABLE public.participant_meals OWNER TO postgres;
-
 --
--- Name: participant_meals_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: participant_meals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.participant_meals_id_seq
@@ -946,17 +897,15 @@ CREATE SEQUENCE public.participant_meals_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.participant_meals_id_seq OWNER TO postgres;
-
 --
--- Name: participant_meals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: participant_meals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.participant_meals_id_seq OWNED BY public.participant_meals.id;
 
 
 --
--- Name: people; Type: TABLE; Schema: public; Owner: postgres
+-- Name: people; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.people (
@@ -971,10 +920,8 @@ CREATE TABLE public.people (
 );
 
 
-ALTER TABLE public.people OWNER TO postgres;
-
 --
--- Name: people_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: people_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.people_id_seq
@@ -986,17 +933,15 @@ CREATE SEQUENCE public.people_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.people_id_seq OWNER TO postgres;
-
 --
--- Name: people_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: people_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.people_id_seq OWNED BY public.people.id;
 
 
 --
--- Name: products; Type: TABLE; Schema: public; Owner: postgres
+-- Name: products; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.products (
@@ -1014,10 +959,8 @@ CREATE TABLE public.products (
 );
 
 
-ALTER TABLE public.products OWNER TO postgres;
-
 --
--- Name: products_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: products_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.products_id_seq
@@ -1029,17 +972,15 @@ CREATE SEQUENCE public.products_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.products_id_seq OWNER TO postgres;
-
 --
--- Name: products_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: products_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.products_id_seq OWNED BY public.products.id;
 
 
 --
--- Name: refresh_tokens; Type: TABLE; Schema: public; Owner: postgres
+-- Name: refresh_tokens; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.refresh_tokens (
@@ -1051,10 +992,8 @@ CREATE TABLE public.refresh_tokens (
 );
 
 
-ALTER TABLE public.refresh_tokens OWNER TO postgres;
-
 --
--- Name: refresh_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: refresh_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.refresh_tokens_id_seq
@@ -1065,17 +1004,15 @@ CREATE SEQUENCE public.refresh_tokens_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.refresh_tokens_id_seq OWNER TO postgres;
-
 --
--- Name: refresh_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: refresh_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.refresh_tokens_id_seq OWNED BY public.refresh_tokens.id;
 
 
 --
--- Name: roles; Type: TABLE; Schema: public; Owner: postgres
+-- Name: roles; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.roles (
@@ -1084,10 +1021,8 @@ CREATE TABLE public.roles (
 );
 
 
-ALTER TABLE public.roles OWNER TO postgres;
-
 --
--- Name: roles_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: roles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.roles_id_seq
@@ -1099,17 +1034,15 @@ CREATE SEQUENCE public.roles_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.roles_id_seq OWNER TO postgres;
-
 --
--- Name: roles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: roles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.roles_id_seq OWNED BY public.roles.id;
 
 
 --
--- Name: sale_items; Type: TABLE; Schema: public; Owner: postgres
+-- Name: sale_items; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.sale_items (
@@ -1122,10 +1055,8 @@ CREATE TABLE public.sale_items (
 );
 
 
-ALTER TABLE public.sale_items OWNER TO postgres;
-
 --
--- Name: sale_items_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: sale_items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.sale_items_id_seq
@@ -1137,17 +1068,15 @@ CREATE SEQUENCE public.sale_items_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.sale_items_id_seq OWNER TO postgres;
-
 --
--- Name: sale_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: sale_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.sale_items_id_seq OWNED BY public.sale_items.id;
 
 
 --
--- Name: sales; Type: TABLE; Schema: public; Owner: postgres
+-- Name: sales; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.sales (
@@ -1169,10 +1098,8 @@ CREATE TABLE public.sales (
 );
 
 
-ALTER TABLE public.sales OWNER TO postgres;
-
 --
--- Name: sales_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: sales_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.sales_id_seq
@@ -1184,17 +1111,99 @@ CREATE SEQUENCE public.sales_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.sales_id_seq OWNER TO postgres;
-
 --
--- Name: sales_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: sales_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.sales_id_seq OWNED BY public.sales.id;
 
 
 --
--- Name: ticket_types; Type: TABLE; Schema: public; Owner: postgres
+-- Name: ticket_batches; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ticket_batches (
+    id integer NOT NULL,
+    organizer_id integer NOT NULL,
+    event_id integer NOT NULL,
+    ticket_type_id integer,
+    name character varying(120) NOT NULL,
+    code character varying(40),
+    price numeric(10,2) DEFAULT 0.00 NOT NULL,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone,
+    quantity_total integer,
+    quantity_sold integer DEFAULT 0 NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_ticket_batches_qty_bounds CHECK (((quantity_total IS NULL) OR (quantity_sold <= quantity_total))),
+    CONSTRAINT chk_ticket_batches_qty_non_negative CHECK (((quantity_sold >= 0) AND ((quantity_total IS NULL) OR (quantity_total >= 0))))
+);
+
+
+--
+-- Name: ticket_batches_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.ticket_batches_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: ticket_batches_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.ticket_batches_id_seq OWNED BY public.ticket_batches.id;
+
+
+--
+-- Name: ticket_commissions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ticket_commissions (
+    id integer NOT NULL,
+    organizer_id integer NOT NULL,
+    event_id integer NOT NULL,
+    ticket_id integer NOT NULL,
+    commissary_id integer NOT NULL,
+    base_amount numeric(10,2) DEFAULT 0.00 NOT NULL,
+    commission_mode character varying(20) NOT NULL,
+    commission_value numeric(10,2) DEFAULT 0.00 NOT NULL,
+    commission_amount numeric(10,2) DEFAULT 0.00 NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_ticket_commissions_mode CHECK (((commission_mode)::text = ANY ((ARRAY['percent'::character varying, 'fixed'::character varying])::text[]))),
+    CONSTRAINT chk_ticket_commissions_non_negative CHECK (((base_amount >= (0)::numeric) AND (commission_value >= (0)::numeric) AND (commission_amount >= (0)::numeric)))
+);
+
+
+--
+-- Name: ticket_commissions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.ticket_commissions_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: ticket_commissions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.ticket_commissions_id_seq OWNED BY public.ticket_commissions.id;
+
+
+--
+-- Name: ticket_types; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.ticket_types (
@@ -1208,10 +1217,8 @@ CREATE TABLE public.ticket_types (
 );
 
 
-ALTER TABLE public.ticket_types OWNER TO postgres;
-
 --
--- Name: ticket_types_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: ticket_types_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.ticket_types_id_seq
@@ -1223,17 +1230,15 @@ CREATE SEQUENCE public.ticket_types_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.ticket_types_id_seq OWNER TO postgres;
-
 --
--- Name: ticket_types_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: ticket_types_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.ticket_types_id_seq OWNED BY public.ticket_types.id;
 
 
 --
--- Name: tickets; Type: TABLE; Schema: public; Owner: postgres
+-- Name: tickets; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.tickets (
@@ -1253,14 +1258,14 @@ CREATE TABLE public.tickets (
     holder_email character varying(150),
     holder_phone character varying(30),
     purchased_at timestamp without time zone DEFAULT now(),
-    organizer_id integer
+    organizer_id integer,
+    ticket_batch_id integer,
+    commissary_id integer
 );
 
 
-ALTER TABLE public.tickets OWNER TO postgres;
-
 --
--- Name: tickets_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: tickets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.tickets_id_seq
@@ -1272,17 +1277,15 @@ CREATE SEQUENCE public.tickets_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.tickets_id_seq OWNER TO postgres;
-
 --
--- Name: tickets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: tickets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.tickets_id_seq OWNED BY public.tickets.id;
 
 
 --
--- Name: user_roles; Type: TABLE; Schema: public; Owner: postgres
+-- Name: user_roles; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.user_roles (
@@ -1291,10 +1294,8 @@ CREATE TABLE public.user_roles (
 );
 
 
-ALTER TABLE public.user_roles OWNER TO postgres;
-
 --
--- Name: users; Type: TABLE; Schema: public; Owner: postgres
+-- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.users (
@@ -1314,10 +1315,8 @@ CREATE TABLE public.users (
 );
 
 
-ALTER TABLE public.users OWNER TO postgres;
-
 --
--- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.users_id_seq
@@ -1329,17 +1328,15 @@ CREATE SEQUENCE public.users_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.users_id_seq OWNER TO postgres;
-
 --
--- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 
 --
--- Name: vendors; Type: TABLE; Schema: public; Owner: postgres
+-- Name: vendors; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.vendors (
@@ -1352,10 +1349,8 @@ CREATE TABLE public.vendors (
 );
 
 
-ALTER TABLE public.vendors OWNER TO postgres;
-
 --
--- Name: vendors_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: vendors_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.vendors_id_seq
@@ -1367,17 +1362,15 @@ CREATE SEQUENCE public.vendors_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.vendors_id_seq OWNER TO postgres;
-
 --
--- Name: vendors_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: vendors_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.vendors_id_seq OWNED BY public.vendors.id;
 
 
 --
--- Name: workforce_assignments; Type: TABLE; Schema: public; Owner: postgres
+-- Name: workforce_assignments; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.workforce_assignments (
@@ -1386,14 +1379,14 @@ CREATE TABLE public.workforce_assignments (
     role_id integer NOT NULL,
     sector character varying(50),
     event_shift_id integer,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    manager_user_id integer,
+    source_file_name character varying(255)
 );
 
 
-ALTER TABLE public.workforce_assignments OWNER TO postgres;
-
 --
--- Name: workforce_assignments_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: workforce_assignments_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.workforce_assignments_id_seq
@@ -1405,31 +1398,105 @@ CREATE SEQUENCE public.workforce_assignments_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.workforce_assignments_id_seq OWNER TO postgres;
-
 --
--- Name: workforce_assignments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: workforce_assignments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.workforce_assignments_id_seq OWNED BY public.workforce_assignments.id;
 
 
 --
--- Name: workforce_roles; Type: TABLE; Schema: public; Owner: postgres
+-- Name: workforce_member_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.workforce_member_settings (
+    id integer NOT NULL,
+    participant_id integer NOT NULL,
+    max_shifts_event integer DEFAULT 1 NOT NULL,
+    shift_hours numeric(5,2) DEFAULT 8.00 NOT NULL,
+    meals_per_day integer DEFAULT 4 NOT NULL,
+    payment_amount numeric(12,2) DEFAULT 0.00 NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- Name: workforce_member_settings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.workforce_member_settings_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: workforce_member_settings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.workforce_member_settings_id_seq OWNED BY public.workforce_member_settings.id;
+
+
+--
+-- Name: workforce_role_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.workforce_role_settings (
+    id integer NOT NULL,
+    organizer_id integer NOT NULL,
+    role_id integer NOT NULL,
+    max_shifts_event integer DEFAULT 1 NOT NULL,
+    shift_hours numeric(10,2) DEFAULT 8 NOT NULL,
+    meals_per_day integer DEFAULT 4 NOT NULL,
+    payment_amount numeric(10,2) DEFAULT 0 NOT NULL,
+    cost_bucket character varying(20) DEFAULT 'operational'::character varying NOT NULL,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now(),
+    leader_name character varying(150),
+    leader_cpf character varying(20),
+    leader_phone character varying(40)
+);
+
+
+--
+-- Name: workforce_role_settings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.workforce_role_settings_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: workforce_role_settings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.workforce_role_settings_id_seq OWNED BY public.workforce_role_settings.id;
+
+
+--
+-- Name: workforce_roles; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.workforce_roles (
     id integer NOT NULL,
     organizer_id integer NOT NULL,
     name character varying(100) NOT NULL,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    sector character varying(50)
 );
 
 
-ALTER TABLE public.workforce_roles OWNER TO postgres;
-
 --
--- Name: workforce_roles_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: workforce_roles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.workforce_roles_id_seq
@@ -1441,241 +1508,274 @@ CREATE SEQUENCE public.workforce_roles_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.workforce_roles_id_seq OWNER TO postgres;
-
 --
--- Name: workforce_roles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: workforce_roles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.workforce_roles_id_seq OWNED BY public.workforce_roles.id;
 
 
 --
--- Name: ai_usage_logs id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: ai_usage_logs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.ai_usage_logs ALTER COLUMN id SET DEFAULT nextval('public.ai_usage_logs_id_seq'::regclass);
 
 
 --
--- Name: audit_log id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: audit_log id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.audit_log ALTER COLUMN id SET DEFAULT nextval('public.audit_log_id_seq'::regclass);
 
 
 --
--- Name: card_transactions id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: card_transactions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.card_transactions ALTER COLUMN id SET DEFAULT nextval('public.card_transactions_id_seq'::regclass);
 
 
 --
--- Name: dashboard_snapshots id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: commissaries id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commissaries ALTER COLUMN id SET DEFAULT nextval('public.commissaries_id_seq'::regclass);
+
+
+--
+-- Name: dashboard_snapshots id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.dashboard_snapshots ALTER COLUMN id SET DEFAULT nextval('public.dashboard_snapshots_id_seq'::regclass);
 
 
 --
--- Name: event_days id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: event_days id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_days ALTER COLUMN id SET DEFAULT nextval('public.event_days_id_seq'::regclass);
 
 
 --
--- Name: event_participants id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: event_participants id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_participants ALTER COLUMN id SET DEFAULT nextval('public.event_participants_id_seq'::regclass);
 
 
 --
--- Name: event_shifts id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: event_shifts id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_shifts ALTER COLUMN id SET DEFAULT nextval('public.event_shifts_id_seq'::regclass);
 
 
 --
--- Name: events id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: events id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events ALTER COLUMN id SET DEFAULT nextval('public.events_id_seq'::regclass);
 
 
 --
--- Name: guests id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: guests id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.guests ALTER COLUMN id SET DEFAULT nextval('public.guests_id_seq'::regclass);
 
 
 --
--- Name: offline_queue id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: offline_queue id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.offline_queue ALTER COLUMN id SET DEFAULT nextval('public.offline_queue_id_seq'::regclass);
 
 
 --
--- Name: organizer_ai_config id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: organizer_ai_config id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_ai_config ALTER COLUMN id SET DEFAULT nextval('public.organizer_ai_config_id_seq'::regclass);
 
 
 --
--- Name: organizer_channels id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: organizer_channels id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_channels ALTER COLUMN id SET DEFAULT nextval('public.organizer_channels_id_seq'::regclass);
 
 
 --
--- Name: organizer_financial_settings id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: organizer_financial_settings id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_financial_settings ALTER COLUMN id SET DEFAULT nextval('public.organizer_financial_settings_id_seq'::regclass);
 
 
 --
--- Name: organizer_payment_gateways id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: organizer_payment_gateways id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_payment_gateways ALTER COLUMN id SET DEFAULT nextval('public.organizer_payment_gateways_id_seq'::regclass);
 
 
 --
--- Name: otp_codes id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: otp_codes id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.otp_codes ALTER COLUMN id SET DEFAULT nextval('public.otp_codes_id_seq'::regclass);
 
 
 --
--- Name: parking_records id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: parking_records id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.parking_records ALTER COLUMN id SET DEFAULT nextval('public.parking_records_id_seq'::regclass);
 
 
 --
--- Name: participant_access_rules id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: participant_access_rules id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_access_rules ALTER COLUMN id SET DEFAULT nextval('public.participant_access_rules_id_seq'::regclass);
 
 
 --
--- Name: participant_categories id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: participant_categories id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_categories ALTER COLUMN id SET DEFAULT nextval('public.participant_categories_id_seq'::regclass);
 
 
 --
--- Name: participant_checkins id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: participant_checkins id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_checkins ALTER COLUMN id SET DEFAULT nextval('public.participant_checkins_id_seq'::regclass);
 
 
 --
--- Name: participant_meals id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: participant_meals id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_meals ALTER COLUMN id SET DEFAULT nextval('public.participant_meals_id_seq'::regclass);
 
 
 --
--- Name: people id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: people id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.people ALTER COLUMN id SET DEFAULT nextval('public.people_id_seq'::regclass);
 
 
 --
--- Name: products id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: products id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.products ALTER COLUMN id SET DEFAULT nextval('public.products_id_seq'::regclass);
 
 
 --
--- Name: refresh_tokens id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: refresh_tokens id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('public.refresh_tokens_id_seq'::regclass);
 
 
 --
--- Name: roles id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: roles id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.roles ALTER COLUMN id SET DEFAULT nextval('public.roles_id_seq'::regclass);
 
 
 --
--- Name: sale_items id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: sale_items id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sale_items ALTER COLUMN id SET DEFAULT nextval('public.sale_items_id_seq'::regclass);
 
 
 --
--- Name: sales id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: sales id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sales ALTER COLUMN id SET DEFAULT nextval('public.sales_id_seq'::regclass);
 
 
 --
--- Name: ticket_types id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: ticket_batches id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ticket_batches ALTER COLUMN id SET DEFAULT nextval('public.ticket_batches_id_seq'::regclass);
+
+
+--
+-- Name: ticket_commissions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ticket_commissions ALTER COLUMN id SET DEFAULT nextval('public.ticket_commissions_id_seq'::regclass);
+
+
+--
+-- Name: ticket_types id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.ticket_types ALTER COLUMN id SET DEFAULT nextval('public.ticket_types_id_seq'::regclass);
 
 
 --
--- Name: tickets id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: tickets id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tickets ALTER COLUMN id SET DEFAULT nextval('public.tickets_id_seq'::regclass);
 
 
 --
--- Name: users id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: users id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
 
 
 --
--- Name: vendors id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: vendors id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.vendors ALTER COLUMN id SET DEFAULT nextval('public.vendors_id_seq'::regclass);
 
 
 --
--- Name: workforce_assignments id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: workforce_assignments id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.workforce_assignments ALTER COLUMN id SET DEFAULT nextval('public.workforce_assignments_id_seq'::regclass);
 
 
 --
--- Name: workforce_roles id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: workforce_member_settings id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workforce_member_settings ALTER COLUMN id SET DEFAULT nextval('public.workforce_member_settings_id_seq'::regclass);
+
+
+--
+-- Name: workforce_role_settings id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workforce_role_settings ALTER COLUMN id SET DEFAULT nextval('public.workforce_role_settings_id_seq'::regclass);
+
+
+--
+-- Name: workforce_roles id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.workforce_roles ALTER COLUMN id SET DEFAULT nextval('public.workforce_roles_id_seq'::regclass);
 
 
 --
--- Name: ai_usage_logs ai_usage_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: ai_usage_logs ai_usage_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.ai_usage_logs
@@ -1683,7 +1783,7 @@ ALTER TABLE ONLY public.ai_usage_logs
 
 
 --
--- Name: audit_log audit_log_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: audit_log audit_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.audit_log
@@ -1691,7 +1791,7 @@ ALTER TABLE ONLY public.audit_log
 
 
 --
--- Name: card_transactions card_transactions_offline_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: card_transactions card_transactions_offline_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.card_transactions
@@ -1699,7 +1799,7 @@ ALTER TABLE ONLY public.card_transactions
 
 
 --
--- Name: card_transactions card_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: card_transactions card_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.card_transactions
@@ -1707,7 +1807,15 @@ ALTER TABLE ONLY public.card_transactions
 
 
 --
--- Name: dashboard_snapshots dashboard_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: commissaries commissaries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commissaries
+    ADD CONSTRAINT commissaries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dashboard_snapshots dashboard_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.dashboard_snapshots
@@ -1715,7 +1823,7 @@ ALTER TABLE ONLY public.dashboard_snapshots
 
 
 --
--- Name: digital_cards digital_cards_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: digital_cards digital_cards_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.digital_cards
@@ -1723,7 +1831,7 @@ ALTER TABLE ONLY public.digital_cards
 
 
 --
--- Name: event_days event_days_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: event_days event_days_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_days
@@ -1731,7 +1839,7 @@ ALTER TABLE ONLY public.event_days
 
 
 --
--- Name: event_participants event_participants_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: event_participants event_participants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_participants
@@ -1739,7 +1847,7 @@ ALTER TABLE ONLY public.event_participants
 
 
 --
--- Name: event_shifts event_shifts_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: event_shifts event_shifts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.event_shifts
@@ -1747,7 +1855,7 @@ ALTER TABLE ONLY public.event_shifts
 
 
 --
--- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -1755,7 +1863,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: events events_slug_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: events events_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
@@ -1763,7 +1871,7 @@ ALTER TABLE ONLY public.events
 
 
 --
--- Name: guests guests_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: guests guests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.guests
@@ -1771,7 +1879,7 @@ ALTER TABLE ONLY public.guests
 
 
 --
--- Name: guests guests_qr_code_token_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: guests guests_qr_code_token_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.guests
@@ -1779,7 +1887,7 @@ ALTER TABLE ONLY public.guests
 
 
 --
--- Name: offline_queue offline_queue_offline_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: offline_queue offline_queue_offline_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.offline_queue
@@ -1787,7 +1895,7 @@ ALTER TABLE ONLY public.offline_queue
 
 
 --
--- Name: offline_queue offline_queue_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: offline_queue offline_queue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.offline_queue
@@ -1795,7 +1903,7 @@ ALTER TABLE ONLY public.offline_queue
 
 
 --
--- Name: organizer_ai_config organizer_ai_config_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: organizer_ai_config organizer_ai_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_ai_config
@@ -1803,7 +1911,7 @@ ALTER TABLE ONLY public.organizer_ai_config
 
 
 --
--- Name: organizer_channels organizer_channels_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: organizer_channels organizer_channels_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_channels
@@ -1811,7 +1919,7 @@ ALTER TABLE ONLY public.organizer_channels
 
 
 --
--- Name: organizer_financial_settings organizer_financial_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: organizer_financial_settings organizer_financial_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_financial_settings
@@ -1819,7 +1927,7 @@ ALTER TABLE ONLY public.organizer_financial_settings
 
 
 --
--- Name: organizer_payment_gateways organizer_payment_gateways_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: organizer_payment_gateways organizer_payment_gateways_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_payment_gateways
@@ -1827,7 +1935,7 @@ ALTER TABLE ONLY public.organizer_payment_gateways
 
 
 --
--- Name: organizer_settings organizer_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: organizer_settings organizer_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_settings
@@ -1835,7 +1943,7 @@ ALTER TABLE ONLY public.organizer_settings
 
 
 --
--- Name: organizer_settings organizer_settings_subdomain_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: organizer_settings organizer_settings_subdomain_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_settings
@@ -1843,7 +1951,7 @@ ALTER TABLE ONLY public.organizer_settings
 
 
 --
--- Name: otp_codes otp_codes_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: otp_codes otp_codes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.otp_codes
@@ -1851,7 +1959,7 @@ ALTER TABLE ONLY public.otp_codes
 
 
 --
--- Name: parking_records parking_records_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: parking_records parking_records_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.parking_records
@@ -1859,7 +1967,7 @@ ALTER TABLE ONLY public.parking_records
 
 
 --
--- Name: participant_access_rules participant_access_rules_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_access_rules participant_access_rules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_access_rules
@@ -1867,7 +1975,7 @@ ALTER TABLE ONLY public.participant_access_rules
 
 
 --
--- Name: participant_categories participant_categories_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_categories participant_categories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_categories
@@ -1875,7 +1983,7 @@ ALTER TABLE ONLY public.participant_categories
 
 
 --
--- Name: participant_checkins participant_checkins_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_checkins participant_checkins_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_checkins
@@ -1883,7 +1991,7 @@ ALTER TABLE ONLY public.participant_checkins
 
 
 --
--- Name: participant_meals participant_meals_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_meals participant_meals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_meals
@@ -1891,7 +1999,7 @@ ALTER TABLE ONLY public.participant_meals
 
 
 --
--- Name: people people_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: people people_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.people
@@ -1899,7 +2007,7 @@ ALTER TABLE ONLY public.people
 
 
 --
--- Name: products products_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: products products_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.products
@@ -1907,7 +2015,7 @@ ALTER TABLE ONLY public.products
 
 
 --
--- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.refresh_tokens
@@ -1915,7 +2023,7 @@ ALTER TABLE ONLY public.refresh_tokens
 
 
 --
--- Name: refresh_tokens refresh_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: refresh_tokens refresh_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.refresh_tokens
@@ -1923,7 +2031,7 @@ ALTER TABLE ONLY public.refresh_tokens
 
 
 --
--- Name: roles roles_name_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: roles roles_name_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.roles
@@ -1931,7 +2039,7 @@ ALTER TABLE ONLY public.roles
 
 
 --
--- Name: roles roles_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: roles roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.roles
@@ -1939,7 +2047,7 @@ ALTER TABLE ONLY public.roles
 
 
 --
--- Name: sale_items sale_items_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: sale_items sale_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sale_items
@@ -1947,7 +2055,7 @@ ALTER TABLE ONLY public.sale_items
 
 
 --
--- Name: sales sales_offline_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: sales sales_offline_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sales
@@ -1955,7 +2063,7 @@ ALTER TABLE ONLY public.sales
 
 
 --
--- Name: sales sales_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: sales sales_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sales
@@ -1963,7 +2071,23 @@ ALTER TABLE ONLY public.sales
 
 
 --
--- Name: ticket_types ticket_types_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: ticket_batches ticket_batches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ticket_batches
+    ADD CONSTRAINT ticket_batches_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ticket_commissions ticket_commissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ticket_commissions
+    ADD CONSTRAINT ticket_commissions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ticket_types ticket_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.ticket_types
@@ -1971,7 +2095,7 @@ ALTER TABLE ONLY public.ticket_types
 
 
 --
--- Name: tickets tickets_order_reference_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: tickets tickets_order_reference_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tickets
@@ -1979,7 +2103,7 @@ ALTER TABLE ONLY public.tickets
 
 
 --
--- Name: tickets tickets_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: tickets tickets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tickets
@@ -1987,7 +2111,7 @@ ALTER TABLE ONLY public.tickets
 
 
 --
--- Name: guests unique_guest_event; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: guests unique_guest_event; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.guests
@@ -1995,7 +2119,15 @@ ALTER TABLE ONLY public.guests
 
 
 --
--- Name: user_roles user_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: workforce_assignments uq_workforce_assignments_participant_sector; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workforce_assignments
+    ADD CONSTRAINT uq_workforce_assignments_participant_sector UNIQUE (participant_id, sector);
+
+
+--
+-- Name: user_roles user_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_roles
@@ -2003,7 +2135,7 @@ ALTER TABLE ONLY public.user_roles
 
 
 --
--- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -2011,7 +2143,7 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -2019,7 +2151,7 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: vendors vendors_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: vendors vendors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.vendors
@@ -2027,7 +2159,7 @@ ALTER TABLE ONLY public.vendors
 
 
 --
--- Name: workforce_assignments workforce_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: workforce_assignments workforce_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.workforce_assignments
@@ -2035,7 +2167,39 @@ ALTER TABLE ONLY public.workforce_assignments
 
 
 --
--- Name: workforce_roles workforce_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: workforce_member_settings workforce_member_settings_participant_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workforce_member_settings
+    ADD CONSTRAINT workforce_member_settings_participant_id_key UNIQUE (participant_id);
+
+
+--
+-- Name: workforce_member_settings workforce_member_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workforce_member_settings
+    ADD CONSTRAINT workforce_member_settings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: workforce_role_settings workforce_role_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workforce_role_settings
+    ADD CONSTRAINT workforce_role_settings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: workforce_role_settings workforce_role_settings_role_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workforce_role_settings
+    ADD CONSTRAINT workforce_role_settings_role_id_key UNIQUE (role_id);
+
+
+--
+-- Name: workforce_roles workforce_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.workforce_roles
@@ -2043,140 +2207,245 @@ ALTER TABLE ONLY public.workforce_roles
 
 
 --
--- Name: idx_audit_action; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_audit_action; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_audit_action ON public.audit_log USING btree (action);
 
 
 --
--- Name: idx_audit_entity; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_audit_entity; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_audit_entity ON public.audit_log USING btree (entity_type, entity_id);
 
 
 --
--- Name: idx_audit_occurred_at; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_audit_occurred_at; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_audit_occurred_at ON public.audit_log USING btree (occurred_at DESC);
 
 
 --
--- Name: idx_audit_user_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_audit_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_audit_user_id ON public.audit_log USING btree (user_id);
 
 
 --
--- Name: idx_guests_event; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_commissaries_event_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commissaries_event_status ON public.commissaries USING btree (organizer_id, event_id, status);
+
+
+--
+-- Name: idx_guests_event; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_guests_event ON public.guests USING btree (event_id);
 
 
 --
--- Name: idx_guests_organizer; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_guests_organizer; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_guests_organizer ON public.guests USING btree (organizer_id);
 
 
 --
--- Name: idx_guests_qr_token; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_guests_qr_token; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_guests_qr_token ON public.guests USING btree (qr_code_token);
 
 
 --
--- Name: idx_parking_event_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_parking_event_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_parking_event_id ON public.parking_records USING btree (event_id);
 
 
 --
--- Name: idx_parking_license_plate; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_parking_license_plate; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_parking_license_plate ON public.parking_records USING btree (license_plate);
 
 
 --
--- Name: idx_parking_qr_token; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_parking_qr_token; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX idx_parking_qr_token ON public.parking_records USING btree (qr_token);
 
 
 --
--- Name: idx_parking_status; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_parking_status; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_parking_status ON public.parking_records USING btree (status);
 
 
 --
--- Name: idx_refresh_expires; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_refresh_expires; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_refresh_expires ON public.refresh_tokens USING btree (user_id, expires_at);
 
 
 --
--- Name: idx_refresh_token; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_refresh_token; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_refresh_token ON public.refresh_tokens USING btree (token_hash);
 
 
 --
--- Name: idx_tickets_event_status; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_ticket_batches_event_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ticket_batches_event_active ON public.ticket_batches USING btree (organizer_id, event_id, is_active);
+
+
+--
+-- Name: idx_ticket_commissions_commissary; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ticket_commissions_commissary ON public.ticket_commissions USING btree (commissary_id, event_id);
+
+
+--
+-- Name: idx_tickets_batch; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tickets_batch ON public.tickets USING btree (ticket_batch_id);
+
+
+--
+-- Name: idx_tickets_commissary; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tickets_commissary ON public.tickets USING btree (commissary_id);
+
+
+--
+-- Name: idx_tickets_event_status; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_tickets_event_status ON public.tickets USING btree (event_id, status);
 
 
 --
--- Name: idx_tickets_order_reference; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_tickets_order_reference; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_tickets_order_reference ON public.tickets USING btree (order_reference);
 
 
 --
--- Name: idx_tickets_qr_token; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_tickets_qr_token; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX idx_tickets_qr_token ON public.tickets USING btree (qr_token);
 
 
 --
--- Name: audit_log trg_audit_log_immutable; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: idx_workforce_assignments_manager_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_workforce_assignments_manager_user ON public.workforce_assignments USING btree (manager_user_id);
+
+
+--
+-- Name: idx_workforce_assignments_sector; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_workforce_assignments_sector ON public.workforce_assignments USING btree (sector);
+
+
+--
+-- Name: idx_workforce_member_settings_participant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_workforce_member_settings_participant ON public.workforce_member_settings USING btree (participant_id);
+
+
+--
+-- Name: idx_workforce_role_settings_organizer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_workforce_role_settings_organizer ON public.workforce_role_settings USING btree (organizer_id);
+
+
+--
+-- Name: idx_workforce_role_settings_role; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_workforce_role_settings_role ON public.workforce_role_settings USING btree (role_id);
+
+
+--
+-- Name: idx_workforce_roles_organizer_sector; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_workforce_roles_organizer_sector ON public.workforce_roles USING btree (organizer_id, sector);
+
+
+--
+-- Name: ux_commissaries_org_event_email; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX ux_commissaries_org_event_email ON public.commissaries USING btree (organizer_id, event_id, email) WHERE (email IS NOT NULL);
+
+
+--
+-- Name: ux_ticket_batches_org_event_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX ux_ticket_batches_org_event_code ON public.ticket_batches USING btree (organizer_id, event_id, code) WHERE (code IS NOT NULL);
+
+
+--
+-- Name: ux_ticket_batches_org_event_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX ux_ticket_batches_org_event_name ON public.ticket_batches USING btree (organizer_id, event_id, name);
+
+
+--
+-- Name: ux_ticket_commissions_ticket; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX ux_ticket_commissions_ticket ON public.ticket_commissions USING btree (ticket_id);
+
+
+--
+-- Name: audit_log trg_audit_log_immutable; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_audit_log_immutable BEFORE DELETE OR UPDATE ON public.audit_log FOR EACH ROW EXECUTE FUNCTION public.audit_log_immutable();
 
 
 --
--- Name: guests update_guests_timestamp; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: guests update_guests_timestamp; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER update_guests_timestamp BEFORE UPDATE ON public.guests FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
 
 --
--- Name: guests update_guests_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: guests update_guests_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER update_guests_updated_at BEFORE UPDATE ON public.guests FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
--- Name: ai_usage_logs ai_usage_logs_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: ai_usage_logs ai_usage_logs_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.ai_usage_logs
@@ -2184,7 +2453,7 @@ ALTER TABLE ONLY public.ai_usage_logs
 
 
 --
--- Name: audit_log audit_log_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: audit_log audit_log_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.audit_log
@@ -2192,7 +2461,7 @@ ALTER TABLE ONLY public.audit_log
 
 
 --
--- Name: card_transactions card_transactions_card_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: card_transactions card_transactions_card_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.card_transactions
@@ -2200,7 +2469,7 @@ ALTER TABLE ONLY public.card_transactions
 
 
 --
--- Name: card_transactions card_transactions_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: card_transactions card_transactions_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.card_transactions
@@ -2208,7 +2477,7 @@ ALTER TABLE ONLY public.card_transactions
 
 
 --
--- Name: card_transactions card_transactions_sale_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: card_transactions card_transactions_sale_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.card_transactions
@@ -2216,7 +2485,7 @@ ALTER TABLE ONLY public.card_transactions
 
 
 --
--- Name: card_transactions card_transactions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: card_transactions card_transactions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.card_transactions
@@ -2224,7 +2493,15 @@ ALTER TABLE ONLY public.card_transactions
 
 
 --
--- Name: sales fk_sales_operator; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: commissaries fk_commissaries_event; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commissaries
+    ADD CONSTRAINT fk_commissaries_event FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sales fk_sales_operator; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sales
@@ -2232,7 +2509,55 @@ ALTER TABLE ONLY public.sales
 
 
 --
--- Name: offline_queue offline_queue_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: ticket_batches fk_ticket_batches_event; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ticket_batches
+    ADD CONSTRAINT fk_ticket_batches_event FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE;
+
+
+--
+-- Name: ticket_batches fk_ticket_batches_type; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ticket_batches
+    ADD CONSTRAINT fk_ticket_batches_type FOREIGN KEY (ticket_type_id) REFERENCES public.ticket_types(id) ON DELETE SET NULL;
+
+
+--
+-- Name: ticket_commissions fk_ticket_commissions_commissary; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ticket_commissions
+    ADD CONSTRAINT fk_ticket_commissions_commissary FOREIGN KEY (commissary_id) REFERENCES public.commissaries(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: ticket_commissions fk_ticket_commissions_ticket; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ticket_commissions
+    ADD CONSTRAINT fk_ticket_commissions_ticket FOREIGN KEY (ticket_id) REFERENCES public.tickets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tickets fk_tickets_commissary; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tickets
+    ADD CONSTRAINT fk_tickets_commissary FOREIGN KEY (commissary_id) REFERENCES public.commissaries(id) ON DELETE SET NULL;
+
+
+--
+-- Name: tickets fk_tickets_ticket_batch; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tickets
+    ADD CONSTRAINT fk_tickets_ticket_batch FOREIGN KEY (ticket_batch_id) REFERENCES public.ticket_batches(id) ON DELETE SET NULL;
+
+
+--
+-- Name: offline_queue offline_queue_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.offline_queue
@@ -2240,7 +2565,7 @@ ALTER TABLE ONLY public.offline_queue
 
 
 --
--- Name: organizer_settings organizer_settings_organizer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: organizer_settings organizer_settings_organizer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_settings
@@ -2248,7 +2573,7 @@ ALTER TABLE ONLY public.organizer_settings
 
 
 --
--- Name: parking_records parking_records_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: parking_records parking_records_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.parking_records
@@ -2256,7 +2581,7 @@ ALTER TABLE ONLY public.parking_records
 
 
 --
--- Name: parking_records parking_records_ticket_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: parking_records parking_records_ticket_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.parking_records
@@ -2264,7 +2589,7 @@ ALTER TABLE ONLY public.parking_records
 
 
 --
--- Name: products products_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: products products_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.products
@@ -2272,7 +2597,7 @@ ALTER TABLE ONLY public.products
 
 
 --
--- Name: products products_vendor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: products products_vendor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.products
@@ -2280,7 +2605,7 @@ ALTER TABLE ONLY public.products
 
 
 --
--- Name: sale_items sale_items_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: sale_items sale_items_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sale_items
@@ -2288,7 +2613,7 @@ ALTER TABLE ONLY public.sale_items
 
 
 --
--- Name: sale_items sale_items_sale_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: sale_items sale_items_sale_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sale_items
@@ -2296,7 +2621,7 @@ ALTER TABLE ONLY public.sale_items
 
 
 --
--- Name: sales sales_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: sales sales_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sales
@@ -2304,7 +2629,7 @@ ALTER TABLE ONLY public.sales
 
 
 --
--- Name: sales sales_vendor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: sales sales_vendor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sales
@@ -2312,7 +2637,7 @@ ALTER TABLE ONLY public.sales
 
 
 --
--- Name: ticket_types ticket_types_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: ticket_types ticket_types_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.ticket_types
@@ -2320,7 +2645,7 @@ ALTER TABLE ONLY public.ticket_types
 
 
 --
--- Name: tickets tickets_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: tickets tickets_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tickets
@@ -2328,7 +2653,7 @@ ALTER TABLE ONLY public.tickets
 
 
 --
--- Name: tickets tickets_ticket_type_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: tickets tickets_ticket_type_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tickets
@@ -2336,7 +2661,7 @@ ALTER TABLE ONLY public.tickets
 
 
 --
--- Name: user_roles user_roles_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: user_roles user_roles_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_roles
@@ -2344,7 +2669,7 @@ ALTER TABLE ONLY public.user_roles
 
 
 --
--- Name: user_roles user_roles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: user_roles user_roles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_roles
@@ -2355,384 +2680,5 @@ ALTER TABLE ONLY public.user_roles
 -- PostgreSQL database dump complete
 --
 
-\unrestrict G8bGWl4X5HhrDccJ3wUd56GRUDLyendLalCSV4PAJg2RJPK7MPPYrPE8wbm7xYa
+\unrestrict urBGbC0AVF0k4hgkSUOkRoX7Sje23HnZRAH4nfzmfZ85IztELJxTBuuZSJARXe6
 
--- ==========================================================
--- CONSOLIDATED BASELINE: SPRINT 1 TO SPRINT 3 + FINANCE HARDENING
--- As tabelas abaixo foram adicionadas para consolidar as migrações 001 a 006
--- diretamente no schema_real.sql, reduzindo o drift técnico.
--- ==========================================================
-
-CREATE TABLE IF NOT EXISTS public.organizer_channels (
-    id SERIAL PRIMARY KEY,
-    organizer_id integer NOT NULL,
-    channel_type VARCHAR(50) NOT NULL,
-    credentials JSONB,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.organizer_ai_config (
-    id SERIAL PRIMARY KEY,
-    organizer_id integer NOT NULL,
-    provider VARCHAR(50) DEFAULT 'gemini',
-    system_prompt TEXT,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.organizer_payment_gateways (
-    id SERIAL PRIMARY KEY,
-    organizer_id integer NOT NULL,
-    provider VARCHAR(50) NOT NULL CHECK (provider IN ('mercadopago', 'pagseguro', 'asaas', 'pagarme', 'infinitypay')),
-    credentials JSONB,
-    is_active BOOLEAN DEFAULT true,
-    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
-    environment VARCHAR(20) NOT NULL DEFAULT 'production' CHECK (environment IN ('production', 'sandbox')),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_gateways_org_provider
-    ON public.organizer_payment_gateways (organizer_id, provider);
-CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_gateways_org_primary
-    ON public.organizer_payment_gateways (organizer_id)
-    WHERE is_primary = TRUE;
-
-CREATE TABLE IF NOT EXISTS public.organizer_financial_settings (
-    id SERIAL PRIMARY KEY,
-    organizer_id integer NOT NULL,
-    currency VARCHAR(10) DEFAULT 'BRL',
-    tax_rate NUMERIC(5,2) DEFAULT 0.00,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-CREATE UNIQUE INDEX IF NOT EXISTS ux_financial_settings_organizer
-    ON public.organizer_financial_settings (organizer_id);
-
-CREATE TABLE IF NOT EXISTS public.event_days (
-    id SERIAL PRIMARY KEY,
-    event_id integer NOT NULL,
-    date DATE NOT NULL,
-    starts_at TIMESTAMP NOT NULL,
-    ends_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.event_shifts (
-    id SERIAL PRIMARY KEY,
-    event_day_id integer NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    starts_at TIMESTAMP NOT NULL,
-    ends_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.people (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255),
-    document VARCHAR(50),
-    phone VARCHAR(50),
-    organizer_id integer NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.participant_categories (
-    id SERIAL PRIMARY KEY,
-    organizer_id integer NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.event_participants (
-    id SERIAL PRIMARY KEY,
-    event_id integer NOT NULL,
-    person_id integer NOT NULL,
-    category_id integer NOT NULL,
-    status VARCHAR(50) DEFAULT 'expected',
-    qr_token VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.participant_access_rules (
-    id SERIAL PRIMARY KEY,
-    category_id integer NOT NULL,
-    event_day_id integer,
-    event_shift_id integer,
-    allowed_areas JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.participant_checkins (
-    id SERIAL PRIMARY KEY,
-    participant_id integer NOT NULL,
-    gate_id VARCHAR(100),
-    action VARCHAR(20) NOT NULL,
-    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.participant_meals (
-    id SERIAL PRIMARY KEY,
-    participant_id integer NOT NULL,
-    event_day_id integer,
-    event_shift_id integer,
-    consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.workforce_roles (
-    id SERIAL PRIMARY KEY,
-    organizer_id integer NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    sector varchar(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_workforce_roles_organizer_sector
-    ON public.workforce_roles (organizer_id, sector);
-
-CREATE TABLE IF NOT EXISTS public.workforce_assignments (
-    id SERIAL PRIMARY KEY,
-    participant_id integer NOT NULL,
-    role_id integer NOT NULL,
-    sector VARCHAR(50),
-    event_shift_id integer,
-    manager_user_id integer,
-    source_file_name varchar(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_workforce_assignments_participant_sector UNIQUE (participant_id, sector)
-);
-CREATE INDEX IF NOT EXISTS idx_workforce_assignments_sector
-    ON public.workforce_assignments (sector);
-CREATE INDEX IF NOT EXISTS idx_workforce_assignments_manager_user
-    ON public.workforce_assignments (manager_user_id);
-
-CREATE TABLE IF NOT EXISTS public.workforce_member_settings (
-    id SERIAL PRIMARY KEY,
-    participant_id integer NOT NULL UNIQUE,
-    max_shifts_event integer NOT NULL DEFAULT 1,
-    shift_hours numeric(5,2) NOT NULL DEFAULT 8.00,
-    meals_per_day integer NOT NULL DEFAULT 4,
-    payment_amount numeric(12,2) NOT NULL DEFAULT 0.00,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_workforce_member_settings_participant
-    ON public.workforce_member_settings (participant_id);
-
-CREATE TABLE IF NOT EXISTS public.dashboard_snapshots (
-    id SERIAL PRIMARY KEY,
-    organizer_id integer NOT NULL,
-    event_id integer,
-    metric_name VARCHAR(100) NOT NULL,
-    metric_value NUMERIC(15,2) NOT NULL,
-    snapshot_time TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- ==========================================================
--- CONSOLIDATED BASELINE: TICKETS COMMERCIAL DOMAIN (MIGRATION 008)
--- Fonte oficial para lotes, comissarios e comissoes comerciais.
--- ==========================================================
-
-CREATE TABLE IF NOT EXISTS public.ticket_batches (
-    id SERIAL PRIMARY KEY,
-    organizer_id INTEGER NOT NULL,
-    event_id INTEGER NOT NULL,
-    ticket_type_id INTEGER NULL,
-    name VARCHAR(120) NOT NULL,
-    code VARCHAR(40) NULL,
-    price NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-    starts_at TIMESTAMP WITHOUT TIME ZONE NULL,
-    ends_at TIMESTAMP WITHOUT TIME ZONE NULL,
-    quantity_total INTEGER NULL,
-    quantity_sold INTEGER NOT NULL DEFAULT 0,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.commissaries (
-    id SERIAL PRIMARY KEY,
-    organizer_id INTEGER NOT NULL,
-    event_id INTEGER NOT NULL,
-    name VARCHAR(120) NOT NULL,
-    email VARCHAR(160) NULL,
-    phone VARCHAR(40) NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'active',
-    commission_mode VARCHAR(20) NOT NULL DEFAULT 'percent',
-    commission_value NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS public.ticket_commissions (
-    id SERIAL PRIMARY KEY,
-    organizer_id INTEGER NOT NULL,
-    event_id INTEGER NOT NULL,
-    ticket_id INTEGER NOT NULL,
-    commissary_id INTEGER NOT NULL,
-    base_amount NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-    commission_mode VARCHAR(20) NOT NULL,
-    commission_value NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-    commission_amount NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-ALTER TABLE public.tickets
-    ADD COLUMN IF NOT EXISTS ticket_batch_id INTEGER NULL,
-    ADD COLUMN IF NOT EXISTS commissary_id INTEGER NULL;
-
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_ticket_batches_qty_non_negative'
-    ) THEN
-        ALTER TABLE public.ticket_batches
-            ADD CONSTRAINT chk_ticket_batches_qty_non_negative
-            CHECK (quantity_sold >= 0 AND (quantity_total IS NULL OR quantity_total >= 0));
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_ticket_batches_qty_bounds'
-    ) THEN
-        ALTER TABLE public.ticket_batches
-            ADD CONSTRAINT chk_ticket_batches_qty_bounds
-            CHECK (quantity_total IS NULL OR quantity_sold <= quantity_total);
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_commissaries_status'
-    ) THEN
-        ALTER TABLE public.commissaries
-            ADD CONSTRAINT chk_commissaries_status
-            CHECK (status IN ('active', 'inactive'));
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_commissaries_mode'
-    ) THEN
-        ALTER TABLE public.commissaries
-            ADD CONSTRAINT chk_commissaries_mode
-            CHECK (commission_mode IN ('percent', 'fixed'));
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_commissaries_value_non_negative'
-    ) THEN
-        ALTER TABLE public.commissaries
-            ADD CONSTRAINT chk_commissaries_value_non_negative
-            CHECK (commission_value >= 0);
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_ticket_commissions_mode'
-    ) THEN
-        ALTER TABLE public.ticket_commissions
-            ADD CONSTRAINT chk_ticket_commissions_mode
-            CHECK (commission_mode IN ('percent', 'fixed'));
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_ticket_commissions_non_negative'
-    ) THEN
-        ALTER TABLE public.ticket_commissions
-            ADD CONSTRAINT chk_ticket_commissions_non_negative
-            CHECK (
-                base_amount >= 0
-                AND commission_value >= 0
-                AND commission_amount >= 0
-            );
-    END IF;
-END $$;
-
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_ticket_batches_event'
-    ) THEN
-        ALTER TABLE public.ticket_batches
-            ADD CONSTRAINT fk_ticket_batches_event
-            FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_ticket_batches_type'
-    ) THEN
-        ALTER TABLE public.ticket_batches
-            ADD CONSTRAINT fk_ticket_batches_type
-            FOREIGN KEY (ticket_type_id) REFERENCES public.ticket_types(id) ON DELETE SET NULL;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_commissaries_event'
-    ) THEN
-        ALTER TABLE public.commissaries
-            ADD CONSTRAINT fk_commissaries_event
-            FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_ticket_commissions_ticket'
-    ) THEN
-        ALTER TABLE public.ticket_commissions
-            ADD CONSTRAINT fk_ticket_commissions_ticket
-            FOREIGN KEY (ticket_id) REFERENCES public.tickets(id) ON DELETE CASCADE;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_ticket_commissions_commissary'
-    ) THEN
-        ALTER TABLE public.ticket_commissions
-            ADD CONSTRAINT fk_ticket_commissions_commissary
-            FOREIGN KEY (commissary_id) REFERENCES public.commissaries(id) ON DELETE RESTRICT;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_tickets_ticket_batch'
-    ) THEN
-        ALTER TABLE public.tickets
-            ADD CONSTRAINT fk_tickets_ticket_batch
-            FOREIGN KEY (ticket_batch_id) REFERENCES public.ticket_batches(id) ON DELETE SET NULL;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_tickets_commissary'
-    ) THEN
-        ALTER TABLE public.tickets
-            ADD CONSTRAINT fk_tickets_commissary
-            FOREIGN KEY (commissary_id) REFERENCES public.commissaries(id) ON DELETE SET NULL;
-    END IF;
-END $$;
-
-CREATE UNIQUE INDEX IF NOT EXISTS ux_ticket_batches_org_event_name
-    ON public.ticket_batches (organizer_id, event_id, name);
-
-CREATE UNIQUE INDEX IF NOT EXISTS ux_ticket_batches_org_event_code
-    ON public.ticket_batches (organizer_id, event_id, code)
-    WHERE code IS NOT NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS ux_commissaries_org_event_email
-    ON public.commissaries (organizer_id, event_id, email)
-    WHERE email IS NOT NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS ux_ticket_commissions_ticket
-    ON public.ticket_commissions (ticket_id);
-
-CREATE INDEX IF NOT EXISTS idx_ticket_batches_event_active
-    ON public.ticket_batches (organizer_id, event_id, is_active);
-
-CREATE INDEX IF NOT EXISTS idx_commissaries_event_status
-    ON public.commissaries (organizer_id, event_id, status);
-
-CREATE INDEX IF NOT EXISTS idx_tickets_batch
-    ON public.tickets (ticket_batch_id);
-
-CREATE INDEX IF NOT EXISTS idx_tickets_commissary
-    ON public.tickets (commissary_id);
-
-CREATE INDEX IF NOT EXISTS idx_ticket_commissions_commissary
-    ON public.ticket_commissions (commissary_id, event_id);

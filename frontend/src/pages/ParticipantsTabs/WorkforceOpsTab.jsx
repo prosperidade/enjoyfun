@@ -25,62 +25,11 @@ import BulkWorkforceSettingsModal from "./BulkWorkforceSettingsModal";
 import WorkforceRoleSettingsModal from "./WorkforceRoleSettingsModal";
 import WorkforceSectorCostsModal from "./WorkforceSectorCostsModal";
 
-const DEFAULT_SECTOR_BY_ROLE = (name = "") => {
-  const normalized = name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "_")
-    .trim();
-  if (!normalized) return "";
-
-  const prefixes = [
-    "gerente_de_",
-    "diretor_de_",
-    "coordenador_de_",
-    "supervisor_de_",
-    "lider_de_",
-    "chefe_de_",
-    "equipe_de_",
-    "time_de_"
-  ];
-
-  let sector = normalized;
-  for (const p of prefixes) {
-    if (sector.startsWith(p)) {
-      sector = sector.slice(p.length);
-      break;
-    }
-  }
-
-  return sector.replace(/^_+|_+$/g, "");
-};
-
-const inferRoleCostBucket = (role = {}) => {
-  if ((role?.cost_bucket || "") === "managerial") {
-    return "managerial";
-  }
-
-  const name = String(role?.name || "").toLowerCase().trim();
-  const managerialHints = [
-    "gerente",
-    "diretor",
-    "coordenador",
-    "supervisor",
-    "lider",
-    "chefe",
-    "gestor",
-    "manager"
-  ];
-
-  return managerialHints.some((hint) => name.includes(hint)) ? "managerial" : "operational";
-};
-
 export default function WorkforceOpsTab({ eventId }) {
-  const [roles, setRoles] = useState([]);
+  const [managers, setManagers] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [participants, setParticipants] = useState([]);
-  const [selectedRole, setSelectedRole] = useState(null);
+  const [selectedManager, setSelectedManager] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -100,164 +49,134 @@ export default function WorkforceOpsTab({ eventId }) {
   const [sectorCostsRole, setSectorCostsRole] = useState(null);
   const [isSectorCostsModalOpen, setIsSectorCostsModalOpen] = useState(false);
 
-  const [newRoleName, setNewRoleName] = useState("");
-  const [newRoleSector, setNewRoleSector] = useState("");
-  const [creatingRole, setCreatingRole] = useState(false);
-
-  const fetchRolesAndAssignments = async () => {
+  const fetchManagersAndAssignments = async () => {
     setLoading(true);
     try {
-      const [roleRes, assignmentRes] = await Promise.all([
-        api.get("/workforce/roles"),
+      const [mgrRes, assignmentRes] = await Promise.all([
+        api.get(`/workforce/managers?event_id=${eventId}`),
         api.get(`/workforce/assignments?event_id=${eventId}`)
       ]);
-      const nextRoles = roleRes.data.data || [];
+      const nextManagers = mgrRes.data.data || [];
       const nextAssignments = assignmentRes.data.data || [];
-      setRoles(nextRoles);
+      setManagers(nextManagers);
       setAssignments(nextAssignments);
-      return { roles: nextRoles, assignments: nextAssignments };
+      return { managers: nextManagers, assignments: nextAssignments };
     } catch (error) {
       console.error(error);
-      toast.error("Erro ao carregar cargos e alocações.");
-      return { roles: [], assignments: [] };
+      toast.error("Erro ao carregar gerentes e alocações.");
+      return { managers: [], assignments: [] };
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchRoleMembers = async (roleId) => {
+  const fetchManagerMembers = async (managerUserId) => {
+    setLoading(true);
+    if (!managerUserId) {
+      setParticipants([]);
+      setSelectedIds([]);
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await api.get(`/participants?event_id=${eventId}&assigned_only=1&role_id=${roleId}`);
+      // Puxa estritamente os assignments alocados a esse gerente
+      const res = await api.get(`/workforce/assignments?event_id=${eventId}&manager_user_id=${managerUserId}`);
       setParticipants(res.data.data || []);
       setSelectedIds([]);
     } catch (error) {
       console.error(error);
-      toast.error("Erro ao carregar membros do cargo.");
+      toast.error("Erro ao carregar equipe do gerente.");
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     if (!eventId) return;
-    fetchRolesAndAssignments();
+    fetchManagersAndAssignments();
   }, [eventId]);
 
   useEffect(() => {
-    if (!selectedRole) return;
-    fetchRoleMembers(selectedRole.id);
-  }, [selectedRole?.id]);
+    if (!selectedManager) return;
+    fetchManagerMembers(selectedManager.user_id);
+  }, [selectedManager?.user_id]);
 
-  const roleStats = useMemo(() => {
-    const byRole = {};
-    for (const a of assignments) {
-      byRole[a.role_id] = (byRole[a.role_id] || 0) + 1;
+  const roleMemberCount = (roleId) =>
+    assignments.filter((assignment) => Number(assignment.role_id) === Number(roleId)).length;
+
+  const buildRoleContext = (row) => {
+    if (!row) return null;
+    return {
+      id: Number(row.role_id || row.id || 0),
+      name: row.role_name || row.name || "",
+      sector: row.sector || ""
+    };
+  };
+
+  const refreshSelectedManagerView = async (manager = selectedManager) => {
+    const { managers: refreshedManagers } = await fetchManagersAndAssignments();
+    if (!manager) {
+      return;
     }
-    return byRole;
-  }, [assignments]);
 
-  const roleMembers = useMemo(() => {
-    if (!selectedRole) return [];
-    const roleAssignmentMap = new Map(
-      assignments
-        .filter((a) => a.role_id === selectedRole.id)
-        .map((a) => [a.participant_id, a])
-    );
+    const refreshedManager =
+      refreshedManagers.find(
+        (item) =>
+          Number(item.user_id || 0) === Number(manager.user_id || 0) ||
+          Number(item.participant_id || 0) === Number(manager.participant_id || 0)
+      ) || manager;
+
+    setSelectedManager(refreshedManager);
+    if (refreshedManager?.user_id) {
+      await fetchManagerMembers(refreshedManager.user_id);
+      return;
+    }
+
+    setParticipants([]);
+    setSelectedIds([]);
+  };
+
+  const teamMembers = useMemo(() => {
+    if (!selectedManager) return [];
 
     return participants
-      .filter((p) => roleAssignmentMap.has(p.participant_id))
-      .map((p) => ({ ...p, assignment: roleAssignmentMap.get(p.participant_id) }))
-      .filter((p) => {
+      .map((participant) => ({
+        ...participant,
+        name: participant.name || participant.person_name || "",
+        email: participant.email || participant.person_email || "",
+        cost_bucket: participant.cost_bucket || participant.assignment?.cost_bucket || "operational"
+      }))
+      .filter((participant) => {
         const q = searchTerm.trim().toLowerCase();
         if (!q) return true;
         return (
-          (p.name || "").toLowerCase().includes(q) ||
-          (p.email || "").toLowerCase().includes(q) ||
-          (p.phone || "").toLowerCase().includes(q)
+          participant.name.toLowerCase().includes(q) ||
+          participant.email.toLowerCase().includes(q) ||
+          String(participant.phone || "").toLowerCase().includes(q)
         );
       });
-  }, [participants, assignments, selectedRole, searchTerm]);
+  }, [participants, selectedManager, searchTerm]);
 
-  const selectedParticipants = roleMembers.filter((p) => selectedIds.includes(p.participant_id));
-  const roleMemberCount = (roleId) => Number(roleStats[roleId] || 0);
+  const selectedParticipants = teamMembers.filter((p) => selectedIds.includes(p.participant_id));
+  const selectedManagerRole = buildRoleContext(selectedManager);
+  const canLinkSelectedManager = Boolean(selectedManager?.user_id);
 
-  const handleEnterRole = (role) => {
-    setSelectedRole(role);
+  const handleEnterManager = (manager) => {
+    setSelectedManager(manager);
     setSearchTerm("");
     setSelectedIds([]);
   };
 
-  const handleWorkforceImported = async (result = null) => {
-    const { roles: refreshedRoles } = await fetchRolesAndAssignments();
-    const assignedRoleId = Number(result?.assigned_role_id || 0);
-    const redirected = Boolean(result?.managerial_redirect);
-
-    if (assignedRoleId > 0 && redirected) {
-      const assignedRole = refreshedRoles.find((role) => Number(role.id) === assignedRoleId);
-      if (assignedRole) {
-        setSelectedRole(assignedRole);
-        toast.success(`Equipe importada em "${assignedRole.name}".`);
-        return;
-      }
-    }
-
-    if (selectedRole?.id) {
-      await fetchRoleMembers(selectedRole.id);
-    }
-  };
-
-  const handleCreateRole = async () => {
-    const name = newRoleName.trim();
-    if (!name) {
-      toast.error("Informe o nome do cargo.");
-      return;
-    }
-
-    setCreatingRole(true);
-    try {
-      const response = await api.post("/workforce/roles", {
-        name,
-        sector: DEFAULT_SECTOR_BY_ROLE(name) || newRoleSector || undefined
-      });
-      const createdRoleId = Number(response?.data?.data?.id || 0);
-      toast.success("Cargo criado.");
-      setNewRoleName("");
-      setNewRoleSector("");
-      const { roles: refreshedRoles } = await fetchRolesAndAssignments();
-      const createdRole =
-        refreshedRoles.find((role) => Number(role.id) === createdRoleId) || {
-          id: createdRoleId,
-          name,
-          sector: DEFAULT_SECTOR_BY_ROLE(name) || newRoleSector || ""
-        };
-      if (createdRole?.id) {
-        setRoleSettingsRole(createdRole);
-        setIsRoleSettingsModalOpen(true);
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Erro ao criar cargo.");
-    } finally {
-      setCreatingRole(false);
-    }
-  };
-
-  const handleDeleteRole = async (role) => {
-    if (!window.confirm(`Excluir cargo "${role.name}"?`)) return;
-    try {
-      await api.delete(`/workforce/roles/${role.id}`);
-      toast.success("Cargo excluído.");
-      if (selectedRole?.id === role.id) setSelectedRole(null);
-      await fetchRolesAndAssignments();
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Erro ao excluir cargo.");
-    }
+  const handleWorkforceImported = async () => {
+    await refreshSelectedManagerView(selectedManager);
   };
 
   const handleDeleteMember = async (participant) => {
-    if (!window.confirm(`Excluir ${participant.name} deste evento?`)) return;
+    if (!window.confirm(`Excluir ${participant.name || participant.person_name} deste evento?`)) return;
     try {
       await api.delete(`/participants/${participant.participant_id}`);
       toast.success("Participante removido.");
-      await fetchRolesAndAssignments();
-      await fetchRoleMembers(selectedRole.id);
+      await refreshSelectedManagerView(selectedManager);
     } catch (error) {
       toast.error(error.response?.data?.message || "Erro ao excluir participante.");
     }
@@ -277,11 +196,11 @@ export default function WorkforceOpsTab({ eventId }) {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.length === roleMembers.length) {
+    if (selectedIds.length === teamMembers.length) {
       setSelectedIds([]);
       return;
     }
-    setSelectedIds(roleMembers.map((m) => m.participant_id));
+    setSelectedIds(teamMembers.map((m) => m.participant_id));
   };
 
   const toggleSelect = (id) => {
@@ -323,10 +242,7 @@ export default function WorkforceOpsTab({ eventId }) {
         toast.error("Nenhum membro foi removido.");
       }
 
-      await fetchRolesAndAssignments();
-      if (selectedRole?.id) {
-        await fetchRoleMembers(selectedRole.id);
-      }
+      await refreshSelectedManagerView(selectedManager);
     } catch (error) {
       toast.error(error.response?.data?.message || "Erro na exclusão em massa.");
     } finally {
@@ -334,78 +250,58 @@ export default function WorkforceOpsTab({ eventId }) {
     }
   };
 
-  if (!selectedRole) {
+  if (!selectedManager) {
     return (
       <div className="space-y-6">
         <div className="card p-4 border border-gray-800 bg-gray-900/40">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_130px] gap-3">
-            <input
-              className="input"
-              placeholder="Novo cargo (ex: Gerente de Bar)"
-              value={newRoleName}
-              onChange={(e) => setNewRoleName(e.target.value)}
-            />
-            <button disabled={creatingRole} onClick={handleCreateRole} className="btn-primary flex items-center justify-center gap-2">
-              <Plus size={16} /> Criar Cargo
-            </button>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-white">Liderança Operacional</h2>
+              <p className="text-sm text-gray-400">Selecione um gerente para consultar e organizar sua equipe neste evento.</p>
+            </div>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Setor automático: <span className="text-brand">{DEFAULT_SECTOR_BY_ROLE(newRoleName) || "será definido pelo nome do cargo"}</span>
-          </p>
         </div>
 
         <div className="card overflow-hidden p-0 border border-gray-800">
           <table className="w-full text-left text-sm text-gray-300">
             <thead className="bg-gray-900/80 text-gray-500 uppercase text-[10px] tracking-wider border-b border-gray-800">
               <tr>
-                <th className="px-5 py-4">Cargo</th>
-                <th className="px-5 py-4">Setor</th>
-                <th className="px-5 py-4">Qtd. Membros</th>
+                <th className="px-5 py-4">Gerente / Líder</th>
+                <th className="px-5 py-4">Cargo / Setor</th>
+                <th className="px-5 py-4">Tamanho da Equipe</th>
                 <th className="px-5 py-4 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/60">
               {loading ? (
                 <tr><td colSpan="4" className="p-10 text-center"><div className="spinner mx-auto" /></td></tr>
-              ) : roles.length === 0 ? (
-                <tr><td colSpan="4" className="p-10 text-center text-gray-500">Nenhum cargo cadastrado.</td></tr>
+              ) : managers.length === 0 ? (
+                <tr><td colSpan="4" className="p-10 text-center text-gray-500">Nenhum gerente escalado neste evento.</td></tr>
               ) : (
-                roles.map((role) => (
-                  <tr key={role.id} className="hover:bg-gray-800/30">
+                managers.map((mgr) => (
+                  <tr key={mgr.participant_id} className="hover:bg-gray-800/30">
                     <td className="px-5 py-4">
-                      <p className="font-semibold text-white">{role.name}</p>
-                      <p className={`text-[10px] uppercase tracking-wider mt-1 ${inferRoleCostBucket(role) === "managerial" ? "text-amber-400" : "text-cyan-400"}`}>
-                        {inferRoleCostBucket(role) === "managerial" ? "Gerencial/Diretivo" : "Operacional"}
-                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-black">
+                          {(mgr.person_name || "?").charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                           <p className="font-semibold text-white">{mgr.person_name}</p>
+                           <p className="text-xs text-gray-500">{mgr.phone || mgr.person_email || "Sem contato"}</p>
+                        </div>
+                      </div>
                     </td>
-                    <td className="px-5 py-4 text-gray-400 uppercase">{(role.sector || "geral").replace(/_/g, " ")}</td>
                     <td className="px-5 py-4">
-                      {roleMemberCount(role.id) + (inferRoleCostBucket(role) === "managerial" ? 1 : 0)}
+                      <p className="text-white font-medium">{mgr.role_name}</p>
+                      <p className="text-xs text-gray-400 mt-1 uppercase">Setor: {(mgr.sector || "geral").replace(/_/g, " ")}</p>
+                    </td>
+                    <td className="px-5 py-4 text-gray-300 font-medium whitespace-nowrap">
+                       <Users size={14} className="inline mr-2 text-gray-500" />
+                       {mgr.team_size || 0} membro(s)
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => handleEnterRole(role)} className="btn-secondary h-9 px-3">Entrar</button>
-                        <button
-                          onClick={() => {
-                            setSelectedRole(role);
-                            setIsImportModalOpen(true);
-                          }}
-                          className="btn-primary h-9 px-3 flex items-center gap-2"
-                        >
-                          <FileDown size={14} /> Importar
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSectorCostsRole(role);
-                            setIsSectorCostsModalOpen(true);
-                          }}
-                          className="btn-secondary h-9 px-3 flex items-center gap-2"
-                        >
-                          <Settings2 size={14} /> Custos
-                        </button>
-                        <button onClick={() => handleDeleteRole(role)} className="p-2 rounded-lg border border-gray-700 text-red-400 hover:bg-red-900/20">
-                          <Trash2 size={14} />
-                        </button>
+                        <button onClick={() => handleEnterManager(mgr)} className="btn-secondary h-9 px-4 font-semibold border-brand/50 text-brand-light hover:bg-brand/10">Tabela do Gerente</button>
                       </div>
                     </td>
                   </tr>
@@ -419,14 +315,11 @@ export default function WorkforceOpsTab({ eventId }) {
           isOpen={isImportModalOpen}
           onClose={() => {
             setIsImportModalOpen(false);
-            setSelectedRole(null);
           }}
           eventId={eventId}
           mode="workforce"
-          workforceRoleId={selectedRole?.id || null}
-          workforceSector={selectedRole?.sector || DEFAULT_SECTOR_BY_ROLE(selectedRole?.name || "")}
-          workforceRoleName={selectedRole?.name || ""}
-          workforceRoleCostBucket={selectedRole ? inferRoleCostBucket(selectedRole) : "operational"}
+          managerUserId={null}
+          workforceSector={""}
           onImported={handleWorkforceImported}
         />
 
@@ -440,10 +333,7 @@ export default function WorkforceOpsTab({ eventId }) {
             setRoleSettingsRole(null);
           }}
           onSaved={async () => {
-            await fetchRolesAndAssignments();
-            if (selectedRole?.id) {
-              await fetchRoleMembers(selectedRole.id);
-            }
+            await refreshSelectedManagerView(selectedManager);
           }}
         />
 
@@ -463,12 +353,18 @@ export default function WorkforceOpsTab({ eventId }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <button onClick={() => setSelectedRole(null)} className="btn-secondary flex items-center gap-2">
-          <ArrowLeft size={16} /> Voltar para Cargos
+        <button onClick={() => setSelectedManager(null)} className="btn-secondary flex items-center gap-2">
+          <ArrowLeft size={16} /> Voltar para Liderança
         </button>
         <div className="text-right">
-          <p className="text-xs uppercase text-gray-500 tracking-wider">Cargo Atual</p>
-          <p className="text-lg font-black text-white">{selectedRole.name}</p>
+          <p className="text-xs uppercase text-gray-500 tracking-wider">Tabela do Gerente</p>
+          <p className="text-lg font-black text-white">{selectedManager.person_name}</p>
+          <p className="text-[10px] text-brand uppercase mt-1">{selectedManager.role_name} — Setor: {(selectedManager.sector || "geral").replace(/_/g, " ")}</p>
+          {!canLinkSelectedManager && (
+            <p className="text-[10px] text-amber-400 uppercase mt-2">
+              Gerente sem usuário vinculado. Importação e alocação manual ficam bloqueadas.
+            </p>
+          )}
         </div>
       </div>
 
@@ -510,17 +406,38 @@ export default function WorkforceOpsTab({ eventId }) {
         <div className="flex gap-2 w-full lg:w-auto">
           <button
             onClick={() => {
-              setSectorCostsRole(selectedRole);
+              setSectorCostsRole(selectedManagerRole);
               setIsSectorCostsModalOpen(true);
             }}
             className="btn-secondary flex-1 lg:flex-none h-11 px-4 flex items-center gap-2"
+            disabled={!selectedManagerRole?.id}
           >
             <Settings2 size={16} /> Custos
           </button>
-          <button onClick={() => setIsImportModalOpen(true)} className="btn-secondary flex-1 lg:flex-none h-11 px-4 flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (!canLinkSelectedManager) {
+                toast.error("Vincule um usuário ativo a este gerente antes de importar equipe.");
+                return;
+              }
+              setIsImportModalOpen(true);
+            }}
+            className="btn-secondary flex-1 lg:flex-none h-11 px-4 flex items-center gap-2"
+            disabled={!canLinkSelectedManager}
+          >
             <FileDown size={16} /> Importar CSV
           </button>
-          <button onClick={() => setIsAddModalOpen(true)} className="btn-primary flex-1 lg:flex-none h-11 px-4 flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (!canLinkSelectedManager) {
+                toast.error("Vincule um usuário ativo a este gerente antes de alocar a equipe manualmente.");
+                return;
+              }
+              setIsAddModalOpen(true);
+            }}
+            className="btn-primary flex-1 lg:flex-none h-11 px-4 flex items-center gap-2"
+            disabled={!canLinkSelectedManager}
+          >
             <Plus size={16} /> Alocação Manual
           </button>
         </div>
@@ -531,7 +448,7 @@ export default function WorkforceOpsTab({ eventId }) {
           <thead className="bg-gray-900/80 text-gray-500 uppercase text-[10px] tracking-wider border-b border-gray-800">
             <tr>
               <th className="px-5 py-4 w-10">
-                <input type="checkbox" className="checkbox" checked={roleMembers.length > 0 && selectedIds.length === roleMembers.length} onChange={toggleSelectAll} />
+                <input type="checkbox" className="checkbox" checked={teamMembers.length > 0 && selectedIds.length === teamMembers.length} onChange={toggleSelectAll} />
               </th>
               <th className="px-5 py-4">Membro</th>
               <th className="px-5 py-4">Setor / Link</th>
@@ -541,10 +458,10 @@ export default function WorkforceOpsTab({ eventId }) {
           <tbody className="divide-y divide-gray-800/60">
             {loading ? (
               <tr><td colSpan="4" className="p-10 text-center"><div className="spinner mx-auto" /></td></tr>
-            ) : roleMembers.length === 0 ? (
-              <tr><td colSpan="4" className="p-10 text-center text-gray-500">Nenhum membro neste cargo.</td></tr>
+            ) : teamMembers.length === 0 ? (
+              <tr><td colSpan="4" className="p-10 text-center text-gray-500">Nenhum membro nesta equipe.</td></tr>
             ) : (
-              roleMembers.map((m) => (
+              teamMembers.map((m) => (
                 <tr key={m.participant_id} className="hover:bg-gray-800/30">
                   <td className="px-5 py-4">
                     <input type="checkbox" className="checkbox" checked={selectedIds.includes(m.participant_id)} onChange={() => toggleSelect(m.participant_id)} />
@@ -558,7 +475,7 @@ export default function WorkforceOpsTab({ eventId }) {
                         <p className="font-semibold text-white">{m.name}</p>
                         <p className="text-xs text-gray-500">{m.phone || m.email || "Sem contato"}</p>
                         <p className="text-[10px] text-gray-600 uppercase tracking-wider">REF #{m.participant_id}</p>
-                        {(m.assignment?.cost_bucket || "operational") === "managerial" ? (
+                        {(m.cost_bucket || "operational") === "managerial" ? (
                           <p className="text-[10px] text-amber-400 uppercase tracking-wider mt-1">Cargo gerencial/diretivo</p>
                         ) : (
                           <p className="text-[10px] text-cyan-400 uppercase tracking-wider mt-1">Membro operacional</p>
@@ -567,7 +484,7 @@ export default function WorkforceOpsTab({ eventId }) {
                     </div>
                   </td>
                   <td className="px-5 py-4">
-                    <div className="text-xs text-gray-400 uppercase">{(m.assignment?.sector || selectedRole.sector || "geral").replace(/_/g, " ")}</div>
+                    <div className="text-xs text-gray-400 uppercase">{(m.sector || selectedManager.sector || "geral").replace(/_/g, " ")}</div>
                     <div className="flex gap-1 mt-1">
                       <button
                         onClick={() => handleCopyLink(m.qr_token)}
@@ -585,7 +502,7 @@ export default function WorkforceOpsTab({ eventId }) {
                       </a>
                     </div>
                     <div className="mt-2 text-[10px] text-gray-500">
-                      Turnos: {m.assignment?.max_shifts_event ?? 1} | Horas: {m.assignment?.shift_hours ?? 8}h | Refeições/dia: {m.assignment?.meals_per_day ?? 4} | Valor/turno: R$ {Number(m.assignment?.payment_amount ?? 0).toFixed(2)}
+                      Turnos: {m.max_shifts_event ?? 1} | Horas: {m.shift_hours ?? 8}h | Refeições/dia: {m.meals_per_day ?? 4} | Valor/turno: R$ {Number(m.payment_amount ?? 0).toFixed(2)}
                     </div>
                   </td>
                   <td className="px-5 py-4">
@@ -630,12 +547,11 @@ export default function WorkforceOpsTab({ eventId }) {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         eventId={eventId}
-        presetRoleId={selectedRole.id}
-        presetSector={selectedRole.sector || DEFAULT_SECTOR_BY_ROLE(selectedRole.name)}
-        lockRole
+        presetSector={selectedManager?.sector || ""}
+        managerUserId={selectedManager?.user_id || null}
+        lockSector={Boolean(selectedManager?.sector)}
         onAdded={async () => {
-          await fetchRolesAndAssignments();
-          await fetchRoleMembers(selectedRole.id);
+          await refreshSelectedManagerView(selectedManager);
         }}
       />
 
@@ -644,10 +560,8 @@ export default function WorkforceOpsTab({ eventId }) {
         onClose={() => setIsImportModalOpen(false)}
         eventId={eventId}
         mode="workforce"
-        workforceRoleId={selectedRole.id}
-        workforceSector={selectedRole.sector || DEFAULT_SECTOR_BY_ROLE(selectedRole.name)}
-        workforceRoleName={selectedRole.name}
-        workforceRoleCostBucket={inferRoleCostBucket(selectedRole)}
+        managerUserId={selectedManager?.user_id || null}
+        workforceSector={selectedManager?.sector || ""}
         onImported={handleWorkforceImported}
       />
 
@@ -659,8 +573,7 @@ export default function WorkforceOpsTab({ eventId }) {
         }}
         participant={editingParticipant}
         onUpdated={async () => {
-          await fetchRolesAndAssignments();
-          await fetchRoleMembers(selectedRole.id);
+          await refreshSelectedManagerView(selectedManager);
         }}
       />
 
@@ -679,8 +592,7 @@ export default function WorkforceOpsTab({ eventId }) {
         }}
         participant={settingsParticipant}
         onSaved={async () => {
-          await fetchRolesAndAssignments();
-          await fetchRoleMembers(selectedRole.id);
+          await refreshSelectedManagerView(selectedManager);
         }}
       />
 
@@ -689,8 +601,7 @@ export default function WorkforceOpsTab({ eventId }) {
         onClose={() => setIsBulkSettingsModalOpen(false)}
         participants={selectedParticipants}
         onSaved={async () => {
-          await fetchRolesAndAssignments();
-          await fetchRoleMembers(selectedRole.id);
+          await refreshSelectedManagerView(selectedManager);
         }}
       />
 
@@ -704,10 +615,7 @@ export default function WorkforceOpsTab({ eventId }) {
           setRoleSettingsRole(null);
         }}
         onSaved={async () => {
-          await fetchRolesAndAssignments();
-          if (selectedRole?.id) {
-            await fetchRoleMembers(selectedRole.id);
-          }
+          await refreshSelectedManagerView(selectedManager);
         }}
       />
 

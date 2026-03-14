@@ -1,0 +1,3 @@
+# Applied migrations history
+# Append-only operational log.
+# Format: YYYY-MM-DD HH:MM:SS - APLICADA: database\NNN_nome.sql

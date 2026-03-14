@@ -1,0 +1,134 @@
+=== COLUMNS (workforce_role_settings) === 
+id|integer|NO|nextval('workforce_role_settings_id_seq'::regclass)
+organizer_id|integer|NO|
+role_id|integer|NO|
+max_shifts_event|integer|NO|1
+shift_hours|numeric|NO|8
+meals_per_day|integer|NO|4
+payment_amount|numeric|NO|0
+cost_bucket|character varying|NO|'operational'::character varying
+created_at|timestamp without time zone|YES|now()
+updated_at|timestamp without time zone|YES|now()
+leader_name|character varying|YES|
+leader_cpf|character varying|YES|
+leader_phone|character varying|YES|
+=== COLUMNS (workforce_member_settings) === 
+id|integer|NO|nextval('workforce_member_settings_id_seq'::regclass)
+participant_id|integer|NO|
+max_shifts_event|integer|NO|1
+shift_hours|numeric|NO|8.00
+meals_per_day|integer|NO|4
+payment_amount|numeric|NO|0.00
+created_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+updated_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+=== COLUMNS (commissaries) === 
+id|integer|NO|nextval('commissaries_id_seq'::regclass)
+organizer_id|integer|NO|
+event_id|integer|NO|
+name|character varying|NO|
+email|character varying|YES|
+phone|character varying|YES|
+status|character varying|NO|'active'::character varying
+commission_mode|character varying|NO|'percent'::character varying
+commission_value|numeric|NO|0.00
+created_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+updated_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+=== COLUMNS (ticket_batches) === 
+id|integer|NO|nextval('ticket_batches_id_seq'::regclass)
+organizer_id|integer|NO|
+event_id|integer|NO|
+ticket_type_id|integer|YES|
+name|character varying|NO|
+code|character varying|YES|
+price|numeric|NO|0.00
+starts_at|timestamp without time zone|YES|
+ends_at|timestamp without time zone|YES|
+quantity_total|integer|YES|
+quantity_sold|integer|NO|0
+is_active|boolean|NO|true
+created_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+updated_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+=== COLUMNS (participant_meals) === 
+id|integer|NO|nextval('participant_meals_id_seq'::regclass)
+participant_id|integer|NO|
+event_day_id|integer|YES|
+event_shift_id|integer|YES|
+consumed_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+=== COLUMNS (event_days) === 
+id|integer|NO|nextval('event_days_id_seq'::regclass)
+event_id|integer|NO|
+date|date|NO|
+starts_at|timestamp without time zone|NO|
+ends_at|timestamp without time zone|NO|
+created_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+=== COLUMNS (event_shifts) === 
+id|integer|NO|nextval('event_shifts_id_seq'::regclass)
+event_day_id|integer|NO|
+name|character varying|NO|
+starts_at|timestamp without time zone|NO|
+ends_at|timestamp without time zone|NO|
+created_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+=== CHECK: uq constraint on workforce_role_settings === 
+workforce_role_settings_pkey|PRIMARY KEY|id
+workforce_role_settings_role_id_key|UNIQUE|role_id
+=== DATA: workforce_role_settings rows === 
+11|2|21|10|8.00|4|400.00|managerial|2026-03-12 13:16:32.910275|2026-03-12 13:16:32.910275|andre luiz mello chaves|48473219104|62982810427
+12|2|23|20|8.00|4|400.00|managerial|2026-03-12 13:31:38.630867|2026-03-12 13:31:38.630867|jose luiz|09876543212|62999887654
+=== DATA: event_days full === 
+1|1|2026-03-12|2026-03-12 08:00:00|2026-03-12 20:00:00
+=== DATA: event_shifts full === 
+1|1|Turno Unico|2026-03-12 08:00:00|2026-03-12 20:00:00
+=== DATA: organizer_payment_gateways === 
+=== DATA: offline_queue sample === 
+21022|1|browser_pos|sale|80990af3-9ea6-436e-a869-95499e4b8985|synced|2026-03-10 17:03:24.85
+21043|1|codex-pos-test|sale|codex-direct-smoke-1773365684238|synced|2026-03-13 01:34:44.238
+21044|1|codex-pos-harness|sale|codex-case4-1773365947056|synced|2026-03-13 01:39:07.442
+=== DATA: users (non-sensitive) === 
+1|tranceformation2001@hotmail.com|organizer|1
+2|admin@enjoyfun.com.br|admin|2
+3|eucurafitos@gmail.com|organizer|3
+4|mercadodubem@gmail.com|organizer|4
+5|andre@gmail.com|manager|3
+6|jm1@gmail.com|organizer|
+7|adimin@pecweb.com.br|organizer|7
+8|mozondo@gmail.com|organizer|8
+40|contato@experience.com|organizer|40
+=== INDEXES on workforce_* === 
+workforce_assignments|idx_workforce_assignments_manager_user|CREATE INDEX idx_workforce_assignments_manager_user ON public.workforce_assignments USING btree (manager_user_id)
+workforce_assignments|idx_workforce_assignments_sector|CREATE INDEX idx_workforce_assignments_sector ON public.workforce_assignments USING btree (sector)
+workforce_assignments|uq_workforce_assignments_participant_sector|CREATE UNIQUE INDEX uq_workforce_assignments_participant_sector ON public.workforce_assignments USING btree (participant_id, sector)
+workforce_assignments|workforce_assignments_pkey|CREATE UNIQUE INDEX workforce_assignments_pkey ON public.workforce_assignments USING btree (id)
+workforce_member_settings|idx_workforce_member_settings_participant|CREATE INDEX idx_workforce_member_settings_participant ON public.workforce_member_settings USING btree (participant_id)
+workforce_member_settings|workforce_member_settings_participant_id_key|CREATE UNIQUE INDEX workforce_member_settings_participant_id_key ON public.workforce_member_settings USING btree (participant_id)
+workforce_member_settings|workforce_member_settings_pkey|CREATE UNIQUE INDEX workforce_member_settings_pkey ON public.workforce_member_settings USING btree (id)
+workforce_role_settings|idx_workforce_role_settings_organizer|CREATE INDEX idx_workforce_role_settings_organizer ON public.workforce_role_settings USING btree (organizer_id)
+workforce_role_settings|idx_workforce_role_settings_role|CREATE INDEX idx_workforce_role_settings_role ON public.workforce_role_settings USING btree (role_id)
+workforce_role_settings|workforce_role_settings_pkey|CREATE UNIQUE INDEX workforce_role_settings_pkey ON public.workforce_role_settings USING btree (id)
+workforce_role_settings|workforce_role_settings_role_id_key|CREATE UNIQUE INDEX workforce_role_settings_role_id_key ON public.workforce_role_settings USING btree (role_id)
+workforce_roles|idx_workforce_roles_organizer_sector|CREATE INDEX idx_workforce_roles_organizer_sector ON public.workforce_roles USING btree (organizer_id, sector)
+workforce_roles|workforce_roles_pkey|CREATE UNIQUE INDEX workforce_roles_pkey ON public.workforce_roles USING btree (id)
+=== CHECK: ticket_commissions table exists === 
+t
+=== CHECK tables NOT in migrations but in DB === 
+ai_usage_logs
+audit_log
+card_transactions
+digital_cards
+events
+guests
+offline_queue
+organizer_payment_gateways
+organizer_settings
+otp_codes
+parking_records
+products
+refresh_tokens
+roles
+sale_items
+sales
+ticket_types
+tickets
+user_roles
+users
+vendors
+=== DONE === 
