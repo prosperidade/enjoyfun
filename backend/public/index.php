@@ -100,7 +100,6 @@ if ($raw && ($decoded = json_decode($raw, true)) !== null) {
         'admin'    => BASE_PATH . '/src/Controllers/AdminController.php',
         'analytics'=> BASE_PATH . '/src/Controllers/AnalyticsController.php',
         'cards'    => BASE_PATH . '/src/Controllers/CardController.php',
-        'organizer'=> BASE_PATH . '/src/Controllers/OrganizerController.php',
         'events'   => BASE_PATH . '/src/Controllers/EventController.php',
         'tickets'  => BASE_PATH . '/src/Controllers/TicketController.php',
         'bar'      => BASE_PATH . '/src/Controllers/BarController.php',

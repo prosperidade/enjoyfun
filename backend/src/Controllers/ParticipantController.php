@@ -205,6 +205,13 @@ function importParticipants(array $body): void
         jsonError('Evento inválido para este organizador.', 403);
     }
 
+    $stmtCategories = $db->prepare("SELECT id FROM participant_categories WHERE organizer_id = ?");
+    $stmtCategories->execute([$organizerId]);
+    $validCategoryIds = array_fill_keys(
+        array_map('intval', $stmtCategories->fetchAll(PDO::FETCH_COLUMN)),
+        true
+    );
+
     try {
         $db->beginTransaction();
 
@@ -216,17 +223,14 @@ function importParticipants(array $body): void
             $email = trim((string)($row['email'] ?? ''));
             $document = trim((string)($row['document'] ?? ''));
             $phone = trim((string)($row['phone'] ?? ''));
-            $categoryId = $row['category_id'] ?? null;
+            $categoryId = (int)($row['category_id'] ?? 0);
 
             if (!$name || !$categoryId) {
                 $errors[] = "Linha " . ($index + 1) . ": Nome e category_id são obrigatórios.";
                 continue;
             }
 
-            // Valida categoria do tenant
-            $stmtCat = $db->prepare("SELECT id FROM participant_categories WHERE id = ? AND organizer_id = ?");
-            $stmtCat->execute([$categoryId, $organizerId]);
-            if (!$stmtCat->fetchColumn()) {
+            if (!isset($validCategoryIds[$categoryId])) {
                 $errors[] = "Linha " . ($index + 1) . ": Categoria inválida.";
                 continue;
             }

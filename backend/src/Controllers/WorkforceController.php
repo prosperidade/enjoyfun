@@ -579,13 +579,13 @@ function createAssignment(array $body): void
     $canBypassSector = canBypassSectorAcl($user);
 
     $participantId = $body['participant_id'] ?? null;
-    $roleId = $body['role_id'] ?? null;
+    $roleId = isset($body['role_id']) && $body['role_id'] !== '' ? (int)$body['role_id'] : 0;
     $sector = normalizeSector((string)($body['sector'] ?? ''));
     $eventShiftId = $body['event_shift_id'] ?? null;
     $requestedManagerUserId = (int)($body['manager_user_id'] ?? 0);
 
-    if (!$participantId || !$roleId) {
-        jsonError('Dados necessários: participant_id, role_id.', 400);
+    if (!$participantId) {
+        jsonError('Dados necessários: participant_id.', 400);
     }
 
     if (!$canBypassSector && $userSector !== 'all') {
@@ -610,17 +610,6 @@ function createAssignment(array $body): void
     $eventId = (int)($participantRow['event_id'] ?? 0);
     ensureParticipantQrToken($db, (int)$participantId);
 
-    // Validate Role
-    $role = getRoleById($db, $organizerId, (int)$roleId);
-    if (!$role) jsonError('Cargo inválido.', 403);
-    $roleSector = normalizeSector((string)($role['sector'] ?? ''));
-    if (!$canBypassSector && $userSector !== 'all' && $roleSector && $roleSector !== $userSector) {
-        jsonError('Você não pode alocar neste cargo de outro setor.', 403);
-    }
-    if (!$sector && $roleSector) {
-        $sector = $roleSector;
-    }
-
     // Validate Shift (se passado)
     if ($eventShiftId) {
         $stmtShift = $db->prepare("
@@ -633,13 +622,54 @@ function createAssignment(array $body): void
         if (!$stmtShift->fetchColumn()) jsonError('Turno inválido.', 403);
     }
 
+    $managerContext = null;
+    if ($requestedManagerUserId > 0) {
+        if (!$canBypassSector && (int)($user['id'] ?? 0) !== $requestedManagerUserId) {
+            jsonError('Você só pode alocar equipe vinculada à sua própria liderança.', 403);
+        }
+        $managerContext = findManagerContextForEvent($db, $organizerId, $eventId, $requestedManagerUserId, $sector);
+        if (!$managerContext) {
+            jsonError('Gerente inválido para este evento/setor.', 422);
+        }
+        if (!$sector && !empty($managerContext['sector'])) {
+            $sector = normalizeSector((string)$managerContext['sector']);
+        }
+    }
+
+    $role = null;
+    $roleSector = '';
+    if ($roleId > 0) {
+        $role = getRoleById($db, $organizerId, $roleId);
+        if (!$role) jsonError('Cargo inválido.', 403);
+        $roleSector = normalizeSector((string)($role['sector'] ?? ''));
+        if (!$canBypassSector && $userSector !== 'all' && $roleSector && $roleSector !== $userSector) {
+            jsonError('Você não pode alocar neste cargo de outro setor.', 403);
+        }
+        if (!$sector && $roleSector) {
+            $sector = $roleSector;
+        }
+    }
+
+    if ($requestedManagerUserId > 0) {
+        if (!$sector && $roleSector) {
+            $sector = $roleSector;
+        }
+        $isManagerialRole = $role ? resolveRoleCostBucket($db, $organizerId, $role) === 'managerial' : false;
+        if ($roleId <= 0 || $isManagerialRole) {
+            $roleId = ensureSectorDefaultRole($db, $organizerId, $sector);
+            $role = getRoleById($db, $organizerId, $roleId);
+            $roleSector = normalizeSector((string)($role['sector'] ?? ''));
+        }
+    }
+
+    if ($roleId <= 0) {
+        jsonError('Dados necessários: role_id ou contexto de gerente/setor válido.', 400);
+    }
+
     if (columnExists($db, 'workforce_assignments', 'manager_user_id') && columnExists($db, 'workforce_assignments', 'source_file_name')) {
         $managerUserId = $canBypassSector ? null : (int)($user['id'] ?? 0);
         if ($requestedManagerUserId > 0) {
-            if (!$canBypassSector && (int)($user['id'] ?? 0) !== $requestedManagerUserId) {
-                jsonError('Você só pode alocar equipe vinculada à sua própria liderança.', 403);
-            }
-            $managerContext = findManagerContextForEvent($db, $organizerId, $eventId, $requestedManagerUserId, $sector ?: $roleSector);
+            $managerContext = $managerContext ?: findManagerContextForEvent($db, $organizerId, $eventId, $requestedManagerUserId, $sector ?: $roleSector);
             if (!$managerContext) {
                 jsonError('Gerente inválido para este evento/setor.', 422);
             }
@@ -648,12 +678,34 @@ function createAssignment(array $body): void
                 $sector = normalizeSector((string)$managerContext['sector']);
             }
         }
-        $stmt = $db->prepare("
-            INSERT INTO workforce_assignments (participant_id, role_id, sector, event_shift_id, manager_user_id, source_file_name, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, NOW())
-            RETURNING id
-        ");
-        $stmt->execute([$participantId, $roleId, $sector ?: null, $eventShiftId ?: null, $managerUserId ?: null, 'manual']);
+        $existingAssignmentId = null;
+        if ($sector !== '') {
+            $stmtExisting = $db->prepare("
+                SELECT id
+                FROM workforce_assignments
+                WHERE participant_id = ? AND LOWER(COALESCE(sector, '')) = ?
+                LIMIT 1
+            ");
+            $stmtExisting->execute([$participantId, $sector]);
+            $existingAssignmentId = $stmtExisting->fetchColumn();
+        }
+
+        if ($existingAssignmentId) {
+            $stmt = $db->prepare("
+                UPDATE workforce_assignments
+                SET role_id = ?, sector = ?, event_shift_id = ?, manager_user_id = ?, source_file_name = ?
+                WHERE id = ?
+                RETURNING id
+            ");
+            $stmt->execute([$roleId, $sector ?: null, $eventShiftId ?: null, $managerUserId ?: null, 'manual', $existingAssignmentId]);
+        } else {
+            $stmt = $db->prepare("
+                INSERT INTO workforce_assignments (participant_id, role_id, sector, event_shift_id, manager_user_id, source_file_name, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, NOW())
+                RETURNING id
+            ");
+            $stmt->execute([$participantId, $roleId, $sector ?: null, $eventShiftId ?: null, $managerUserId ?: null, 'manual']);
+        }
     } else {
         $stmt = $db->prepare("INSERT INTO workforce_assignments (participant_id, role_id, sector, event_shift_id, created_at) VALUES (?, ?, ?, ?, NOW()) RETURNING id");
         $stmt->execute([$participantId, $roleId, $sector ?: null, $eventShiftId ?: null]);
@@ -854,6 +906,12 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
     $assignedRole = getRoleById($db, $organizerId, $defaultRoleId);
     $assignedRoleName = (string)($assignedRole['name'] ?? ('Equipe ' . strtoupper($targetSector ?: 'GERAL')));
     $defaultCategoryId = resolveDefaultCategoryId($db, $organizerId);
+    $stmtCategories = $db->prepare("SELECT id FROM participant_categories WHERE organizer_id = ?");
+    $stmtCategories->execute([$organizerId]);
+    $validCategoryIds = array_fill_keys(
+        array_map('intval', $stmtCategories->fetchAll(PDO::FETCH_COLUMN)),
+        true
+    );
     $supportsManagerBinding = columnExists($db, 'workforce_assignments', 'manager_user_id') && columnExists($db, 'workforce_assignments', 'source_file_name');
     $managerUserId = $canBypassSector ? null : (int)($user['id'] ?? 0);
     $forcedManagerId = (int)($body['forced_manager_user_id'] ?? 0);
@@ -890,7 +948,7 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
                 continue;
             }
 
-            if ($categoryId <= 0 || !categoryBelongsToOrganizer($db, $categoryId, $organizerId)) {
+            if ($categoryId <= 0 || !isset($validCategoryIds[$categoryId])) {
                 $categoryId = $defaultCategoryId;
             }
 
@@ -917,12 +975,15 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
             }
 
             $stmtExistingAssignment = $db->prepare("
-                SELECT id FROM workforce_assignments
-                WHERE participant_id = ? AND role_id = ?
+                SELECT id, role_id, manager_user_id, source_file_name
+                FROM workforce_assignments
+                WHERE participant_id = ?
+                  AND LOWER(COALESCE(sector, '')) = ?
                 LIMIT 1
             ");
-            $stmtExistingAssignment->execute([$participantId, $defaultRoleId]);
-            $existingAssignmentId = $stmtExistingAssignment->fetchColumn();
+            $stmtExistingAssignment->execute([$participantId, $targetSector]);
+            $existingAssignment = $stmtExistingAssignment->fetch(PDO::FETCH_ASSOC);
+            $existingAssignmentId = (int)($existingAssignment['id'] ?? 0);
 
             if (!$existingAssignmentId) {
                 if ($supportsManagerBinding) {
@@ -942,22 +1003,55 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
                 continue;
             }
 
-            if ($supportsManagerBinding && $managerUserId !== null) {
+            $shouldUpdateExisting =
+                (int)($existingAssignment['role_id'] ?? 0) !== $defaultRoleId ||
+                ($supportsManagerBinding && (
+                    (int)($existingAssignment['manager_user_id'] ?? 0) !== (int)$managerUserId ||
+                    (string)($existingAssignment['source_file_name'] ?? '') !== $source
+                ));
+
+            if ($supportsManagerBinding && $shouldUpdateExisting) {
                 $stmtRebind = $db->prepare("
                     UPDATE workforce_assignments
-                    SET manager_user_id = ?, source_file_name = ?
+                    SET role_id = ?, sector = ?, manager_user_id = ?, source_file_name = ?
                     WHERE id = ?
                       AND (
-                          COALESCE(manager_user_id, 0) <> ?
+                          COALESCE(role_id, 0) <> ?
+                          OR LOWER(COALESCE(sector, '')) <> ?
+                          OR COALESCE(manager_user_id, 0) <> ?
                           OR COALESCE(source_file_name, '') <> ?
                       )
                 ");
                 $stmtRebind->execute([
+                    $defaultRoleId,
+                    $targetSector,
                     $managerUserId ?: null,
                     $source,
                     $existingAssignmentId,
+                    $defaultRoleId,
+                    $targetSector,
                     $managerUserId,
                     $source
+                ]);
+                if ($stmtRebind->rowCount() > 0) {
+                    $relinked++;
+                }
+            } elseif (!$supportsManagerBinding && (int)($existingAssignment['role_id'] ?? 0) !== $defaultRoleId) {
+                $stmtRebind = $db->prepare("
+                    UPDATE workforce_assignments
+                    SET role_id = ?, sector = ?
+                    WHERE id = ?
+                      AND (
+                          COALESCE(role_id, 0) <> ?
+                          OR LOWER(COALESCE(sector, '')) <> ?
+                      )
+                ");
+                $stmtRebind->execute([
+                    $defaultRoleId,
+                    $targetSector,
+                    $existingAssignmentId,
+                    $defaultRoleId,
+                    $targetSector
                 ]);
                 if ($stmtRebind->rowCount() > 0) {
                     $relinked++;
@@ -1087,10 +1181,12 @@ function inferSectorFromFileName(string $fileName): ?string
 
     $map = [
         'bar' => ['bar', 'bebidas', 'drink'],
-        'food' => ['food', 'cozinha', 'kitchen', 'alimento'],
+        'food' => ['food', 'cozinha', 'kitchen', 'alimento', 'alimentacao'],
         'shop' => ['shop', 'loja', 'merch', 'store'],
         'parking' => ['parking', 'estacionamento'],
-        'acessos' => ['acesso', 'acessos', 'entrada', 'portaria'],
+        'acessos' => ['acesso', 'acessos', 'entrada', 'portaria', 'bilheteria'],
+        'seguranca' => ['seguranca', 'security', 'apoio'],
+        'limpeza' => ['limpeza', 'cleaning', 'zeladoria'],
     ];
 
     foreach ($map as $sector => $keywords) {
@@ -1102,6 +1198,21 @@ function inferSectorFromFileName(string $fileName): ?string
     }
 
     return null;
+}
+
+function normalizeSectorInferenceToken(string $value): string
+{
+    $normalized = strtolower(trim($value));
+    $normalized = strtr($normalized, [
+        'á' => 'a', 'à' => 'a', 'ã' => 'a', 'â' => 'a', 'ä' => 'a',
+        'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+        'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+        'ó' => 'o', 'ò' => 'o', 'õ' => 'o', 'ô' => 'o', 'ö' => 'o',
+        'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+        'ç' => 'c',
+    ]);
+    $normalized = preg_replace('/[^a-z0-9]+/', '_', $normalized);
+    return trim((string)$normalized, '_');
 }
 
 function ensureSectorDefaultRole(PDO $db, int $organizerId, string $sector): int

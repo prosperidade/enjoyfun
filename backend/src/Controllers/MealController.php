@@ -109,8 +109,8 @@ function getMealsBalance(array $query): void
         preferred_scope AS (
             SELECT *
             FROM event_scope scope
-            WHERE :event_shift_id IS NOT NULL
-              AND scope.shift_id = :event_shift_id
+            WHERE CAST(:event_shift_id AS integer) IS NOT NULL
+              AND scope.shift_id = CAST(:event_shift_id AS integer)
         ),
         assignment_scope AS (
             SELECT *
@@ -118,7 +118,7 @@ function getMealsBalance(array $query): void
             UNION ALL
             SELECT scope.*
             FROM event_scope scope
-            WHERE :event_shift_id IS NULL
+            WHERE CAST(:event_shift_id AS integer) IS NULL
                OR NOT EXISTS (
                     SELECT 1
                     FROM preferred_scope preferred
@@ -206,7 +206,7 @@ function getMealsBalance(array $query): void
             SELECT participant_id, COUNT(*)::int AS total_shift
             FROM participant_meals
             WHERE event_day_id = :event_day_id
-              AND (:event_shift_id IS NULL OR event_shift_id = :event_shift_id)
+              AND (CAST(:event_shift_id AS integer) IS NULL OR event_shift_id = CAST(:event_shift_id AS integer))
             GROUP BY participant_id
         ) shift_meals ON shift_meals.participant_id = ep.id
         WHERE ep.event_id = :event_id

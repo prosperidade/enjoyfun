@@ -101,7 +101,13 @@ export default function MealsControl() {
     const list = res.data?.data || [];
     setEvents(list);
     if (!eventId && list.length > 0) {
-      setEventId(String(list[0].id));
+      // Prioriza selecionar um evento em andamento, fallback para o primeiro
+      const now = new Date();
+      const inProgress = list.find((ev) => {
+        if (!ev.starts_at || !ev.ends_at) return false;
+        return new Date(ev.starts_at) <= now && new Date(ev.ends_at) >= now;
+      });
+      setEventId(String(inProgress ? inProgress.id : list[0].id));
     }
   };
 
@@ -234,9 +240,14 @@ export default function MealsControl() {
       setPayload(createEmptyPayload());
       return;
     }
+    // Previne chamadas com eventDayId de evento anterior durante a transição
+    const isDayFromCurrentEvent = eventDays.some(d => String(d.id) === String(eventDayId));
+    if (eventDays.length > 0 && !isDayFromCurrentEvent) {
+      return;
+    }
     loadBalance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, eventDayId, eventShiftId, sector]);
+  }, [eventId, eventDayId, eventShiftId, sector, eventDays]);
 
   const availableSectors = useMemo(() => {
     const values = workforceBaseItems

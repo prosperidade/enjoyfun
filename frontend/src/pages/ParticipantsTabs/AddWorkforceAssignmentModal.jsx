@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useEffectEvent } from "react";
 import { X, Save, Plus, Calendar } from "lucide-react";
 import api from "../../lib/api";
 import toast from "react-hot-toast";
@@ -36,8 +36,12 @@ export default function AddWorkforceAssignmentModal({
     event_day_id: "",
     event_shift_id: ""
   });
+  const managerFirstMode = Boolean(managerUserId);
+  const visibleRoles = managerFirstMode
+    ? roles.filter((role) => String(role.cost_bucket || "operational").toLowerCase() !== "managerial")
+    : roles;
 
-  const loadData = async () => {
+  const loadData = useEffectEvent(async () => {
     if (!isOpen || !eventId) return;
     try {
       const [partRes, roleRes, dayRes, shiftRes] = await Promise.all([
@@ -58,7 +62,7 @@ export default function AddWorkforceAssignmentModal({
     } catch (err) {
       console.error(err);
     }
-  };
+  });
 
   useEffect(() => {
     loadData();
@@ -68,10 +72,10 @@ export default function AddWorkforceAssignmentModal({
     if (!isOpen) return;
     setFormData((prev) => ({
       ...prev,
-      role_id: presetRoleId ? String(presetRoleId) : prev.role_id,
+      role_id: presetRoleId ? String(presetRoleId) : (managerFirstMode ? "" : prev.role_id),
       sector: presetSector || prev.sector
     }));
-  }, [isOpen, presetRoleId, presetSector]);
+  }, [isOpen, presetRoleId, presetSector, managerFirstMode]);
 
   const filteredShifts = shifts.filter(s => {
       if (!formData.event_day_id) return true;
@@ -80,20 +84,24 @@ export default function AddWorkforceAssignmentModal({
 
   useEffect(() => {
     if (!formData.event_day_id) {
+      if (formData.event_shift_id) {
+        setFormData((prev) => ({ ...prev, event_shift_id: "" }));
+      }
       return;
     }
 
-    const hasSelectedShift = filteredShifts.some(
+    const shiftsForDay = shifts.filter((shift) => shift.event_day_id.toString() === formData.event_day_id.toString());
+    const hasSelectedShift = shiftsForDay.some(
       (shift) => shift.id.toString() === formData.event_shift_id.toString()
     );
 
     if (!hasSelectedShift) {
       setFormData((prev) => ({
         ...prev,
-        event_shift_id: filteredShifts.length > 0 ? filteredShifts[0].id.toString() : ""
+        event_shift_id: shiftsForDay.length > 0 ? shiftsForDay[0].id.toString() : ""
       }));
     }
-  }, [formData.event_day_id, shifts]);
+  }, [formData.event_day_id, formData.event_shift_id, shifts]);
 
   if (!isOpen) return null;
 
@@ -105,7 +113,7 @@ export default function AddWorkforceAssignmentModal({
     if (!formData.participant_id) return toast.error("Selecione um participante.");
     
     // Se não selecionou cargo e não está criando um novo, mas existem sugestões
-    if (!finalRoleId && !isCreatingRole && !newRoleName) {
+    if (!managerFirstMode && !finalRoleId && !isCreatingRole && !newRoleName) {
         return toast.error("Selecione um cargo ou crie um novo.");
     }
 
@@ -113,25 +121,34 @@ export default function AddWorkforceAssignmentModal({
     try {
       // 1. Criar novo cargo se estiver no modo de criação
       if (isCreatingRole && newRoleName) {
-        const roleRes = await api.post("/workforce/roles", { name: newRoleName });
+        const roleRes = await api.post("/workforce/roles", {
+          name: newRoleName,
+          sector: formData.sector || presetSector || undefined
+        });
         finalRoleId = roleRes.data.data.id;
       }
 
       // 1.1 Se cargo veio das sugestões (string), cria no backend antes de alocar.
       if (!isCreatingRole && finalRoleId && Number.isNaN(Number(finalRoleId))) {
-        const roleRes = await api.post("/workforce/roles", { name: finalRoleId });
+        const roleRes = await api.post("/workforce/roles", {
+          name: finalRoleId,
+          sector: formData.sector || presetSector || undefined
+        });
         finalRoleId = roleRes.data.data.id;
       }
 
       // 2. Criar a atribuição (assignment)
-      await api.post("/workforce/assignments", {
+      const payload = {
         event_id: eventId,
         participant_id: formData.participant_id,
-        role_id: finalRoleId,
         sector: formData.sector,
         event_shift_id: formData.event_shift_id || null,
         manager_user_id: managerUserId || undefined
-      });
+      };
+      if (finalRoleId) {
+        payload.role_id = finalRoleId;
+      }
+      await api.post("/workforce/assignments", payload);
 
       toast.success("Staff alocado com sucesso!");
       onAdded();
@@ -183,61 +200,77 @@ export default function AddWorkforceAssignmentModal({
               </select>
             </div>
 
-            {/* Cargo com Sugestões e Criação */}
+             {/* Cargo com Sugestões e Criação */}
              <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.15em]">Cargo Atribuído *</label>
-                {!lockRole && (
-                  <button 
-                    type="button" 
-                    onClick={() => setIsCreatingRole(!isCreatingRole)}
-                    className="text-[10px] text-brand hover:text-brand-light font-black uppercase tracking-widest flex items-center gap-1.5 bg-brand/5 px-2.5 py-1 rounded-lg border border-brand/20 transition-all active:scale-95"
-                  >
-                    <Plus size={10} /> {isCreatingRole ? "Visualizar Lista" : "Criar Novo Cargo"}
-                  </button>
-                )}
-              </div>
-              
-              {isCreatingRole ? (
-                <div className="space-y-2 translate-y-0 animate-slide-down">
-                    <input 
-                      type="text"
-                      placeholder="Ex: Gerente Geral, Brigadista..."
-                      className="input w-full bg-brand/5 border-brand/30 h-12 text-sm font-semibold shadow-inner placeholder:text-gray-600 focus:border-brand"
-                      autoFocus
-                      value={newRoleName}
-                      onChange={e => setNewRoleName(e.target.value)}
-                    />
-                    <p className="text-[9px] text-gray-600 font-bold uppercase italic">O novo cargo será salvo permanentemente na sua base.</p>
-                </div>
-              ) : (
-                <select 
-                  className="select w-full block bg-gray-800 border-gray-700 h-12 text-sm font-medium focus:border-brand/40" 
-                  required={!isCreatingRole}
-                  disabled={lockRole}
-                  value={formData.role_id}
-                  onChange={e => setFormData({...formData, role_id: e.target.value})}
-                >
-                  <option value="">Selecione um cargo...</option>
-                  
-                  {/* Se o banco tiver cargos, mostra eles */}
-                  {roles.length > 0 ? (
-                      <optgroup label="Cargos no Banco">
-                        {roles.map(r => (
-                            <option key={r.id} value={r.id}>{r.name}</option>
-                        ))}
-                      </optgroup>
-                  ) : (
-                      /* Se o banco estiver vazio, mostra sugestões hardcoded */
-                      <optgroup label="Sugestões Operacionais">
-                        {DEFAULT_ROLES_SUGGESTIONS.map(roleName => (
-                            <option key={roleName} value={roleName}>{roleName}</option>
-                        ))}
-                      </optgroup>
-                  )}
-                </select>
-              )}
-            </div>
+               {managerFirstMode && (
+                 <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 mb-3">
+                   <p className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-light">Fluxo manager-first</p>
+                   <p className="mt-2 text-sm text-gray-300">
+                     Esta alocação será vinculada ao gerente atual. Se nenhum cargo operacional for escolhido, o cargo padrão do setor será aplicado automaticamente.
+                   </p>
+                   {formData.sector && (
+                     <p className="mt-2 text-[10px] uppercase tracking-wider text-gray-500">
+                       Setor vinculado: {formData.sector}
+                     </p>
+                   )}
+                 </div>
+               )}
+
+               <div className="flex justify-between items-center mb-1.5">
+                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.15em]">
+                   {managerFirstMode ? "Cargo Operacional (opcional)" : "Cargo Atribuído *"}
+                 </label>
+                 {!lockRole && (
+                   <button
+                     type="button"
+                     onClick={() => setIsCreatingRole(!isCreatingRole)}
+                     className="text-[10px] text-brand hover:text-brand-light font-black uppercase tracking-widest flex items-center gap-1.5 bg-brand/5 px-2.5 py-1 rounded-lg border border-brand/20 transition-all active:scale-95"
+                   >
+                     <Plus size={10} /> {isCreatingRole ? "Visualizar Lista" : "Criar Novo Cargo"}
+                   </button>
+                 )}
+               </div>
+
+               {isCreatingRole ? (
+                 <div className="space-y-2 translate-y-0 animate-slide-down">
+                     <input
+                       type="text"
+                       placeholder="Ex: Coordenador de Equipe, Brigadista..."
+                       className="input w-full bg-brand/5 border-brand/30 h-12 text-sm font-semibold shadow-inner placeholder:text-gray-600 focus:border-brand"
+                       autoFocus
+                       value={newRoleName}
+                       onChange={e => setNewRoleName(e.target.value)}
+                     />
+                     <p className="text-[9px] text-gray-600 font-bold uppercase italic">
+                       O novo cargo será salvo no setor atual{formData.sector ? ` (${formData.sector})` : ""}.
+                     </p>
+                 </div>
+               ) : (
+                 <select
+                   className="select w-full block bg-gray-800 border-gray-700 h-12 text-sm font-medium focus:border-brand/40"
+                   required={!managerFirstMode && !isCreatingRole}
+                   disabled={lockRole}
+                   value={formData.role_id}
+                   onChange={e => setFormData({...formData, role_id: e.target.value})}
+                 >
+                   <option value="">{managerFirstMode ? "Usar cargo padrão do setor" : "Selecione um cargo..."}</option>
+
+                   {visibleRoles.length > 0 ? (
+                       <optgroup label="Cargos no Banco">
+                         {visibleRoles.map(r => (
+                             <option key={r.id} value={r.id}>{r.name}</option>
+                         ))}
+                       </optgroup>
+                   ) : (
+                       <optgroup label="Sugestões Operacionais">
+                         {DEFAULT_ROLES_SUGGESTIONS.map(roleName => (
+                             <option key={roleName} value={roleName}>{roleName}</option>
+                         ))}
+                       </optgroup>
+                   )}
+                 </select>
+               )}
+             </div>
 
             {/* Local de Trabalho / Setor */}
             <div>

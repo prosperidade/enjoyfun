@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Briefcase,
@@ -27,7 +27,6 @@ import WorkforceSectorCostsModal from "./WorkforceSectorCostsModal";
 
 export default function WorkforceOpsTab({ eventId }) {
   const [managers, setManagers] = useState([]);
-  const [assignments, setAssignments] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [selectedManager, setSelectedManager] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -48,23 +47,24 @@ export default function WorkforceOpsTab({ eventId }) {
   const [isRoleSettingsModalOpen, setIsRoleSettingsModalOpen] = useState(false);
   const [sectorCostsRole, setSectorCostsRole] = useState(null);
   const [isSectorCostsModalOpen, setIsSectorCostsModalOpen] = useState(false);
+  const [managerRoleSettings, setManagerRoleSettings] = useState(null);
+  const [managerRoleSettingsLoading, setManagerRoleSettingsLoading] = useState(false);
+  const [eventStructure, setEventStructure] = useState({ days: 0, shifts: 0 });
+  const [isCreatingRoleInline, setIsCreatingRoleInline] = useState(false);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [savingNewRole, setSavingNewRole] = useState(false);
 
-  const fetchManagersAndAssignments = async () => {
+  const fetchManagers = async () => {
     setLoading(true);
     try {
-      const [mgrRes, assignmentRes] = await Promise.all([
-        api.get(`/workforce/managers?event_id=${eventId}`),
-        api.get(`/workforce/assignments?event_id=${eventId}`)
-      ]);
+      const mgrRes = await api.get(`/workforce/managers?event_id=${eventId}`);
       const nextManagers = mgrRes.data.data || [];
-      const nextAssignments = assignmentRes.data.data || [];
       setManagers(nextManagers);
-      setAssignments(nextAssignments);
-      return { managers: nextManagers, assignments: nextAssignments };
+      return { managers: nextManagers };
     } catch (error) {
       console.error(error);
       toast.error("Erro ao carregar gerentes e alocações.");
-      return { managers: [], assignments: [] };
+      return { managers: [] };
     } finally {
       setLoading(false);
     }
@@ -91,19 +91,6 @@ export default function WorkforceOpsTab({ eventId }) {
     }
   };
 
-  useEffect(() => {
-    if (!eventId) return;
-    fetchManagersAndAssignments();
-  }, [eventId]);
-
-  useEffect(() => {
-    if (!selectedManager) return;
-    fetchManagerMembers(selectedManager.user_id);
-  }, [selectedManager?.user_id]);
-
-  const roleMemberCount = (roleId) =>
-    assignments.filter((assignment) => Number(assignment.role_id) === Number(roleId)).length;
-
   const buildRoleContext = (row) => {
     if (!row) return null;
     return {
@@ -113,8 +100,72 @@ export default function WorkforceOpsTab({ eventId }) {
     };
   };
 
+  const loadManagerOperationalContext = async (manager = selectedManager) => {
+    if (!manager?.role_id || !eventId) {
+      setManagerRoleSettings(null);
+      setEventStructure({ days: 0, shifts: 0 });
+      return;
+    }
+
+    setManagerRoleSettingsLoading(true);
+    try {
+      const [roleRes, daysRes, shiftsRes] = await Promise.all([
+        api.get(`/workforce/role-settings/${manager.role_id}`),
+        api.get(`/event-days?event_id=${eventId}`),
+        api.get(`/event-shifts?event_id=${eventId}`)
+      ]);
+
+      setManagerRoleSettings(roleRes.data?.data || null);
+      setEventStructure({
+        days: (daysRes.data?.data || []).length,
+        shifts: (shiftsRes.data?.data || []).length
+      });
+    } catch (error) {
+      console.error(error);
+      setManagerRoleSettings(null);
+      setEventStructure({ days: 0, shifts: 0 });
+    } finally {
+      setManagerRoleSettingsLoading(false);
+    }
+  };
+
+  const syncManagersEffect = useEffectEvent(() => {
+    fetchManagers();
+  });
+
+  const syncManagerMembersEffect = useEffectEvent((managerUserId) => {
+    fetchManagerMembers(managerUserId);
+  });
+
+  const syncManagerOperationalContextEffect = useEffectEvent((manager) => {
+    loadManagerOperationalContext(manager);
+  });
+
+  useEffect(() => {
+    if (!eventId) return;
+    syncManagersEffect();
+  }, [eventId]);
+
+  useEffect(() => {
+    if (!selectedManager?.user_id) {
+      setParticipants([]);
+      setSelectedIds([]);
+      return;
+    }
+    syncManagerMembersEffect(selectedManager.user_id);
+  }, [selectedManager?.user_id]);
+
+  useEffect(() => {
+    if (!selectedManager) {
+      setManagerRoleSettings(null);
+      setEventStructure({ days: 0, shifts: 0 });
+      return;
+    }
+    syncManagerOperationalContextEffect(selectedManager);
+  }, [selectedManager, selectedManager?.role_id, selectedManager?.participant_id, eventId]);
+
   const refreshSelectedManagerView = async (manager = selectedManager) => {
-    const { managers: refreshedManagers } = await fetchManagersAndAssignments();
+    const { managers: refreshedManagers } = await fetchManagers();
     if (!manager) {
       return;
     }
@@ -127,6 +178,7 @@ export default function WorkforceOpsTab({ eventId }) {
       ) || manager;
 
     setSelectedManager(refreshedManager);
+    await loadManagerOperationalContext(refreshedManager);
     if (refreshedManager?.user_id) {
       await fetchManagerMembers(refreshedManager.user_id);
       return;
@@ -160,11 +212,17 @@ export default function WorkforceOpsTab({ eventId }) {
   const selectedParticipants = teamMembers.filter((p) => selectedIds.includes(p.participant_id));
   const selectedManagerRole = buildRoleContext(selectedManager);
   const canLinkSelectedManager = Boolean(selectedManager?.user_id);
+  const managerRoleMembersCount = useMemo(() => {
+    if (!selectedManagerRole?.id) return 0;
+    return managers.filter((manager) => Number(manager.role_id || 0) === Number(selectedManagerRole.id)).length;
+  }, [managers, selectedManagerRole?.id]);
 
   const handleEnterManager = (manager) => {
     setSelectedManager(manager);
     setSearchTerm("");
     setSelectedIds([]);
+    setIsCreatingRoleInline(false);
+    setNewRoleName("");
   };
 
   const handleWorkforceImported = async () => {
@@ -250,6 +308,39 @@ export default function WorkforceOpsTab({ eventId }) {
     }
   };
 
+  const handleCreateOperationalRole = async () => {
+    const safeName = newRoleName.trim();
+    if (!safeName) {
+      toast.error("Informe o nome do cargo.");
+      return;
+    }
+
+    setSavingNewRole(true);
+    try {
+      const res = await api.post("/workforce/roles", {
+        name: safeName,
+        sector: selectedManager?.sector || undefined
+      });
+      const createdRole = res.data?.data || {};
+      const roleContext = {
+        id: Number(createdRole.id || 0),
+        name: createdRole.name || safeName,
+        sector: createdRole.sector || selectedManager?.sector || ""
+      };
+
+      toast.success("Cargo criado com sucesso.");
+      setNewRoleName("");
+      setIsCreatingRoleInline(false);
+      setRoleSettingsRole(roleContext);
+      setIsRoleSettingsModalOpen(true);
+      await refreshSelectedManagerView(selectedManager);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Erro ao criar cargo.");
+    } finally {
+      setSavingNewRole(false);
+    }
+  };
+
   if (!selectedManager) {
     return (
       <div className="space-y-6">
@@ -323,29 +414,6 @@ export default function WorkforceOpsTab({ eventId }) {
           onImported={handleWorkforceImported}
         />
 
-        <WorkforceRoleSettingsModal
-          isOpen={isRoleSettingsModalOpen}
-          role={roleSettingsRole}
-          eventId={eventId}
-          roleMembersCount={roleSettingsRole?.id ? roleMemberCount(roleSettingsRole.id) : 0}
-          onClose={() => {
-            setIsRoleSettingsModalOpen(false);
-            setRoleSettingsRole(null);
-          }}
-          onSaved={async () => {
-            await refreshSelectedManagerView(selectedManager);
-          }}
-        />
-
-        <WorkforceSectorCostsModal
-          isOpen={isSectorCostsModalOpen}
-          role={sectorCostsRole}
-          eventId={eventId}
-          onClose={() => {
-            setIsSectorCostsModalOpen(false);
-            setSectorCostsRole(null);
-          }}
-        />
       </div>
     );
   }
@@ -365,6 +433,146 @@ export default function WorkforceOpsTab({ eventId }) {
               Gerente sem usuário vinculado. Importação e alocação manual ficam bloqueadas.
             </p>
           )}
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.4fr,1fr]">
+        <div className="card border border-gray-800 bg-gray-900/40 p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Painel do Gerente</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Recuperado no fluxo operacional do gerente: custos, configuração do cargo e dados-base da liderança.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => {
+                  setRoleSettingsRole(selectedManagerRole);
+                  setIsRoleSettingsModalOpen(true);
+                }}
+                className="btn-secondary h-10 px-4 text-xs flex items-center gap-2"
+                disabled={!selectedManagerRole?.id}
+              >
+                <Settings2 size={14} /> Configurar Cargo
+              </button>
+              <button
+                onClick={() => {
+                  setSectorCostsRole(selectedManagerRole);
+                  setIsSectorCostsModalOpen(true);
+                }}
+                className="btn-secondary h-10 px-4 text-xs flex items-center gap-2"
+                disabled={!selectedManagerRole?.id}
+              >
+                <Briefcase size={14} /> Custos
+              </button>
+            </div>
+          </div>
+
+          {managerRoleSettingsLoading ? (
+            <div className="h-24 flex items-center justify-center">
+              <div className="spinner" />
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Nome</p>
+                <p className="mt-2 text-sm font-semibold text-white">{managerRoleSettings?.leader_name || selectedManager?.person_name || "Nao informado"}</p>
+              </div>
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">CPF</p>
+                <p className="mt-2 text-sm font-semibold text-white">{managerRoleSettings?.leader_cpf || "Nao informado"}</p>
+              </div>
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Telefone</p>
+                <p className="mt-2 text-sm font-semibold text-white">{managerRoleSettings?.leader_phone || selectedManager?.phone || "Nao informado"}</p>
+              </div>
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Tipo de custo</p>
+                <p className="mt-2 text-sm font-semibold text-white">
+                  {String(managerRoleSettings?.cost_bucket || selectedManager?.cost_bucket || "operational") === "managerial"
+                    ? "Gerencial"
+                    : "Operacional"}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Quantidade de turnos</p>
+                <p className="mt-2 text-sm font-semibold text-white">{Number(managerRoleSettings?.max_shifts_event ?? 1).toLocaleString("pt-BR")}</p>
+              </div>
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Horas por turno</p>
+                <p className="mt-2 text-sm font-semibold text-white">{Number(managerRoleSettings?.shift_hours ?? 8).toLocaleString("pt-BR")}h</p>
+              </div>
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Refeicoes</p>
+                <p className="mt-2 text-sm font-semibold text-white">{Number(managerRoleSettings?.meals_per_day ?? 4).toLocaleString("pt-BR")} por dia</p>
+              </div>
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Valor por turno</p>
+                <p className="mt-2 text-sm font-semibold text-white">R$ {Number(managerRoleSettings?.payment_amount ?? 0).toFixed(2)}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="card border border-gray-800 bg-gray-900/40 p-4 space-y-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Estrutura operacional</p>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Dias do evento</p>
+                <p className="mt-2 text-lg font-black text-white">{eventStructure.days}</p>
+              </div>
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Turnos</p>
+                <p className="mt-2 text-lg font-black text-white">{eventStructure.shifts}</p>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              A alocacao manual do gerente continua permitindo escolher dia e turno do evento para cada membro.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Criar cargo operacional</p>
+                <p className="mt-1 text-xs text-gray-500">Novo cargo no setor atual do gerente, sem sair do painel.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreatingRoleInline((prev) => !prev)}
+                className="btn-secondary h-9 px-3 text-xs flex items-center gap-2"
+              >
+                <Plus size={14} /> {isCreatingRoleInline ? "Fechar" : "Novo Cargo"}
+              </button>
+            </div>
+
+            {isCreatingRoleInline && (
+              <div className="mt-3 flex flex-col gap-2">
+                <input
+                  type="text"
+                  className="input w-full"
+                  placeholder="Ex: Coordenador de Equipe"
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500">
+                    Setor: {(selectedManager?.sector || "geral").replace(/_/g, " ")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCreateOperationalRole}
+                    disabled={savingNewRole}
+                    className="btn-primary h-9 px-3 text-xs"
+                  >
+                    {savingNewRole ? "Criando..." : "Criar Cargo"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -404,16 +612,6 @@ export default function WorkforceOpsTab({ eventId }) {
           />
         </div>
         <div className="flex gap-2 w-full lg:w-auto">
-          <button
-            onClick={() => {
-              setSectorCostsRole(selectedManagerRole);
-              setIsSectorCostsModalOpen(true);
-            }}
-            className="btn-secondary flex-1 lg:flex-none h-11 px-4 flex items-center gap-2"
-            disabled={!selectedManagerRole?.id}
-          >
-            <Settings2 size={16} /> Custos
-          </button>
           <button
             onClick={() => {
               if (!canLinkSelectedManager) {
@@ -609,7 +807,7 @@ export default function WorkforceOpsTab({ eventId }) {
         isOpen={isRoleSettingsModalOpen}
         role={roleSettingsRole}
         eventId={eventId}
-        roleMembersCount={roleSettingsRole?.id ? roleMemberCount(roleSettingsRole.id) : 0}
+        roleMembersCount={Number(roleSettingsRole?.id || 0) === Number(selectedManagerRole?.id || 0) ? managerRoleMembersCount : 0}
         onClose={() => {
           setIsRoleSettingsModalOpen(false);
           setRoleSettingsRole(null);

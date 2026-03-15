@@ -3,6 +3,38 @@ import { X, UploadCloud, AlertCircle } from "lucide-react";
 import api from "../../lib/api";
 import toast from "react-hot-toast";
 
+function parseCsvRow(rowText) {
+  const columns = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < rowText.length; i += 1) {
+    const char = rowText[i];
+    const nextChar = rowText[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      columns.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  columns.push(current.trim());
+  return columns.map((column) => column.replace(/\r/g, ""));
+}
+
 export default function CsvImportModal({
   isOpen,
   onClose,
@@ -18,6 +50,7 @@ export default function CsvImportModal({
   const [file, setFile] = useState(null);
   const [categories, setCategories] = useState([]);
   const [defaultCategoryId, setDefaultCategoryId] = useState("");
+  const managerFirstMode = mode === "workforce" && Boolean(managerUserId);
 
   const filteredCategories = categories.filter((category) => {
     if (mode !== "workforce") {
@@ -69,37 +102,37 @@ export default function CsvImportModal({
       const reader = new FileReader();
       reader.onload = async (e) => {
         const text = e.target.result;
-        const rows = text.split("\n");
+        const rows = String(text || "").split(/\r?\n/);
         const participants = [];
         
         // Skip header
         for (let i = 1; i < rows.length; i++) {
           const rowText = rows[i].trim();
           if (!rowText) continue;
-          
-          // Split by comma ignoring commas inside quotes
-          const cols = rowText.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
-          
-          if (cols.length > 0) {
-              const participant = {
-                 name: cols[0]?.replace(/"/g, "")?.trim() || "",
-                 email: cols[1]?.replace(/"/g, "")?.trim() || "",
-                 document: cols[2]?.replace(/"/g, "")?.trim() || "",
-                 phone: cols[3]?.replace(/"/g, "")?.trim() || "",
-                 category_id: cols[4]?.replace(/"/g, "")?.trim() || defaultCategoryId
-              };
-              if (participant.name) participants.push(participant);
+
+          // CORREÇÃO: Split seguro que preserva espaços em branco e mantém colunas vazias
+          const cols = rowText.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(col => col.trim().replace(/^"|"$/g, ''));
+
+          if (cols.length >= 4) {
+            const participant = {
+              name: cols[0] || "",
+              email: cols[1] || "",
+              document: cols[2] || "",
+              phone: cols[3] || "",
+              category_id: cols[4] || defaultCategoryId
+            };
+            if (participant.name) participants.push(participant);
           }
         }
 
         try {
             const endpoint = mode === "workforce"
-              ? (workforceRoleId ? `/workforce/roles/${workforceRoleId}/import` : "/workforce/import")
+              ? (managerFirstMode ? "/workforce/import" : (workforceRoleId ? `/workforce/roles/${workforceRoleId}/import` : "/workforce/import"))
               : "/participants/import";
             const payload = mode === "workforce"
               ? {
                   event_id: eventId,
-                  role_id: workforceRoleId || undefined,
+                  role_id: managerFirstMode ? undefined : (workforceRoleId || undefined),
                   sector: workforceSector || undefined,
                   forced_manager_user_id: managerUserId || undefined,
                   file_name: file.name,
@@ -160,11 +193,11 @@ export default function CsvImportModal({
                         {mode === "workforce" && (
                           <>
                             <p className="text-blue-300 mb-2">
-                              {managerUserId
-                                ? `Importação vinculada ao Gerente/Líder atual na tabela.`
+                              {managerFirstMode
+                                ? `Importação vinculada diretamente ao gerente atual. O setor desta tabela será respeitado.`
                                 : `Importação vinculada ao cargo selecionado.`}
                             </p>
-                            {String(workforceRoleCostBucket || "").toLowerCase() === "managerial" && (
+                            {!managerFirstMode && String(workforceRoleCostBucket || "").toLowerCase() === "managerial" && (
                               <p className="text-amber-300">
                                 Cargo gerencial detectado: os nomes do CSV serão alocados automaticamente no cargo operacional do setor, preservando o gerente apenas como liderança configurada.
                               </p>

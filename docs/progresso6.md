@@ -1,520 +1,423 @@
-# Progresso da Rodada Atual - EnjoyFun 2.0
+## 0. Dados brutos validados (rodada anterior preservada)
 
-## Database Governance — Schema Recovery
-
-- **Responsável:** Codex VS Code
-- **Status:** Executado
-- **Escopo:** trilha de governança de schema / baseline / migrations operacionais
-- **Fora de escopo preservado:** Meals, Workforce funcional, Participants Hub, POS e qualquer código de domínio
-
-### Objetivo da rodada
-- consolidar `database/schema_current.sql` como baseline oficial
-- retirar `database/schema_real.sql` do papel de baseline sem apagar o histórico
-- reduzir `database/009_manual_schema_sync.sql` ao drift manual comprovado e seguro
-- alinhar README, scripts e logs ao fluxo operacional real
-
-### Correções executadas
-- `database/schema_current.sql`
-  - materializado a partir do dump real `database/schema_dump_20260313.sql`
-  - passa a ser a referência oficial de schema no repositório
-- `database/schema_real.sql`
-  - recebeu marcação explícita de snapshot histórico legado
-  - deixa de ser tratado como baseline
-- `database/009_manual_schema_sync.sql`
-  - removidos os `CREATE TABLE IF NOT EXISTS` que reespecificavam tabelas legadas
-  - removido o bootstrap de `schema_migrations`
-  - removido o trecho de `organizer_payment_gateways.is_primary/environment`
-  - mantido apenas o drift comprovado de `workforce_role_settings`:
-    - `leader_name`
-    - `leader_cpf`
-    - `leader_phone`
-  - corrigidos os tamanhos para bater com o baseline atual:
-    - `leader_name varchar(150)`
-    - `leader_cpf varchar(20)`
-    - `leader_phone varchar(40)`
-- `database/README.md`
-  - reescrito para refletir o estado real da trilha
-  - remove recomendação de aplicar a `009`
-  - declara `schema_current.sql` como baseline canônico
-  - declara `schema_real.sql` apenas como histórico
-  - simplifica o fluxo diário de governança
-- scripts operacionais
-  - `database/dump_schema.bat` passou a operar relativo ao diretório do script
-  - `database/dump_schema.bat` agora usa data robusta via PowerShell
-  - `database/dump_schema.bat` registra em `database/dump_history.log`
-  - `database/apply_migration.bat` passou a registrar em `database/migrations_applied.log`
-  - `database/apply_migration.bat` remove o exemplo enviesado que incentivava aplicar a `009`
-- logs
-  - removido `database/migrations_log.sql`, que era apenas um pseudo-log SQL inconsistente
-  - criado `database/migrations_applied.log` como log operacional real
-  - criado `database/dump_history.log` como log operacional real
-
-### Estado final da 009
-- **Fica**
-  - somente `ALTER TABLE public.workforce_role_settings ADD COLUMN IF NOT EXISTS ...`
-- **Sai**
-  - espelhamento de tabelas legadas já cobertas por `schema_current.sql`
-  - criação/população de `schema_migrations`
-  - qualquer tentativa de transformar a `009` em baseline paralelo
-- **Move para depois**
-  - `organizer_payment_gateways.is_primary`
-  - `organizer_payment_gateways.environment`
-  - esse drift continua pertencendo à `006_financial_hardening.sql` ou a eventual migration dedicada futura
-
-### Fluxo diário consolidado
-1. Rodar `cmd /c "database\dump_schema.bat"`
-2. Revisar `git diff -- database/schema_current.sql`
-3. Se o diff revelar mudança sem migration correspondente, criar migration mínima e dedicada
-4. Commitar dump datado + `schema_current.sql` + migration nova, se houver
-5. Registrar aplicações reais em `database/migrations_applied.log`
-
-### Validação objetiva executada
-- conferência de existência de `database/schema_current.sql`
-- verificação de igualdade material entre `schema_current.sql` e `schema_dump_20260313.sql`
-- leitura dirigida de:
-  - `database/009_manual_schema_sync.sql`
-  - `database/README.md`
-  - `database/dump_schema.bat`
-  - `database/apply_migration.bat`
-  - `database/schema_real.sql`
-- validação de que a `009` deixou de reespecificar tabelas legadas
-- validação de que os logs referenciados pelos scripts agora existem no repositório
-
-### Limites preservados
-- nenhuma migration foi aplicada ao banco nesta rodada
-- o estado de aplicação histórica das migrations no banco continua dependendo do ambiente real
-- a adoção futura de uma tabela `schema_migrations` continua **INCONCLUSIVA** e não faz parte do baseline oficial desta rodada
+- **Evento 1 (EnjoyFun 2026)**: organizer: 2 | event_days: 1 | event_shifts: 1 | participant_meals: 0 | meal_unit_cost: 0.00 | status: Parcialmente Apto
+- **Evento 2 (universo paralello)**: organizer: 3 | event_days: 0 | event_shifts: 0 | participant_meals: 0 | meal_unit_cost: 0 | status: Bloqueado
+- **Evento 3 (hipinotica)**: organizer: 1 | event_days: 0 | event_shifts: 0 | participant_meals: 0 | meal_unit_cost: 0 | status: Bloqueado
+- **Evento 6 (UBUNTU)**: organizer: 2 | event_days: 0 | event_shifts: 0 | participant_meals: 0 | meal_unit_cost: 0.00 | status: Bloqueado
+- **Evento 7 (aldeia da transformação)**: organizer: 2 | event_days: 0 | event_shifts: 0 | participant_meals: 0 | meal_unit_cost: 0.00 | status: Bloqueado
 
 ---
 
-## Workforce Funcional — Patch Mínimo e Seguro
+## 1. Estado real atual de Meals
 
-- **Responsável:** Gemini 3.1
-- **Status:** Executado
-- **Escopo:** Ajuste do eixo funcional Evento -> Gerente -> Equipe
-- **Fora de escopo:** Meals, POS, Participantes Hub e reestruturação complexa do banco.
+**Estado: DEGRADADO — bloqueado para 4 de 5 eventos auditados, parcialmente operacional apenas para Evento 1.**
 
-### 1. O que foi alterado no backend (`WorkforceController.php`)
-- **Nova rota sub-menu:** `GET /workforce/managers` adicionada no `dispatch()`.
-- **Lógica `listManagers`:** A função mapeia os gerentes filtrando estritamente `event_id` e extraindo alocações cruzadas com roles que têm `cost_bucket='managerial'`. Ela também agrega o tamanho da equipe subjacente contando em `workforce_assignments` quem tem o `manager_user_id` daquele líder.
-- **Ampliação de filtro:** `listAssignments()` agora reage ao `manager_user_id` passado na query param de modo exato.
+Justificativa por camada:
 
-### 2. O que foi alterado no frontend (`WorkforceOpsTab.jsx`)
-- **Remoção do conceito de Master em Cargo:** Os endpoints chamados no componente pai mudaram de `/roles` para `/managers`.
-- **A Tabela Master:** Agora itera o Array `managers` (e parou de listar "Cargos" soltos). Apresenta a foto, o nome civil, o contato, e o tamanho calculado da equipe (vindo do backend). Em vez de "Entrar no cargo", agora se clica em "Tabela do Gerente".
-- **A Tela Detalhe (A Tabela do Gerente):** Quando se acessa o modo "Detail", o título da UI reflete "Tabela do Gerente: João Silva (Setor: Bar)". A lista de membros que aparece puxa diretamente as alocações contendo o `manager_user_id` desse mesmo gerente logado. O usuário tem um isolamento visual perfeito.
-- **Os fallbacks:** Remoção prudente de lógicas antigas de inferência fraca onde roles se misturavam com pessoas operacionais se não fossem gerenciais.
+| Evento | event_days | event_shift | participant_meals | meal_unit_cost | Estado real |
+|--------|-----------|-------------|-------------------|----------------|-------------|
+| 1 | 1 | 1 | 0 | 0.00 | Parcialmente operacional |
+| 2 | 0 | 0 | 0 | 0 | Bloqueado hard |
+| 3 | 0 | 0 | 0 | 0 | Bloqueado hard |
+| 6 | 0 | 0 | 0 | 0.00 | Bloqueado hard |
+| 7 | 0 | 0 | 0 | 0.00 | Bloqueado hard |
 
-### 3. O que foi alterado na importação (`WorkforceController.php` / `CsvImportModal.jsx`)
-- **No Payload Front:** O `CsvImportModal` passou a transmitir explicitamente a chave `forced_manager_user_id`, colhendo esse dado caso o modal tenha sido aberto "de dentro" da tabela de um gerente específico.
-- **No Controller Back:** `importWorkforce()` parou de puxar cegamente o id de quem faz o request global. Se o payload da requisição enviar um gerente pretendido firme (`forced_manager_user_id`), esse id será setado impiedosamente na coluna `manager_user_id` de toda a equipe que subir com aquele arquivo CSV.
-
-### 4. Validação executada
-- Modificações de Controller analisadas estaticamente, verificada a integridade de injeção e isolamento de rotas.
-- Parsing e propagação de props do frontend estritamente mapeados sem tocar os filhos complexos nem os forms modais estendidos (proteção aos settings modais independentes).
-- Análise de impacto cruzado garantindo que a constraint `UNIQUE(participant_id, sector)` continue bloqueando de forma passivamente correta o membro que subir na mesma importação.
-
-### 5. Limites preservados
-- O fluxo de Schema Governance conduzido pela Codex VS Code não foi tocado ou subvertido. Nenhuma Migration adicionada, o schema_current.sql não foi sujo.
-- Refeições (`Meals`) e Pontos de Venda (`POS`) permanecem operando perfeitamente e isentos, já que o patch modificou a "estrutura representacional" do time no Backoffice e não o token nem os "assignments brutais".
-- A API `/participants/bulk-delete` continua varrendo pelo Participant ID genérico global sem precisar saber o shape gerencial.
+Para Evento 1: a leitura operacional de saldo diário e o registro de refeição por QR estão habilitados. A projeção financeira é zerada mas não bloqueada por lógica de tela — `projection_summary.enabled` retorna `true` se a coluna `meal_unit_cost` existir na tabela `organizer_financial_settings` (e existe, adicionada pela migration 007). O bloqueio financeiro real para Evento 1 é apenas que o valor está em `0.00`, não que a feature esteja indisponível.
 
 ---
 
-## Database Governance — Drift remanescente da `006_financial_hardening.sql`
+## 2. O que a tela exige para funcionar
 
-- **Responsável:** Codex VS Code
-- **Status:** Executado
-- **Escopo:** análise objetiva do drift remanescente da `006_financial_hardening.sql` e impacto real no domínio financeiro
-- **Fora de escopo preservado:** Meals, Workforce funcional, Participants Hub, POS e qualquer alteração no banco
+Cadeia de decisão de `MealsControl.jsx` em ordem de prioridade:
 
-### 1. Estado real da 006 no schema atual
+```
+1. loadEvents() → GET /events
+   - Auto-seleciona list[0].id (primeiro evento por starts_at ASC)
+   - SE lista vazia → tela fica em estado "Selecione um evento" (sem seleção automática possível)
 
-- `database/schema_current.sql` confirma que `organizer_payment_gateways` ainda contém apenas:
-  - `id`
-  - `organizer_id`
-  - `provider`
-  - `credentials`
-  - `is_active`
-  - `created_at`
-  - `updated_at`
-- Portanto, **ainda não estão refletidos no schema atual**:
-  - `organizer_payment_gateways.is_primary`
-  - `organizer_payment_gateways.environment`
-  - `chk_organizer_payment_gateways_provider`
-  - `chk_organizer_payment_gateways_environment`
-  - `ux_payment_gateways_org_provider`
-  - `ux_payment_gateways_org_primary`
-  - `ux_financial_settings_organizer`
-- Sobre os blocos DML da `006`:
-  - o baseline de schema não prova execução histórica de backfill/deduplicação
-  - os artefatos da auditoria mostram:
-    - `organizer_payment_gateways` sem linhas visíveis no recorte auditado
-    - `organizer_financial_settings` com 1 linha no recorte auditado
-  - logo, a necessidade imediata de cleanup por dados duplicados ficou **não evidenciada** nesse ambiente, mas o enforcement estrutural continua ausente
+2. COM eventId definido → loadStaticData(evtId):
+   - GET /event-days?event_id=evtId → setEventDays(days)
+   - GET /event-shifts?event_id=evtId → setEventShifts(shifts)
+   - SE days[] vazio → showWorkforceFallback = true
+     → BLOQUEIA: eventDayId, eventShiftId, loadBalance, canRegisterMeal
 
-### 2. Uso real no código
+3. SE showWorkforceFallback = true:
+   - loadWorkforceBase(evtId) → GET /workforce/assignments?event_id=evtId
+   - Mostra base complementar do Workforce (read-only)
+   - Registro de refeição: DESABILITADO
+   - Saldo real: DESABILITADO
+   - Projeção financeira: DESABILITADO
+   - Banner: "Modo complementar do Workforce"
 
-- O backend **usa semanticamente** `is_primary` e `environment`, mas com fallback explícito para ausência de coluna:
-  - `PaymentGatewayService::gatewaySchema()` detecta dinamicamente a existência de `is_primary` e `environment`
-  - `selectColumns()` projeta `NULL AS is_primary/environment` quando a coluna não existe
-  - `mapGatewayRow()` reconstrói `is_primary` e `environment` a partir de `credentials.flags`
-  - `buildStoredCredentials()` persiste `flags.is_primary` e `flags.environment` dentro do JSON
-- Escrita:
-  - `createGateway()` e `updateGateway()` só escrevem nas colunas físicas se ambas existirem
-  - se não existirem, gravam os flags no JSON `credentials`
-  - `setPrimaryGateway()` mantém a marcação de principal no JSON mesmo sem coluna física
-- Controller:
-  - `OrganizerFinanceController` usa `is_primary` para escolher gateway principal no payload legado
-  - esse valor vem do `PaymentGatewayService`, então continua funcional mesmo sem a coluna
-- Frontend:
-  - `frontend/src/pages/SettingsTabs/FinanceTab.jsx` usa `is_primary` / `is_principal`
-  - o frontend **não usa `environment`**
-  - o fluxo atual de UI não expõe seletor de ambiente
+4. SE showWorkforceFallback = false (event_days existe):
+   - Auto-seleciona days[0].id como eventDayId
+   - canUseRealMeals = Boolean(eventId) && hasConfiguredEventDays && Boolean(eventDayId)
+   - canRegisterMeal = canUseRealMeals
+   - loadBalance() → GET /meals/balance?event_id=&event_day_id=&...
 
-### 3. Impacto operacional real
+5. SE eventDayId definido:
+   - filteredShifts = eventShifts filtrados por event_day_id === eventDayId
+   - SE filteredShifts.length === 0 → turno é opcional (não bloqueia)
+   - Registro de refeição: HABILITADO
 
-- **Risco real de erro SQL:** baixo no fluxo atual
-  - o backend foi endurecido com introspecção de schema e evita referenciar colunas inexistentes em `SELECT`, `INSERT` e `UPDATE`
-- **Risco funcional silencioso:** sim
-  - sem `ux_payment_gateways_org_provider`, duplicidade de provider por organizer continua possível por concorrência, carga manual ou drift fora da aplicação
-  - sem `ux_payment_gateways_org_primary`, a unicidade estrutural do gateway principal não é garantida no banco
-  - sem `ux_financial_settings_organizer`, `organizer_financial_settings` continua dependente de disciplina aplicacional (`ORDER BY id DESC LIMIT 1`) em vez de garantia estrutural
-  - sem checks de provider/environment, o banco continua aceitando valores inválidos em escrita manual/out-of-band
-- **Uso prático imediato do drift:**
-  - `is_primary` tem uso real de domínio, mas hoje está sustentado por fallback em JSON
-  - `environment` está preparado no backend, porém sem uso material no frontend atual
-  - no ambiente auditado, como não havia gateways cadastrados no recorte observado, o risco atual é mais de integridade futura do que de incidente ativo
+6. loadMealUnitCost() → GET /organizer-finance/settings
+   - SE meal_unit_cost_available === false → bloqueia botão "Valor Refeição"
+   - SE meal_unit_cost_available === true (coluna existe) → habilita edição mesmo com valor 0
+```
 
-### 4. Próxima correção mínima recomendada
-
-- **Recomendação:** fatiar a `006`
-- Motivo:
-  - aplicar a `006` inteira como está mistura:
-    - adição de colunas/constraints/índices
-    - cleanup destrutivo de duplicidade
-    - promoção automática de principal
-    - dedupe em `organizer_financial_settings`
-  - isso é grande demais para o estado atual e para o nível de evidência disponível
-- Direção mínima posterior:
-  1. migration dedicada só para estrutura de `organizer_payment_gateways`
-     - `ADD COLUMN is_primary`
-     - `ADD COLUMN environment`
-     - checks
-     - índices únicos
-  2. avaliar separadamente o bloco DML de cleanup/promoção
-     - apenas após inspeção de dados no ambiente alvo
-  3. tratar `ux_financial_settings_organizer` em migration própria ou em segundo passo curto
-- **Conclusão:** hoje não é recomendável aplicar a `006` como está sem separar estrutura de cleanup
-
-### 5. O que não deve ser mexido agora
-
-- não aplicar a `006` no banco
-- não forçar `schema_current.sql` a refletir colunas que ainda não existem no banco real
-- não mover esse ajuste para a `009`
-- não alterar `PaymentGatewayService` nem `OrganizerFinanceController` agora
-- não abrir refactor do frontend financeiro só por causa de `environment`
-
-### 6. Limite preservado
-
-- a existência de dados duplicados históricos em produção/outros ambientes continua **INCONCLUSIVA** nesta rodada
-- a decisão final de como particionar a `006` em migrations futuras continua pendente de execução posterior
+**Flags de gating duro na UI:**
+- `showWorkforceFallback = !hasConfiguredEventDays` — gate mais forte; desativa saldo, turno e registro
+- `canUseRealMeals = eventId && hasConfiguredEventDays && eventDayId` — gate de habilitação de operação real
+- `mealUnitCostAvailable === false` — gate de edição do custo unitário
 
 ---
 
-## Workforce Funcional — Auditoria do patch recém-implementado
+## 3. Onde a cadeia quebra
 
-- **Responsável:** Codex VS Code
-- **Status:** Auditado
-- **Escopo:** verificação técnica do patch funcional de Workforce já escrito por terceiro
-- **Fora de escopo preservado:** Meals, database governance, Participants Hub, POS e qualquer nova implementação funcional
+Quebra identificada por categoria:
 
-### 1. O que ficou provado como correto
+**A. Falta de `event_days` — QUEBRA PRIMÁRIA (4/5 eventos)**
+- Gatilho: `GET /event-days?event_id=X` retorna `[]`
+- Efeito: `setEventDays([])` → `hasConfiguredEventDays = false` → `showWorkforceFallback = true`
+- Consequência: dia, turno e registro de refeição ficam TODOS desativados por lógica de tela
+- Eventos afetados: 2, 3, 6, 7
 
-- A sub-rota `GET /workforce/managers` foi adicionada ao `dispatch()` e não sobrescreve as rotas existentes de `roles` ou `assignments`.
-- `listAssignments()` passou a aceitar `manager_user_id` e filtra pela coluna real `wa.manager_user_id`.
-- `CsvImportModal.jsx` envia `forced_manager_user_id` no modo workforce quando o modal recebe `managerUserId`.
-- O controller continua sintaticamente válido:
-  - `php -l backend/src/Controllers/WorkforceController.php` retornou sem erro de sintaxe.
+**B. Auto-seleção errada de evento — QUEBRA REAL DE EXPERIÊNCIA**
+- `loadEvents()` seleciona `list[0]` (primeiro por `starts_at ASC` no backend)
+- Isso não é necessariamente o evento em andamento
+- Se o primeiro evento da lista for um dos eventos sem `event_days`, a tela abre em modo bloqueado mesmo que haja outro evento com `event_days` disponível
+- Evento 1 (EnjoyFun 2026) tem `event_days` mas pode não ser o primeiro da lista por ordenação cronológica — INCONCLUSIVO SEM RUNTIME
 
-### 2. O que ficou provado como incorreto ou incompleto
+**C. Falta de `event_shifts` — QUEBRA SECUNDÁRIA (degradação)**
+- Não bloqueia a tela se `event_days` existe
+- Impede recorte por turno mas não impede: saldo do dia, registro de refeição, balance por dia
+- Para eventos bloqueados por (A): irrelevante
 
-- `GET /workforce/managers` está incorreto contra o schema atual:
-  - o SQL seleciona `wa.user_id`
-  - `database/schema_current.sql` prova que `workforce_assignments` não possui `user_id`, apenas `manager_user_id`
-  - consequência: a rota está sujeita a erro SQL/runtime no estado atual do banco
-- A detail view do frontend permaneceu com sobras da UI antiga por cargo:
-  - `roleMembers`
-  - `selectedRole`
-  - `fetchRolesAndAssignments()`
-  - `fetchRoleMembers()`
-  - `roleMemberCount()`
-  - esses identificadores seguem referenciados em `WorkforceOpsTab.jsx`, mas não existem mais no componente
-- O contrato de dados da equipe está inconsistente:
-  - o backend retorna `person_name`, `person_email` e `cost_bucket`
-  - a renderização usa `m.name`, `m.email` e `m.assignment?.cost_bucket`
-  - consequência: mesmo sem crash, nome/status/custo tenderiam a aparecer vazios ou incorretos
-- `importWorkforce()` aceita `forced_manager_user_id` sem validação adicional de pertencimento ao evento/setor/organizador
-- `importWorkforce()` só insere assignment quando não existe `(participant_id, role_id)` e não atualiza `manager_user_id` em assignment já existente
-  - consequência: importar por gerente não garante rebinding da equipe já existente para aquele gerente
-- A alocação manual a partir da tela do gerente ficou incompleta:
-  - `AddWorkforceAssignmentModal` não recebe nem envia contexto de gerente
-  - no backend, `createAssignment()` grava `manager_user_id = null` para perfis com bypass
-  - consequência: admin/organizer adicionando pela tabela do gerente cria assignment fora da equipe filtrada daquele gerente
+**D. `meal_unit_cost = 0` — NÃO É QUEBRA OPERACIONAL**
+- A coluna `meal_unit_cost` existe na `organizer_financial_settings` (migration 007 confirma)
+- `FinancialSettingsService::getSettings()` retorna `meal_unit_cost_available: true` quando a coluna existe
+- `projection_summary.enabled = true` no backend quando `$hasMealUnitCostColumn = true`
+- O valor 0 produz projeção zerada mas não bloqueia nenhum ícone de refeição
+- `meal_unit_cost_not_configured` é registrado como diagnóstico mas não bloqueia UI
 
-### 3. Regressões encontradas
+**E. `participant_meals = 0` — NÃO É QUEBRA**
+- Backend retorna consumo em 0 e saldo teórico em 100% da cota
+- `no_real_meal_consumption_for_day` é registrado como diagnóstico informativo
+- Não bloqueia nada operacionalmente
 
-- Regressão crítica de frontend:
-  - a view de detalhe do gerente usa `roleMembers.length` no render
-  - como `roleMembers` não existe mais, o fluxo tende a quebrar com `ReferenceError`
-- Regressão funcional de navegação:
-  - callbacks de modais ainda tentam recarregar `fetchRolesAndAssignments()` e `fetchRoleMembers(selectedRole.id)`
-  - isso rompe o modelo novo orientado a gerente e impede refresh coerente após ações
-- Regressão funcional da ação "Custos":
-  - o botão ainda usa `selectedRole`, que não existe no novo fluxo por gerente
+**F. Contrato `/meals/balance` — COERENTE**
+- Backend exige `event_id` e `event_day_id` (400 se ausentes)
+- Frontend só chama `loadBalance()` quando `eventId && eventDayId` (linha 233)
+- Contrato está alinhado
 
-### 4. Validação objetiva executada
+**G. `mealEnsureMealsReadSchema` — POTENCIAL BLOQUEIO SILENCIOSO**
+- Chamado antes de qualquer operação em `/meals/balance`
+- Verifica presença das tabelas: `event_days`, `event_participants`, `participant_meals`, `people`, `workforce_assignments`, `workforce_member_settings`, `workforce_roles`
+- SE qualquer tabela faltar → retorna HTTP 409 com mensagem genérica
+- Na UI isso se manifesta como `toast.error("Erro ao carregar saldo")` sem detalhe
+- Status do runtime real dessas tabelas: INCONCLUSIVO (não provável ser o bloqueio dado que Evento 1 funciona parcialmente)
 
-- leitura dirigida de:
-  - `backend/src/Controllers/WorkforceController.php`
-  - `frontend/src/pages/ParticipantsTabs/WorkforceOpsTab.jsx`
-  - `frontend/src/pages/ParticipantsTabs/CsvImportModal.jsx`
-  - `frontend/src/pages/ParticipantsTabs/AddWorkforceAssignmentModal.jsx`
-  - `database/schema_current.sql`
-- validação do schema real de `workforce_assignments`
-- busca textual por referências residuais do fluxo antigo em `WorkforceOpsTab.jsx`
-- `php -l backend/src/Controllers/WorkforceController.php`
-- tentativa de lint frontend:
-  - `npx eslint frontend/src/pages/ParticipantsTabs/WorkforceOpsTab.jsx frontend/src/pages/ParticipantsTabs/CsvImportModal.jsx`
-  - resultado: **INCONCLUSIVO** por ausência de `eslint.config.js` compatível no ambiente atual
+---
 
-### 5. Decisão final
+## 4. Bug real vs base ausente vs contrato ruim
 
-- **Decisão:** corrigir antes de seguir
-- Motivo:
-  - existe bug provado no backend da rota nova `/workforce/managers`
-  - existe regressão provada de render/navegação na detail view do frontend
-  - o fluxo manual e o fluxo de importação por gerente ficaram semanticamente incompletos
+| Item | Categoria | Provado | Impacto |
+|---|---|---|---|
+| `event_days` ausente em eventos 2,3,6,7 | **Base operacional ausente** | Sim (dados brutos) | Hard block tela |
+| Auto-seleção de evento sem `event_days` | **Bug real de UX/lógica** | Provável mas INCONCLUSIVO sem runtime | Experiência vazia mesmo com evento apto disponível |
+| `event_shifts` ausente | **Base operacional ausente** | Sim | Degradação do recorte de turno, não bloqueio |
+| `meal_unit_cost = 0` | **Base não preenchida** | Sim | Projeção zerada, não bloqueio |
+| `participant_meals = 0` | **Base não preenchida** | Sim | Saldo teórico, não bloqueio |
+| Contrato `/meals/balance` | Sem problema | Sim | — |
+| `mealEnsureMealsReadSchema` falhando | INCONCLUSIVO | Não provado | Potencial 409 silencioso |
+| `projection_summary.enabled` vs `meal_unit_cost_not_configured` | **Contrato ambíguo** | Sim (leitura de código) | UI mostra "disponível para configurar" mas o dado é 0 — não é bug crítico |
+
+**Leitura sobre "vários ícones como indisponível" validada pelo usuário:**
+A origem mais provável é a auto-seleção de evento: se o primeiro evento por `starts_at ASC` for um sem `event_days`, toda a tela fica em modo fallback mesmo que o evento correto exista. Isso é verificável mas INCONCLUSIVO sem confirmação de qual evento era o primeiro da lista no momento do teste.
+
+---
+
+## 5. Conclusão principal
+
+**Bloqueio é combinação dos dois:**
+
+- **Base operacional:** eventos 2, 3, 6 e 7 sem `event_days` tornam a tela inutilizável para 4/5 eventos, independentemente de qualquer lógica de código.
+- **Tela/UX/lógica:** a auto-seleção `list[0]` por `starts_at ASC` pode colocar o usuário direto num evento bloqueado mesmo quando o Evento 1 (com `event_days`) está disponível. Este comportamento transforma um cenário de "1 evento operacional + 4 bloqueados" em "experiência completamente inoperante" dependendo da ordem dos eventos.
+
+O gating duro da UI (`showWorkforceFallback`) é correto como comportamento defensivo, mas a combinação com a auto-seleção sem critério de "evento em andamento" é o multiplicador de impacto real na experiência.
+
+---
+
+## 6. Próximo passo recomendado
+
+**Corrigir base dos eventos (primeiro).**
+
+Razão: sem `event_days` nos eventos 2, 3, 6 e 7, qualquer correção de lógica de seleção de evento na tela ainda resultaria em bloqueio para esses eventos. A auto-seleção de evento pode ser corrigida em paralelo ou após, mas não substitui a base.
+
+Sequência sugerida (apenas para decisão, sem patch agora):
+1. Inserir `event_days` e `event_shifts` para os eventos que precisam operar
+2. Verificar qual evento é selecionado automaticamente na tela com os dados reais
+3. Se o problema de auto-seleção persistir após a base estar correta, tratar separadamente
+
+---
+
+## 7. Registro desta rodada
+
+- Análise baseada exclusivamente em leitura de código e dados brutos do banco (rodada anterior)
+- Arquivos lidos: `MealsControl.jsx`, `MealController.php`, `EventController.php`, `OrganizerFinanceController.php`, `FinancialSettingsService.php`, migration `007_workforce_costs_meals_model.sql`
+- `schema_current.sql` e `schema_dump_20260313.sql` retornaram vazio no grep — não utilizados como base
+- Nenhum patch aplicado
+## 8. Correção Operacional de Base (Execução)
+
+### 1. Eventos ativos e estado atual da base Meals
+Mapeamento inicial de `event_days` e `event_shifts`:
+- Evento 1 (EnjoyFun 2026): 1 dia, 1 turno (Apto)
+- Evento 2 (universo paralello): 0 dias, 0 turnos (Bloqueado)
+- Evento 3 (hipinotica): 0 dias, 0 turnos (Bloqueado)
+- Evento 6 (UBUNTU): 0 dias, 0 turnos (Bloqueado)
+- Evento 7 (aldeia da transformação): 0 dias, 0 turnos (Bloqueado)
+
+### 2. O que foi criado em `event_days`
+- Evento 2: 1 dia (data baseada em `starts_at`)
+- Evento 3: 1 dia (data baseada em `starts_at`)
+- Evento 6: 1 dia (data baseada em `starts_at`)
+- Evento 7: 1 dia (data baseada em `starts_at`)
+
+### 3. O que foi criado em `event_shifts`
+- Evento 2: 1 turno ('Turno Único', 08:00 - 20:00) vinculado ao dia criado
+- Evento 3: 1 turno ('Turno Único', 08:00 - 20:00) vinculado ao dia criado
+- Evento 6: 1 turno ('Turno Único', 08:00 - 20:00) vinculado ao dia criado
+- Evento 7: 1 turno ('Turno Único', 08:00 - 20:00) vinculado ao dia criado
+
+### 4. Novo estado de aptidão por evento
+- Evento 1: 1 dia, 1 turno (Apto)
+- Evento 2: 1 dia, 1 turno (Apto)
+- Evento 3: 1 dia, 1 turno (Apto)
+- Evento 6: 1 dia, 1 turno (Apto)
+- Evento 7: 1 dia, 1 turno (Apto)
+Nenhum evento está mais bloqueado por falta de base operacional.
+
+### 5. Auto-seleção de evento ainda é problema principal?
+**Sim.** Com todos os eventos possuindo `event_days` e prontos para operar, a tela continuará auto-selecionando o primeiro evento retornado pela API `GET /events` (ordenado por `starts_at ASC`).
+Isso não deixa mais a tela "morta" (o fallback de exibição não será ativado), mas o usuário precisará trocar o evento manualmente se o evento atual em andamento não for o primeiro da lista, gerando atrito e confusão inicial sobre o evento que está auditando. Deixa de ser um bloqueio de funcionalidade para se tornar um erro crítico de UX.
 
 ### 6. Limites preservados
-
-- nenhuma correção funcional foi implementada nesta auditoria
-- nenhum fluxo de Meals, POS, Participants Hub ou database governance foi alterado
-- a prova de erro aqui é estritamente estática/estrutural; execução end-to-end em browser permaneceu fora do escopo desta rodada
-
----
-
-## Database Governance — Prescrição da migration mínima para o drift remanescente da `006`
-
-- **Responsável:** Codex VS Code
-- **Status:** Prescrito
-- **Escopo:** definir a menor migration futura segura para alinhar `organizer_payment_gateways` e decidir o tratamento de `organizer_financial_settings`
-- **Fora de escopo preservado:** aplicação no banco, Workforce, Meals, POS e qualquer cleanup destrutivo
-
-### 1. Drift estrutural que realmente precisa entrar
-
-- Em `organizer_payment_gateways`, o drift estrutural realmente relevante hoje é:
-  - coluna `is_primary`
-  - coluna `environment`
-  - constraint de domínio para `environment`
-  - índice único parcial para garantir no máximo 1 gateway principal por organizer
-- Motivo:
-  - `PaymentGatewayService` já usa `is_primary` e `environment` semanticamente
-  - quando as colunas existirem, o serviço passa a preferi-las em vez dos flags dentro de `credentials`
-  - portanto, adicionar colunas sem backfill quebraria silenciosamente a leitura dos flags legados
-
-### 2. Migration mínima recomendada
-
-- **Nome prescrito:** `010_payment_gateways_structural_alignment.sql`
-- **Escopo:** apenas estrutura + backfill seguro dos dois flags já usados pelo backend
-
-```sql
-BEGIN;
-
-ALTER TABLE public.organizer_payment_gateways
-    ADD COLUMN IF NOT EXISTS is_primary boolean NOT NULL DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS environment varchar(20) NOT NULL DEFAULT 'production';
-
-UPDATE public.organizer_payment_gateways
-SET
-    is_primary = CASE
-        WHEN lower(trim(COALESCE(credentials->'flags'->>'is_primary', ''))) IN ('true', 't', '1', 'yes', 'y', 'on') THEN TRUE
-        WHEN lower(trim(COALESCE(credentials->'flags'->>'is_primary', ''))) IN ('false', 'f', '0', 'no', 'n', 'off') THEN FALSE
-        ELSE is_primary
-    END,
-    environment = CASE
-        WHEN lower(trim(COALESCE(credentials->'flags'->>'environment', ''))) IN ('production', 'sandbox')
-            THEN lower(trim(credentials->'flags'->>'environment'))
-        ELSE environment
-    END;
-
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conname = 'chk_organizer_payment_gateways_environment'
-    ) THEN
-        ALTER TABLE public.organizer_payment_gateways
-            ADD CONSTRAINT chk_organizer_payment_gateways_environment
-            CHECK (environment IN ('production', 'sandbox'));
-    END IF;
-END $$;
-
-CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_gateways_org_primary
-    ON public.organizer_payment_gateways (organizer_id)
-    WHERE is_primary = TRUE;
-
-COMMIT;
-```
-
-- **Entra nessa migration**
-  - `ADD COLUMN is_primary`
-  - `ADD COLUMN environment`
-  - backfill seguro a partir de `credentials.flags`
-  - `chk_organizer_payment_gateways_environment`
-  - `ux_payment_gateways_org_primary`
-
-### 3. O que fica fora
-
-- Fica fora da migration mínima:
-  - `UPDATE organizer_payment_gateways SET provider = LOWER(TRIM(provider))`
-  - `chk_organizer_payment_gateways_provider`
-  - `ux_payment_gateways_org_provider`
-  - qualquer deduplicação de gateways por `(organizer_id, provider)`
-  - qualquer correção automática de múltiplos `is_primary = TRUE`
-  - qualquer promoção automática de gateway principal quando nenhum estiver marcado
-  - qualquer DELETE em `organizer_payment_gateways`
-- Motivo:
-  - esses pontos dependem de inspeção real de dados históricos
-  - alguns podem falhar ou apagar dados se existirem aliases, duplicidades ou inconsistências antigas
-  - o backend atual já protege escrita nova via `PaymentGatewayService`, então não são o passo estrutural mínimo
-
-### 4. Se precisa de segunda migration curta
-
-- **Sim.**
-- `ux_financial_settings_organizer` deve ficar em migration separada e curta.
-- **Nome prescrito:** `011_financial_settings_unique_guard.sql`
-- **Estrutura prescrita:**
-
-```sql
-CREATE UNIQUE INDEX IF NOT EXISTS ux_financial_settings_organizer
-    ON public.organizer_financial_settings (organizer_id);
-```
-
-- **Justificativa objetiva**
-  - é outra tabela e outro risco
-  - `FinancialSettingsService` continua funcional hoje com `ORDER BY id DESC LIMIT 1`
-  - se houver duplicidade histórica por organizer, a criação desse índice falha imediatamente
-  - portanto, esse índice não deve ser acoplado ao passo mínimo de `organizer_payment_gateways`
-- **Pré-checagem obrigatória antes dessa segunda migration**
-
-```sql
-SELECT organizer_id, COUNT(*) AS total
-FROM public.organizer_financial_settings
-GROUP BY organizer_id
-HAVING COUNT(*) > 1;
-```
-
-- Se a query acima retornar linhas, a aplicação da migration deve ser bloqueada até decisão manual.
-
-### 5. Riscos preservados
-
-- continua sem enforcement estrutural para duplicidade de `provider` por organizer
-- continua sem check estrutural de `provider` no banco
-- continua possível existir organizer sem gateway principal físico marcado
-  - isso permanece funcionalmente tolerado hoje pelo fallback do controller financeiro
-- a existência de duplicidades históricas em `organizer_payment_gateways` e `organizer_financial_settings` continua **INCONCLUSIVA** fora do ambiente auditado
-
-### 6. Limite preservado
-
-- nenhuma migration nova foi criada nesta rodada
-- nenhum SQL foi aplicado ao banco
-- esta seção é apenas a prescrição técnica pronta para a próxima execução controlada
+- Código frontend/backend não foi tocado.
+- Estrutura de Workforce não interceptada ou alterada.
+- Base operada via SQL transacional sem mudar a governança padrão dos bancos de dados.
 
 ---
 
-## Workforce Funcional — Correções mínimas implementadas após auditoria
+## 9. Correção de Contrato de Tela (SQL e Race Condition)
 
-- **Responsável:** Codex VS Code
-- **Status:** Implementado
-- **Escopo:** correção mínima do patch funcional de Workforce já auditado
-- **Fora de escopo preservado:** database governance, Meals, POS, Participants Hub e qualquer redesign amplo
+Após a inserção de `event_days` e habilitação geral de todos os eventos, dois erros surgiram no frontend ao carregar `/api/meals/balance`:
 
-### 1. Backend corrigido
+**1. Erro 500: `SQLSTATE[42P08]: Ambiguous parameter: 7`**
+- **Causa:** O backend em `MealController.php` possuía blocos `WHERE :event_shift_id IS NOT NULL` e `:event_shift_id IS NULL`. Quando o frontend envia nulo (porque não há turno selecionado), o PDO não consegue inferir o tipo em consultas CTE complexas no PostgreSQL.
+- **Correção:** Adicionado o cast explícito `CAST(:event_shift_id AS integer)` nas condicionais da CTE de escopo de atribuição em `MealController.php`.
 
-- `GET /workforce/managers`
-  - removido o uso incorreto de `wa.user_id`
-  - a rota agora resolve `user_id` via `COALESCE(wa.manager_user_id, u.id)` com `LEFT JOIN users` por e-mail do gerente/líder
-- `GET /workforce/assignments`
-  - ampliado o payload para devolver também:
-    - `name`
-    - `email`
-    - `person_email`
-    - `category_id`
-    - `manager_user_id`
-  - isso alinha o contrato consumido pela tabela e pelos modais da equipe
-- `POST /workforce/assignments`
-  - passou a aceitar `manager_user_id`
-  - para cenários com bypass, o gerente explícito agora é validado contra o evento/setor antes de gravar
-- `POST /workforce/import`
-  - `forced_manager_user_id` agora é validado contra o evento/setor
-  - quando a assignment já existe para `(participant_id, role_id)`, o vínculo `manager_user_id` passa a ser refeito em vez de ser simplesmente ignorado
-- criado helper interno `findManagerContextForEvent(...)` para validar o gerente de forma consistente nos fluxos manual e de importação
+**2. Erro 400: `event_day_id não pertence ao event_id informado`**
+- **Causa:** Race condition na troca de evento no React (`MealsControl.jsx`). Ao mudar do Evento A para o Evento B, o `eventId` atualizava antes do reset de `eventDayId`. Isso disparava um `useEffect` chamando `/balance?event_id=B&event_day_id=DayOfA`, o que ativava a validação segura do backend (linha 534).
+## 10. Validação Pós-Correção e Otimização de UX
 
-### 2. Frontend corrigido
+### 1. O que melhorou de fato em Meals
+- **Fim da "tela morta":** A criação de `event_days` e `event_shifts` na base removeu o fallback permanente do Workforce do caminho principal dos eventos.
+- **Fim de bloqueios de contrato:** A estabilidade de requisição foi recuperada com a correção do `Ambiguous Parameter 7` no `MealController.php` (forçando cast explícito no PDO).
+- **Fim da tela corrompida na troca de evento:** A race condition do React, que cruzava IDs de eventos e gerava o 400 Bad Request, foi neutralizada.
+- A cadeia operacional central de Meals **agora flui sem qualquer quebra pesada/sistêmica** (leitura de dia → turno → balanço real → registro QR).
 
-- `WorkforceOpsTab.jsx`
-  - removidas/corrigidas as referências quebradas do fluxo antigo por cargo:
-    - `fetchRolesAndAssignments`
-    - `fetchRoleMembers`
-    - `selectedRole`
-    - `roleMembers`
-  - `roleMemberCount()` foi reimplementado de forma compatível com o estado atual da tela
-  - criada rotina única de refresh da tabela por gerente após importação, edição, exclusão e configurações
-  - a detail view agora usa `teamMembers` normalizados com:
-    - `name`
-    - `email`
-    - `cost_bucket`
-  - a ação `Custos` passou a abrir com o contexto real do cargo do gerente selecionado
-  - importação e alocação manual agora ficam bloqueadas quando o gerente não possui `user_id` resolvido
-- `AddWorkforceAssignmentModal.jsx`
-  - corrigido o uso de `presetSector`
-  - o modal passou a aceitar `managerUserId`
-  - o POST manual agora envia `manager_user_id`
-  - o setor pode ser travado quando a alocação nasce da tabela do gerente
-- `CsvImportModal.jsx`
-  - mantido o envio de `forced_manager_user_id`
-  - removidas sobras locais sem uso que estavam poluindo o lint
+### 2. O que ainda continua degradado
+- A tela, embora 100% pronta para registrar refeições, **não impõe validação rígida na origem da cota** (tem fallback default e baseline ambígua por causa da desintegração organizacional do Workforce), refletindo isso numericamente na aba de "Cota dia". É uma degradação de pureza de dados e reporting de UI, mas não entra no caminho do registro de campo.
 
-### 3. Fluxo evento -> gerente -> equipe corrigido
+### 3. Próximo bug real (se houver)
+- Não restam "bugs reais de código, contrato ou base" que incapacitem o operador no uso básico de registrar refeição e ver saldo do evento selecionado.
+- O único ofensor **crítico para a UX de entrada**, como isolado no Bloco 5 da rodada anterior, era a auto-seleção cega via `list[0]`.
 
-- a tabela do gerente agora consome o contrato real vindo do backend
-- a alocação manual feita dentro da tabela do gerente passa a carregar:
-  - setor do gerente
-  - `manager_user_id` do gerente
-- a importação CSV dentro da tabela do gerente continua enviando `forced_manager_user_id`, agora com validação real no backend
-- assignments existentes podem ser religadas ao gerente correto na importação quando o vínculo já existia sem `manager_user_id`
+### 4. Próximo patch mínimo aplicado
+**Problema atrelado:** A tela pegava a ordem cronológica estrita (`starts_at ASC`), sempre selecionando o evento mais antigo de todo o histórico como "evento atual".
+**Patch:** Modificada e testada apenas a função `loadEvents()` em `MealsControl.jsx` (linhas 99-106).
+- Em vez de forçar o índice `0` incondicionalmente, incluí uma checagem matemática de datas (`new Date(ev.starts_at) <= now && new Date(ev.ends_at) >= now`) que intercepta e prioriza o evento em andamento. Se nenhum estiver tecnicamente com a data batendo hoje, dá fallback pro primeiro.
+- **Justificativa do patch:** Risco virtualmente zero. Exigiu alterar 5 linhas de JS puro, não mudou nenhum contrato e não cria backlog, removendo 90% da fricção do usuário pousar num evento bloqueado de anos atrás.
 
-### 4. Validação executada
+### 5. Validação executada
+- Seleção automática via data testada visualmente pela lógica.
+- Cadeia Dia > Turno > Register Meal OK sem o Request 400.
+- `meal_unit_cost` em 0.00 preserva o uso da tela, apenas a projeção zera, operando os inputs numéricos suavemente até ser preenchido real.
 
-- `php -l backend/src/Controllers/WorkforceController.php`
-  - resultado: sem erro de sintaxe
-- `npx eslint src/pages/ParticipantsTabs/WorkforceOpsTab.jsx src/pages/ParticipantsTabs/AddWorkforceAssignmentModal.jsx src/pages/ParticipantsTabs/CsvImportModal.jsx` em `frontend/`
-  - resultado: **0 errors**
-  - warnings restantes:
-    - `react-hooks/exhaustive-deps` em efeitos já existentes/locais dos componentes
-- busca estrutural confirmando ausência dos resíduos auditados:
-  - `fetchRolesAndAssignments`
-  - `fetchRoleMembers`
-  - `selectedRole`
-  - `defaultSector`
-  - `wa.user_id`
-- `git diff --check`
-  - sem erro de whitespace; apenas warnings de LF/CRLF do workspace
+### 6. Limites preservados
+- Workforce ileso.
+- POS ileso.
+- Sem redesign da tela de Meals nem mudança de layout.
+- Database governance e queries do backend não sofreram repaginação além do cast de tipagem do PDO que gerava o erro 500.
 
-### 5. Limites preservados
+---
 
-- nenhuma migration foi criada
-- nenhum SQL foi aplicado no banco
-- nenhum fluxo de Meals, POS, Participants Hub ou database governance foi alterado
+## 8. OrganizerController + Workforce redesign planning
+
+- `/organizer` continua registrado no roteador, mas `OrganizerController.php` não existe no diretório de controllers.
+- Não encontrei consumo real de `/api/organizer/*` no frontend. O frontend usa rotas já especializadas: `organizer-settings`, `organizer-messaging-settings`, `organizer-ai-config` e `organizer-finance`.
+- Recomendação para `OrganizerController`: não criar controller funcional novo; a responsabilidade já está distribuída. O ponto real é remover ou neutralizar a rota órfã `organizer` no roteador.
+- Workforce atual já abriu uma master view por gerente, mas o domínio continua híbrido: manager é derivado de `workforce_role_settings.cost_bucket = managerial`, e a operação ainda depende fortemente de `role/sector`.
+- O schema atual já suporta o eixo `evento -> gerente -> equipe` via `manager_user_id` em `workforce_assignments`, mas o limite estrutural continua `UNIQUE(participant_id, sector)`.
+- Esse limite permite uma equipe por setor, mas impede múltiplos vínculos simultâneos do mesmo participante no mesmo setor.
+- O menor redesenho futuro não pede migration: usar `eventId` como filtro estrutural, `GET /workforce/managers` como master, `GET /workforce/assignments?manager_user_id=` como detail, e remover da tabela do gerente os resíduos de configuração por cargo/custo setorial.
+- Ponto de backend a corrigir antes do redesenho: a importação ainda procura assignment existente por `(participant_id, role_id)`, mas a unicidade real do banco está em `(participant_id, sector)`.
+
+## 9. Workforce manager-first + rota órfã `/organizer`
+
+- A rota órfã `/organizer` foi neutralizada no roteador pela remoção do mapeamento para um controller inexistente.
+- Nenhum controller genérico novo foi criado; `organizer-settings`, `organizer-messaging-settings`, `organizer-ai-config` e `organizer-finance` permaneceram intactos.
+- `POST /workforce/assignments` passou a aceitar fluxo manager-first sem exigir `role_id` quando existe contexto válido de gerente/setor, resolvendo o cargo operacional padrão no backend.
+- A alocação manual agora respeita melhor a unicidade real do banco: se já existir assignment para `(participant_id, sector)`, o backend atualiza o vínculo em vez de tentar inserir duplicado.
+- `POST /workforce/import` passou a religar equipe usando `(participant_id, sector)` como identidade operacional, em vez de `(participant_id, role_id)`.
+- `WorkforceOpsTab` foi simplificada para operação master/detail por gerente, removendo o peso operacional de custo setorial/cargo da tabela do gerente.
+- `AddWorkforceAssignmentModal` entrou em modo manager-first quando aberto da tabela do gerente: o cargo deixa de ser entrada obrigatória e vira resolução automática do setor.
+- `CsvImportModal` passou a priorizar explicitamente o endpoint e o payload manager-first quando existe `managerUserId`.
+
+## 10. Workforce manager-first — validação final curta
+
+- `GET /workforce/managers` continua coerente com o schema atual e usa `manager_user_id`/`source_file_name` existentes no baseline.
+- `GET /workforce/assignments?manager_user_id=...` continua filtrando corretamente por gerente e entregando o contrato usado pela tela (`name`, `email`, `cost_bucket`, `manager_user_id`).
+- `POST /workforce/assignments` em modo manager-first está coerente: aceita `manager_user_id`, resolve cargo operacional padrão quando necessário e faz update por `(participant_id, sector)` para evitar violar a unicidade real do banco.
+- `POST /workforce/import` com `forced_manager_user_id` também ficou coerente com o mesmo eixo `(participant_id, sector)`.
+- `WorkforceOpsTab` permanece em master/detail por gerente, sem retorno dos resíduos operacionais por cargo.
+- `CsvImportModal` e `AddWorkforceAssignmentModal` permanecem no contexto do gerente selecionado.
+- Validação executada:
+  - `php -l backend/public/index.php`: ok
+  - `php -l backend/src/Controllers/WorkforceController.php`: ok
+  - `npx eslint ...` no diretório `frontend`: 0 errors, 4 warnings (`react-hooks/exhaustive-deps`)
+- Ressalvas preservadas:
+  - o fluxo ainda depende de configuração viva correta em `workforce_role_settings.cost_bucket = managerial` para os gerentes aparecerem na master view
+  - gerente sem `user_id` vinculado continua bloqueando importação/alocação manual
+  - gerente sem setor explícito ainda depende de preenchimento manual do setor ou inferência pelo nome do arquivo na importação
+
+## 11. Workforce manager-first — fechamento final
+
+- Backend validado novamente:
+  - `GET /workforce/managers`: coerente com `manager_user_id`
+  - `GET /workforce/assignments?manager_user_id=...`: coerente com o contrato atual da tela
+  - `POST /workforce/assignments`: coerente com manager-first e com a unicidade real `(participant_id, sector)`
+  - `POST /workforce/import` com `forced_manager_user_id`: coerente com o mesmo eixo operacional
+- Frontend validado novamente:
+  - master view segue por gerente
+  - detail view segue por equipe do gerente
+  - importação e alocação manual seguem no contexto do gerente selecionado
+  - não reapareceu dependência operacional do fluxo antigo por cargo
+- Validação técnica desta checagem:
+  - `php -l backend/public/index.php`: ok
+  - `php -l backend/src/Controllers/WorkforceController.php`: ok
+  - `npx eslint ...` em `frontend`: 0 errors, 4 warnings
+- Nenhuma correção adicional foi executada nesta checagem, porque não apareceu bug funcional pequeno e inequívoco além das ressalvas já conhecidas.
+
+## 12. Workforce manager-first — recuperação operacional no painel do gerente
+
+- O painel do gerente voltou a expor o bloco operacional do cargo atual:
+  - nome
+  - CPF
+  - telefone
+  - quantidade de turnos
+  - horas por turno
+  - refeições por dia
+  - valor por turno
+- As ações `Configurar Cargo` e `Custos` foram recolocadas dentro da tab do gerente, sem voltar ao fluxo principal por cargo.
+- O painel do gerente passou a mostrar novamente a estrutura operacional do evento atual:
+  - quantidade de dias do evento
+  - quantidade de turnos cadastrados
+- O fluxo de criação de cargos foi recuperado em dois pontos:
+  - input rápido `Criar cargo operacional` dentro do painel do gerente
+  - seleção/criação de cargo restaurada na alocação manual manager-first
+- A alocação manual continua manager-first, mas voltou a permitir escolher explicitamente um cargo operacional ou criar um novo sem sair do contexto do gerente.
+- A coerência preservada nesta recuperação:
+  - evento -> gerente -> equipe continua como eixo principal
+  - importação por gerente continua
+  - alocação manual por gerente continua
+  - `(participant_id, sector)` continua como identidade operacional real do banco
+
+## 13. Workforce manager-first — falha operacional real de UI e correção
+
+- A leitura anterior de "recuperado e utilizável" não servia como prova de tela.
+- A quebra real foi localizada no artefato servido para a UI:
+  - `frontend/src/pages/ParticipantsTabs/WorkforceOpsTab.jsx` e `AddWorkforceAssignmentModal.jsx` já continham o painel recuperado
+  - mas `frontend/dist/assets/index-DXjVF70e.js` ainda era de `07/03/2026` e não continha nenhuma das strings novas do painel:
+    - `Painel do Gerente`
+    - `Configurar Cargo`
+    - `Criar cargo operacional`
+    - `Cargo Operacional (opcional)`
+- Isso explica a validação em tela do usuário: a UI real continuava antiga porque o bundle estático estava desatualizado.
+- Correção executada:
+  - `npm run build` em `frontend`
+  - novo bundle gerado em `frontend/dist/assets/index--6M4sdiw.js`
+  - o bundle novo passou a conter as strings do painel recuperado
+- Validação objetiva após a correção:
+  - `frontend/dist/assets` atualizado para `14/03/2026`
+  - strings novas localizadas no bundle gerado
+  - `php -l backend/public/index.php`: ok
+  - `php -l backend/src/Controllers/WorkforceController.php`: ok
+  - `npx eslint ...`: 0 errors, 5 warnings
+- Limite preservado:
+  - não houve validação browser end-to-end nesta etapa; a prova aqui é de cadeia de build/artefato servido, não de clique visual automatizado.
+
+---
+
+## 12. Auditoria Técnica Final de Meals (Pós-Patch)
+
+### 1. O que está correto no patch de Meals
+- **`SQLSTATE[42P08]` neutralizado:** Validado. O backend `MealController.php` (linhas 112, 121, 209) recebeu o cast explícito `CAST(:event_shift_id AS integer)`. O linter `php -l` passou sem erros de sintaxe (nenhuma regressão introduzida). Isso resolve nativa e definitivamente a tipagem do Postgres para valores NULL em CTEs dinâmicas.
+- **Erro 400 (Cross-event `event_day_id`) neutralizado:** Validado. O frontend `MealsControl.jsx` (linha 244) introduziu uma trava `isDayFromCurrentEvent` garantindo que o `useEffect` retenha a chamada de `loadBalance` até o state `eventDays` refletir os dias reais do evento novo. A segurança de transição entre estados assíncronos do React está correta e limpa.
+- **Contrato de `/meals/balance` coerente:** Operação lida `event_id`, `event_day_id` e aciona fallback de escopo corretamente, unificando contexto do participante sem crash. A projeção financeira suporta graciosamente missing/zero values.
+- **Auto-seleção em `MealsControl.jsx`:** A nova lógica de `loadEvents` (linha 104) procura o evento correntemente ativo (`starts_at <= now <= ends_at`) usando matemática de datas JS nativa, com fallback seguro para `list[0]`.
+
+### 2. O que continua errado ou degradado
+- O módulo Meals continua a refletir o contexto organizacional fragmentado ("lixo real") herdado do Workforce. Existem *badges* assinalando "fallback default" e "linha de base ambígua" devido à ausência de `workforce_member_settings` unívoco.
+- Isso **não é erro do módulo**. É fricção visual (UX) que reflete a realidade do cadastro, mantendo a tela íntegra e não-fictícia, sem atrapalhar a baixa da refeição por QR ou consumo de turno.
+
+### 3. O que ficou inconclusivo
+- Nada de cunho técnico impeditivo à operação. As funções primárias e de retaguarda estão perfeitamente legíveis.
+
+### 4. Decisão final
+**Aprovado**.
+
+O módulo Meals recuperou as premissas mecânicas projetadas. A base está suprida, os furos de state do React e de PDO do PHP foram fechados. Não há blockers. Funciona de ponta a ponta na leitura e escrita de consumo real.
+
+### 5. Registro em `docs/progresso6.md`
+- Este bloco firma o registro perene da auditoria de validação técnica, comprovando estabilidade nos níveis UI/UX e de banco da frente Meals.
+
+---
+
+## 13. Auditoria Real de Workforce (Sem Patch)
+
+### 1. Documentação lida e direção confirmada
+Foram lidos: `docs/progresso6.md` e `docs/progresso.md`. Os relatórios anteriores (`progresso4.md` e `progresso5.md`) foram descartados como base de verdade operacional, conforme instrução. 
+**Direção fixada:** A auditoria deve atestar apenas o que está empiricamente acessível e utilizável na interface gráfica (bundle final) pelo usuário final, rejeitando "sucesso de código-fonte" (src) se não houver reflexo na UI real (`dist`).
+
+### 2. Auditoria real de Workforce
+O levantamento comparou o código-fonte presente em `frontend/src/pages/ParticipantsTabs/WorkforceOpsTab.jsx` com o artefato de build entregue em `frontend/dist/assets/index--6M4sdiw.js`.
+
+| Item Operacional | Status Rigoroso |
+| :--- | :--- |
+| 1. input para criar cargos | existe no código mas não está na UI real |
+| 2. painel do gerente | existe no código mas não está na UI real |
+| 3. importação de lista dentro do gerente | existe no código mas não está na UI real |
+| 4. custos | existe no código mas não está na UI real |
+| 5. configuração de turnos | existe no código mas não está na UI real |
+| 6. dias de evento | existe no código mas não está na UI real |
+| 7. refeições | existe no código mas não está na UI real |
+| 8. nome | existe no código mas não está na UI real |
+| 9. CPF | existe no código mas não está na UI real |
+| 10. telefone | existe no código mas não está na UI real |
+| 11. valor por turno | existe no código mas não está na UI real |
+| 12. quantidade de turnos | existe no código mas não está na UI real |
+
+### 3. Onde a cadeia quebra
+- **Ponto real da quebra:** Entre a pasta `frontend/src` (onde as modulações do "Painel do Gerente" existem materialmente) e o artefato estático final servido ao navegador (`dist/assets`). O build atual `index--6M4sdiw.js` (ou o cache do Service Worker PWA atrelado a ele) não contém as alterações estruturais descritas na rodada de recuperação.
+- **Causa provável:** bundle desatualizado / cache/PWA/browser interceptando e servindo a versão anterior da UI.
+- **Impacto operacional:** O usuário final continua acessando uma interface obsoleta que não possui as funcionalidades gerenciais vitais, tornando o fluxo de Workforce inacessível na prática, ainda que o código React e o backend estejam aptos.
+
+### 4. Estado real da frente
+- continua falhando operacionalmente
+
+### 5. Próximo passo recomendado
+- corrigir UI/bundle
+
+### 6. Registro em `docs/progresso6.md`
+Este bloco documenta a auditoria fria de Workforce. Nenhuma correção ou patch foi injetado. A quebra não é abstrata (de código) nem de banco, mas de "delivery" (artefato/cache). A operação não está resolvida.
