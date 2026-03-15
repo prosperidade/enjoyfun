@@ -421,3 +421,258 @@ O levantamento comparou o código-fonte presente em `frontend/src/pages/Particip
 
 ### 6. Registro em `docs/progresso6.md`
 Este bloco documenta a auditoria fria de Workforce. Nenhuma correção ou patch foi injetado. A quebra não é abstrata (de código) nem de banco, mas de "delivery" (artefato/cache). A operação não está resolvida.
+
+---
+
+## 14. Diagnóstico mestre do sistema + arbitragem real de Workforce (rodada atual)
+
+**Escopo aplicado nesta rodada**
+- Base operacional: código real + schema + artefato `dist` gerado na rodada + validação de rota em browser preview.
+- `progresso4.md` e `progresso5.md`: não usados como fonte de verdade operacional.
+- `docs/progresso6.md`: tratado como registro histórico (não como prova de funcionamento).
+- Guardrail aplicado: Workforce tratado como **falhando operacionalmente até prova contrária**.
+
+### 1) Quadro geral do sistema (estado real por domínio)
+
+| Domínio | Classificação | Evidência objetiva |
+|---|---|---|
+| Workforce | **falhando operacionalmente** | Cadeia depende de gerente com `user_id`; sem isso UI bloqueia importação/alocação manual. Lista de gerentes depende de `cost_bucket='managerial'` em role settings (pode zerar mesmo havendo equipe). |
+| Meals | **funcional com limite** | Fluxo principal existe com `event_days/event_shifts`; fallback Workforce continua quando não há dia configurado. Não é foco central desta rodada. |
+| Participants Hub | **funcional com limite** | Rota e tabulação existem; seleção de evento autoescolhe primeiro item sem critério de operação atual. |
+| POS | **funcional com limite** | Módulo amplo presente no código, mas sem prova operacional E2E nesta rodada (sem autenticação funcional no browser audit). |
+| Settings / Organizer | **funcional com limite** | Controllers e rotas existem (settings/messaging/ai/finance), sem quebra estrutural detectada; sem validação de fluxo completo em UI autenticada. |
+| Financeiro | **funcional com limite** | Endpoint de custos de workforce e settings financeiros existem; dependência de dados corretos de Workforce para custo real por setor. |
+| Entrega frontend (`src` vs `dist`) | **degradado** | Repositório não traz `frontend/dist` versionado; build local gera dist, mas entrega real depende de pipeline/deploy/cache. |
+| Database/schema | **funcional com limite** | Schema suporta manager-first mínimo (`manager_user_id`, `source_file_name`, unique `(participant_id, sector)`), mas modelo é frágil por inferências e ausência de vínculo forte entre gerente lógico e usuário. |
+
+### 2) Auditoria real de Workforce (12 itens obrigatórios)
+
+| Item | Status | Base de verificação |
+|---|---|---|
+| 1. input para criar cargos | **aparece e funciona** (no código/bundle atual) | `Criar Cargo` inline no painel do gerente + POST `/workforce/roles`. |
+| 2. painel do gerente | **aparece e funciona** (no código/bundle atual) | Bloco com nome/CPF/telefone/custos/estrutura do evento. |
+| 3. importação de lista dentro do gerente | **aparece mas não funciona** em cenários sem `user_id` do gerente | Botão existe, mas fica bloqueado quando `selectedManager.user_id` é nulo. |
+| 4. custos | **aparece e funciona** | Modal de custos por setor consumindo `/organizer-finance/workforce-costs`. |
+| 5. configuração de turnos | **aparece e funciona** | Config em role settings (`max_shifts_event`, `shift_hours`) e membro. |
+| 6. dias de evento | **aparece e funciona** | Contexto lê `/event-days` e conta dias no painel; alocação manual permite `event_day_id`/shift por dia. |
+| 7. refeições | **aparece e funciona** | `meals_per_day` em role/member settings, refletido na tabela. |
+| 8. nome | **aparece e funciona** | `leader_name` no modal de cargo. |
+| 9. CPF | **aparece e funciona** | `leader_cpf` no modal de cargo. |
+| 10. telefone | **aparece e funciona** | `leader_phone` no modal de cargo. |
+| 11. valor por turno | **aparece e funciona** | `payment_amount` em role/member settings e tabela. |
+| 12. quantidade de turnos | **aparece e funciona** | `max_shifts_event` em role/member settings e tabela. |
+
+**Limite de prova operacional nesta rodada**
+- Em browser real (`/participants`), sem sessão autenticada válida a aplicação redireciona para `/login`; portanto a prova de clique end-to-end em tela autenticada ficou **INCONCLUSIVA**.
+- O status acima combina: leitura de `src`, confirmação no bundle gerado localmente e validação parcial de rota real no browser.
+
+### 3) Onde a cadeia quebra em Workforce (causas reais)
+
+1. **Contrato manager-first rígido demais na UI**
+   - `canLinkSelectedManager = Boolean(selectedManager?.user_id)` bloqueia importação/alocação manual quando gerente não resolve para usuário.
+   - Resultado: operação trava mesmo com dados de equipe disponíveis.
+
+2. **Filtro de gerentes frágil por `cost_bucket='managerial'`**
+   - `GET /workforce/managers` só lista assignments com bucket gerencial vindo de `workforce_role_settings`.
+   - Se role settings não existir/estiver inconsistente, liderança some da UI.
+
+3. **Dependência implícita de mapeamento por email para `user_id`**
+   - Backend tenta `COALESCE(wa.manager_user_id, u.id)` usando match por email da pessoa.
+   - Se email não casa, gerente aparece sem `user_id` e fluxo manager-first quebra.
+
+4. **Camada de entrega/cache pode mascarar correção**
+   - Projeto usa PWA com service worker (`autoUpdate`, precache de JS/CSS/index).
+   - Em ambiente com SW antigo ativo, usuário pode continuar vendo bundle velho mesmo após patch.
+
+### 4) src vs dist vs UI real
+
+1. **O bundle atual contém Workforce novo?**
+   - **Sim no build local desta rodada** (`frontend/dist/assets/index-CEiPaK1M.js` contém strings/chamadas de Workforce manager-first).
+
+2. **A rota/tela abre o componente esperado?**
+   - Rota `/participants` existe, mas em execução real sem autenticação foi redirecionada para `/login` (PrivateRoute).
+   - Montagem da tela autenticada: **INCONCLUSIVO** nesta rodada.
+
+3. **Problema está no código, build ou entrega?**
+   - Há problema de **código/contrato** (dependências rígidas de manager/user/bucket).
+   - Há risco de **entrega/cache** (SW/PWA) mascarar correções.
+   - Não é um bug único.
+
+4. **Existe SW/cache/PWA interferindo?**
+   - **Sim, potencialmente.** `sw.js` precacheia `index.html` e `assets/index-*.js`.
+
+5. **Existe mais de uma camada de falha ao mesmo tempo?**
+   - **Sim.** Contrato frágil + gating de UI + possível cache de entrega.
+
+### 5) Contrato backend/frontend de Workforce
+
+| Contrato | Classificação | Diagnóstico |
+|---|---|---|
+| `GET /workforce/managers` | **contrato frágil** | Funciona, mas depende de role settings gerencial + mapeamento para `user_id`; sem isso lista útil degrada. |
+| `GET /workforce/assignments?manager_user_id=...` | **contrato correto (com limite)** | Filtro direto por `manager_user_id` funciona, porém depende da etapa anterior resolver manager válido. |
+| `POST /workforce/assignments` | **contrato correto (com limite)** | Cria/atualiza por `(participant_id, sector)`; em manager-first força role operacional quando necessário. Limite: exige contexto válido de gerente/setor. |
+| `POST /workforce/import` | **contrato frágil** | Funciona, mas pode falhar por gerente sem `user_id`/contexto e por inferências de setor/cargo. |
+| Regra `(participant_id, sector)` | **contrato correto** | Coerente com unique no banco e com lógica de upsert operacional. |
+| Dependência `cost_bucket = managerial` | **contrato que precisa ser redesenhado** | Hoje é gate crítico para enxergar liderança; ausência/erro de settings derruba operação. |
+| Dependência gerente com `user_id` | **contrato quebrado para operação real** | Sem `user_id`, manager-first trava botões principais da UI. |
+
+### 6) Modelagem e operação
+
+1. **Eixo real atual está em cargo ou gerente?**
+   - Está em **gerente** (manager-first), com cargo como configuração de suporte.
+
+2. **Modelo operacional diário deve ser `evento -> gerente -> equipe`?**
+   - **Sim**, para operação diária. O código já caminha nessa direção.
+
+3. **Schema atual suporta primeiro corte?**
+   - **Sim, parcialmente.** Suporta com `manager_user_id`, `source_file_name`, role/member settings e unique por setor.
+
+4. **O que impede funcionar de verdade hoje?**
+   - Falta de vínculo confiável gerente↔usuário;
+   - Dependência rígida de `cost_bucket managerial` para liderança aparecer;
+   - Gating total na UI quando `user_id` é nulo.
+
+5. **O que recuperar do fluxo antigo para voltar a operar?**
+   - Fallback explícito de liderança por **participante-gerente** (mesmo sem `user_id`) para não bloquear importação/alocação.
+   - Visão de equipe por setor/cargo quando manager mapping falhar (modo contingência operacional).
+
+### 7) Soluções concretas
+
+#### 7.1 Correções imediatas
+1. **Desbloquear operação sem `user_id` do gerente** — permitir importação/alocação com `manager_participant_id` fallback.
+   - Classe: **correção de fluxo operacional** + **correção de contrato**.
+2. **Ajustar `GET /workforce/managers` para fallback de liderança por inferência de nome de cargo/flag transitória quando faltar role settings**.
+   - Classe: **correção de backend** + **correção de contrato**.
+3. **Exibir estado de bloqueio acionável na UI** (ex.: “gerente sem usuário; operar em modo contingência”).
+   - Classe: **correção de UI**.
+4. **Forçar estratégia de atualização de bundle no deploy (bust de cache + instrução de refresh SW)**.
+   - Classe: **correção de bundle/entrega**.
+
+#### 7.2 Correções de curto prazo
+1. Criar vínculo explícito `manager_participant_id` em assignments (sem depender de email/user).
+   - Classe: **redesign mínimo**.
+2. Remover gate hard de `cost_bucket managerial` como única fonte de liderança (introduzir flag/entidade de liderança dedicada).
+   - Classe: **correção de modelagem/contrato**.
+3. Adicionar endpoint de diagnóstico operacional (`/workforce/health`) com contagem de gerentes sem user, assignments órfãos e setor inconsistente.
+   - Classe: **correção de backend**.
+
+#### 7.3 O que não mexer agora
+1. Não abrir V4/Analytics neste ciclo.
+   - Classe: **fora de fase**.
+2. Não reescrever Meals/POS enquanto Workforce não voltar a operar.
+   - Classe: **fora de fase**.
+3. Não fazer redesign total de People/Auth agora.
+   - Classe: **fora de fase**.
+
+### 8) Ordem correta de recuperação (máximo 4 passos)
+1. **Garantir operação contingente sem `user_id`** (UI + backend).
+2. **Corrigir contrato de liderança (`managers`) para não depender só de bucket gerencial.**
+3. **Publicar build com política de update de SW/cache comprovada.**
+4. **Executar validação E2E autenticada de Workforce (importar, alocar, configurar custos/turnos, listar equipe).**
+
+### 9) O que congelar imediatamente
+- Novos patches de UX em Workforce sem prova de contrato/backend.
+- Mudanças paralelas em Analytics/V4.
+- Alterações “cosméticas” em Participants Hub que não atacam liderança/contrato.
+- Ajustes em Meals além de manutenção básica (somente contexto paralelo).
+
+### 10) Registro
+- Este bloco registra diagnóstico duro da rodada atual em `docs/progresso6.md` sem apagar histórico e sem declarar resolução sem prova E2E autenticada.
+
+---
+
+## 15. Registro detalhado da rodada de 14/03/2026 - correcao parcial de Workforce
+
+### 1. Contexto real da rodada
+- A frente de `Workforce` nao estava travada por um bug unico.
+- O que consumiu 3 dias foi a sobreposicao de **quatro camadas de erro ao mesmo tempo**:
+  - modelo mental errado do fluxo (`cargo -> equipe` em vez de `evento -> gerente -> equipe`)
+  - chave operacional errada na reconciliacao (`participant_id + role_id` em vez de `participant_id + sector`)
+  - travas de UI em cima de `manager_user_id`
+  - validacao incompleta da entrega real (`src` atualizado, mas `dist`/bundle nem sempre refletindo isso)
+- Enquanto essas quatro camadas foram tratadas como se fossem uma coisa so, cada ajuste parecia "quase resolver", mas o operador continuava vendo Workforce quebrado.
+
+### 2. Onde estavamos errando
+1. **Estavamos insistindo no eixo por cargo.**
+   - O fluxo antigo girava em torno de `roles`.
+   - O operador, na pratica, trabalha por gerente e equipe.
+   - Isso gerava tela e contratos desalinhados com o uso real.
+
+2. **Estavamos reconciliando assignment pela chave errada.**
+   - A importacao e parte da alocacao ainda procuravam registro existente por `(participant_id, role_id)`.
+   - O banco e a operacao real estavam mais proximos de `(participant_id, sector)`.
+   - Consequencia: duplicacao, religacao errada ou tentativa de inserir onde o correto era atualizar.
+
+3. **Estavamos exigindo `role_id` mesmo quando o contexto do gerente ja bastava.**
+   - No modo manager-first, isso travava alocacao manual desnecessariamente.
+   - O backend ainda estava mais rigido do que o fluxo real precisava.
+
+4. **Estavamos confiando demais em `workforce_role_settings.cost_bucket = managerial`.**
+   - Quando esse setting faltava ou estava inconsistente, o gerente simplesmente sumia da master view.
+   - O problema nao era ausencia real de lideranca, era fragilidade do criterio de descoberta.
+
+5. **Estavamos validando codigo-fonte, mas nao fechando a cadeia de entrega.**
+   - Em parte da rodada, o `src` ja tinha a recuperacao do painel do gerente.
+   - Mesmo assim, a interface real continuava antiga porque o artefato servido ao navegador nao era o mesmo que estava no codigo.
+
+### 3. Como a correcao parcial foi obtida
+- A virada aconteceu quando Workforce deixou de ser tratado como "cadastro de cargos" e passou a ser tratado como "operacao por gerente".
+- A partir disso, a estrategia correta ficou:
+  - abrir uma master view de gerentes
+  - carregar a equipe pelo gerente selecionado
+  - permitir importacao e alocacao manual dentro do contexto desse gerente
+  - reconciliar assignment pela identidade operacional real do evento/setor
+- Isso nao resolveu todo o modulo, mas resolveu a parte mais importante: **tirou Workforce do eixo errado e recolocou a operacao no contexto do gerente**.
+
+### 4. O que foi corrigido em 14/03/2026
+
+**Primeiro bloco do dia - commit `a1097a0` (14/03/2026 00:23)**
+- `GET /workforce/managers` foi introduzido para sustentar a master view por gerente.
+- `GET /workforce/assignments` passou a aceitar filtro por `manager_user_id`.
+- `POST /workforce/assignments` passou a aceitar contexto manager-first.
+- `POST /workforce/import` passou a religar equipe no eixo `(participant_id, sector)`.
+- `WorkforceOpsTab` saiu do fluxo centrado em cargo e foi para master/detail por gerente.
+- `AddWorkforceAssignmentModal` entrou em modo manager-first.
+
+**Segundo bloco do dia - commit `a0057be` (14/03/2026 21:14)**
+- A alocacao manual deixou de exigir `role_id` em todos os cenarios.
+- Quando o contexto vem do gerente/setor, o backend passou a resolver automaticamente um cargo operacional padrao.
+- O create manual passou a atualizar assignment existente por setor em vez de tentar duplicar.
+- A importacao passou a atualizar `role_id`, `manager_user_id` e `source_file_name` do assignment ja existente.
+- O painel do gerente foi recuperado com os campos e acoes que tinham sumido:
+  - nome
+  - CPF
+  - telefone
+  - quantidade de turnos
+  - horas por turno
+  - refeicoes por dia
+  - valor por turno
+  - custos
+  - configuracao de cargo
+
+### 5. O que efetivamente ficou corrigido
+- A navegacao principal de Workforce deixou de depender do fluxo antigo por cargo.
+- A tela passou a refletir melhor o uso operacional real: `evento -> gerente -> equipe`.
+- Importacao e alocacao manual passaram a conversar melhor com a unicidade real do banco.
+- O painel gerencial voltou a existir como centro da operacao, em vez de ficar espalhado ou ausente.
+
+### 6. O que ainda nao estava resolvido no fim daquela rodada
+- Gerente sem `user_id` ainda continuava sendo um gargalo real em varios cenarios.
+- A descoberta de gerentes ainda era fragil por depender demais do `cost_bucket` gerencial.
+- A prova E2E autenticada em browser ainda nao estava fechada de ponta a ponta.
+- O risco de artefato/bundle desatualizado ainda precisava ser tratado explicitamente.
+
+### 7. Leitura final honesta sobre os 3 dias
+- O erro nao foi "faltar um patch pequeno".
+- O erro foi insistir por tempo demais em sintomas separados sem assumir que o problema tinha:
+  - erro de modelagem operacional
+  - erro de chave de reconciliacao
+  - erro de gating de UI
+  - erro de entrega/cache
+- A correcao parcial so apareceu quando essas camadas foram lidas juntas.
+
+### 8. Evidencias concretas usadas para este registro
+- `backend/src/Controllers/WorkforceController.php`
+- `frontend/src/pages/ParticipantsTabs/WorkforceOpsTab.jsx`
+- `frontend/src/pages/ParticipantsTabs/AddWorkforceAssignmentModal.jsx`
+- commits `a1097a0` e `a0057be`

@@ -16,6 +16,7 @@ export default function AddWorkforceAssignmentModal({
   eventId,
   onAdded,
   presetRoleId = "",
+  presetRoleCostBucket = "operational",
   presetSector = "",
   lockRole = false,
   lockSector = false,
@@ -36,8 +37,10 @@ export default function AddWorkforceAssignmentModal({
     event_day_id: "",
     event_shift_id: ""
   });
-  const managerFirstMode = Boolean(managerUserId);
-  const visibleRoles = managerFirstMode
+  const managerScopedMode =
+    Boolean(managerUserId) ||
+    (String(presetRoleCostBucket || "").toLowerCase() === "managerial" && Boolean(presetSector));
+  const visibleRoles = managerScopedMode
     ? roles.filter((role) => String(role.cost_bucket || "operational").toLowerCase() !== "managerial")
     : roles;
 
@@ -72,10 +75,10 @@ export default function AddWorkforceAssignmentModal({
     if (!isOpen) return;
     setFormData((prev) => ({
       ...prev,
-      role_id: presetRoleId ? String(presetRoleId) : (managerFirstMode ? "" : prev.role_id),
+      role_id: presetRoleId ? String(presetRoleId) : (managerScopedMode ? "" : prev.role_id),
       sector: presetSector || prev.sector
     }));
-  }, [isOpen, presetRoleId, presetSector, managerFirstMode]);
+  }, [isOpen, presetRoleId, presetSector, managerScopedMode]);
 
   const filteredShifts = shifts.filter(s => {
       if (!formData.event_day_id) return true;
@@ -113,7 +116,7 @@ export default function AddWorkforceAssignmentModal({
     if (!formData.participant_id) return toast.error("Selecione um participante.");
     
     // Se não selecionou cargo e não está criando um novo, mas existem sugestões
-    if (!managerFirstMode && !finalRoleId && !isCreatingRole && !newRoleName) {
+    if (!managerScopedMode && !finalRoleId && !isCreatingRole && !newRoleName) {
         return toast.error("Selecione um cargo ou crie um novo.");
     }
 
@@ -202,14 +205,16 @@ export default function AddWorkforceAssignmentModal({
 
              {/* Cargo com Sugestões e Criação */}
              <div>
-               {managerFirstMode && (
-                 <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 mb-3">
-                   <p className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-light">Fluxo manager-first</p>
-                   <p className="mt-2 text-sm text-gray-300">
-                     Esta alocação será vinculada ao gerente atual. Se nenhum cargo operacional for escolhido, o cargo padrão do setor será aplicado automaticamente.
-                   </p>
-                   {formData.sector && (
-                     <p className="mt-2 text-[10px] uppercase tracking-wider text-gray-500">
+               {managerScopedMode && (
+                  <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 mb-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-light">Fluxo manager-first</p>
+                    <p className="mt-2 text-sm text-gray-300">
+                      {managerUserId
+                        ? "Esta alocação será vinculada ao gerente atual. Se nenhum cargo operacional for escolhido, o cargo padrão do setor será aplicado automaticamente."
+                        : "Esta alocação está operando pelo setor/cargo do gerente. Se nenhum cargo operacional for escolhido, o cargo padrão do setor será aplicado automaticamente."}
+                    </p>
+                    {formData.sector && (
+                      <p className="mt-2 text-[10px] uppercase tracking-wider text-gray-500">
                        Setor vinculado: {formData.sector}
                      </p>
                    )}
@@ -217,9 +222,9 @@ export default function AddWorkforceAssignmentModal({
                )}
 
                <div className="flex justify-between items-center mb-1.5">
-                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.15em]">
-                   {managerFirstMode ? "Cargo Operacional (opcional)" : "Cargo Atribuído *"}
-                 </label>
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.15em]">
+                    {managerScopedMode ? "Cargo Operacional (opcional)" : "Cargo Atribuído *"}
+                  </label>
                  {!lockRole && (
                    <button
                      type="button"
@@ -247,13 +252,13 @@ export default function AddWorkforceAssignmentModal({
                  </div>
                ) : (
                  <select
-                   className="select w-full block bg-gray-800 border-gray-700 h-12 text-sm font-medium focus:border-brand/40"
-                   required={!managerFirstMode && !isCreatingRole}
-                   disabled={lockRole}
-                   value={formData.role_id}
-                   onChange={e => setFormData({...formData, role_id: e.target.value})}
-                 >
-                   <option value="">{managerFirstMode ? "Usar cargo padrão do setor" : "Selecione um cargo..."}</option>
+                    className="select w-full block bg-gray-800 border-gray-700 h-12 text-sm font-medium focus:border-brand/40"
+                    required={!managerScopedMode && !isCreatingRole}
+                    disabled={lockRole}
+                    value={formData.role_id}
+                    onChange={e => setFormData({...formData, role_id: e.target.value})}
+                  >
+                    <option value="">{managerScopedMode ? "Usar cargo padrão do setor" : "Selecione um cargo..."}</option>
 
                    {visibleRoles.length > 0 ? (
                        <optgroup label="Cargos no Banco">

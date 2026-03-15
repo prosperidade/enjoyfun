@@ -83,8 +83,21 @@ function listRoles(): void
     $bucketSelect = $hasRoleSettings
         ? "COALESCE(wrs.cost_bucket, 'operational') AS cost_bucket"
         : "'operational'::varchar AS cost_bucket";
+    $hasLeaderName = $hasRoleSettings && columnExists($db, 'workforce_role_settings', 'leader_name');
+    $hasLeaderCpf = $hasRoleSettings && columnExists($db, 'workforce_role_settings', 'leader_cpf');
+    $hasLeaderPhone = $hasRoleSettings && columnExists($db, 'workforce_role_settings', 'leader_phone');
+    $leaderNameSelect = $hasLeaderName
+        ? "COALESCE(wrs.leader_name, '') AS leader_name"
+        : "''::varchar AS leader_name";
+    $leaderCpfSelect = $hasLeaderCpf
+        ? "COALESCE(wrs.leader_cpf, '') AS leader_cpf"
+        : "''::varchar AS leader_cpf";
+    $leaderPhoneSelect = $hasLeaderPhone
+        ? "COALESCE(wrs.leader_phone, '') AS leader_phone"
+        : "''::varchar AS leader_phone";
     $sql = "
-        SELECT wr.id, wr.name, {$sectorSelect}, wr.created_at, {$bucketSelect}
+        SELECT wr.id, wr.name, {$sectorSelect}, wr.created_at, {$bucketSelect},
+               {$leaderNameSelect}, {$leaderCpfSelect}, {$leaderPhoneSelect}
         FROM workforce_roles wr
         " . ($hasRoleSettings ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wr.id AND wrs.organizer_id = ?" : "") . "
         WHERE wr.organizer_id = ?
@@ -101,7 +114,19 @@ function listRoles(): void
 
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
-    jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC));
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($rows as &$row) {
+        $row['cost_bucket'] = normalizeCostBucket(
+            (string)($row['cost_bucket'] ?? ''),
+            (string)($row['name'] ?? '')
+        );
+        $row['leader_name'] = (string)($row['leader_name'] ?? '');
+        $row['leader_cpf'] = (string)($row['leader_cpf'] ?? '');
+        $row['leader_phone'] = (string)($row['leader_phone'] ?? '');
+    }
+    unset($row);
+
+    jsonSuccess($rows);
 }
 
 function createRole(array $body): void
@@ -403,9 +428,9 @@ function listManagers(array $query): void
     if (!$eventId) jsonError('event_id é obrigatório para consultar gerentes.', 400);
 
     $hasRoleSettings = tableExists($db, 'workforce_role_settings');
-    $bucketExpr = $hasRoleSettings
-        ? "COALESCE(wrs.cost_bucket, 'operational')"
-        : "'operational'";
+    $bucketSelect = $hasRoleSettings
+        ? "COALESCE(wrs.cost_bucket, '') AS configured_cost_bucket"
+        : "'' AS configured_cost_bucket";
 
     $sql = "
         SELECT
@@ -417,6 +442,7 @@ function listManagers(array $query): void
                r.id as role_id,
                r.name as role_name,
                wa.sector,
+               {$bucketSelect},
                COALESCE(wa.manager_user_id, u.id) AS user_id
         FROM workforce_assignments wa
         JOIN event_participants ep ON ep.id = wa.participant_id
@@ -428,7 +454,6 @@ function listManagers(array $query): void
         " . ($hasRoleSettings ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id AND wrs.organizer_id = :org_id" : "") . "
         WHERE ep.event_id = :evt_id
           AND p.organizer_id = :org_id
-          AND {$bucketExpr} = 'managerial'
     ";
 
     $params = [':evt_id' => $eventId, ':org_id' => $organizerId];
@@ -442,7 +467,15 @@ function listManagers(array $query): void
 
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rows = array_values(array_filter(
+        $stmt->fetchAll(PDO::FETCH_ASSOC),
+        static function (array $row): bool {
+            return normalizeCostBucket(
+                (string)($row['configured_cost_bucket'] ?? ''),
+                (string)($row['role_name'] ?? '')
+            ) === 'managerial';
+        }
+    ));
 
     // Compute team count per manager
     $countSql = "
@@ -462,7 +495,12 @@ function listManagers(array $query): void
 
     foreach ($rows as &$row) {
         $uid = (int)($row['user_id'] ?? 0);
+        $row['cost_bucket'] = normalizeCostBucket(
+            (string)($row['configured_cost_bucket'] ?? ''),
+            (string)($row['role_name'] ?? '')
+        );
         $row['team_size'] = $uid > 0 ? ($teamCounts[$uid] ?? 0) : 0;
+        unset($row['configured_cost_bucket']);
     }
     unset($row);
 
@@ -874,11 +912,31 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
         }
     }
 
+    $forcedManagerId = (int)($body['forced_manager_user_id'] ?? 0);
+    $managerUserId = $canBypassSector ? null : (int)($user['id'] ?? 0);
+    $managerContext = null;
+
+    if ($forcedManagerId > 0) {
+        if (!$canBypassSector && (int)($user['id'] ?? 0) !== $forcedManagerId) {
+            jsonError('Você só pode importar equipe vinculada à sua própria liderança.', 403);
+        }
+        // Resolvendo contexto do manager antes da checagem do targetSector
+        // Se targetSector for desconhecido (ex: filename estranho e sem cargo_id), a busca no banco pelo gerente providencia o setor dele.
+        $managerContext = findManagerContextForEvent($db, $organizerId, $eventId, $forcedManagerId, $targetSector ?: '');
+        if (!$managerContext) {
+            jsonError('Gerente inválido para este evento/setor.', 422);
+        }
+        $managerUserId = $forcedManagerId;
+        if (!$targetSector && !empty($managerContext['sector'])) {
+            $targetSector = normalizeSector((string)$managerContext['sector']);
+        }
+    }
+
     if (!$targetSector) {
         if (!$canBypassSector && $userSector !== 'all') {
             $targetSector = $userSector;
         } else {
-            jsonError('Não foi possível identificar o setor pelo nome do arquivo. Informe sector explicitamente.', 422);
+            jsonError('Não foi possível identificar o setor pelo nome do arquivo ou do Gerente. Informe sector explicitamente.', 422);
         }
     }
 
@@ -913,18 +971,8 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
         true
     );
     $supportsManagerBinding = columnExists($db, 'workforce_assignments', 'manager_user_id') && columnExists($db, 'workforce_assignments', 'source_file_name');
-    $managerUserId = $canBypassSector ? null : (int)($user['id'] ?? 0);
-    $forcedManagerId = (int)($body['forced_manager_user_id'] ?? 0);
-    if ($forcedManagerId > 0) {
-        if (!$canBypassSector && (int)($user['id'] ?? 0) !== $forcedManagerId) {
-            jsonError('Você só pode importar equipe vinculada à sua própria liderança.', 403);
-        }
-        $managerContext = findManagerContextForEvent($db, $organizerId, $eventId, $forcedManagerId, $targetSector);
-        if (!$managerContext) {
-            jsonError('Gerente inválido para este evento/setor.', 422);
-        }
-        $managerUserId = $forcedManagerId;
-    }
+    
+    // As variáveis $forcedManagerId e $managerUserId já foram lidas no bloco acima.
     $source = $fileName ?: 'workforce_import.csv';
 
     $imported = 0;

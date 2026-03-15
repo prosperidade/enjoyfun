@@ -75,10 +75,15 @@ export function useNetwork() {
         if (processedIds.length > 0) {
           await db.offlineQueue.bulkDelete(processedIds);
         }
+        
+        const failedIds = data?.data?.failed_ids ?? [];
+        if (failedIds.length > 0) {
+          await db.offlineQueue.bulkDelete(failedIds);
+        }
 
         if (failedCount > 0 || invalidPending.length > 0) {
           toast.error(
-            `${processedIds.length} registros sincronizados, ${failedCount} pendentes por falha e ${invalidPending.length} sem evento valido.`,
+            `${processedIds.length} registros sincronizados, ${failedCount} purgados por falha letal e ${invalidPending.length} sem evento valido.`,
             { id: 'sync' },
           );
         } else {
