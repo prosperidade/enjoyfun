@@ -44,13 +44,17 @@ export default function CsvImportModal({
   workforceRoleId = null,
   workforceSector = "",
   workforceRoleCostBucket = "operational",
-  managerUserId = null
+  managerUserId = null,
+  managerEventRoleId = null,
+  managerEventRolePublicId = ""
 }) {
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
   const [categories, setCategories] = useState([]);
   const [defaultCategoryId, setDefaultCategoryId] = useState("");
-  const managerFirstMode = mode === "workforce" && Boolean(managerUserId);
+  const managerFirstMode =
+    mode === "workforce" &&
+    (Boolean(managerUserId) || Boolean(managerEventRoleId) || Boolean(managerEventRolePublicId));
 
   const filteredCategories = categories.filter((category) => {
     if (mode !== "workforce") {
@@ -110,8 +114,7 @@ export default function CsvImportModal({
           const rowText = rows[i].trim();
           if (!rowText) continue;
 
-          // CORREÇÃO: Split seguro que preserva espaços em branco e mantém colunas vazias
-          const cols = rowText.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(col => col.trim().replace(/^"|"$/g, ''));
+          const cols = parseCsvRow(rowText).map((column) => column.replace(/^"|"$/g, ""));
 
           if (cols.length >= 4) {
             const participant = {
@@ -135,6 +138,8 @@ export default function CsvImportModal({
                   role_id: managerFirstMode ? undefined : (workforceRoleId || undefined),
                   sector: workforceSector || undefined,
                   forced_manager_user_id: managerUserId || undefined,
+                  manager_event_role_id: managerEventRoleId || undefined,
+                  manager_event_role_public_id: managerEventRolePublicId || undefined,
                   file_name: file.name,
                   participants
                 }
@@ -194,7 +199,7 @@ export default function CsvImportModal({
                           <>
                             <p className="text-blue-300 mb-2">
                               {managerFirstMode
-                                ? `Importação vinculada diretamente ao gerente atual. O setor desta tabela será respeitado.`
+                                ? `Importação vinculada automaticamente ao gerente atual. O setor desta tabela será respeitado e a equipe já entra na árvore correta.`
                                 : `Importação vinculada ao cargo selecionado.`}
                             </p>
                             {!managerFirstMode && String(workforceRoleCostBucket || "").toLowerCase() === "managerial" && (

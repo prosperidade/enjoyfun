@@ -24,12 +24,12 @@ function listUsers(): void
         
         // 2. O CADEADO: Lista apenas os usuários que pertencem ao organizador atual
         $stmt = $db->prepare("
-            SELECT id, name, email, phone, role, sector, is_active, created_at 
-            FROM users 
-            WHERE organizer_id = ? 
+            SELECT id, name, email, phone, cpf, role, sector, is_active, created_at
+            FROM users
+            WHERE organizer_id = ? OR id = ?
             ORDER BY name ASC
         ");
-        $stmt->execute([$organizerId]);
+        $stmt->execute([$organizerId, $organizerId]);
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         jsonSuccess($users);

@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../Helpers/WorkforceEventRoleHelper.php';
+
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
@@ -179,27 +181,27 @@ function findGuestByToken(PDO $db, int $organizerId, string $token): ?array
 
 function findParticipantByToken(PDO $db, int $organizerId, string $token): ?array
 {
-    $hasRoleSettings = scannerTableExists($db, 'workforce_role_settings');
-    $maxShiftsExpr = $hasRoleSettings
-        ? "COALESCE(wms.max_shifts_event, wrs.max_shifts_event, 1)"
-        : "COALESCE(wms.max_shifts_event, 1)";
-    $roleSettingsJoin = $hasRoleSettings
+    $parts = workforceBuildOperationalConfigSqlParts($db, 'wa', 'wms', 'wrs', 'wer', 'wr.name');
+    $roleSettingsJoin = $parts['has_legacy_settings']
         ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id AND wrs.organizer_id = e.organizer_id"
         : "";
+    $preferredAssignmentJoin = workforceBuildPreferredAssignmentJoinSql($db, 'ep.id', 'wa');
 
     $participantStmt = $db->prepare("
         SELECT ep.id, ep.status, ep.qr_token, ep.event_id,
                p.name AS participant_name,
                c.name AS category_name,
                wr.name AS role_name,
-               {$maxShiftsExpr}::int AS max_shifts_event
+               {$parts['max_shifts_expr']}::int AS max_shifts_event,
+               {$parts['source_expr']} AS config_source
         FROM event_participants ep
         JOIN events e ON e.id = ep.event_id
         JOIN people p ON p.id = ep.person_id
         LEFT JOIN participant_categories c ON c.id = ep.category_id
-        LEFT JOIN workforce_assignments wa ON wa.participant_id = ep.id
+        {$preferredAssignmentJoin}
         LEFT JOIN workforce_roles wr ON wr.id = wa.role_id
         LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
+        {$parts['event_role_join']}
         {$roleSettingsJoin}
         WHERE ep.qr_token = ?
           AND e.organizer_id = ?
@@ -207,7 +209,15 @@ function findParticipantByToken(PDO $db, int $organizerId, string $token): ?arra
     ");
     $participantStmt->execute([$token, $organizerId]);
     $participant = $participantStmt->fetch(PDO::FETCH_ASSOC);
-    return $participant ?: null;
+    if (!$participant) {
+        return null;
+    }
+
+    $resolvedConfig = workforceResolveParticipantOperationalConfig($db, (int)($participant['id'] ?? 0));
+    $participant['max_shifts_event'] = (int)($resolvedConfig['max_shifts_event'] ?? $participant['max_shifts_event'] ?? 1);
+    $participant['config_source'] = (string)($resolvedConfig['source'] ?? $participant['config_source'] ?? 'default');
+
+    return $participant;
 }
 
 function normalizeScannerStatus(string $status): string

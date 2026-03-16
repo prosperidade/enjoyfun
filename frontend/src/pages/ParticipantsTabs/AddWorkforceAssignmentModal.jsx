@@ -20,7 +20,9 @@ export default function AddWorkforceAssignmentModal({
   presetSector = "",
   lockRole = false,
   lockSector = false,
-  managerUserId = null
+  managerUserId = null,
+  managerEventRoleId = null,
+  managerEventRolePublicId = ""
 }) {
   const [loading, setLoading] = useState(false);
   const [staffList, setStaffList] = useState([]);
@@ -39,6 +41,8 @@ export default function AddWorkforceAssignmentModal({
   });
   const managerScopedMode =
     Boolean(managerUserId) ||
+    Boolean(managerEventRoleId) ||
+    Boolean(managerEventRolePublicId) ||
     (String(presetRoleCostBucket || "").toLowerCase() === "managerial" && Boolean(presetSector));
   const visibleRoles = managerScopedMode
     ? roles.filter((role) => String(role.cost_bucket || "operational").toLowerCase() !== "managerial")
@@ -49,7 +53,7 @@ export default function AddWorkforceAssignmentModal({
     try {
       const [partRes, roleRes, dayRes, shiftRes] = await Promise.all([
         api.get(`/participants?event_id=${eventId}`),
-        api.get("/workforce/roles"),
+        api.get(`/workforce/roles?event_id=${eventId}`),
         api.get(`/event-days?event_id=${eventId}`),
         api.get(`/event-shifts?event_id=${eventId}`)
       ]);
@@ -146,7 +150,9 @@ export default function AddWorkforceAssignmentModal({
         participant_id: formData.participant_id,
         sector: formData.sector,
         event_shift_id: formData.event_shift_id || null,
-        manager_user_id: managerUserId || undefined
+        manager_user_id: managerUserId || undefined,
+        manager_event_role_id: managerEventRoleId || undefined,
+        manager_event_role_public_id: managerEventRolePublicId || undefined
       };
       if (finalRoleId) {
         payload.role_id = finalRoleId;

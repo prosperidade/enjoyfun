@@ -61,16 +61,107 @@ const inferSectorFromRoleName = (name = "") => {
 };
 
 const normalizeCostBucket = (value = "", roleName = "") => {
+  const roleKey = normalizeSector(roleName);
+  if (/^(equipe|time|staff)(_|$)/.test(roleKey)) {
+    return "operational";
+  }
+  if (/(gerente|diretor|coordenador|supervisor|lider|chefe|manager)/.test(roleKey)) {
+    return "managerial";
+  }
+
   const normalized = String(value || "").toLowerCase().trim();
   if (normalized === "managerial" || normalized === "operational") {
     return normalized;
   }
 
-  const roleKey = normalizeSector(roleName);
-  return /(gerente|diretor|coordenador|supervisor|lider|chefe|manager)/.test(roleKey)
-    ? "managerial"
-    : "operational";
+  return "operational";
 };
+
+const hasLeadershipIdentity = (row = {}) => {
+  const hasBoundIdentity =
+    Number(row?.leader_participant_id || 0) > 0 ||
+    Number(row?.leader_user_id || 0) > 0;
+  const hasManualIdentity =
+    String(row?.leader_name || row?.leader_participant_name || "").trim() !== "" &&
+    String(row?.leader_cpf || "").replace(/\D/g, "") !== "";
+
+  return hasBoundIdentity || hasManualIdentity;
+};
+
+const inferRoleClassFromRoleName = (name = "", costBucket = "") => {
+  const roleKey = normalizeSector(name);
+  if (!roleKey) {
+    return normalizeCostBucket(costBucket, name) === "managerial" ? "manager" : "operational";
+  }
+
+  if (/^(equipe|time|staff)(_|$)/.test(roleKey)) {
+    return "operational";
+  }
+  if (/(^|_)(gerente|diretor|manager|gestor)(_|$)/.test(roleKey)) {
+    return "manager";
+  }
+  if (/(^|_)coordenador(_|$)/.test(roleKey)) {
+    return "coordinator";
+  }
+  if (/(^|_)(supervisor|lider|chefe)(_|$)/.test(roleKey)) {
+    return "supervisor";
+  }
+
+  return normalizeCostBucket(costBucket, name) === "managerial" ? "manager" : "operational";
+};
+
+const WORKFORCE_SNAPSHOT_PREFIX = "enjoyfun_workforce_snapshot_v2";
+
+const getWorkforceSnapshotKey = (eventId) => `${WORKFORCE_SNAPSHOT_PREFIX}_${eventId}`;
+
+const readWorkforceSnapshot = (eventId) => {
+  if (!eventId || typeof window === "undefined" || !window.localStorage) {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(getWorkforceSnapshotKey(eventId));
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+const writeWorkforceSnapshot = (eventId, payload) => {
+  if (!eventId || typeof window === "undefined" || !window.localStorage) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      getWorkforceSnapshotKey(eventId),
+      JSON.stringify({
+        ...payload,
+        saved_at: new Date().toISOString()
+      })
+    );
+  } catch {
+    // Snapshot local é best-effort para operação offline.
+  }
+};
+
+const shouldPreferEventTree = (treeStatus = null, eventRoles = []) =>
+  (String(treeStatus?.source_preference || "") === "event_roles" || Boolean(treeStatus?.tree_usable)) &&
+  Array.isArray(eventRoles) &&
+  eventRoles.some(
+    (row) =>
+      !Number(row?.parent_event_role_id || 0) &&
+      normalizeCostBucket(row?.cost_bucket, row?.role_name) === "managerial"
+  );
+
+const hasEventManagerRoots = (eventRoles = []) =>
+  Array.isArray(eventRoles) &&
+  eventRoles.some(
+    (row) =>
+      !Number(row?.parent_event_role_id || 0) &&
+      normalizeCostBucket(row?.cost_bucket, row?.role_name) === "managerial"
+  );
 
 const buildManagerRows = (managers = [], roles = [], assignments = []) => {
   const teamSizeBySector = assignments.reduce((acc, assignment) => {
@@ -146,17 +237,283 @@ const buildManagerRows = (managers = [], roles = [], assignments = []) => {
     });
   });
 
-  return Array.from(rows.values()).sort((left, right) => {
-    const leftName = String(left?.person_name || left?.role_name || "").toLowerCase();
-    const rightName = String(right?.person_name || right?.role_name || "").toLowerCase();
-    return leftName.localeCompare(rightName, "pt-BR");
+  const legacyRows = Array.from(rows.values());
+  const leadershipCountBySector = legacyRows.reduce((acc, row) => {
+    const sector = normalizeSector(row?.sector || "");
+    if (!sector) return acc;
+    acc[sector] = (acc[sector] || 0) + 1;
+    return acc;
+  }, {});
+
+  return legacyRows
+    .map((row) => {
+      const sector = normalizeSector(row?.sector || "") || "geral";
+      const operationalMembersTotal = Number(teamSizeBySector[sector] || 0);
+      const leadershipPositionsTotal = Number(leadershipCountBySector[sector] || 0);
+      const plannedTeamSize = operationalMembersTotal + leadershipPositionsTotal;
+
+      return {
+        ...row,
+        leadership_positions_total: leadershipPositionsTotal,
+        leadership_filled_total: leadershipPositionsTotal,
+        leadership_placeholder_total: 0,
+        operational_members_total: operationalMembersTotal,
+        planned_team_size: plannedTeamSize,
+        filled_team_size: plannedTeamSize,
+        team_size: plannedTeamSize
+      };
+    })
+    .sort((left, right) => {
+      const leftName = String(left?.person_name || left?.role_name || "").toLowerCase();
+      const rightName = String(right?.person_name || right?.role_name || "").toLowerCase();
+      return leftName.localeCompare(rightName, "pt-BR");
+    });
+};
+
+const buildRootHeadcountMap = (eventRoles = [], assignments = []) => {
+  const counts = {};
+
+  const ensureBucket = (rootId, sector = "geral") => {
+    if (!counts[rootId]) {
+      counts[rootId] = {
+        root_event_role_id: rootId,
+        sector: sector || "geral",
+        members: 0,
+        planned_members_total: 0,
+        filled_members_total: 0,
+        leadership_positions_total: 0,
+        leadership_filled_total: 0,
+        leadership_placeholder_total: 0,
+        operational_members_total: 0
+      };
+    }
+    return counts[rootId];
+  };
+
+  assignments.forEach((assignment) => {
+    const rootId = Number(assignment?.root_manager_event_role_id || 0);
+    if (rootId <= 0) return;
+
+    const bucket = ensureBucket(rootId, normalizeSector(assignment?.sector || "") || "geral");
+    bucket.operational_members_total += 1;
+    bucket.planned_members_total += 1;
+    bucket.filled_members_total += 1;
+    bucket.members = bucket.planned_members_total;
   });
+
+  eventRoles.forEach((row) => {
+    if (normalizeCostBucket(row?.cost_bucket, row?.role_name) !== "managerial") {
+      return;
+    }
+
+    const rootId = Number(row?.root_event_role_id || row?.id || 0);
+    if (rootId <= 0) return;
+
+    const bucket = ensureBucket(rootId, normalizeSector(row?.sector || row?.role_sector || "") || "geral");
+    const isFilled = hasLeadershipIdentity(row);
+    const isPlaceholder = !isFilled;
+
+    bucket.leadership_positions_total += 1;
+    bucket.planned_members_total += 1;
+    if (isFilled) {
+      bucket.leadership_filled_total += 1;
+      bucket.filled_members_total += 1;
+    }
+    if (isPlaceholder) {
+      bucket.leadership_placeholder_total += 1;
+    }
+    bucket.members = bucket.planned_members_total;
+  });
+
+  return counts;
+};
+
+const buildManagerRowsFromEventTree = (eventRoles = [], assignments = []) => {
+  const headcountByRoot = buildRootHeadcountMap(eventRoles, assignments);
+
+  return eventRoles
+    .filter(
+      (row) =>
+        Number(row?.parent_event_role_id || 0) <= 0 &&
+        normalizeCostBucket(row?.cost_bucket, row?.role_name) === "managerial"
+    )
+    .map((row) => {
+      const eventRoleId = Number(row?.id || 0);
+      const rootEventRoleId = Number(row?.root_event_role_id || eventRoleId || 0);
+      const rootHeadcount = headcountByRoot[rootEventRoleId] || {};
+
+      return {
+        manager_key: `event-role-${eventRoleId}`,
+        participant_id: Number(row?.leader_participant_id || 0),
+        user_id: Number(row?.leader_user_id || 0) || null,
+        qr_token: row?.leader_qr_token || null,
+        role_id: Number(row?.role_id || 0),
+        role_name: row?.role_name || "Cargo gerencial",
+        sector: normalizeSector(row?.sector || row?.role_sector || ""),
+        cost_bucket: normalizeCostBucket(row?.cost_bucket, row?.role_name),
+        person_name:
+          row?.leader_participant_name ||
+          row?.leader_name ||
+          row?.role_name ||
+          "Gerente",
+        person_email: row?.leader_participant_email || row?.leader_user_email || "",
+        phone: row?.leader_participant_phone || row?.leader_phone || "",
+        leader_name: row?.leader_name || row?.leader_participant_name || "",
+        leader_cpf: row?.leader_cpf || "",
+        leader_phone: row?.leader_phone || row?.leader_participant_phone || "",
+        event_role_id: eventRoleId || null,
+        event_role_public_id: row?.public_id || "",
+        root_event_role_id: rootEventRoleId || null,
+        root_public_id: row?.root_public_id || row?.public_id || "",
+        parent_event_role_id: Number(row?.parent_event_role_id || 0) || null,
+        parent_public_id: row?.parent_public_id || "",
+        role_class: row?.role_class || "",
+        authority_level: row?.authority_level || "",
+        leadership_positions_total: Number(rootHeadcount?.leadership_positions_total || 0),
+        leadership_filled_total: Number(rootHeadcount?.leadership_filled_total || 0),
+        leadership_placeholder_total: Number(rootHeadcount?.leadership_placeholder_total || 0),
+        operational_members_total: Number(rootHeadcount?.operational_members_total || 0),
+        planned_team_size: Number(rootHeadcount?.planned_members_total || 0),
+        filled_team_size: Number(rootHeadcount?.filled_members_total || 0),
+        team_size: Number(rootHeadcount?.planned_members_total || 0)
+      };
+    })
+    .sort((left, right) => {
+      const leftName = String(left?.person_name || left?.role_name || "").toLowerCase();
+      const rightName = String(right?.person_name || right?.role_name || "").toLowerCase();
+      return leftName.localeCompare(rightName, "pt-BR");
+    });
+};
+
+const buildManagerStructureRows = (eventRoles = [], assignments = [], manager = null) => {
+  const rootId = Number(manager?.root_event_role_id || manager?.event_role_id || 0);
+  if (rootId <= 0) return [];
+  const rolesById = eventRoles.reduce((acc, row) => {
+    const eventRoleId = Number(row?.id || 0);
+    if (eventRoleId > 0) {
+      acc[eventRoleId] = row;
+    }
+    return acc;
+  }, {});
+
+  const membersByEventRoleId = assignments.reduce((acc, assignment) => {
+    const eventRoleId = Number(assignment?.event_role_id || 0);
+    if (eventRoleId <= 0) return acc;
+    acc[eventRoleId] = (acc[eventRoleId] || 0) + 1;
+    return acc;
+  }, {});
+
+  const membersByRootId = assignments.reduce((acc, assignment) => {
+    const boundRootId = Number(assignment?.root_manager_event_role_id || 0);
+    if (boundRootId <= 0) return acc;
+    acc[boundRootId] = (acc[boundRootId] || 0) + 1;
+    return acc;
+  }, {});
+
+  const roleClassOrder = {
+    manager: 0,
+    coordinator: 1,
+    supervisor: 2,
+    operational: 3
+  };
+
+  return eventRoles
+    .filter((row) => Number(row?.root_event_role_id || row?.id || 0) === rootId)
+    .map((row) => {
+      const eventRoleId = Number(row?.id || 0);
+      const normalizedCostBucket = normalizeCostBucket(row?.cost_bucket, row?.role_name);
+      const normalizedRoleClass = inferRoleClassFromRoleName(row?.role_name, normalizedCostBucket);
+      const isManagerial = normalizedCostBucket === "managerial";
+      const filledLeadership = isManagerial && hasLeadershipIdentity(row) ? 1 : 0;
+      const directMembersCount = Number(membersByEventRoleId[eventRoleId] || 0);
+      const parentRole = rolesById[Number(row?.parent_event_role_id || 0)] || null;
+      const rootRole = rolesById[Number(row?.root_event_role_id || eventRoleId || 0)] || null;
+      const parentRoleClass = inferRoleClassFromRoleName(parentRole?.role_name, parentRole?.cost_bucket);
+      const rootRoleClass = inferRoleClassFromRoleName(rootRole?.role_name, rootRole?.cost_bucket);
+      const ownLeaderName = row?.leader_participant_name || row?.leader_name || "";
+      const inheritedLeaderName =
+        parentRole?.leader_participant_name ||
+        parentRole?.leader_name ||
+        rootRole?.leader_participant_name ||
+        rootRole?.leader_name ||
+        "";
+      const linkedLeaderName = isManagerial ? ownLeaderName : ownLeaderName || inheritedLeaderName;
+      const linkedLeaderRoleClass = ownLeaderName
+        ? normalizedRoleClass
+        : !isManagerial && (parentRole?.leader_participant_name || parentRole?.leader_name)
+          ? parentRoleClass
+          : !isManagerial
+            ? rootRoleClass
+            : "";
+
+      return {
+        ...row,
+        cost_bucket: normalizedCostBucket,
+        role_class: normalizedRoleClass,
+        event_role_id: eventRoleId || null,
+        event_role_public_id: row?.public_id || "",
+        root_event_role_id: Number(row?.root_event_role_id || eventRoleId || 0) || null,
+        root_public_id: row?.root_public_id || row?.public_id || "",
+        linked_leader_name: linkedLeaderName,
+        linked_leader_role_class: linkedLeaderRoleClass,
+        planned_members_count: isManagerial ? 1 : directMembersCount,
+        filled_members_count: isManagerial ? filledLeadership : directMembersCount,
+        members_count: isManagerial ? 1 : directMembersCount,
+        root_members_count: Number(membersByRootId[rootId] || 0)
+      };
+    })
+    .sort((left, right) => {
+      const leftParent = Number(left?.parent_event_role_id || 0);
+      const rightParent = Number(right?.parent_event_role_id || 0);
+      if (leftParent === 0 && rightParent !== 0) return -1;
+      if (leftParent !== 0 && rightParent === 0) return 1;
+
+      const leftClassOrder = roleClassOrder[left?.role_class] ?? 99;
+      const rightClassOrder = roleClassOrder[right?.role_class] ?? 99;
+      if (leftClassOrder !== rightClassOrder) {
+        return leftClassOrder - rightClassOrder;
+      }
+
+      const leftSort = Number(left?.sort_order || 0);
+      const rightSort = Number(right?.sort_order || 0);
+      if (leftSort !== rightSort) {
+        return leftSort - rightSort;
+      }
+
+      const leftName = String(left?.role_name || "").toLowerCase();
+      const rightName = String(right?.role_name || "").toLowerCase();
+      return leftName.localeCompare(rightName, "pt-BR");
+    });
+};
+
+const formatRoleClassLabel = (roleClass = "") => {
+  switch (String(roleClass || "").toLowerCase()) {
+    case "manager":
+      return "Gerente";
+    case "coordinator":
+      return "Coordenador";
+    case "supervisor":
+      return "Supervisor";
+    default:
+      return "Operacional";
+  }
 };
 
 const findManagerRow = (rows = [], manager = null) => {
   if (!manager) return null;
 
   return (
+    rows.find(
+      (row) =>
+        Number(row?.event_role_id || 0) > 0 &&
+        Number(row?.event_role_id || 0) === Number(manager?.event_role_id || 0)
+    ) ||
+    rows.find(
+      (row) =>
+        Number(row?.root_event_role_id || row?.event_role_id || 0) > 0 &&
+        Number(row?.root_event_role_id || row?.event_role_id || 0) ===
+          Number(manager?.root_event_role_id || manager?.event_role_id || 0)
+    ) ||
     rows.find((row) => Number(row?.user_id || 0) > 0 && Number(row?.user_id || 0) === Number(manager?.user_id || 0)) ||
     rows.find(
       (row) =>
@@ -172,11 +529,14 @@ export default function WorkforceOpsTab({ eventId }) {
   const [managers, setManagers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [assignments, setAssignments] = useState([]);
+  const [eventRoles, setEventRoles] = useState([]);
+  const [treeStatus, setTreeStatus] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [selectedManager, setSelectedManager] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadedFromSnapshot, setLoadedFromSnapshot] = useState(false);
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -205,26 +565,81 @@ export default function WorkforceOpsTab({ eventId }) {
   const fetchManagers = async () => {
     setLoading(true);
     try {
-      const [mgrRes, roleRes, assignmentRes] = await Promise.all([
+      const [mgrRes, roleRes, assignmentRes, treeRes] = await Promise.all([
         api.get(`/workforce/managers?event_id=${eventId}`),
-        api.get("/workforce/roles"),
-        api.get(`/workforce/assignments?event_id=${eventId}`)
+        api.get(`/workforce/roles?event_id=${eventId}`),
+        api.get(`/workforce/assignments?event_id=${eventId}`),
+        api.get(`/workforce/tree-status?event_id=${eventId}`)
       ]);
       const nextManagers = mgrRes.data.data || [];
       const nextRoles = roleRes.data.data || [];
       const nextAssignments = assignmentRes.data.data || [];
+      const nextTreeStatus = treeRes.data?.data || null;
+      let nextEventRoles = [];
+
+      if (nextTreeStatus?.migration_ready) {
+        try {
+          const eventRolesRes = await api.get(`/workforce/event-roles?event_id=${eventId}`);
+          nextEventRoles = eventRolesRes.data?.data || [];
+        } catch (eventRoleError) {
+          console.error(eventRoleError);
+          nextEventRoles = [];
+        }
+      }
+
       setManagers(nextManagers);
       setRoles(nextRoles);
       setAssignments(nextAssignments);
-      return { managers: nextManagers, roles: nextRoles, assignments: nextAssignments };
+      setTreeStatus(nextTreeStatus);
+      setEventRoles(nextEventRoles);
+      setLoadedFromSnapshot(false);
+
+      writeWorkforceSnapshot(eventId, {
+        managers: nextManagers,
+        roles: nextRoles,
+        assignments: nextAssignments,
+        tree_status: nextTreeStatus,
+        event_roles: nextEventRoles
+      });
+
+      return {
+        managers: nextManagers,
+        roles: nextRoles,
+        assignments: nextAssignments,
+        treeStatus: nextTreeStatus,
+        eventRoles: nextEventRoles
+      };
     } catch (error) {
       console.error(error);
+      const snapshot = readWorkforceSnapshot(eventId);
+      if (snapshot) {
+        setManagers(snapshot.managers || []);
+        setRoles(snapshot.roles || []);
+        setAssignments(snapshot.assignments || []);
+        setTreeStatus(snapshot.tree_status || null);
+        setEventRoles(snapshot.event_roles || []);
+        setLoadedFromSnapshot(true);
+        toast("Falha na rede. Workforce carregado do snapshot local.");
+        return {
+          managers: snapshot.managers || [],
+          roles: snapshot.roles || [],
+          assignments: snapshot.assignments || [],
+          treeStatus: snapshot.tree_status || null,
+          eventRoles: snapshot.event_roles || []
+        };
+      }
+
       toast.error("Erro ao carregar gerentes e alocações.");
-      return { managers: [], roles: [], assignments: [] };
+      setTreeStatus(null);
+      setEventRoles([]);
+      return { managers: [], roles: [], assignments: [], treeStatus: null, eventRoles: [] };
     } finally {
       setLoading(false);
     }
   };
+
+  const eventTreeActive = shouldPreferEventTree(treeStatus, eventRoles);
+  const eventManagerRootsAvailable = hasEventManagerRoots(eventRoles);
 
   const fetchManagerMembers = async (manager) => {
     setLoading(true);
@@ -236,7 +651,12 @@ export default function WorkforceOpsTab({ eventId }) {
     }
     try {
       const params = new URLSearchParams({ event_id: String(eventId) });
-      if (Number(manager?.user_id || 0) > 0) {
+      if (eventTreeActive && Number(manager?.root_event_role_id || manager?.event_role_id || 0) > 0) {
+        params.set(
+          "root_manager_event_role_id",
+          String(Number(manager?.root_event_role_id || manager?.event_role_id || 0))
+        );
+      } else if (Number(manager?.user_id || 0) > 0) {
         params.set("manager_user_id", String(manager.user_id));
       } else if (normalizeSector(manager?.sector || "")) {
         params.set("sector", normalizeSector(manager.sector));
@@ -262,10 +682,22 @@ export default function WorkforceOpsTab({ eventId }) {
 
   const buildRoleContext = (row) => {
     if (!row) return null;
+    const roleId = Number(row.role_id || 0);
+    const eventRoleId = Number(row.event_role_id || row.id || 0) || null;
+    const rootEventRoleId = Number(row.root_event_role_id || eventRoleId || 0) || null;
     return {
-      id: Number(row.role_id || row.id || 0),
+      id: roleId,
       name: row.role_name || row.name || "",
-      sector: normalizeSector(row.sector || inferSectorFromRoleName(row.role_name || row.name || ""))
+      sector: normalizeSector(row.sector || inferSectorFromRoleName(row.role_name || row.name || "")),
+      event_role_id: eventRoleId,
+      event_role_public_id: row.event_role_public_id || row.public_id || "",
+      root_event_role_id: rootEventRoleId,
+      root_public_id: row.root_public_id || row.event_role_public_id || row.public_id || "",
+      parent_event_role_id: Number(row.parent_event_role_id || 0) || null,
+      parent_public_id: row.parent_public_id || "",
+      role_class: row.role_class || "",
+      authority_level: row.authority_level || "",
+      cost_bucket: row.cost_bucket || "operational"
     };
   };
 
@@ -278,8 +710,17 @@ export default function WorkforceOpsTab({ eventId }) {
 
     setManagerRoleSettingsLoading(true);
     try {
+      const roleParams = new URLSearchParams({
+        event_id: String(eventId),
+        sector: normalizeSector(manager?.sector || "")
+      });
+      if (Number(manager?.event_role_id || 0) > 0) {
+        roleParams.set("event_role_id", String(Number(manager.event_role_id)));
+      } else if (manager?.event_role_public_id) {
+        roleParams.set("event_role_public_id", String(manager.event_role_public_id));
+      }
       const [roleRes, daysRes, shiftsRes] = await Promise.all([
-        api.get(`/workforce/role-settings/${manager.role_id}`),
+        api.get(`/workforce/role-settings/${manager.role_id}?${roleParams.toString()}`),
         api.get(`/event-days?event_id=${eventId}`),
         api.get(`/event-shifts?event_id=${eventId}`)
       ]);
@@ -318,7 +759,28 @@ export default function WorkforceOpsTab({ eventId }) {
     syncManagersEffect();
   }, [eventId]);
 
-  const managerRows = useMemo(() => buildManagerRows(managers, roles, assignments), [managers, roles, assignments]);
+  const managerRows = useMemo(
+    () =>
+      eventManagerRootsAvailable
+        ? buildManagerRowsFromEventTree(eventRoles, assignments)
+        : buildManagerRows(managers, roles, assignments),
+    [assignments, eventManagerRootsAvailable, eventRoles, managers, roles]
+  );
+
+  const selectedManagerStructureRows = useMemo(
+    () => buildManagerStructureRows(eventRoles, assignments, selectedManager),
+    [assignments, eventRoles, selectedManager]
+  );
+
+  const structureParticipantIds = useMemo(
+    () =>
+      new Set(
+        selectedManagerStructureRows
+          .map((row) => Number(row?.leader_participant_id || 0))
+          .filter((value) => value > 0)
+      ),
+    [selectedManagerStructureRows]
+  );
 
   useEffect(() => {
     if (!selectedManager) {
@@ -327,7 +789,7 @@ export default function WorkforceOpsTab({ eventId }) {
       return;
     }
     syncManagerMembersEffect(selectedManager);
-  }, [selectedManager?.user_id, selectedManager?.role_id, selectedManager?.sector, eventId]);
+  }, [selectedManager, selectedManager?.event_role_id, selectedManager?.user_id, selectedManager?.role_id, selectedManager?.sector, eventId, eventTreeActive]);
 
   useEffect(() => {
     if (!selectedManager) {
@@ -336,7 +798,7 @@ export default function WorkforceOpsTab({ eventId }) {
       return;
     }
     syncManagerOperationalContextEffect(selectedManager);
-  }, [selectedManager, selectedManager?.role_id, selectedManager?.participant_id, eventId]);
+  }, [selectedManager, selectedManager?.event_role_id, selectedManager?.role_id, selectedManager?.participant_id, eventId]);
 
   const refreshSelectedManagerView = async (manager = selectedManager) => {
     const overview = await fetchManagers();
@@ -344,8 +806,11 @@ export default function WorkforceOpsTab({ eventId }) {
       return;
     }
 
+    const nextRows = hasEventManagerRoots(overview.eventRoles)
+      ? buildManagerRowsFromEventTree(overview.eventRoles, overview.assignments)
+      : buildManagerRows(overview.managers, overview.roles, overview.assignments);
     const refreshedManager = findManagerRow(
-      buildManagerRows(overview.managers, overview.roles, overview.assignments),
+      nextRows,
       manager
     ) || manager;
 
@@ -365,6 +830,10 @@ export default function WorkforceOpsTab({ eventId }) {
         cost_bucket: participant.cost_bucket || participant.assignment?.cost_bucket || "operational"
       }))
       .filter((participant) => {
+        if (!eventTreeActive) return true;
+        return !structureParticipantIds.has(Number(participant?.participant_id || 0));
+      })
+      .filter((participant) => {
         const q = searchTerm.trim().toLowerCase();
         if (!q) return true;
         return (
@@ -373,14 +842,24 @@ export default function WorkforceOpsTab({ eventId }) {
           String(participant.phone || "").toLowerCase().includes(q)
         );
       });
-  }, [participants, selectedManager, searchTerm]);
+  }, [eventTreeActive, participants, searchTerm, selectedManager, structureParticipantIds]);
 
   const selectedParticipants = teamMembers.filter((p) => selectedIds.includes(p.participant_id));
   const selectedManagerRole = buildRoleContext(selectedManager);
   const selectedManagerSector = normalizeSector(selectedManager?.sector || selectedManagerRole?.sector || "");
   const hasDirectManagerBinding = Boolean(selectedManager?.user_id);
   const canOperateSelectedManager = Boolean(selectedManagerRole?.id || selectedManagerSector);
-  const managerRoleMembersCount = Number(selectedManager?.team_size || teamMembers.length || 0);
+  const selectedManagerPlannedTeamSize = Number(selectedManager?.planned_team_size || selectedManager?.team_size || teamMembers.length || 0);
+  const selectedManagerFilledTeamSize = Number(selectedManager?.filled_team_size || teamMembers.length || 0);
+  const selectedManagerLeadershipTotal = Number(selectedManager?.leadership_positions_total || 0);
+  const selectedManagerLeadershipFilledTotal = Number(selectedManager?.leadership_filled_total || 0);
+  const selectedManagerOperationalTotal = Number(selectedManager?.operational_members_total || teamMembers.length || 0);
+  const managerRoleMembersCount =
+    Number(selectedManager?.event_role_id || 0) > 0 ||
+    Number(selectedManager?.leadership_filled_total || 0) > 0
+      ? 1
+      : 0;
+  const treeBlockers = Array.isArray(treeStatus?.activation_blockers) ? treeStatus.activation_blockers : [];
 
   const handleEnterManager = (manager) => {
     setSelectedManager(manager);
@@ -388,6 +867,29 @@ export default function WorkforceOpsTab({ eventId }) {
     setSelectedIds([]);
     setIsCreatingRoleInline(false);
     setNewRoleName("");
+  };
+
+  const openRoleSettingsForRow = (row) => {
+    const roleContext = buildRoleContext(row);
+    if (!roleContext?.id) {
+      toast.error("Cargo estrutural inválido para configuração.");
+      return;
+    }
+
+    setPendingManagerRoleId(null);
+    setRoleSettingsRole(roleContext);
+    setIsRoleSettingsModalOpen(true);
+  };
+
+  const openSectorCostsForRow = (row) => {
+    const roleContext = buildRoleContext(row);
+    if (!roleContext?.id) {
+      toast.error("Cargo estrutural inválido para custos.");
+      return;
+    }
+
+    setSectorCostsRole(roleContext);
+    setIsSectorCostsModalOpen(true);
   };
 
   const handleWorkforceImported = async () => {
@@ -402,6 +904,50 @@ export default function WorkforceOpsTab({ eventId }) {
       await refreshSelectedManagerView(selectedManager);
     } catch (error) {
       toast.error(error.response?.data?.message || "Erro ao excluir participante.");
+    }
+  };
+
+  const handleDeleteStructureRow = async (row) => {
+    const targetId = row?.event_role_public_id || row?.event_role_id || row?.id;
+    if (!targetId) {
+      toast.error("Linha estrutural inválida.");
+      return;
+    }
+    if (!window.confirm(`Excluir a linha estrutural "${row.role_name || row.name || "cargo"}"?`)) return;
+
+    try {
+      await api.delete(`/workforce/event-roles/${targetId}`);
+      toast.success("Linha estrutural removida.");
+      await refreshSelectedManagerView(selectedManager);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Erro ao excluir linha estrutural.");
+    }
+  };
+
+  const handleDeleteManagerRow = async (manager) => {
+    const roleContext = buildRoleContext(manager);
+    const targetId = roleContext?.event_role_public_id || roleContext?.event_role_id;
+    if (!targetId) {
+      toast.error("Este gerente ainda não possui root estrutural para exclusão direta.");
+      return;
+    }
+
+    const managerName = manager?.person_name || manager?.role_name || "gerente";
+    const roleName = manager?.role_name || "cargo gerencial";
+    const confirmed = window.confirm(
+      `Excluir a linha raiz "${roleName}" de ${managerName}? Se houver filhos ou equipe vinculada, o sistema bloqueará a exclusão.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/workforce/event-roles/${targetId}`);
+      toast.success("Linha raiz do gerente removida.");
+      if (selectedManager && findManagerRow([manager], selectedManager)) {
+        setSelectedManager(null);
+      }
+      await fetchManagers();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Erro ao excluir linha raiz do gerente.");
     }
   };
 
@@ -480,20 +1026,43 @@ export default function WorkforceOpsTab({ eventId }) {
       return;
     }
 
+    const inferredCostBucket = normalizeCostBucket("", safeName);
+    const inferredRoleClass = inferRoleClassFromRoleName(safeName, inferredCostBucket);
+
     setSavingNewRole(true);
     try {
       const res = await api.post("/workforce/roles", {
         name: safeName,
-        sector: selectedManagerSector || undefined
+        sector: selectedManagerSector || undefined,
+        event_id: eventId || undefined,
+        create_event_role: true,
+        parent_event_role_id: Number(selectedManager?.event_role_id || 0) || undefined,
+        parent_public_id: selectedManager?.event_role_public_id || undefined,
+        root_event_role_id: Number(selectedManager?.root_event_role_id || selectedManager?.event_role_id || 0) || undefined,
+        root_public_id: selectedManager?.root_public_id || selectedManager?.event_role_public_id || undefined,
+        cost_bucket: inferredCostBucket,
+        role_class: inferredRoleClass
       });
       const createdRole = res.data?.data || {};
       const roleContext = {
         id: Number(createdRole.id || 0),
         name: createdRole.name || safeName,
-        sector: createdRole.sector || selectedManagerSector || ""
+        sector: createdRole.sector || selectedManagerSector || "",
+        event_role_id: Number(createdRole.event_role_id || 0) || null,
+        event_role_public_id: createdRole.event_role_public_id || "",
+        parent_event_role_id:
+          Number(createdRole.parent_event_role_id || selectedManager?.event_role_id || 0) || null,
+        parent_public_id: selectedManager?.event_role_public_id || "",
+        root_event_role_id:
+          Number(createdRole.root_event_role_id || selectedManager?.root_event_role_id || selectedManager?.event_role_id || 0) || null,
+        root_public_id:
+          createdRole.root_public_id || selectedManager?.root_public_id || selectedManager?.event_role_public_id || "",
+        role_class: createdRole.role_class || inferredRoleClass,
+        cost_bucket: createdRole.cost_bucket || inferredCostBucket,
+        authority_level: createdRole.authority_level || "none"
       };
 
-      toast.success("Cargo criado com sucesso.");
+      toast.success("Cargo criado e registrado automaticamente na tabela do gerente.");
       setNewRoleName("");
       setIsCreatingRoleInline(false);
       setRoleSettingsRole(roleContext);
@@ -519,17 +1088,31 @@ export default function WorkforceOpsTab({ eventId }) {
     try {
       const res = await api.post("/workforce/roles", {
         name: safeName,
-        sector: inferredSector || undefined
+        sector: inferredSector || undefined,
+        event_id: eventId || undefined,
+        cost_bucket: "managerial",
+        role_class: "manager",
+        authority_level: "table_manager",
+        is_placeholder: true
       });
 
-      const createdRoleId = Number(res.data?.data?.id || 0);
+      const createdPayload = res.data?.data || {};
+      const createdRoleId = Number(createdPayload.id || 0);
       const createdRole = {
         id: createdRoleId,
-        name: safeName,
-        sector: inferredSector
+        name: createdPayload.name || safeName,
+        sector: createdPayload.sector || inferredSector,
+        role_class: createdPayload.role_class || "manager",
+        cost_bucket: createdPayload.cost_bucket || "managerial",
+        authority_level: createdPayload.authority_level || "table_manager",
+        event_role_id: Number(createdPayload.event_role_id || 0) || null,
+        event_role_public_id: createdPayload.event_role_public_id || "",
+        root_event_role_id: Number(createdPayload.root_event_role_id || createdPayload.event_role_id || 0) || null,
+        root_public_id: createdPayload.root_public_id || createdPayload.event_role_public_id || "",
+        is_placeholder: Boolean(createdPayload.is_placeholder)
       };
 
-      toast.success("Cargo gerencial criado. Configure o gerente para liberar a tabela.");
+      toast.success("Cargo gerencial criado e registrado automaticamente na tabela do evento.");
       setNewManagerRoleName("");
       setPendingManagerRoleId(createdRoleId || null);
       setRoleSettingsRole(createdRole);
@@ -544,7 +1127,9 @@ export default function WorkforceOpsTab({ eventId }) {
 
   const handleRoleSettingsSaved = async () => {
     const overview = await fetchManagers();
-    const nextRows = buildManagerRows(overview.managers, overview.roles, overview.assignments);
+    const nextRows = hasEventManagerRoots(overview.eventRoles)
+      ? buildManagerRowsFromEventTree(overview.eventRoles, overview.assignments)
+      : buildManagerRows(overview.managers, overview.roles, overview.assignments);
     const targetRoleId = Number(pendingManagerRoleId || 0);
 
     if (targetRoleId > 0) {
@@ -571,7 +1156,7 @@ export default function WorkforceOpsTab({ eventId }) {
           <div className="grid grid-cols-1 md:grid-cols-[1fr_180px] gap-3">
             <input
               className="input"
-              placeholder="Novo cargo gerencial (ex: Gerente de Bar)"
+              placeholder="Novo cargo de liderança (ex: Gerente de Bar)"
               value={newManagerRoleName}
               onChange={(event) => setNewManagerRoleName(event.target.value)}
             />
@@ -585,7 +1170,7 @@ export default function WorkforceOpsTab({ eventId }) {
           </div>
           <div className="mt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs text-gray-500">
             <div>
-              <p className="font-semibold text-white">Crie o cargo do gerente, configure nome/CPF/telefone e depois entre na tabela para importar a equipe.</p>
+              <p className="font-semibold text-white">Crie o cargo da liderança, configure nome/CPF/telefone e depois entre na tabela para importar a equipe.</p>
               <p className="mt-1">
                 Setor inferido agora:{" "}
                 <span className="text-brand">{inferSectorFromRoleName(newManagerRoleName) || "sera definido pelo nome do cargo"}</span>
@@ -594,9 +1179,66 @@ export default function WorkforceOpsTab({ eventId }) {
             <div className="rounded-xl border border-gray-800 bg-gray-950/50 px-3 py-2 uppercase tracking-wider">
               {managerRows.length === 0
                 ? "Nenhum gerente configurado"
-                : `${managerRows.length} gerente(s) / cargo(s) gerencial(is)`}
+                : `${managerRows.length} liderança(s) cadastrada(s)`}
             </div>
           </div>
+        </div>
+
+        <div className="card p-4 border border-gray-800 bg-gray-900/40">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Situação da tabela</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Esta tela usa primeiro os cargos configurados no evento. Se ainda faltar ajuste, ela completa com dados antigos do cadastro.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400">
+                Modo: {treeStatus?.source_preference === "event_roles" ? "Tabela do evento" : treeStatus?.source_preference === "hybrid" ? "Transição assistida" : "Cadastro antigo"}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500">Gerentes cadastrados</p>
+              <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.manager_roots_count || 0).toLocaleString("pt-BR")}</p>
+            </div>
+            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500">Coordenações e supervisões</p>
+              <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.managerial_child_roles_count || 0).toLocaleString("pt-BR")}</p>
+            </div>
+            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500">Gerentes do cadastro antigo</p>
+              <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.legacy_managers_count || 0).toLocaleString("pt-BR")}</p>
+            </div>
+            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500">Pessoas já ligadas a um gerente</p>
+              <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.assignments_with_root_manager || 0).toLocaleString("pt-BR")}</p>
+            </div>
+            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500">Pessoas ainda sem gerente</p>
+              <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.assignments_missing_bindings || 0).toLocaleString("pt-BR")}</p>
+            </div>
+          </div>
+
+          {loadedFromSnapshot && (
+            <p className="mt-3 text-xs text-amber-400 uppercase tracking-wider">
+              Painel exibido com dados salvos neste dispositivo. Confirme a sincronização antes de fazer alterações.
+            </p>
+          )}
+
+          {!treeStatus?.migration_ready && (
+            <p className="mt-3 text-xs text-amber-400">
+              Esta atualização ainda não foi concluída neste ambiente. Parte da tela continua usando o cadastro antigo.
+            </p>
+          )}
+
+          {treeBlockers.length > 0 && (
+            <p className="mt-3 text-xs text-gray-500">
+              Ajustes ainda pendentes: {treeBlockers.map((item) => item.replace(/_/g, " ")).join(", ")}.
+            </p>
+          )}
         </div>
 
         <div className="card overflow-hidden p-0 border border-gray-800">
@@ -605,7 +1247,7 @@ export default function WorkforceOpsTab({ eventId }) {
               <tr>
                 <th className="px-5 py-4">Gerente / Líder</th>
                 <th className="px-5 py-4">Cargo / Setor</th>
-                <th className="px-5 py-4">Tamanho da Equipe</th>
+                <th className="px-5 py-4">Total do Setor</th>
                 <th className="px-5 py-4 text-right">Ações</th>
               </tr>
             </thead>
@@ -637,13 +1279,55 @@ export default function WorkforceOpsTab({ eventId }) {
                       <p className="text-white font-medium">{mgr.role_name}</p>
                       <p className="text-xs text-gray-400 mt-1 uppercase">Setor: {(mgr.sector || "geral").replace(/_/g, " ")}</p>
                     </td>
-                    <td className="px-5 py-4 text-gray-300 font-medium whitespace-nowrap">
-                       <Users size={14} className="inline mr-2 text-gray-500" />
-                       {mgr.team_size || 0} membro(s)
-                    </td>
+                     <td className="px-5 py-4 text-gray-300">
+                        <div className="font-medium text-white whitespace-nowrap">
+                          <Users size={14} className="inline mr-2 text-gray-500" />
+                          {Number(mgr.planned_team_size || mgr.team_size || 0).toLocaleString("pt-BR")} posição(ões)
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Preenchido: {Number(mgr.filled_team_size || 0).toLocaleString("pt-BR")} • Liderança:{" "}
+                          {Number(mgr.leadership_positions_total || 0).toLocaleString("pt-BR")} • Operação:{" "}
+                          {Number(mgr.operational_members_total || 0).toLocaleString("pt-BR")}
+                        </p>
+                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex justify-end gap-2">
-                        <button onClick={() => handleEnterManager(mgr)} className="btn-secondary h-9 px-4 font-semibold border-brand/50 text-brand-light hover:bg-brand/10">Tabela do Gerente</button>
+                        <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openRoleSettingsForRow(mgr)}
+                          className="btn-secondary h-9 px-3 text-xs flex items-center gap-2"
+                          disabled={!Number(mgr.role_id || 0)}
+                        >
+                          <Pencil size={13} /> Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openSectorCostsForRow(mgr)}
+                          className="btn-secondary h-9 px-3 text-xs flex items-center gap-2"
+                          disabled={!Number(mgr.role_id || 0)}
+                        >
+                          <Briefcase size={13} /> Custos
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEnterManager(mgr)}
+                          className="btn-secondary h-9 px-3 font-semibold border-brand/50 text-brand-light hover:bg-brand/10"
+                        >
+                          Tabela do Gerente
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteManagerRow(mgr)}
+                          className="btn-secondary h-9 px-3 text-xs flex items-center gap-2 border-red-700/60 text-red-400 hover:bg-red-900/30"
+                          disabled={!Number(mgr.event_role_id || 0)}
+                          title={
+                            Number(mgr.event_role_id || 0) > 0
+                              ? "Excluir a linha raiz do gerente"
+                              : "Sem root estrutural disponível para exclusão direta"
+                          }
+                        >
+                          <Trash2 size={13} /> Excluir
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -664,6 +1348,16 @@ export default function WorkforceOpsTab({ eventId }) {
             setPendingManagerRoleId(null);
           }}
           onSaved={handleRoleSettingsSaved}
+        />
+
+        <WorkforceSectorCostsModal
+          isOpen={isSectorCostsModalOpen}
+          role={sectorCostsRole}
+          eventId={eventId}
+          onClose={() => {
+            setIsSectorCostsModalOpen(false);
+            setSectorCostsRole(null);
+          }}
         />
       </div>
     );
@@ -699,8 +1393,7 @@ export default function WorkforceOpsTab({ eventId }) {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => {
-                  setRoleSettingsRole(selectedManagerRole);
-                  setIsRoleSettingsModalOpen(true);
+                  openRoleSettingsForRow(selectedManager);
                 }}
                 className="btn-secondary h-10 px-4 text-xs flex items-center gap-2"
                 disabled={!selectedManagerRole?.id}
@@ -709,8 +1402,7 @@ export default function WorkforceOpsTab({ eventId }) {
               </button>
               <button
                 onClick={() => {
-                  setSectorCostsRole(selectedManagerRole);
-                  setIsSectorCostsModalOpen(true);
+                  openSectorCostsForRow(selectedManager);
                 }}
                 className="btn-secondary h-10 px-4 text-xs flex items-center gap-2"
                 disabled={!selectedManagerRole?.id}
@@ -767,6 +1459,28 @@ export default function WorkforceOpsTab({ eventId }) {
         </div>
 
         <div className="card border border-gray-800 bg-gray-900/40 p-4 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500">Total planejado</p>
+              <p className="mt-2 text-lg font-black text-white">{selectedManagerPlannedTeamSize.toLocaleString("pt-BR")}</p>
+            </div>
+            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500">Preenchido</p>
+              <p className="mt-2 text-lg font-black text-white">{selectedManagerFilledTeamSize.toLocaleString("pt-BR")}</p>
+            </div>
+            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500">Liderança</p>
+              <p className="mt-2 text-lg font-black text-white">{selectedManagerLeadershipTotal.toLocaleString("pt-BR")}</p>
+              <p className="mt-1 text-[11px] text-gray-500">
+                {selectedManagerLeadershipFilledTotal.toLocaleString("pt-BR")} preenchida(s)
+              </p>
+            </div>
+            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500">Operação</p>
+              <p className="mt-2 text-lg font-black text-white">{selectedManagerOperationalTotal.toLocaleString("pt-BR")}</p>
+            </div>
+          </div>
+
           <div>
             <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Estrutura operacional</p>
             <div className="mt-3 grid grid-cols-2 gap-3">
@@ -787,8 +1501,8 @@ export default function WorkforceOpsTab({ eventId }) {
           <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Criar cargo operacional</p>
-                <p className="mt-1 text-xs text-gray-500">Novo cargo no setor atual do gerente, sem sair do painel.</p>
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Criar cargo do setor</p>
+                <p className="mt-1 text-xs text-gray-500">Novo cargo no setor atual do gerente, incluindo coordenação ou supervisão.</p>
               </div>
               <button
                 type="button"
@@ -826,6 +1540,115 @@ export default function WorkforceOpsTab({ eventId }) {
           </div>
         </div>
       </div>
+
+      <div className="card border border-gray-800 bg-gray-900/40 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Situação atual</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Esta tabela usa {eventTreeActive ? "os cargos configurados neste evento" : "o cadastro antigo"} como fonte principal.
+              </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400">
+              Gerentes: {Number(treeStatus?.manager_roots_count || 0).toLocaleString("pt-BR")}
+            </span>
+            <span className="rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400">
+              Sem gerente: {Number(treeStatus?.assignments_missing_bindings || 0).toLocaleString("pt-BR")}
+            </span>
+          </div>
+        </div>
+
+        {loadedFromSnapshot && (
+          <p className="mt-3 text-xs text-amber-400 uppercase tracking-wider">
+            Painel exibido com dados salvos neste dispositivo para operação sem internet.
+          </p>
+        )}
+      </div>
+
+      {selectedManagerStructureRows.length > 0 && (
+        <div className="card border border-gray-800 bg-gray-900/40 p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Liderança e cargos do setor</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Gerente, coordenação, supervisão e demais cargos do setor aparecem aqui antes da equipe operacional.
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400">
+               {selectedManagerStructureRows.length} cargo(s) no topo
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {selectedManagerStructureRows.map((row) => {
+              const roleContext = buildRoleContext(row);
+              return (
+                <div
+                  key={row.event_role_public_id || row.event_role_id || row.id}
+                  className="rounded-2xl border border-gray-800 bg-gray-950/60 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-gray-500">
+                        {formatRoleClassLabel(row.role_class)}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-white">{row.role_name || "Cargo"}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {row.linked_leader_name || "Sem liderança vinculada"}
+                      </p>
+                      {!row.leader_participant_name && !row.leader_name && row.linked_leader_name && (
+                        <p className="mt-1 text-[10px] uppercase tracking-wider text-brand">
+                          Liderança herdada da {formatRoleClassLabel(row.linked_leader_role_class || "manager").toLowerCase()}
+                        </p>
+                      )}
+                    </div>
+                    <div className="rounded-xl border border-gray-800 bg-gray-900/80 px-2 py-1 text-[10px] uppercase tracking-wider text-gray-300">
+                      {Number(row.planned_members_count || row.members_count || 0).toLocaleString("pt-BR")} planejado(s)
+                    </div>
+                  </div>
+
+                  <div className="mt-3 space-y-1 text-[11px] text-gray-500">
+                    <p>Setor: {(row.sector || selectedManagerSector || "geral").replace(/_/g, " ")}</p>
+                    <p>
+                      Preenchido: {Number(row.filled_members_count || 0).toLocaleString("pt-BR")} /{" "}
+                      {Number(row.planned_members_count || row.members_count || 0).toLocaleString("pt-BR")}
+                    </p>
+                    <p>
+                      Turnos: {Number(row.max_shifts_event ?? 1).toLocaleString("pt-BR")} | Horas:{" "}
+                      {Number(row.shift_hours ?? 8).toLocaleString("pt-BR")}h
+                    </p>
+                    <p>
+                      Refeições/dia: {Number(row.meals_per_day ?? 4).toLocaleString("pt-BR")} | Valor/turno: R${" "}
+                      {Number(row.payment_amount ?? 0).toFixed(2)}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openRoleSettingsForRow(row)}
+                      className="btn-secondary h-9 px-3 text-xs flex items-center gap-2"
+                      disabled={!roleContext?.id}
+                    >
+                      <Pencil size={13} /> Editar
+                    </button>
+                    {Number(row?.parent_event_role_id || 0) > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteStructureRow(row)}
+                        className="btn-secondary h-9 px-3 text-xs flex items-center gap-2 border-red-700/60 text-red-400 hover:bg-red-900/30"
+                      >
+                        <Trash2 size={13} /> Excluir
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {selectedIds.length > 0 && (
         <div className="bg-brand/10 border border-brand/20 p-4 rounded-2xl flex items-center justify-between">
@@ -987,6 +1810,8 @@ export default function WorkforceOpsTab({ eventId }) {
         presetRoleCostBucket={selectedManager?.cost_bucket || "operational"}
         presetSector={selectedManagerSector}
         managerUserId={hasDirectManagerBinding ? selectedManager?.user_id || null : null}
+        managerEventRoleId={selectedManager?.event_role_id || null}
+        managerEventRolePublicId={selectedManager?.event_role_public_id || ""}
         lockSector={Boolean(selectedManagerSector)}
         onAdded={async () => {
           await refreshSelectedManagerView(selectedManager);
@@ -1002,6 +1827,8 @@ export default function WorkforceOpsTab({ eventId }) {
         workforceSector={selectedManagerSector}
         workforceRoleCostBucket={selectedManager?.cost_bucket || "operational"}
         managerUserId={hasDirectManagerBinding ? selectedManager?.user_id || null : null}
+        managerEventRoleId={selectedManager?.event_role_id || null}
+        managerEventRolePublicId={selectedManager?.event_role_public_id || ""}
         onImported={handleWorkforceImported}
       />
 

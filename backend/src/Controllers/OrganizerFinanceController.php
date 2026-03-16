@@ -6,6 +6,7 @@
 
 require_once BASE_PATH . '/src/Services/PaymentGatewayService.php';
 require_once BASE_PATH . '/src/Services/FinancialSettingsService.php';
+require_once __DIR__ . '/../Helpers/WorkforceEventRoleHelper.php';
 
 use EnjoyFun\Services\PaymentGatewayService;
 use EnjoyFun\Services\FinancialSettingsService;
@@ -247,6 +248,9 @@ function getWorkforceCosts(array $query): void
     $effectiveSector = $canBypassSector ? $requestedSector : ($userSector !== 'all' ? $userSector : $requestedSector);
     $hasRoleSettings = tableExists($db, 'workforce_role_settings');
     $hasMealUnitCost = columnExists($db, 'organizer_financial_settings', 'meal_unit_cost');
+    $hasEventRoles = workforceEventRolesReady($db) && workforceAssignmentsHaveEventRoleColumns($db);
+    $hasParticipantCheckins = tableExists($db, 'participant_checkins');
+    $presenceByParticipantId = [];
 
     $mealUnitCost = 0.0;
     if ($hasMealUnitCost) {
@@ -261,12 +265,48 @@ function getWorkforceCosts(array $query): void
         $mealUnitCost = (float)($stmtMealCost->fetchColumn() ?: 0);
     }
 
+    if ($hasParticipantCheckins) {
+        $sqlPresence = "
+            SELECT DISTINCT ep.id AS participant_id
+            FROM event_participants ep
+            JOIN events e ON e.id = ep.event_id
+            LEFT JOIN participant_checkins pc
+              ON pc.participant_id = ep.id
+             AND LOWER(COALESCE(pc.action, '')) = 'check-in'
+            WHERE e.organizer_id = :organizer_id
+              AND (
+                LOWER(COALESCE(ep.status, '')) = 'present'
+                OR pc.id IS NOT NULL
+              )
+        ";
+        $paramsPresence = [':organizer_id' => $organizerId];
+        if ($eventId > 0) {
+            $sqlPresence .= " AND ep.event_id = :event_id";
+            $paramsPresence[':event_id'] = $eventId;
+        }
+
+        $stmtPresence = $db->prepare($sqlPresence);
+        $stmtPresence->execute($paramsPresence);
+        foreach ($stmtPresence->fetchAll(PDO::FETCH_ASSOC) ?: [] as $presenceRow) {
+            $presenceByParticipantId[(int)($presenceRow['participant_id'] ?? 0)] = true;
+        }
+        $presentMembersTotal = 0;
+    }
+
     // Regra de domínio: valor/configuração de cargo não deve ser herdado pelos trabalhadores.
     // Custos de trabalhadores vêm apenas de workforce_member_settings (ou default operacional).
-    $maxShiftsExpr = "COALESCE(wms.max_shifts_event, 1)";
-    $shiftHoursExpr = "COALESCE(wms.shift_hours, 8)";
-    $mealsExpr = "COALESCE(wms.meals_per_day, 4)";
-    $paymentExpr = "COALESCE(wms.payment_amount, 0)";
+    $maxShiftsExpr = $hasEventRoles
+        ? "COALESCE(wms.max_shifts_event, wer.max_shifts_event, 1)"
+        : "COALESCE(wms.max_shifts_event, 1)";
+    $shiftHoursExpr = $hasEventRoles
+        ? "COALESCE(wms.shift_hours, wer.shift_hours, 8)"
+        : "COALESCE(wms.shift_hours, 8)";
+    $mealsExpr = $hasEventRoles
+        ? "COALESCE(wms.meals_per_day, wer.meals_per_day, 4)"
+        : "COALESCE(wms.meals_per_day, 4)";
+    $paymentExpr = $hasEventRoles
+        ? "COALESCE(wms.payment_amount, wer.payment_amount, 0)"
+        : "COALESCE(wms.payment_amount, 0)";
     $bucketExpr = "'operational'";
     $sql = "
         SELECT
@@ -288,6 +328,7 @@ function getWorkforceCosts(array $query): void
         JOIN people p ON p.id = ep.person_id
         JOIN workforce_roles r ON r.id = wa.role_id
         LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
+        " . ($hasEventRoles ? "LEFT JOIN workforce_event_roles wer ON wer.id = wa.event_role_id" : "") . "
         WHERE e.organizer_id = :organizer_id
     ";
 
@@ -311,6 +352,13 @@ function getWorkforceCosts(array $query): void
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     $totalMembers = 0;
+    $plannedMembersTotal = 0;
+    $filledMembersTotal = 0;
+    $presentMembersTotal = null;
+    $leadershipPositionsTotal = 0;
+    $leadershipFilledTotal = 0;
+    $leadershipPlaceholderTotal = 0;
+    $operationalMembersTotal = 0;
     $totalEstimatedPayment = 0.0;
     $totalEstimatedHours = 0.0;
     $totalEstimatedMeals = 0;
@@ -321,6 +369,25 @@ function getWorkforceCosts(array $query): void
     $byRoleManagerial = [];
     $operationalMembers = [];
     $items = [];
+
+    $ensureSectorRow = static function (array &$collection, string $sector) use ($hasParticipantCheckins): void {
+        if (!isset($collection[$sector])) {
+            $collection[$sector] = [
+                'sector' => $sector,
+                'members' => 0,
+                'planned_members_total' => 0,
+                'filled_members_total' => 0,
+                'present_members_total' => $hasParticipantCheckins ? 0 : null,
+                'leadership_positions_total' => 0,
+                'leadership_filled_total' => 0,
+                'leadership_placeholder_total' => 0,
+                'operational_members_total' => 0,
+                'estimated_payment_total' => 0.0,
+                'estimated_hours_total' => 0.0,
+                'estimated_meals_total' => 0,
+            ];
+        }
+    };
 
     foreach ($rows as $row) {
         $sector = normalizeSector((string)($row['sector'] ?? '')) ?: 'geral';
@@ -334,6 +401,7 @@ function getWorkforceCosts(array $query): void
         $estimatedPayment = round($paymentAmount * $maxShifts, 2);
         $estimatedHours = round($maxShifts * $shiftHours, 2);
         $estimatedMeals = $maxShifts * $mealsPerDay;
+        $participantIsPresent = !empty($presenceByParticipantId[(int)($row['participant_id'] ?? 0)]);
 
         $items[] = [
             'assignment_id' => (int)$row['assignment_id'],
@@ -351,25 +419,30 @@ function getWorkforceCosts(array $query): void
             'estimated_payment_total' => $estimatedPayment,
             'estimated_hours_total' => $estimatedHours,
             'estimated_meals_total' => $estimatedMeals,
+            'is_present' => $participantIsPresent,
         ];
 
         $totalMembers++;
+        $plannedMembersTotal++;
+        $filledMembersTotal++;
+        if ($hasParticipantCheckins && $participantIsPresent) {
+            $presentMembersTotal++;
+        }
         $totalEstimatedPayment += $estimatedPayment;
         $totalEstimatedHours += $estimatedHours;
         $totalEstimatedMeals += $estimatedMeals;
         $operationalMembersPaymentTotal += $estimatedPayment;
+        $operationalMembersTotal++;
         $operationalMembers[] = end($items);
 
-        if (!isset($bySector[$sector])) {
-            $bySector[$sector] = [
-                'sector' => $sector,
-                'members' => 0,
-                'estimated_payment_total' => 0.0,
-                'estimated_hours_total' => 0.0,
-                'estimated_meals_total' => 0,
-            ];
-        }
+        $ensureSectorRow($bySector, $sector);
         $bySector[$sector]['members']++;
+        $bySector[$sector]['planned_members_total']++;
+        $bySector[$sector]['filled_members_total']++;
+        if ($hasParticipantCheckins && $participantIsPresent) {
+            $bySector[$sector]['present_members_total']++;
+        }
+        $bySector[$sector]['operational_members_total']++;
         $bySector[$sector]['estimated_payment_total'] += $estimatedPayment;
         $bySector[$sector]['estimated_hours_total'] += $estimatedHours;
         $bySector[$sector]['estimated_meals_total'] += $estimatedMeals;
@@ -381,12 +454,21 @@ function getWorkforceCosts(array $query): void
                 'role_name' => $roleName,
                 'cost_bucket' => $costBucket,
                 'members' => 0,
+                'planned_members_total' => 0,
+                'filled_members_total' => 0,
+                'leadership_positions_total' => 0,
+                'leadership_filled_total' => 0,
+                'leadership_placeholder_total' => 0,
+                'operational_members_total' => 0,
                 'estimated_payment_total' => 0.0,
                 'estimated_hours_total' => 0.0,
                 'estimated_meals_total' => 0,
             ];
         }
         $byRole[$roleKey]['members']++;
+        $byRole[$roleKey]['planned_members_total']++;
+        $byRole[$roleKey]['filled_members_total']++;
+        $byRole[$roleKey]['operational_members_total']++;
         $byRole[$roleKey]['estimated_payment_total'] += $estimatedPayment;
         $byRole[$roleKey]['estimated_hours_total'] += $estimatedHours;
         $byRole[$roleKey]['estimated_meals_total'] += $estimatedMeals;
@@ -394,12 +476,131 @@ function getWorkforceCosts(array $query): void
 
     // Cargos gerenciais/diretivos entram como baseline próprio de custo (1 posição por cargo),
     // sem herdar esta configuração para os trabalhadores.
-    if ($hasRoleSettings) {
+    if ($eventId > 0 && workforceEventRolesReady($db)) {
+        $sqlManagerial = "
+            SELECT
+                wer.id AS event_role_id,
+                wer.role_id,
+                wr.name AS role_name,
+                COALESCE(NULLIF(TRIM(wer.sector), ''), 'geral') AS sector,
+                COALESCE(wer.cost_bucket, '') AS cost_bucket,
+                wer.leader_user_id,
+                wer.leader_participant_id,
+                COALESCE(wer.leader_name, '') AS leader_name,
+                COALESCE(wer.leader_cpf, '') AS leader_cpf,
+                COALESCE(wer.is_placeholder, false) AS is_placeholder,
+                COALESCE(wer.role_class, '') AS role_class,
+                COALESCE(wer.payment_amount, 0)::numeric AS payment_amount,
+                COALESCE(wer.max_shifts_event, 1)::int AS max_shifts_event,
+                COALESCE(wer.shift_hours, 8)::numeric AS shift_hours,
+                COALESCE(wer.meals_per_day, 0)::int AS meals_per_day
+            FROM workforce_event_roles wer
+            JOIN workforce_roles wr ON wr.id = wer.role_id
+            WHERE wer.organizer_id = :organizer_id
+              AND wer.event_id = :event_id
+              AND wer.is_active = true
+        ";
+        $paramsManagerial = [
+            ':organizer_id' => $organizerId,
+            ':event_id' => $eventId,
+        ];
+        if ($roleId > 0) {
+            $sqlManagerial .= " AND wer.role_id = :role_id";
+            $paramsManagerial[':role_id'] = $roleId;
+        }
+        if ($effectiveSector !== '') {
+            $sqlManagerial .= " AND LOWER(COALESCE(wer.sector, '')) = :sector";
+            $paramsManagerial[':sector'] = $effectiveSector;
+        }
+        $sqlManagerial .= " ORDER BY wer.sector ASC, wr.name ASC";
+
+        $stmtManagerial = $db->prepare($sqlManagerial);
+        $stmtManagerial->execute($paramsManagerial);
+        $managerialRows = $stmtManagerial->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        foreach ($managerialRows as $mRow) {
+            $sector = normalizeSector((string)($mRow['sector'] ?? '')) ?: 'geral';
+            $roleName = (string)($mRow['role_name'] ?? 'Cargo Gerencial');
+            $costBucket = normalizeCostBucket((string)($mRow['cost_bucket'] ?? ''), $roleName);
+            if ($costBucket !== 'managerial') {
+                continue;
+            }
+            $paymentAmount = (float)($mRow['payment_amount'] ?? 0);
+            $maxShifts = (int)($mRow['max_shifts_event'] ?? 1);
+            $shiftHours = (float)($mRow['shift_hours'] ?? 8);
+            $mealsPerDay = (int)($mRow['meals_per_day'] ?? 0);
+            $isFilled = workforceHasLeadershipIdentity($mRow);
+            $isPlaceholder = !$isFilled;
+            $leaderParticipantId = (int)($mRow['leader_participant_id'] ?? 0);
+            $leaderIsPresent = $leaderParticipantId > 0 && !empty($presenceByParticipantId[$leaderParticipantId]);
+
+            $estimatedPayment = round($paymentAmount * $maxShifts, 2);
+            $estimatedHours = round($maxShifts * $shiftHours, 2);
+            $estimatedMeals = $maxShifts * $mealsPerDay;
+
+            $totalMembers++;
+            $plannedMembersTotal++;
+            $totalEstimatedPayment += $estimatedPayment;
+            $totalEstimatedHours += $estimatedHours;
+            $totalEstimatedMeals += $estimatedMeals;
+            $managerialRolesPaymentTotal += $estimatedPayment;
+            $leadershipPositionsTotal++;
+            if ($isFilled) {
+                $filledMembersTotal++;
+                $leadershipFilledTotal++;
+            }
+            if ($hasParticipantCheckins && $leaderIsPresent) {
+                $presentMembersTotal++;
+            }
+            if ($isPlaceholder) {
+                $leadershipPlaceholderTotal++;
+            }
+
+            $ensureSectorRow($bySector, $sector);
+            $bySector[$sector]['members']++;
+            $bySector[$sector]['planned_members_total']++;
+            $bySector[$sector]['leadership_positions_total']++;
+            if ($isFilled) {
+                $bySector[$sector]['filled_members_total']++;
+                $bySector[$sector]['leadership_filled_total']++;
+            }
+            if ($hasParticipantCheckins && $leaderIsPresent) {
+                $bySector[$sector]['present_members_total']++;
+            }
+            if ($isPlaceholder) {
+                $bySector[$sector]['leadership_placeholder_total']++;
+            }
+            $bySector[$sector]['estimated_payment_total'] += $estimatedPayment;
+            $bySector[$sector]['estimated_hours_total'] += $estimatedHours;
+            $bySector[$sector]['estimated_meals_total'] += $estimatedMeals;
+
+            $byRoleManagerial[] = [
+                'sector' => $sector,
+                'event_role_id' => (int)($mRow['event_role_id'] ?? 0),
+                'role_id' => (int)($mRow['role_id'] ?? 0),
+                'role_name' => $roleName,
+                'role_class' => (string)($mRow['role_class'] ?? ''),
+                'cost_bucket' => $costBucket,
+                'members' => 1,
+                'planned_members_total' => 1,
+                'filled_members_total' => $isFilled ? 1 : 0,
+                'leadership_positions_total' => 1,
+                'leadership_filled_total' => $isFilled ? 1 : 0,
+                'leadership_placeholder_total' => $isPlaceholder ? 1 : 0,
+                'operational_members_total' => 0,
+                'present_members_total' => $hasParticipantCheckins ? ($leaderIsPresent ? 1 : 0) : null,
+                'estimated_payment_total' => $estimatedPayment,
+                'estimated_hours_total' => $estimatedHours,
+                'estimated_meals_total' => $estimatedMeals,
+            ];
+        }
+    } elseif ($hasRoleSettings) {
         $sqlManagerial = "
             SELECT
                 wr.id AS role_id,
                 wr.name AS role_name,
                 COALESCE(NULLIF(TRIM(wr.sector), ''), 'geral') AS sector,
+                COALESCE(wrs.cost_bucket, '') AS cost_bucket,
                 COALESCE(wrs.payment_amount, 0)::numeric AS payment_amount,
                 COALESCE(wrs.max_shifts_event, 1)::int AS max_shifts_event,
                 COALESCE(wrs.shift_hours, 8)::numeric AS shift_hours,
@@ -407,7 +608,6 @@ function getWorkforceCosts(array $query): void
             FROM workforce_role_settings wrs
             JOIN workforce_roles wr ON wr.id = wrs.role_id
             WHERE wrs.organizer_id = :organizer_id
-              AND COALESCE(wrs.cost_bucket, 'operational') = 'managerial'
         ";
         $paramsManagerial = [':organizer_id' => $organizerId];
         if ($roleId > 0) {
@@ -427,6 +627,10 @@ function getWorkforceCosts(array $query): void
         foreach ($managerialRows as $mRow) {
             $sector = normalizeSector((string)($mRow['sector'] ?? '')) ?: 'geral';
             $roleName = (string)($mRow['role_name'] ?? 'Cargo Gerencial');
+            $costBucket = normalizeCostBucket((string)($mRow['cost_bucket'] ?? ''), $roleName);
+            if ($costBucket !== 'managerial') {
+                continue;
+            }
             $paymentAmount = (float)($mRow['payment_amount'] ?? 0);
             $maxShifts = (int)($mRow['max_shifts_event'] ?? 1);
             $shiftHours = (float)($mRow['shift_hours'] ?? 8);
@@ -437,21 +641,21 @@ function getWorkforceCosts(array $query): void
             $estimatedMeals = $maxShifts * $mealsPerDay;
 
             $totalMembers++;
+            $plannedMembersTotal++;
+            $filledMembersTotal++;
             $totalEstimatedPayment += $estimatedPayment;
             $totalEstimatedHours += $estimatedHours;
             $totalEstimatedMeals += $estimatedMeals;
             $managerialRolesPaymentTotal += $estimatedPayment;
+            $leadershipPositionsTotal++;
+            $leadershipFilledTotal++;
 
-            if (!isset($bySector[$sector])) {
-                $bySector[$sector] = [
-                    'sector' => $sector,
-                    'members' => 0,
-                    'estimated_payment_total' => 0.0,
-                    'estimated_hours_total' => 0.0,
-                    'estimated_meals_total' => 0,
-                ];
-            }
+            $ensureSectorRow($bySector, $sector);
             $bySector[$sector]['members']++;
+            $bySector[$sector]['planned_members_total']++;
+            $bySector[$sector]['filled_members_total']++;
+            $bySector[$sector]['leadership_positions_total']++;
+            $bySector[$sector]['leadership_filled_total']++;
             $bySector[$sector]['estimated_payment_total'] += $estimatedPayment;
             $bySector[$sector]['estimated_hours_total'] += $estimatedHours;
             $bySector[$sector]['estimated_meals_total'] += $estimatedMeals;
@@ -460,8 +664,15 @@ function getWorkforceCosts(array $query): void
                 'sector' => $sector,
                 'role_id' => (int)($mRow['role_id'] ?? 0),
                 'role_name' => $roleName,
-                'cost_bucket' => 'managerial',
+                'cost_bucket' => $costBucket,
                 'members' => 1,
+                'planned_members_total' => 1,
+                'filled_members_total' => 1,
+                'leadership_positions_total' => 1,
+                'leadership_filled_total' => 1,
+                'leadership_placeholder_total' => 0,
+                'operational_members_total' => 0,
+                'present_members_total' => null,
                 'estimated_payment_total' => $estimatedPayment,
                 'estimated_hours_total' => $estimatedHours,
                 'estimated_meals_total' => $estimatedMeals,
@@ -470,17 +681,20 @@ function getWorkforceCosts(array $query): void
     }
 
     $bySector = array_values(array_map(function ($row) {
+        $row['members'] = (int)($row['planned_members_total'] ?? $row['members'] ?? 0);
         $row['estimated_payment_total'] = round((float)$row['estimated_payment_total'], 2);
         $row['estimated_hours_total'] = round((float)$row['estimated_hours_total'], 2);
         return $row;
     }, $bySector));
 
     $byRole = array_values(array_map(function ($row) {
+        $row['members'] = (int)($row['planned_members_total'] ?? $row['members'] ?? 0);
         $row['estimated_payment_total'] = round((float)$row['estimated_payment_total'], 2);
         $row['estimated_hours_total'] = round((float)$row['estimated_hours_total'], 2);
         return $row;
     }, $byRole));
     $byRoleManagerial = array_values(array_map(function ($row) {
+        $row['members'] = (int)($row['planned_members_total'] ?? $row['members'] ?? 0);
         $row['estimated_payment_total'] = round((float)$row['estimated_payment_total'], 2);
         $row['estimated_hours_total'] = round((float)$row['estimated_hours_total'], 2);
         return $row;
@@ -513,7 +727,14 @@ function getWorkforceCosts(array $query): void
             'estimated_total_cost' => 'estimated_payment_total + estimated_meals_cost_total'
         ],
         'summary' => [
-            'members' => $totalMembers,
+            'members' => $plannedMembersTotal,
+            'planned_members_total' => $plannedMembersTotal,
+            'filled_members_total' => $filledMembersTotal,
+            'present_members_total' => $presentMembersTotal,
+            'leadership_positions_total' => $leadershipPositionsTotal,
+            'leadership_filled_total' => $leadershipFilledTotal,
+            'leadership_placeholder_total' => $leadershipPlaceholderTotal,
+            'operational_members_total' => $operationalMembersTotal,
             'estimated_payment_total' => round($totalEstimatedPayment, 2),
             'estimated_hours_total' => round($totalEstimatedHours, 2),
             'estimated_meals_total' => $totalEstimatedMeals,
@@ -617,16 +838,23 @@ function columnExists(PDO $db, string $table, string $column): bool
 
 function normalizeCostBucket(string $value, string $roleName = ''): string
 {
+    $inferred = inferCostBucketFromRoleName($roleName);
+    if ($inferred === 'managerial') {
+        return 'managerial';
+    }
     $normalized = strtolower(trim($value));
     if ($normalized === 'managerial' || $normalized === 'operational') {
         return $normalized;
     }
-    return inferCostBucketFromRoleName($roleName);
+    return $inferred;
 }
 
 function inferCostBucketFromRoleName(string $roleName): string
 {
     $name = strtolower(trim($roleName));
+    if (workforceIsOperationalCollectionRoleName($name)) {
+        return 'operational';
+    }
     $managerialHints = ['gerente', 'diretor', 'coordenador', 'supervisor', 'lider', 'chefe', 'gestor', 'manager'];
     foreach ($managerialHints as $hint) {
         if ($name !== '' && str_contains($name, $hint)) {

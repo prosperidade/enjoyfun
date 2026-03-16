@@ -15,15 +15,27 @@ function EmptyState({ message }) {
 }
 
 export default function WorkforceCostConnector({ loading, workforceCosts }) {
+  const summaryPlannedMembers = Number(
+    workforceCosts?.summary?.planned_members_total ?? workforceCosts?.summary?.members ?? 0
+  );
+  const summaryFilledMembers = Number(workforceCosts?.summary?.filled_members_total ?? 0);
+  const summaryPresentMembersRaw = workforceCosts?.summary?.present_members_total;
+  const summaryPresentMembers =
+    summaryPresentMembersRaw === null || summaryPresentMembersRaw === undefined
+      ? null
+      : Number(summaryPresentMembersRaw ?? 0);
+  const summaryLeadershipPositions = Number(workforceCosts?.summary?.leadership_positions_total ?? 0);
+  const summaryOperationalMembers = Number(workforceCosts?.summary?.operational_members_total ?? 0);
+
   return (
     <div className="space-y-6 border-t border-gray-800 pt-6">
       <SectionHeader
         icon={Users}
-        title="Conector Financeiro de Equipe"
-        badge="Bloco Auxiliar"
+        title="Custos da Equipe"
+        badge="Resumo"
         iconClassName="text-emerald-400"
         badgeClassName="bg-emerald-400/20 text-emerald-400"
-        description="Leitura auxiliar de custo estimado de equipe já existente no conector financeiro, sem alterar regra de negócio."
+        description="Resumo dos custos previstos da equipe no recorte selecionado."
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -31,10 +43,10 @@ export default function WorkforceCostConnector({ loading, workforceCosts }) {
           compact
           loading={loading}
           icon={Users}
-          label="Posições Consideradas no Custo"
-          value={workforceCosts?.summary?.members ?? 0}
+          label="Headcount Planejado"
+          value={summaryPlannedMembers}
           color="bg-emerald-600"
-          subtitle="Base ativa calculada"
+          subtitle={`${summaryFilledMembers} preenchidos${summaryPresentMembers !== null ? ` • ${summaryPresentMembers} presentes` : ""} • ${summaryLeadershipPositions} liderança • ${summaryOperationalMembers} operação`}
         />
         <StatCard
           compact
@@ -86,10 +98,20 @@ export default function WorkforceCostConnector({ loading, workforceCosts }) {
                   key={row.sector}
                   className="flex items-center justify-between rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-2"
                 >
-                  <div>
-                    <div className="text-xs uppercase text-gray-400">{row.sector}</div>
-                    <div className="text-[11px] text-gray-500">{row.members} membros</div>
-                  </div>
+                    <div>
+                      <div className="text-xs uppercase text-gray-400">{row.sector}</div>
+                      <div className="text-[11px] text-gray-500">
+                        {Number(row.planned_members_total ?? row.members ?? 0).toLocaleString("pt-BR")} planejados •{" "}
+                        {Number(row.filled_members_total ?? 0).toLocaleString("pt-BR")} preenchidos
+                        {row.present_members_total !== null && row.present_members_total !== undefined
+                          ? ` • ${Number(row.present_members_total ?? 0).toLocaleString("pt-BR")} presentes`
+                          : ""}
+                      </div>
+                      <div className="text-[11px] text-gray-600">
+                        Liderança: {Number(row.leadership_positions_total ?? 0).toLocaleString("pt-BR")} • Operação:{" "}
+                        {Number(row.operational_members_total ?? 0).toLocaleString("pt-BR")}
+                      </div>
+                    </div>
                   <div className="text-right">
                     <div className="text-sm font-semibold text-emerald-400">
                       R$ {Number(row.estimated_payment_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
@@ -117,12 +139,12 @@ export default function WorkforceCostConnector({ loading, workforceCosts }) {
                   key={`${row.sector}-${row.role_name}-${index}`}
                   className="flex items-center justify-between rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-2"
                 >
-                  <div>
-                    <div className="text-xs font-medium text-white">{row.role_name}</div>
-                    <div className="text-[11px] uppercase text-gray-500">
-                      {row.sector} • {row.members} membros
+                    <div>
+                      <div className="text-xs font-medium text-white">{row.role_name}</div>
+                      <div className="text-[11px] uppercase text-gray-500">
+                        {row.sector} • {Number(row.planned_members_total ?? row.members ?? 0).toLocaleString("pt-BR")} posição(ões)
+                      </div>
                     </div>
-                  </div>
                   <div className="text-right text-sm font-semibold text-emerald-400">
                     R$ {Number(row.estimated_payment_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </div>
@@ -137,7 +159,7 @@ export default function WorkforceCostConnector({ loading, workforceCosts }) {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="card">
-          <h3 className="mb-4 text-sm font-semibold text-gray-200">Base Gerencial/Diretiva</h3>
+          <h3 className="mb-4 text-sm font-semibold text-gray-200">Lideranças do Evento</h3>
           {loading ? (
             <LoadingState />
           ) : (workforceCosts?.by_role_managerial?.length || 0) > 0 ? (
@@ -147,12 +169,16 @@ export default function WorkforceCostConnector({ loading, workforceCosts }) {
                   key={`${row.sector}-${row.role_name}-${index}`}
                   className="flex items-center justify-between rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-2"
                 >
-                  <div>
-                    <div className="text-xs font-medium text-white">{row.role_name}</div>
-                    <div className="text-[11px] uppercase text-gray-500">
-                      {row.sector} • {row.members} membros
+                    <div>
+                      <div className="text-xs font-medium text-white">{row.role_name}</div>
+                      <div className="text-[11px] uppercase text-gray-500">
+                        {row.sector} • {Number(row.planned_members_total ?? row.members ?? 0).toLocaleString("pt-BR")} posição(ões) •{" "}
+                        {Number(row.filled_members_total ?? 0).toLocaleString("pt-BR")} preenchida(s)
+                        {row.present_members_total !== null && row.present_members_total !== undefined
+                          ? ` • ${Number(row.present_members_total ?? 0).toLocaleString("pt-BR")} presente(s)`
+                          : ""}
+                      </div>
                     </div>
-                  </div>
                   <div className="text-right">
                     <div className="text-sm font-semibold text-amber-400">
                       R$ {Number(row.estimated_payment_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
@@ -162,7 +188,7 @@ export default function WorkforceCostConnector({ loading, workforceCosts }) {
               ))}
             </div>
           ) : (
-            <EmptyState message="Sem cargos gerenciais/diretivos no filtro atual." />
+            <EmptyState message="Sem lideranças cadastradas no filtro atual." />
           )}
         </div>
 

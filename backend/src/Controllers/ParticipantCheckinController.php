@@ -4,6 +4,8 @@
  * Gerencia operações de check-in e check-out (presença) dos participantes/staff.
  */
 
+require_once __DIR__ . '/../Helpers/WorkforceEventRoleHelper.php';
+
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
@@ -94,31 +96,7 @@ function resolveOrganizerId(array $user): int
 
 function participantCheckinResolveOperationalConfig(PDO $db, int $participantId): array
 {
-    $hasRoleSettings = participantCheckinTableExists($db, 'workforce_role_settings');
-    $maxShiftsExpr = $hasRoleSettings
-        ? "COALESCE(wms.max_shifts_event, wrs.max_shifts_event, 1)"
-        : "COALESCE(wms.max_shifts_event, 1)";
-    $mealsExpr = $hasRoleSettings
-        ? "COALESCE(wms.meals_per_day, wrs.meals_per_day, 4)"
-        : "COALESCE(wms.meals_per_day, 4)";
-    $roleSettingsJoin = $hasRoleSettings
-        ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id"
-        : "";
-
-    $stmt = $db->prepare("
-        SELECT
-            {$maxShiftsExpr}::int AS max_shifts_event,
-            {$mealsExpr}::int AS meals_per_day
-        FROM event_participants ep
-        LEFT JOIN workforce_assignments wa ON wa.participant_id = ep.id
-        LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
-        {$roleSettingsJoin}
-        WHERE ep.id = ?
-        LIMIT 1
-    ");
-    $stmt->execute([$participantId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
+    $row = workforceResolveParticipantOperationalConfig($db, $participantId);
     return [
         'max_shifts_event' => (int)($row['max_shifts_event'] ?? 1),
         'meals_per_day' => (int)($row['meals_per_day'] ?? 4),

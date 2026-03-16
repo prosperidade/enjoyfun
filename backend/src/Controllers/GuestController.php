@@ -20,6 +20,8 @@
  *   Ingressos normais (EF-xxxx sem sufixo) NÃO aparecem aqui.
  */
 
+require_once __DIR__ . '/../Helpers/WorkforceEventRoleHelper.php';
+
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
@@ -93,32 +95,11 @@ function getGuestTicket(array $query): void
             jsonSuccess($ticket);
         }
 
-        $hasRoleSettings = guestPublicTableExists($db, 'workforce_role_settings');
-        $maxShiftsExpr = $hasRoleSettings
-            ? "COALESCE(wms.max_shifts_event, wrs.max_shifts_event, 1)"
-            : "COALESCE(wms.max_shifts_event, 1)";
-        $shiftHoursExpr = $hasRoleSettings
-            ? "COALESCE(wms.shift_hours, wrs.shift_hours, 8)"
-            : "COALESCE(wms.shift_hours, 8)";
-        $mealsExpr = $hasRoleSettings
-            ? "COALESCE(wms.meals_per_day, wrs.meals_per_day, 4)"
-            : "COALESCE(wms.meals_per_day, 4)";
-        $paymentExpr = $hasRoleSettings
-            ? "COALESCE(wms.payment_amount, wrs.payment_amount, 0)"
-            : "COALESCE(wms.payment_amount, 0)";
-        $settingsSourceExpr = $hasRoleSettings
-            ? "CASE
-                    WHEN wms.participant_id IS NOT NULL THEN 'member_override'
-                    WHEN wrs.role_id IS NOT NULL THEN 'role_settings'
-                    ELSE 'default'
-               END"
-            : "CASE
-                    WHEN wms.participant_id IS NOT NULL THEN 'member_override'
-                    ELSE 'default'
-               END";
-        $roleSettingsJoin = $hasRoleSettings
+        $parts = workforceBuildOperationalConfigSqlParts($db, 'wa', 'wms', 'wrs', 'wer', 'wr.name');
+        $roleSettingsJoin = $parts['has_legacy_settings']
             ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id AND wrs.organizer_id = e.organizer_id"
             : "";
+        $preferredAssignmentJoin = workforceBuildPreferredAssignmentJoinSql($db, 'ep.id', 'wa');
 
         // 2) Fluxo público de workforce/event_participants
         $stmtParticipant = $db->prepare("
@@ -142,19 +123,20 @@ function getGuestTicket(array $query): void
                 c.name                  AS category_name,
                 wr.name                 AS role_name,
                 COALESCE(wa.sector, wr.sector, 'geral') AS sector,
-                {$maxShiftsExpr}::int   AS max_shifts_event,
-                {$shiftHoursExpr}::numeric AS shift_hours,
-                {$mealsExpr}::int       AS meals_per_day,
-                {$paymentExpr}::numeric AS payment_amount,
-                {$settingsSourceExpr}   AS settings_source,
+                {$parts['max_shifts_expr']}::int   AS max_shifts_event,
+                {$parts['shift_hours_expr']}::numeric AS shift_hours,
+                {$parts['meals_expr']}::int       AS meals_per_day,
+                {$parts['payment_expr']}::numeric AS payment_amount,
+                {$parts['source_expr']}   AS settings_source,
                 NULL::text              AS logo_url
             FROM event_participants ep
             INNER JOIN events e ON e.id = ep.event_id
             INNER JOIN people p ON p.id = ep.person_id
             LEFT JOIN participant_categories c ON c.id = ep.category_id
-            LEFT JOIN workforce_assignments wa ON wa.participant_id = ep.id
+            {$preferredAssignmentJoin}
             LEFT JOIN workforce_roles wr ON wr.id = wa.role_id
             LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
+            {$parts['event_role_join']}
             {$roleSettingsJoin}
             WHERE ep.qr_token = ?
             LIMIT 1
@@ -163,6 +145,13 @@ function getGuestTicket(array $query): void
         $participantTicket = $stmtParticipant->fetch(PDO::FETCH_ASSOC);
 
         if (!$participantTicket) jsonError("Convite não encontrado ou token inválido.", 404);
+
+        $resolvedConfig = workforceResolveParticipantOperationalConfig($db, (int)($participantTicket['id'] ?? 0));
+        $participantTicket['max_shifts_event'] = (int)($resolvedConfig['max_shifts_event'] ?? $participantTicket['max_shifts_event'] ?? 1);
+        $participantTicket['shift_hours'] = (float)($resolvedConfig['shift_hours'] ?? $participantTicket['shift_hours'] ?? 8);
+        $participantTicket['meals_per_day'] = (int)($resolvedConfig['meals_per_day'] ?? $participantTicket['meals_per_day'] ?? 4);
+        $participantTicket['payment_amount'] = (float)($resolvedConfig['payment_amount'] ?? $participantTicket['payment_amount'] ?? 0);
+        $participantTicket['settings_source'] = (string)($resolvedConfig['source'] ?? $participantTicket['settings_source'] ?? 'default');
 
         jsonSuccess($participantTicket);
 

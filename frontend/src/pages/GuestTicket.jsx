@@ -7,13 +7,12 @@ export default function GuestTicket() {
   const rawToken = searchParams.get('token');
   const token = (rawToken && rawToken !== 'undefined' && rawToken !== 'null') ? rawToken : '';
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(token));
   const [error, setError] = useState('');
   const [ticket, setTicket] = useState(null);
 
   useEffect(() => {
     if (!token) {
-      setLoading(false);
       return;
     }
 
@@ -39,6 +38,14 @@ export default function GuestTicket() {
   const holderName = ticket?.holder_name || ticket?.guest_name || 'Participante';
   const title = isWorkforce ? 'Credencial Operacional' : 'Convite Digital';
   const audienceLabel = ticket?.audience_label || (isWorkforce ? 'Equipe' : 'Convidado');
+  const settingsSourceLabel =
+    ticket?.settings_source === 'member_override'
+      ? 'configuração individual'
+      : ticket?.settings_source === 'event_role'
+        ? 'configuração do evento'
+        : ticket?.settings_source === 'role_settings'
+          ? 'configuração do cargo'
+          : 'padrão operacional';
 
   if (!token) {
     return (
@@ -112,7 +119,7 @@ export default function GuestTicket() {
         {ticket.settings_source ? (
           <div className="px-5 pt-3">
             <p className="text-[11px] text-gray-500 uppercase tracking-[0.18em]">
-              Regra aplicada: {ticket.settings_source === 'member_override' ? 'configuração individual' : ticket.settings_source === 'role_settings' ? 'configuração do cargo' : 'padrão operacional'}
+              Regra aplicada: {settingsSourceLabel}
             </p>
           </div>
         ) : null}

@@ -101,7 +101,7 @@ export default function Dashboard() {
         <div>
           <h1 className="page-title flex items-center gap-2">
             <LayoutDashboard size={22} className="text-brand" />
-            Dashboard Central
+            Painel Geral
           </h1>
           <p className="mt-1 text-sm text-gray-400">
             Seja bem-vindo(a),{" "}
@@ -126,21 +126,21 @@ export default function Dashboard() {
       <section className="space-y-6">
         <SectionHeader
           icon={BarChart3}
-          title="Núcleo Executivo"
-          badge="Dashboard Central"
+          title="Resumo Geral"
+          badge="Painel Principal"
           iconClassName="text-brand"
           badgeClassName="bg-brand/20 text-brand"
-          description="Leitura consolidada dos indicadores centrais já disponíveis no payload atual, sem ampliar escopo nem inventar novos KPIs."
+          description="Visão consolidada das vendas, participantes e saldos do evento no recorte selecionado."
         />
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           <StatCard
             loading={loading}
             icon={TrendingUp}
-            label="Receita Operacional (PDV)"
+            label="Vendas do Evento"
             value={`R$ ${(stats?.summary?.sales_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
             color="bg-green-600"
-            subtitle="Vendas completadas via PDV"
+            subtitle="Total vendido nos pontos de venda"
           />
           <StatCard
             loading={loading}
@@ -154,20 +154,20 @@ export default function Dashboard() {
           <StatCard
             loading={loading}
             icon={CreditCard}
-            label="Créditos em Float"
+            label="Saldo em Cartões Ativos"
             value={`R$ ${(stats?.summary?.credits_float || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
             color="bg-yellow-600"
             to="/cards"
-            subtitle="Saldo retido em cartões ativos"
+            subtitle="Valor disponível nos cartões em uso"
           />
           <StatCard
             loading={loading}
             icon={CreditCard}
-            label="Saldo Remanescente"
+            label="Saldo Ainda Disponível"
             value={`R$ ${Number(stats?.cashless?.remaining_balance || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
             color="bg-emerald-700"
             to="/cards"
-            subtitle="Base híbrida atual dos cartões ativos"
+            subtitle="Saldo restante da base atual de cartões"
           />
           <StatCard
             loading={loading}
@@ -194,11 +194,11 @@ export default function Dashboard() {
       <section className="space-y-6 pt-2">
         <SectionHeader
           icon={Activity}
-          title="Núcleo Operacional"
-          badge="Leitura Rápida"
+          title="Operação do Evento"
+          badge="Acompanhamento"
           iconClassName="text-cyan-400"
           badgeClassName="bg-cyan-400/20 text-cyan-400"
-          description="Bloco operacional enxuto, sem simular KPIs que o backend ainda não entrega."
+          description="Acompanhamento rápido da operação em andamento."
         />
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -214,7 +214,7 @@ export default function Dashboard() {
           <StatCard
             loading={loading}
             icon={Activity}
-            label="Terminais Offline Reais"
+            label="Terminais Sem Internet"
             value={Number(stats?.operations?.offline_terminals_count || 0).toLocaleString("pt-BR")}
             color="bg-rose-600"
             subtitle={`${Number(stats?.operations?.offline_pending_operations || 0).toLocaleString("pt-BR")} operações pendentes`}
@@ -241,11 +241,11 @@ export default function Dashboard() {
       <section className="space-y-6 pt-2">
         <SectionHeader
           icon={Layers3}
-          title="Bloco Auxiliar"
+          title="Apoio à Gestão"
           badge="Apoio"
           iconClassName="text-amber-400"
           badgeClassName="bg-amber-400/20 text-amber-400"
-          description="Itens úteis para navegação e leitura auxiliar, mantendo separado o que não pertence ao núcleo central do dashboard."
+          description="Informações complementares para navegação e apoio à operação."
         />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -253,11 +253,11 @@ export default function Dashboard() {
           <StatCard
             loading={loading}
             icon={Users}
-            label="Usuários Cadastrados do Tenant"
+            label="Usuários do Organizador"
             value={stats?.summary?.users_total}
             color="bg-blue-600"
             to="/users"
-            subtitle="Base administrativa do organizador"
+            subtitle="Pessoas com acesso administrativo"
           />
         </div>
 

@@ -1,3 +1,0 @@
-# Database dump history
-# Append-only operational log.
-# Format: YYYY-MM-DD HH:MM:SS - DUMP: schema_dump_YYYYMMDD.sql | BASELINE: schema_current.sql

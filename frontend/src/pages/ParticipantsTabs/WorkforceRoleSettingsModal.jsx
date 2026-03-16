@@ -9,6 +9,10 @@ const DEFAULT_FORM = {
   meals_per_day: 4,
   payment_amount: 0,
   cost_bucket: "operational",
+  authority_level: "none",
+  leader_user_id: "",
+  leader_participant_id: "",
+  is_placeholder: false,
   leader_name: "",
   leader_cpf: "",
   leader_phone: ""
@@ -20,18 +24,189 @@ const normalizeSector = (value = "") =>
     .trim()
     .replace(/\s+/g, "_");
 
-export default function WorkforceRoleSettingsModal({ isOpen, role, eventId, roleMembersCount = 0, onClose, onSaved }) {
+const normalizeEmail = (value = "") => String(value || "").trim().toLowerCase();
+const normalizeDocument = (value = "") => String(value || "").replace(/\D/g, "");
+
+const findUserMatchForParticipant = (participant, users = []) => {
+  const participantEmail = normalizeEmail(participant?.email);
+  const participantDocument = normalizeDocument(participant?.document);
+  return (
+    users.find((user) => participantEmail && normalizeEmail(user?.email) === participantEmail) ||
+    users.find((user) => participantDocument && normalizeDocument(user?.cpf) === participantDocument) ||
+    null
+  );
+};
+
+const findParticipantMatchForUser = (user, participants = []) => {
+  const userEmail = normalizeEmail(user?.email);
+  const userDocument = normalizeDocument(user?.cpf);
+  return (
+    participants.find((participant) => userEmail && normalizeEmail(participant?.email) === userEmail) ||
+    participants.find((participant) => userDocument && normalizeDocument(participant?.document) === userDocument) ||
+    null
+  );
+};
+
+const hasLeadershipIdentity = (payload = {}) =>
+  Number(payload?.leader_user_id || 0) > 0 ||
+  Number(payload?.leader_participant_id || 0) > 0 ||
+  (String(payload?.leader_name || "").trim() !== "" && normalizeDocument(payload?.leader_cpf) !== "");
+
+const formatRoleClassLabel = (value = "") => {
+  switch (String(value || "").toLowerCase()) {
+    case "manager":
+      return "Gerente";
+    case "coordinator":
+      return "Coordenador";
+    case "supervisor":
+      return "Supervisor";
+    default:
+      return "Liderança";
+  }
+};
+
+export default function WorkforceRoleSettingsModal({
+  isOpen,
+  role,
+  eventId,
+  roleMembersCount = 0,
+  onClose,
+  onSaved
+}) {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [sectorCostLoading, setSectorCostLoading] = useState(false);
   const [sectorCostSummary, setSectorCostSummary] = useState(null);
+  const [bindingOptionsLoading, setBindingOptionsLoading] = useState(false);
+  const [eventParticipants, setEventParticipants] = useState([]);
+  const [organizerUsers, setOrganizerUsers] = useState([]);
+  const [treeRoles, setTreeRoles] = useState([]);
+  const [structuralLinkValue, setStructuralLinkValue] = useState("");
   const normalizedSector = normalizeSector(role?.sector || "");
+  const currentTreeRootId = useMemo(
+    () => Number(role?.root_event_role_id || role?.event_role_id || 0),
+    [role?.root_event_role_id, role?.event_role_id]
+  );
+  const currentTreeRootPublicId = useMemo(
+    () => String(role?.root_public_id || role?.event_role_public_id || "").trim(),
+    [role?.root_public_id, role?.event_role_public_id]
+  );
+  const roleAlreadyStructured = useMemo(
+    () => Number(role?.event_role_id || 0) > 0 || Boolean(role?.event_role_public_id),
+    [role?.event_role_id, role?.event_role_public_id]
+  );
+
+  const visibleUsers = useMemo(() => {
+    return organizerUsers.filter((user) => {
+      const userSector = normalizeSector(user?.sector || "");
+      return (
+        Number(user?.id || 0) === Number(form.leader_user_id || 0) ||
+        !normalizedSector ||
+        userSector === "" ||
+        userSector === "all" ||
+        userSector === normalizedSector
+      );
+    });
+  }, [form.leader_user_id, organizerUsers, normalizedSector]);
+
+  const leadershipLinked = useMemo(
+    () => Number(form.leader_user_id || 0) > 0 || Number(form.leader_participant_id || 0) > 0,
+    [form.leader_participant_id, form.leader_user_id]
+  );
+  const leadershipResolved = useMemo(() => hasLeadershipIdentity(form), [form]);
+
+  const selectedLeaderParticipant = useMemo(
+    () =>
+      eventParticipants.find(
+        (participant) => Number(participant?.participant_id || 0) === Number(form.leader_participant_id || 0)
+      ) || null,
+    [eventParticipants, form.leader_participant_id]
+  );
+
+  const selectedLeaderUser = useMemo(
+    () => visibleUsers.find((user) => Number(user?.id || 0) === Number(form.leader_user_id || 0)) || null,
+    [form.leader_user_id, visibleUsers]
+  );
+
+  const treeLeadershipOptions = useMemo(() => {
+    const roleClassOrder = {
+      manager: 0,
+      coordinator: 1,
+      supervisor: 2,
+      operational: 3
+    };
+
+    return treeRoles
+      .filter((treeRole) => Number(treeRole?.id || 0) > 0)
+      .filter((treeRole) => Number(treeRole?.id || 0) !== Number(role?.event_role_id || 0))
+      .filter((treeRole) => {
+        const hasBindingContext =
+          Number(treeRole?.leader_user_id || 0) > 0 ||
+          Number(treeRole?.leader_participant_id || 0) > 0 ||
+          Boolean(String(treeRole?.leader_name || treeRole?.leader_participant_name || "").trim());
+        const roleClass = String(treeRole?.role_class || "").toLowerCase();
+        const isLeadershipRole = roleClass === "manager" || roleClass === "coordinator" || roleClass === "supervisor";
+        return hasBindingContext || isLeadershipRole;
+      })
+      .sort((left, right) => {
+        const leftOrder = roleClassOrder[String(left?.role_class || "").toLowerCase()] ?? 99;
+        const rightOrder = roleClassOrder[String(right?.role_class || "").toLowerCase()] ?? 99;
+        if (leftOrder !== rightOrder) {
+          return leftOrder - rightOrder;
+        }
+        return String(left?.role_name || "").localeCompare(String(right?.role_name || ""), "pt-BR");
+      })
+      .map((treeRole) => ({
+        value: `tree:${Number(treeRole.id || 0)}`,
+        event_role_id: Number(treeRole.id || 0),
+        public_id: String(treeRole?.public_id || ""),
+        role_name: treeRole?.role_name || treeRole?.name || "Cargo estrutural",
+        role_class: String(treeRole?.role_class || "").toLowerCase(),
+        leader_user_id: Number(treeRole?.leader_user_id || 0) || "",
+        leader_participant_id: Number(treeRole?.leader_participant_id || 0) || "",
+        leader_name: treeRole?.leader_participant_name || treeRole?.leader_name || "",
+        leader_cpf: treeRole?.leader_cpf || "",
+        leader_phone: treeRole?.leader_participant_phone || treeRole?.leader_phone || "",
+        display_label: `${treeRole?.role_name || treeRole?.name || "Cargo estrutural"} • ${
+          treeRole?.leader_participant_name || treeRole?.leader_name || "Sem nome vinculado"
+        }`
+      }));
+  }, [role?.event_role_id, treeRoles]);
+
+  const selectedTreeLeadershipOption = useMemo(
+    () => treeLeadershipOptions.find((option) => option.value === structuralLinkValue) || null,
+    [structuralLinkValue, treeLeadershipOptions]
+  );
+
+  const leaderBindingValue = useMemo(() => {
+    if (selectedTreeLeadershipOption) {
+      return selectedTreeLeadershipOption.value;
+    }
+    if (Number(form.leader_user_id || 0) > 0) {
+      return `user:${Number(form.leader_user_id)}`;
+    }
+    return "";
+  }, [form.leader_user_id, selectedTreeLeadershipOption]);
 
   useEffect(() => {
     if (!isOpen || !role?.id) return;
     setLoading(true);
+    setStructuralLinkValue("");
+    const params = new URLSearchParams();
+    if (eventId) params.set("event_id", String(eventId));
+    if (normalizedSector) params.set("sector", normalizedSector);
+    if (Number(role?.event_role_id || 0) > 0) {
+      params.set("event_role_id", String(Number(role.event_role_id)));
+    } else if (role?.event_role_public_id) {
+      params.set("event_role_public_id", String(role.event_role_public_id));
+    }
+    if (Number(role?.parent_event_role_id || 0) > 0) {
+      params.set("parent_event_role_id", String(Number(role.parent_event_role_id)));
+    } else if (role?.parent_public_id) {
+      params.set("parent_public_id", String(role.parent_public_id));
+    }
     api
-      .get(`/workforce/role-settings/${role.id}`)
+      .get(`/workforce/role-settings/${role.id}${params.toString() ? `?${params.toString()}` : ""}`)
       .then((res) => {
         const d = res.data?.data || {};
         setForm({
@@ -40,6 +215,10 @@ export default function WorkforceRoleSettingsModal({ isOpen, role, eventId, role
           meals_per_day: Number(d.meals_per_day ?? 4),
           payment_amount: Number(d.payment_amount ?? 0),
           cost_bucket: d.cost_bucket === "managerial" ? "managerial" : "operational",
+          authority_level: d.authority_level ?? role?.authority_level ?? "none",
+          leader_user_id: Number(d.leader_user_id || 0) > 0 ? Number(d.leader_user_id) : "",
+          leader_participant_id: Number(d.leader_participant_id || 0) > 0 ? Number(d.leader_participant_id) : "",
+          is_placeholder: Boolean(d.is_placeholder),
           leader_name: d.leader_name ?? "",
           leader_cpf: d.leader_cpf ?? "",
           leader_phone: d.leader_phone ?? ""
@@ -49,7 +228,76 @@ export default function WorkforceRoleSettingsModal({ isOpen, role, eventId, role
         toast.error(err.response?.data?.message || "Erro ao carregar configuração do cargo.");
       })
       .finally(() => setLoading(false));
-  }, [isOpen, role?.id]);
+  }, [isOpen, role?.id, role?.event_role_id, role?.event_role_public_id, role?.parent_event_role_id, role?.parent_public_id, role?.authority_level, eventId, normalizedSector]);
+
+  useEffect(() => {
+    if (!isOpen || !eventId) {
+      setEventParticipants([]);
+      setOrganizerUsers([]);
+      setTreeRoles([]);
+      setStructuralLinkValue("");
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadBindingOptions = async () => {
+      setBindingOptionsLoading(true);
+      try {
+        const treeQuery = new URLSearchParams({ event_id: String(eventId) });
+        if (currentTreeRootId > 0) {
+          treeQuery.set("root_event_role_id", String(currentTreeRootId));
+        } else if (currentTreeRootPublicId) {
+          treeQuery.set("root_public_id", currentTreeRootPublicId);
+        }
+
+        const [participantsRes, usersRes, treeRolesRes] = await Promise.all([
+          api.get(`/participants?event_id=${eventId}`),
+          api.get("/users"),
+          currentTreeRootId > 0 || currentTreeRootPublicId
+            ? api.get(`/workforce/event-roles?${treeQuery.toString()}`)
+            : Promise.resolve({ data: { data: [] } })
+        ]);
+        if (cancelled) return;
+        setEventParticipants(Array.isArray(participantsRes.data?.data) ? participantsRes.data.data : []);
+        setOrganizerUsers(Array.isArray(usersRes.data?.data) ? usersRes.data.data : []);
+        setTreeRoles(Array.isArray(treeRolesRes.data?.data) ? treeRolesRes.data.data : []);
+      } catch {
+        if (!cancelled) {
+          setEventParticipants([]);
+          setOrganizerUsers([]);
+          setTreeRoles([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setBindingOptionsLoading(false);
+        }
+      }
+    };
+
+    loadBindingOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentTreeRootId, currentTreeRootPublicId, eventId, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setStructuralLinkValue("");
+      return;
+    }
+
+    if (Number(role?.parent_event_role_id || 0) > 0) {
+      const parentValue = `tree:${Number(role.parent_event_role_id)}`;
+      if (treeLeadershipOptions.some((option) => option.value === parentValue)) {
+        setStructuralLinkValue(parentValue);
+        return;
+      }
+    }
+
+    setStructuralLinkValue("");
+  }, [isOpen, role?.parent_event_role_id, treeLeadershipOptions]);
 
   useEffect(() => {
     if (!isOpen || !role?.id || !eventId || !normalizedSector) {
@@ -74,13 +322,18 @@ export default function WorkforceRoleSettingsModal({ isOpen, role, eventId, role
 
         const paymentTotal = Number(row.estimated_payment_total || 0);
         const mealsTotal = Number(row.estimated_meals_total || 0);
-        const members = Number(row.members || 0);
+        const plannedMembersTotal = Number(row.planned_members_total || row.members || 0);
+        const filledMembersTotal = Number(row.filled_members_total || 0);
         const mealUnitCost = Number(data.summary?.meal_unit_cost || 0);
         const sectorTotal = paymentTotal + mealsTotal * mealUnitCost;
 
         setSectorCostSummary({
           sector: normalizeSector(row.sector) || normalizedSector,
-          members,
+          plannedMembersTotal,
+          filledMembersTotal,
+          leadershipPositionsTotal: Number(row.leadership_positions_total || 0),
+          leadershipFilledTotal: Number(row.leadership_filled_total || 0),
+          operationalMembersTotal: Number(row.operational_members_total || 0),
           paymentTotal,
           mealsTotal,
           mealUnitCost,
@@ -99,15 +352,101 @@ export default function WorkforceRoleSettingsModal({ isOpen, role, eventId, role
     return shifts * perShift;
   }, [form.max_shifts_event, form.payment_amount]);
 
-  const missingLeadSlot = useMemo(() => (Number(roleMembersCount || 0) > 0 ? 0 : 1), [roleMembersCount]);
+  const missingLeadSlot = useMemo(() => {
+    if (roleAlreadyStructured) return 0;
+    return Number(roleMembersCount || 0) > 0 ? 0 : 1;
+  }, [roleAlreadyStructured, roleMembersCount]);
   const projectedSectorTotal = useMemo(() => {
     const baseSectorTotal = Number(sectorCostSummary?.sectorTotal || 0);
     return baseSectorTotal + estimatedTotal * missingLeadSlot;
   }, [sectorCostSummary?.sectorTotal, estimatedTotal, missingLeadSlot]);
   const projectedSectorMembers = useMemo(() => {
-    const baseMembers = Number(sectorCostSummary?.members || 0);
+    const baseMembers = Number(sectorCostSummary?.plannedMembersTotal || 0);
     return baseMembers + missingLeadSlot;
-  }, [sectorCostSummary?.members, missingLeadSlot]);
+  }, [sectorCostSummary?.plannedMembersTotal, missingLeadSlot]);
+
+  const handleLeaderParticipantChange = (value) => {
+    const nextParticipantId = value ? Number(value) : "";
+    const participant =
+      eventParticipants.find((item) => Number(item?.participant_id || 0) === Number(nextParticipantId || 0)) || null;
+
+    setForm((previous) => {
+      const matchedUser =
+        participant && Number(previous.leader_user_id || 0) <= 0
+          ? findUserMatchForParticipant(participant, visibleUsers)
+          : null;
+      const next = {
+        ...previous,
+        leader_participant_id: nextParticipantId,
+        leader_user_id:
+          Number(previous.leader_user_id || 0) > 0
+            ? previous.leader_user_id
+            : Number(matchedUser?.id || 0) > 0
+              ? Number(matchedUser.id)
+              : "",
+        leader_name: participant?.name || previous.leader_name,
+        leader_cpf: participant?.document || previous.leader_cpf,
+        leader_phone: participant?.phone || previous.leader_phone
+      };
+      next.is_placeholder = !hasLeadershipIdentity(next) && next.cost_bucket === "managerial";
+      return next;
+    });
+  };
+
+  const handleLeaderUserChange = (value) => {
+    const nextUserId = value ? Number(value) : "";
+    const user = visibleUsers.find((item) => Number(item?.id || 0) === Number(nextUserId || 0)) || null;
+
+    setForm((previous) => {
+      const matchedParticipant =
+        user && Number(previous.leader_participant_id || 0) <= 0
+          ? findParticipantMatchForUser(user, eventParticipants)
+          : null;
+      const next = {
+        ...previous,
+        leader_user_id: nextUserId,
+        leader_participant_id:
+          Number(previous.leader_participant_id || 0) > 0
+            ? previous.leader_participant_id
+            : Number(matchedParticipant?.participant_id || 0) > 0
+              ? Number(matchedParticipant.participant_id)
+              : "",
+        leader_name: user?.name || previous.leader_name,
+        leader_cpf: user?.cpf || previous.leader_cpf,
+        leader_phone: user?.phone || previous.leader_phone
+      };
+      next.is_placeholder = !hasLeadershipIdentity(next) && next.cost_bucket === "managerial";
+      return next;
+    });
+  };
+
+  const handleLeaderBindingChange = (value) => {
+    if (!value) {
+      setStructuralLinkValue("");
+      handleLeaderUserChange("");
+      return;
+    }
+
+    if (value.startsWith("user:")) {
+      setStructuralLinkValue("");
+      handleLeaderUserChange(value.slice(5));
+      return;
+    }
+
+    if (!value.startsWith("tree:")) {
+      setStructuralLinkValue("");
+      handleLeaderUserChange(value);
+      return;
+    }
+
+    if (treeLeadershipOptions.some((option) => option.value === value)) {
+      setStructuralLinkValue(value);
+      return;
+    }
+
+    setStructuralLinkValue("");
+    handleLeaderUserChange("");
+  };
 
   if (!isOpen || !role) return null;
 
@@ -115,7 +454,22 @@ export default function WorkforceRoleSettingsModal({ isOpen, role, eventId, role
     e.preventDefault();
     setLoading(true);
     try {
-      await api.put(`/workforce/role-settings/${role.id}`, form);
+      await api.put(`/workforce/role-settings/${role.id}`, {
+        ...form,
+        event_id: eventId || undefined,
+        sector: normalizedSector || undefined,
+        event_role_id: role?.event_role_id || undefined,
+        event_role_public_id: role?.event_role_public_id || undefined,
+        parent_event_role_id: role?.parent_event_role_id || undefined,
+        parent_public_id: role?.parent_public_id || undefined,
+        root_event_role_id: role?.root_event_role_id || undefined,
+        root_public_id: role?.root_public_id || undefined,
+        role_class: role?.role_class || undefined,
+        authority_level: form.authority_level || role?.authority_level || undefined,
+        leader_user_id: Number(form.leader_user_id || 0) > 0 ? Number(form.leader_user_id) : null,
+        leader_participant_id: Number(form.leader_participant_id || 0) > 0 ? Number(form.leader_participant_id) : null,
+        is_placeholder: !leadershipResolved && form.cost_bucket === "managerial"
+      });
       toast.success("Configuração do cargo salva.");
       onSaved?.();
       onClose();
@@ -168,6 +522,89 @@ export default function WorkforceRoleSettingsModal({ isOpen, role, eventId, role
                 onChange={(e) => setForm((p) => ({ ...p, leader_phone: e.target.value }))}
               />
             </label>
+
+            <div className="col-span-2 rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-3">
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider">Conta de acesso da liderança</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Se este cargo estiver ligado a uma conta ou participante, o sistema reconhece essa pessoa como responsável oficial.
+              </p>
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <label className="text-xs text-gray-400">
+                  Participante do Evento
+                  <select
+                    className="input mt-1 w-full"
+                    value={form.leader_participant_id}
+                    onChange={(e) => handleLeaderParticipantChange(e.target.value)}
+                    disabled={bindingOptionsLoading}
+                  >
+                    <option value="">Sem vínculo de participante</option>
+                    {eventParticipants.map((participant) => (
+                      <option key={participant.participant_id} value={participant.participant_id}>
+                        {participant.name} {participant.email ? `• ${participant.email}` : `• REF #${participant.participant_id}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="text-xs text-gray-400">
+                  Conta de acesso / liderança já cadastrada
+                  <select
+                    className="input mt-1 w-full"
+                    value={leaderBindingValue}
+                    onChange={(e) => handleLeaderBindingChange(e.target.value)}
+                    disabled={bindingOptionsLoading}
+                  >
+                    <option value="">Sem vínculo de usuário</option>
+                    {treeLeadershipOptions.length > 0 && (
+                      <optgroup label="Lideranças já cadastradas neste setor">
+                        {treeLeadershipOptions.map((treeRole) => (
+                          <option key={treeRole.value} value={treeRole.value}>
+                            {formatRoleClassLabel(treeRole.role_class)} • {treeRole.display_label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                      <optgroup label="Contas do organizador">
+                      {visibleUsers.map((user) => (
+                        <option key={user.id} value={`user:${user.id}`}>
+                          {user.name} {user.email ? `• ${user.email}` : ""}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-3 rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-2 text-xs text-gray-400">
+                <p className="font-semibold text-white">
+                  {leadershipLinked
+                    ? "Liderança vinculada"
+                    : leadershipResolved
+                      ? "Liderança identificada"
+                      : form.is_placeholder
+                        ? "Cargo sem responsável definido"
+                        : "Sem conta vinculada"}
+                </p>
+                <p className="mt-1">
+                  Participante: {selectedLeaderParticipant?.name || "não vinculado"} | Usuário: {selectedLeaderUser?.name || "não vinculado"}
+                </p>
+                {selectedTreeLeadershipOption && (
+                  <p className="mt-1 text-gray-500">
+                    Este cargo responde para: {selectedTreeLeadershipOption.role_name} • {selectedTreeLeadershipOption.leader_name || "sem nome"}
+                  </p>
+                )}
+                {selectedTreeLeadershipOption && (
+                  <p className="mt-1 text-gray-500">
+                    Essa referência não troca o nome/CPF deste cargo; ela apenas mostra a liderança acima dele.
+                  </p>
+                )}
+                {(selectedLeaderParticipant || selectedLeaderUser) && (
+                  <p className="mt-1 text-gray-500">
+                    Se os dados coincidirem, o sistema tenta completar o outro cadastro automaticamente.
+                  </p>
+                )}
+              </div>
+            </div>
             <label className="text-xs text-gray-400">
               Número de Turnos
               <input
@@ -216,7 +653,16 @@ export default function WorkforceRoleSettingsModal({ isOpen, role, eventId, role
               <select
                 className="input mt-1 w-full"
                 value={form.cost_bucket}
-                onChange={(e) => setForm((p) => ({ ...p, cost_bucket: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => {
+                    const nextCostBucket = e.target.value;
+                    return {
+                      ...p,
+                      cost_bucket: nextCostBucket,
+                      is_placeholder: nextCostBucket === "managerial" && !hasLeadershipIdentity(p)
+                    };
+                  })
+                }
               >
                 <option value="operational">Membro operacional</option>
                 <option value="managerial">Cargo gerencial/diretivo</option>
@@ -238,20 +684,25 @@ export default function WorkforceRoleSettingsModal({ isOpen, role, eventId, role
               </p>
               {sectorCostLoading ? (
                 <p className="text-sm text-gray-500 mt-1">Carregando custo do setor...</p>
-              ) : (
-                <>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Base atual: R$ {Number(sectorCostSummary?.sectorTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} | Membros:{" "}
-                    {Number(sectorCostSummary?.members || 0).toLocaleString("pt-BR")}
-                  </p>
-                  <p className="text-sm font-semibold text-cyan-400 mt-1">
-                    Projeção com o cargo: R$ {Number(projectedSectorTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </p>
-                  <p className="text-[11px] text-gray-500 mt-1">
-                    Membros projetados no setor: {Number(projectedSectorMembers || 0).toLocaleString("pt-BR")}
-                    {missingLeadSlot > 0 ? " (inclui 1 posição-base deste cargo)" : ""}
-                  </p>
-                </>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Base atual: R$ {Number(sectorCostSummary?.sectorTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} | Planejado:{" "}
+                      {Number(sectorCostSummary?.plannedMembersTotal || 0).toLocaleString("pt-BR")} | Preenchido:{" "}
+                      {Number(sectorCostSummary?.filledMembersTotal || 0).toLocaleString("pt-BR")}
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      Liderança: {Number(sectorCostSummary?.leadershipPositionsTotal || 0).toLocaleString("pt-BR")} • Operação:{" "}
+                      {Number(sectorCostSummary?.operationalMembersTotal || 0).toLocaleString("pt-BR")}
+                    </p>
+                    <p className="text-sm font-semibold text-cyan-400 mt-1">
+                      Projeção com o cargo: R$ {Number(projectedSectorTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      Planejado no setor: {Number(projectedSectorMembers || 0).toLocaleString("pt-BR")}
+                      {missingLeadSlot > 0 ? " (inclui 1 posição-base deste cargo)" : ""}
+                    </p>
+                  </>
               )}
             </div>
           </div>

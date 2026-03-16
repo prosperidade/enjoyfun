@@ -4,6 +4,8 @@
  * Controle de fornecimento/baixa de refeições do staff durante turnos e dias do evento.
  */
 
+require_once __DIR__ . '/../Helpers/WorkforceEventRoleHelper.php';
+
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
@@ -56,19 +58,22 @@ function getMealsBalance(array $query): void
 
     $roleConfigSelect = $hasRoleSettings
         ? "
-            COUNT(DISTINCT COALESCE(wrs.meals_per_day, 4))::int AS distinct_role_meals_count,
+            COUNT(DISTINCT COALESCE(wer.meals_per_day, wrs.meals_per_day, 4))::int AS distinct_role_meals_count,
             CASE
-                WHEN COUNT(DISTINCT COALESCE(wrs.meals_per_day, 4)) = 1
-                    THEN MAX(COALESCE(wrs.meals_per_day, 4))
+                WHEN COUNT(DISTINCT COALESCE(wer.meals_per_day, wrs.meals_per_day, 4)) = 1
+                    THEN MAX(COALESCE(wer.meals_per_day, wrs.meals_per_day, 4))
                 ELSE NULL
             END::int AS single_role_meals_per_day,
-            MAX(CASE WHEN wrs.role_id IS NOT NULL THEN 1 ELSE 0 END)::int AS has_any_role_settings
+            MAX(CASE WHEN wer.id IS NOT NULL OR wrs.role_id IS NOT NULL THEN 1 ELSE 0 END)::int AS has_any_role_settings
         "
         : "
             1::int AS distinct_role_meals_count,
             4::int AS single_role_meals_per_day,
             0::int AS has_any_role_settings
         ";
+    $eventRoleJoin = workforceEventRolesReady($db) && workforceAssignmentsHaveEventRoleColumns($db)
+        ? "LEFT JOIN workforce_event_roles wer ON wer.id = scope.event_role_id"
+        : "LEFT JOIN LATERAL (SELECT NULL::integer AS id, NULL::integer AS meals_per_day) wer ON TRUE";
     $roleConfigJoin = $hasRoleSettings
         ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = scope.role_id AND wrs.organizer_id = :organizer_id"
         : "";
@@ -86,6 +91,7 @@ function getMealsBalance(array $query): void
                 wa.id,
                 wa.participant_id,
                 wa.role_id,
+                " . (workforceAssignmentsHaveEventRoleColumns($db) ? "wa.event_role_id" : "NULL::integer AS event_role_id") . ",
                 COALESCE(NULLIF(TRIM(COALESCE(wa.sector, '')), ''), 'geral') AS sector,
                 es.id AS shift_id,
                 es.name AS shift_name
@@ -152,6 +158,7 @@ function getMealsBalance(array $query): void
                 scope.participant_id,
                 {$roleConfigSelect}
             FROM assignment_scope scope
+            {$eventRoleJoin}
             {$roleConfigJoin}
             GROUP BY scope.participant_id
         )
@@ -582,7 +589,6 @@ function mealEnsureMealsReadSchema(PDO $db): void
         'participant_meals',
         'people',
         'workforce_assignments',
-        'workforce_member_settings',
         'workforce_roles',
     ];
 
@@ -696,19 +702,31 @@ function mealBuildBalanceDiagnostics(
 
 function mealResolveOperationalConfig(PDO $db, int $participantId, ?int $eventShiftId = null): array
 {
+    $participantConfig = workforceResolveParticipantOperationalConfig($db, $participantId);
+    if (($participantConfig['source'] ?? 'default') === 'event_role') {
+        return [
+            'max_shifts_event' => (int)($participantConfig['max_shifts_event'] ?? 1),
+            'meals_per_day' => (int)($participantConfig['meals_per_day'] ?? 4),
+            'config_source' => 'event_role',
+            'resolution_status' => 'resolved',
+            'assignments_in_scope' => 1,
+            'scope_mode' => $eventShiftId !== null ? 'shift_preferred' : 'event',
+        ];
+    }
+
     $hasRoleSettings = mealTableExists($db, 'workforce_role_settings');
     $roleConfigSelect = $hasRoleSettings
         ? "
-            COUNT(DISTINCT COALESCE(wrs.meals_per_day, 4))::int AS distinct_role_meals_count,
+            COUNT(DISTINCT COALESCE(wer.meals_per_day, wrs.meals_per_day, 4))::int AS distinct_role_meals_count,
             CASE
-                WHEN COUNT(DISTINCT COALESCE(wrs.meals_per_day, 4)) = 1
-                    THEN MAX(COALESCE(wrs.meals_per_day, 4))
+                WHEN COUNT(DISTINCT COALESCE(wer.meals_per_day, wrs.meals_per_day, 4)) = 1
+                    THEN MAX(COALESCE(wer.meals_per_day, wrs.meals_per_day, 4))
                 ELSE NULL
             END::int AS single_role_meals_per_day,
-            MAX(CASE WHEN wrs.role_id IS NOT NULL THEN 1 ELSE 0 END)::int AS has_any_role_settings,
+            MAX(CASE WHEN wer.id IS NOT NULL OR wrs.role_id IS NOT NULL THEN 1 ELSE 0 END)::int AS has_any_role_settings,
             CASE
-                WHEN COUNT(DISTINCT COALESCE(wrs.max_shifts_event, 1)) = 1
-                    THEN MAX(COALESCE(wrs.max_shifts_event, 1))
+                WHEN COUNT(DISTINCT COALESCE(wer.max_shifts_event, wrs.max_shifts_event, 1)) = 1
+                    THEN MAX(COALESCE(wer.max_shifts_event, wrs.max_shifts_event, 1))
                 ELSE NULL
             END::int AS single_role_max_shifts_event
         "
@@ -718,27 +736,31 @@ function mealResolveOperationalConfig(PDO $db, int $participantId, ?int $eventSh
             0::int AS has_any_role_settings,
             1::int AS single_role_max_shifts_event
         ";
+    $eventRoleJoin = workforceEventRolesReady($db) && workforceAssignmentsHaveEventRoleColumns($db)
+        ? "LEFT JOIN workforce_event_roles wer ON wer.id = scope.event_role_id"
+        : "LEFT JOIN LATERAL (SELECT NULL::integer AS id, NULL::integer AS meals_per_day, NULL::integer AS max_shifts_event) wer ON TRUE";
     $roleSettingsJoin = $hasRoleSettings
-        ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = scope.role_id"
+        ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = scope.role_id AND wrs.organizer_id = :organizer_id"
         : "";
 
     $sql = "
         WITH event_scope AS (
-            SELECT wa.role_id, wa.event_shift_id
+            SELECT wa.role_id, wa.event_shift_id,
+                   " . (workforceAssignmentsHaveEventRoleColumns($db) ? "wa.event_role_id" : "NULL::integer AS event_role_id") . "
             FROM workforce_assignments wa
             WHERE wa.participant_id = :participant_id
         ),
         preferred_scope AS (
-            SELECT scope.role_id
+            SELECT scope.role_id, scope.event_role_id
             FROM event_scope scope
             WHERE :event_shift_id IS NOT NULL
               AND scope.event_shift_id = :event_shift_id
         ),
         assignment_scope AS (
-            SELECT role_id
+            SELECT role_id, event_role_id
             FROM preferred_scope
             UNION ALL
-            SELECT role_id
+            SELECT role_id, event_role_id
             FROM event_scope
             WHERE NOT EXISTS (SELECT 1 FROM preferred_scope)
         ),
@@ -747,6 +769,7 @@ function mealResolveOperationalConfig(PDO $db, int $participantId, ?int $eventSh
                 COUNT(*)::int AS assignments_in_scope,
                 {$roleConfigSelect}
             FROM assignment_scope scope
+            {$eventRoleJoin}
             {$roleSettingsJoin}
         )
         SELECT
@@ -768,6 +791,7 @@ function mealResolveOperationalConfig(PDO $db, int $participantId, ?int $eventSh
     $stmt->execute([
         ':participant_id' => $participantId,
         ':event_shift_id' => $eventShiftId,
+        ':organizer_id' => $organizerId,
     ]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
