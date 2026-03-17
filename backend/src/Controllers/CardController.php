@@ -118,6 +118,7 @@ function addCredit(string $cardId, array $body): void
         jsonError("Valor de recarga inválido");
     }
 
+    $db = null;
     try {
         $db = Database::getInstance();
         $db->beginTransaction();

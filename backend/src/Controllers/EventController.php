@@ -75,6 +75,7 @@ function createEvent(array $body): void
 
     $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $payload['name']), '-')) . '-' . time();
 
+    $db = null;
     try {
         $db = Database::getInstance();
         $hasVenueName = eventColumnExists($db, 'events', 'venue_name');
@@ -129,7 +130,7 @@ function createEvent(array $body): void
 
         jsonSuccess(['id' => $id], "Evento criado com sucesso!", 201);
     } catch (Throwable $e) {
-        if (isset($db) && $db->inTransaction()) {
+        if ($db && $db->inTransaction()) {
             $db->rollBack();
         }
         jsonError("Erro ao criar evento: " . $e->getMessage(), 500);
@@ -147,6 +148,7 @@ function updateEvent(int $id, array $body): void
     if (!$payload['starts_at']) jsonError("A data de início (starts_at) é obrigatória.");
     if ($payload['capacity'] < 0) jsonError("Capacidade inválida.", 422);
 
+    $db = null;
     try {
         $db = Database::getInstance();
         $stmtEvent = $db->prepare('SELECT id FROM events WHERE id = ? AND organizer_id = ? LIMIT 1');
@@ -208,7 +210,7 @@ function updateEvent(int $id, array $body): void
 
         jsonSuccess(['id' => $id], 'Evento atualizado com sucesso.');
     } catch (Throwable $e) {
-        if (isset($db) && $db->inTransaction()) {
+        if ($db && $db->inTransaction()) {
             $db->rollBack();
         }
         $code = (int)$e->getCode();
@@ -283,6 +285,7 @@ function deleteEvent(int $id): void
     $user = requireAuth(['admin', 'organizer']);
     $organizerId = (int)($user['organizer_id'] ?? 0);
 
+    $db = null;
     try {
         $db = Database::getInstance();
         $stmt = $db->prepare("SELECT id, name FROM events WHERE id = ? AND organizer_id = ? LIMIT 1");
@@ -306,7 +309,7 @@ function deleteEvent(int $id): void
 
         jsonSuccess(['id' => $id], 'Evento excluído com sucesso.');
     } catch (Throwable $e) {
-        if (isset($db) && $db->inTransaction()) {
+        if ($db && $db->inTransaction()) {
             $db->rollBack();
         }
         jsonError('Erro ao excluir evento: ' . $e->getMessage(), 500);

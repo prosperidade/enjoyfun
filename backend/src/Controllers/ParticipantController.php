@@ -397,7 +397,36 @@ function deleteParticipant(int $id): void
         }
     }
 
-    $db->prepare("DELETE FROM event_participants WHERE id = ?")->execute([$id]);
+    $hasAssignments = participantTableExists($db, 'workforce_assignments');
+    $hasMemberSettings = participantTableExists($db, 'workforce_member_settings');
+    $hasCheckins = participantTableExists($db, 'participant_checkins');
+    $hasMeals = participantTableExists($db, 'participant_meals');
+
+    try {
+        $db->beginTransaction();
+
+        if ($hasAssignments) {
+            $db->prepare("DELETE FROM workforce_assignments WHERE participant_id = ?")->execute([$id]);
+        }
+        if ($hasMemberSettings) {
+            $db->prepare("DELETE FROM workforce_member_settings WHERE participant_id = ?")->execute([$id]);
+        }
+        if ($hasCheckins) {
+            $db->prepare("DELETE FROM participant_checkins WHERE participant_id = ?")->execute([$id]);
+        }
+        if ($hasMeals) {
+            $db->prepare("DELETE FROM participant_meals WHERE participant_id = ?")->execute([$id]);
+        }
+
+        $db->prepare("DELETE FROM event_participants WHERE id = ?")->execute([$id]);
+        $db->commit();
+    } catch (\Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        jsonError('Erro ao excluir participante: ' . $e->getMessage(), 500);
+    }
+
     participantAudit(
         'participant.delete',
         $id,

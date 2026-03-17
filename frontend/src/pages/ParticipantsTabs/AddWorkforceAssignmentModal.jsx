@@ -44,8 +44,11 @@ export default function AddWorkforceAssignmentModal({
     Boolean(managerEventRoleId) ||
     Boolean(managerEventRolePublicId) ||
     (String(presetRoleCostBucket || "").toLowerCase() === "managerial" && Boolean(presetSector));
+  const hasStructuredManagerContext = Boolean(managerEventRoleId) || Boolean(managerEventRolePublicId);
   const visibleRoles = managerScopedMode
-    ? roles.filter((role) => String(role.cost_bucket || "operational").toLowerCase() !== "managerial")
+    ? hasStructuredManagerContext
+      ? roles
+      : roles.filter((role) => String(role.cost_bucket || "operational").toLowerCase() !== "managerial")
     : roles;
 
   const loadData = useEffectEvent(async () => {

@@ -51,6 +51,13 @@ try {
 
 function connectDatabase(): PDO
 {
+    if (!extension_loaded('pdo_pgsql') && !extension_loaded('pgsql')) {
+        throw new RuntimeException(
+            'Database connection failed: PHP CLI sem pdo_pgsql/pgsql. ' .
+            'Instale a extensao PostgreSQL no PHP ou rode a auditoria via psql.'
+        );
+    }
+
     $host = getenv('DB_HOST') ?: '127.0.0.1';
     $port = getenv('DB_PORT') ?: '5432';
     $name = getenv('DB_NAME') ?: 'enjoyfun';

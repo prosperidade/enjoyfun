@@ -23,9 +23,9 @@ class WalletSecurityService
             throw new RuntimeException('Tipo de transação inválido.', 400);
         }
 
+        $ownTransaction = false;
         try {
             // Se já não estivermos numa transação, criamos uma nova (permite reutilizar do Controller)
-            $ownTransaction = false;
             if (!$db->inTransaction()) {
                 $db->beginTransaction();
                 $ownTransaction = true;
@@ -83,14 +83,20 @@ class WalletSecurityService
                 'balance_after' => $nextBalance,
             ];
         } catch (Throwable $e) {
-            if (isset($ownTransaction) && $ownTransaction && $db->inTransaction()) {
+            if ($ownTransaction && $db->inTransaction()) {
                 $db->rollBack();
             }
             throw $e;
         }
     }
 
-    private static function resolveWallet(PDO $db, string $cardReference, int $organizerId): array|false
+    /**
+     * @param PDO $db
+     * @param string $cardReference
+     * @param int $organizerId
+     * @return array|bool
+     */
+    private static function resolveWallet(PDO $db, string $cardReference, int $organizerId): array|bool
     {
         $stmtById = $db->prepare(
             'SELECT id, balance

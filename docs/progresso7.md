@@ -1499,3 +1499,504 @@ O fluxo de `POST /meals` agora executa em sequência:
 - Fase 6: operação offline (cache local mínimo, modo degradado, fila de sincronização)
 - Após estabilizar offline, confirmar em UI o comportamento de bloqueio de duplicidade por serviço
 
+---
+
+## 22. Atualização aplicada — Estabilização de Backend (Correções de IDE e Linting)
+
+### Escopo atacado neste lote
+
+- Resolução de avisos de código inacessível ("Unreachable code")
+- Padronização de inicialização de conexões de banco em blocos `try/catch`
+- Ajustes finos em controllers para evitar confusão de analisadores estáticos
+
+### Ajustes feitos em `backend/src/Controllers/GuestController.php`
+
+- **Correção de Código Inacessível**: O analisador PHP0419 apontava que o `rollBack()` no `catch` de `importGuests` era inacessível a partir de certas falhas de inicialização.
+- **Refatoração**:
+  - Inicialização de `$db = null` explicitamente antes do bloco `try`.
+  - Mudança da checagem no `catch` para `if ($db && $db->inTransaction()) $db->rollBack();`.
+- **Efeito**: Garante que `$db` esteja sempre definido no escopo do `catch`, resolvendo o aviso do IDE e padronizando o código com o padrão mais robusto observado no `EventController.php`.
+
+### Ajustes transversais em outros Controllers
+
+- Revisão de fluxos de transação em `BarController.php`, `CardController.php` e `MealController.php` para garantir que erros de parâmetro ambíguo (como o cast de `:event_shift_id`) ou falhas de PDO não deixem transações órfãs.
+- Alinhamento de tipos em casts de IDs (int/float) para consistência nas consultas PostgreSQL e prevenção de bugs de tipagem silenciosa.
+
+### Verificação
+
+- `php -l backend/src/Controllers/GuestController.php`: ok
+- `php -l backend/src/Controllers/BarController.php`: ok
+- `php -l backend/src/Controllers/CardController.php`: ok
+- `php -l backend/src/Controllers/MealController.php`: ok
+
+---
+
+## 23. Atualização aplicada — Coerência de liderança e saneamento do evento 7
+
+### Escopo atacado neste lote
+
+- Corrigir a leitura de `Meals` para não excluir cargos diretivos quando houver vínculo real
+- Parar de perder liderança por redirect silencioso para `Equipe SETOR`
+- Fechar a exclusão unitária de participantes com cleanup completo de dependências
+- Auditar e limpar o resíduo operacional da `Equipe BAR` no evento `7`
+- Preparar o backend para materializar liderança configurada por `nome + CPF` em membro real do evento
+
+### Ajustes aplicados no backend
+
+- `backend/src/Controllers/MealController.php`
+  - o `GET /meals/balance` deixou de filtrar apenas assignments operacionais
+  - a leitura agora também considera assignments gerenciais reais quando existirem no evento
+  - o fluxo de QR externo foi endurecido para não depender de `updated_at` em `workforce_roles`
+
+- `backend/src/Controllers/ParticipantController.php`
+  - a exclusão unitária de participante passou a apagar também:
+    - `workforce_assignments`
+    - `workforce_member_settings`
+    - `participant_checkins`
+    - `participant_meals`
+  - antes desta correção, a exclusão unitária não reproduzia o cleanup da exclusão em massa
+
+- `backend/src/Controllers/WorkforceController.php`
+  - cargos estruturais com liderança real passaram a sincronizar `workforce_assignments` automaticamente
+  - o redirect de cargo gerencial para `Equipe SETOR` ficou restrito ao fluxo legado sem `event_role` estrutural
+  - o save de liderança agora também tenta materializar `leader_participant_id` por identidade
+  - nesta rodada foi adicionada uma regra nova:
+    - se o cargo gerencial vier configurado com `leader_name + leader_cpf`
+    - e ainda não existir `leader_participant_id`
+    - o backend passa a poder criar/reusar `people`, inscrever a pessoa no evento como `Staff`, gerar QR e sincronizar a escala
+
+### Ajustes aplicados no frontend
+
+- `frontend/src/pages/MealsControl.jsx`
+  - removido o filtro que descartava fallback gerencial na leitura complementar do Workforce
+  - corrigida a coluna de consumo por refeição para ler `consumed_service`
+  - adicionada composição por função para expor diretivos, gerentes, coordenadores e supervisores no recorte
+
+- `frontend/src/pages/ParticipantsTabs/AddWorkforceAssignmentModal.jsx`
+  - quando o contexto já vem de `manager_event_role`, o modal volta a mostrar cargos gerenciais
+  - isso evita esconder liderança válida em árvore já estruturada
+
+### Auditoria objetiva do evento 7
+
+Foi confirmado por consulta direta no banco local:
+
+- o evento `7` tinha `122` participantes e `122` assignments antes do saneamento desta rodada
+- a `Equipe BAR` era exatamente o bloco residual que continuava no evento apesar da exclusão operacional esperada
+- a `Equipe BAR` correspondia a:
+  - `40` participantes
+  - `40` assignments
+  - `0` `workforce_member_settings`
+  - `0` `participant_meals`
+  - `0` `participant_checkins`
+
+### Saneamento executado no evento 7
+
+Foi executado cleanup transacional apenas da `Equipe BAR` do evento `7`, com registro em `audit_log`:
+
+- `40` linhas removidas de `workforce_assignments`
+- `40` linhas removidas de `event_participants`
+- auditoria gravada como `participant.delete` com `metadata.source = manual_bar_cleanup`
+
+Estado após o saneamento inicial da BAR:
+
+- `82` participantes no evento `7`
+- `82` assignments no evento `7`
+- breakdown real:
+  - `Equipe LIMPEZA`: `40`
+  - `Equipe SEGURANCA`: `40`
+  - `Colaborador Externo`: `2`
+
+### Diagnóstico consolidado da divergência 82 vs 84
+
+O alvo operacional informado ficou:
+
+- equipe base: `80`
+- gerentes: `2`
+- coordenadores/diretivos: `2`
+- total esperado: `84`
+
+O banco local ficou em `82` após remover a `Equipe BAR` porque:
+
+- os cargos diretivos do evento `7` estavam persistidos em `workforce_event_roles`
+- eles já tinham `leader_name` e `leader_cpf`
+- mas continuavam sem `leader_participant_id` e sem `leader_user_id`
+- portanto, para o `Meals`, ainda não eram membros reais do evento
+
+Leitura importante:
+
+- o modal de configuração estava sendo salvo parcialmente
+- nome e CPF chegavam ao backend e ficavam gravados na estrutura
+- o que faltava era materializar isso em `people + event_participants + workforce_assignments`
+
+### Backfill executado na sequência desta mesma rodada
+
+Depois do saneamento da `BAR`, foi executado backfill local das 4 lideranças já configuradas na estrutura do evento `7`:
+
+- `Gerente de Limpeza`
+- `Supervisor de Limpezaa`
+- `Gerente de Segurança`
+- `Spervisor de Segurança`
+
+O backfill:
+
+- criou/reutilizou `people` pelo `leader_cpf`
+- inscreveu essas pessoas no evento como `Staff`
+- atualizou `leader_participant_id` em `workforce_event_roles`
+- criou `workforce_assignments` com `source_file_name = leadership_sync`
+
+Estado do banco local depois do backfill:
+
+- `86` participantes no evento `7`
+- `86` assignments no evento `7`
+- breakdown por cargo:
+  - `Equipe LIMPEZA`: `40`
+  - `Equipe SEGURANCA`: `40`
+  - `Gerente de Limpeza`: `1`
+  - `Supervisor de Limpezaa`: `1`
+  - `Gerente de Segurança`: `1`
+  - `Spervisor de Segurança`: `1`
+  - `Colaborador Externo`: `2`
+
+### Fechamento funcional do total 84
+
+Foi confirmado que a diferença entre `86` e o total operacional esperado de `84` não era mais de persistência de liderança.
+
+A diferença final eram os `2` `Colaborador Externo`, que continuavam entrando no consolidado principal de membros.
+
+Por isso o frontend foi ajustado para:
+
+- contar `staff + liderança` no consolidado principal de membros
+- excluir `Colaborador Externo` do total principal de `Membros`
+- excluir `externos` do breakdown principal de setores/funções
+- expor `Externos com QR` como grupo separado
+
+Com isso, o consolidado principal esperado para o evento `7` passa a ser:
+
+- `84` membros de staff/leitura principal
+- `2` externos com QR, mostrados separadamente
+
+### Estado do código após este lote
+
+- a correção estrutural para materializar liderança por `nome + CPF` já foi aplicada no backend
+- isso vale para os próximos salvamentos de cargos diretivos
+- o evento `7` já recebeu backfill local das 4 lideranças existentes
+- o frontend passou a separar `externos com QR` do total principal de membros
+
+### Verificação
+
+- `php -l backend/src/Controllers/MealController.php`: ok
+- `php -l backend/src/Controllers/ParticipantController.php`: ok
+- `php -l backend/src/Controllers/WorkforceController.php`: ok
+- `npm --prefix frontend run build`: ok
+
+### Ajuste complementar de classificação no breakdown
+
+Na leitura seguinte do `Meals`, surgiu um desvio residual na composição por função:
+
+- a UI mostrava `Gerentes 3`
+- a UI mostrava `Supervisores 1`
+- o evento `7` na verdade tem `2` gerentes e `2` supervisões vinculadas
+
+Causa confirmada:
+
+- o cargo `Spervisor de Segurança` existe com grafia legada
+- o backend já estava sendo endurecido para reconhecer esse padrão
+- o frontend ainda não reconhecia `spervisor` no classificador local
+- por isso esse membro caía no fallback `managerial => manager`
+
+Correção aplicada:
+
+- `backend/src/Helpers/WorkforceEventRoleHelper.php`
+  - `workforceResolveRoleClass()` passou a reconhecer `spervisor` como `supervisor`
+  - a ordem de classificação passou a priorizar `coordenador` e `supervisor` antes do fallback gerencial
+
+- `frontend/src/pages/MealsControl.jsx`
+  - `classifyRole()` foi alinhado com a mesma tolerância
+  - supervisão com grafia legada deixa de ser promovida para `manager`
+
+Resultado esperado após recarregar:
+
+- `Gerentes`: `2`
+- `Supervisores`: `2`
+- `Operacionais`: `80`
+- `Externos com QR`: `2`
+
+### Ajuste responsivo do bloco de breakdown
+
+Na sequência, o bloco `Membros por Setor (Breakdown)` foi reorganizado para melhorar leitura operacional:
+
+- no desktop, setores e composição por função passam a aparecer em uma única linha horizontal
+- no mobile, o mesmo conjunto quebra em grade para preservar legibilidade e toque
+- a contagem continua a mesma; a mudança deste passo foi apenas de layout e responsividade
+
+### Endurecimento do escopo da tabela de membros
+
+Foi aplicado um endurecimento específico para garantir que a tabela da tela de `Meals` renderize apenas membros do evento selecionado:
+
+- `backend/src/Controllers/MealController.php`
+  - cada linha de `GET /meals/balance` agora retorna `event_id`
+
+- `backend/src/Controllers/WorkforceController.php`
+  - cada linha de `GET /workforce/assignments` agora retorna `event_id`
+
+- `frontend/src/pages/MealsControl.jsx`
+  - respostas online e payloads do cache local passam a ser carimbados com `event_id`
+  - a UI filtra explicitamente `payload.items` e `workforceBaseItems` pelo `event_id` atual antes de montar a tabela
+  - no modo complementar do Workforce, a tabela deixa de usar assignment cru e passa a consolidar por `participant_id`
+  - o estado vazio da tabela também passa a respeitar esse escopo consolidado
+
+Objetivo deste lote:
+
+- impedir mistura entre eventos por cache antigo ou payload residual
+- alinhar a semântica da tabela com o título `Membros`, mostrando pessoa do evento e não linha de assignment
+
+### Ajuste de semântica no card operacional
+
+No card `Saldo real do Meals ativo`, a UI estava repetindo a mesma leitura em dois badges:
+
+- `Liderança`
+- `Gerencial`
+
+Como, neste contexto da tela, ambos apontavam para o mesmo subconjunto já contabilizado, o badge `Gerencial` foi removido do resumo rápido para evitar redundância visual. A composição detalhada continua no breakdown por função.
+
+### Simplificação do card de QR externo no frontend
+
+Após validação operacional, o card de QR externo seguia exibindo informação demais para o organizador no frontend.
+
+Foi ajustado em `frontend/src/pages/MealsControl.jsx` para:
+
+- deixar o bloco focado só em compartilhamento
+- remover exposição visual de detalhes redundantes no card de sessão
+- manter apenas as ações `Copiar link` e `WhatsApp`
+
+O QR continua funcional para envio, mas deixa de poluir a tela de operação com card detalhado desnecessário.
+
+### Refeição automática por janela de horário
+
+Foi corrigido o travamento do `Meals` na primeira refeição ativa (`Café da manhã`) mesmo quando o horário operacional já estava em outra janela.
+
+Diagnóstico:
+
+- o backend já resolvia a refeição correta por `starts_at` / `ends_at`
+- o frontend estava fixando `mealServiceId` no primeiro serviço ativo carregado
+- com isso, a tela deixava de operar em modo automático e passava a forçar sempre a mesma refeição
+
+Correção aplicada em `frontend/src/pages/MealsControl.jsx`:
+
+- `mealServiceId` volta a iniciar vazio por padrão
+- o carregamento de serviços não força mais o primeiro item ativo
+- a resposta de `GET /meals/balance` não sobrescreve mais o seletor com um id fixo
+- o seletor principal passa a mostrar `Automático: ...` quando a refeição é resolvida pelo backend
+- o registro de refeição usa a refeição resolvida para o horário atual quando não houver override manual
+- em modo automático, a tela atualiza o saldo periodicamente para acompanhar a troca de janela ao longo do dia
+
+Refino adicional aplicado na sequência:
+
+- o frontend passou a resolver a janela ativa pelo relógio local do dispositivo
+- `GET /meals/balance` agora recebe `reference_time` quando a tela está em modo automático
+- com isso, label, refeição ativa e preço da refeição passam a acompanhar a hora local do aparelho, e não apenas a hora do backend
+
+Regra adicional consolidada depois da validação:
+
+- o operador pode manter o `select` em qualquer opção visual desejada
+- o card financeiro de valor unitário passa a seguir a janela ativa do dispositivo
+- assim, o preço exibido acompanha automaticamente os valores configurados no modal para café, almoço, lanche e jantar, independentemente do select manual
+
+## 24. Atualização aplicada — histórico HTTP de `GET /meals` plugado na tela
+
+### Escopo atacado neste lote
+
+- fechar o gap entre o backend já exposto em `GET /meals` e a tela `MealsControl`
+- permitir leitura rápida das últimas baixas sem sair do módulo
+- manter o histórico preso ao mesmo recorte operacional já usado no saldo
+
+### Ajustes aplicados no backend
+
+- `backend/src/Controllers/MealController.php`
+  - `listMeals()` passou a aceitar `limit`
+  - cada linha agora retorna também:
+    - `event_id`
+    - `event_day_id`
+    - `event_shift_id`
+  - isso deixa o histórico mais barato para a UI e reforça o escopo por evento
+
+### Ajustes aplicados no frontend
+
+- `frontend/src/pages/MealsControl.jsx`
+  - a tela passou a chamar `GET /meals` com o mesmo recorte atual de:
+    - evento
+    - dia
+    - turno
+    - refeição resolvida/selecionada
+  - em modo automático, o histórico acompanha a refeição ativa do relógio do dispositivo
+  - o card novo mostra as últimas baixas com:
+    - horário
+    - pessoa
+    - refeição
+    - turno
+    - valor aplicado
+  - quando houver filtro de setor, a UI aplica esse filtro localmente sobre o histórico usando a base atual do recorte
+  - o histórico também ganhou cache local best-effort por recorte para operação degradada
+
+### Resultado funcional esperado
+
+- o organizador passa a enxergar na própria tela do `Meals` as últimas baixas do recorte ativo
+- após registrar uma refeição, salvar serviços ou atualizar o contexto, o histórico é recarregado
+- a página deixa de depender apenas do saldo agregado para auditoria rápida de operação
+
+## 25. Atualização aplicada — visibilidade operacional da fila offline do Meals
+
+### Escopo atacado neste lote
+
+- tirar a fila offline do `Meals` do modo “infraestrutura invisível”
+- dar leitura local de pendências ao operador sem depender só do badge global da aplicação
+- permitir sincronização manual das refeições pendentes diretamente pela tela
+
+### Ajustes aplicados no frontend
+
+- `frontend/src/pages/MealsControl.jsx`
+  - a tela passou a carregar da `offlineQueue` apenas os registros `payload_type = meal`
+  - foi criado um card operacional próprio de offline com:
+    - status de rede do dispositivo
+    - total de pendências do `Meals`
+    - pendências do evento atual
+    - pendências do dia atual
+    - estado da sincronização
+  - a UI agora lista as últimas refeições ainda não sincronizadas, mostrando:
+    - horário de captura
+    - pessoa resolvida por QR quando possível
+    - QR resumido
+    - refeição resolvida/selecionada na captura
+    - setor/turno
+    - status local pendente
+  - foi adicionada ação manual `Sincronizar pendentes`
+  - a fila também passa a ser recarregada em:
+    - refresh manual da tela
+    - registro offline
+    - fallback por erro de rede
+    - foco da janela
+    - volta da conectividade
+
+### Fechamento funcional deste ponto
+
+- o operador do `Meals` agora enxerga claramente quando a baixa ficou só local
+- a tela não depende mais apenas do sync em background para explicar o estado das pendências
+- o módulo ganhou um caminho explícito de conferência e sincronização sem sair da operação
+
+## 26. Auditoria final e checklist de go-live do Meals
+
+### Estado da ferramenta de auditoria
+
+- `backend/scripts/audit_meals.php` continua sendo a auditoria oficial do projeto
+- nesta máquina, o `php` CLI está sem `pdo_pgsql/pgsql`
+- por isso o script agora falha com mensagem operacional explícita:
+  - `Database connection failed: PHP CLI sem pdo_pgsql/pgsql. Instale a extensao PostgreSQL no PHP ou rode a auditoria via psql.`
+- para esta rodada, a auditoria do banco local foi executada via `psql`
+
+### Resultado auditado no evento 7
+
+Resumo por dia:
+
+- `event_day 13` (`2026-03-16`): `11` refeições, `7` participantes únicos
+- `event_day 14` a `19`: `0` refeições, `0` participantes
+
+Integridade:
+
+- `orphan_participant`: `0`
+- `orphan_day`: `0`
+- `missing_shift_reference`: `0`
+- `shift_day_mismatch`: `0`
+- `participant_day_event_mismatch`: `0`
+- `meal_without_any_assignment`: `0`
+- `meal_without_shift_assignment_when_shifted`: `2`
+
+Detalhe do único alerta restante:
+
+- refeição `7` — `Alexandre Frota` — `event_day 13` / `event_shift 13` (`Turno Único`)
+- refeição `8` — `Gervasio Vaz` — `event_day 13` / `event_shift 13` (`Turno Único`)
+- os dois participantes ainda têm assignment no evento, mas o assignment segue com `event_shift_id = NULL`
+- portanto, o alerta não aponta refeição órfã; ele aponta inconsistência histórica entre uma baixa antiga “com turno” e uma escala ainda sem vínculo de turno
+
+### Checklist objetivo de go-live
+
+| Item | Estado | Evidência |
+| --- | --- | --- |
+| `event_days` reais do evento | OK | evento `7` com `7` dias operacionais |
+| `event_shifts` do calendário | OK | `7` turnos, um `Turno Único` por dia |
+| serviços de refeição configurados | OK | `4` serviços ativos (`café`, `almoço`, `lanche`, `jantar`) |
+| valor por refeição configurado | OK | `15 / 20 / 13 / 20` no evento `7` |
+| histórico `GET /meals` visível na UI | OK | `MealsControl` já consome e exibe histórico recente |
+| fila offline visível e sincronizável | OK | `MealsControl` já mostra pendências e botão de sync |
+| integridade estrutural de `participant_meals` | OK | sem órfãos nem mismatch de evento/dia |
+| assignments coerentes com turno histórico | PENDENTE | `2` baixas antigas com `event_shift_id` mas sem assignment no mesmo shift |
+| árvore operacional principal | OK | `84` staff + liderança e `7` externos no evento atual |
+| setores dinâmicos do evento | OK | leitura atual com `limpeza`, `seguranca` e `externo` |
+
+### Leitura final para decisão
+
+O `Meals` está funcionalmente pronto para operação assistida, mas o go-live pleno ainda fica condicionado a decidir o tratamento das `2` refeições históricas com `shift` sem assignment no mesmo `shift`.
+
+Opções objetivas:
+
+- aceitar como exceção histórica conhecida e seguir
+- saneá-las no banco antes do go-live
+- ou endurecer a auditoria para separar “histórico legado” de “bloqueio de operação atual”
+
+## 27. Saneamento final do banco para go-live do evento 7
+
+### Saneamento executado
+
+As `2` linhas históricas restantes foram saneadas diretamente no banco local, com transação e registro em `audit_log`.
+
+Registros afetados:
+
+- `participant_meals.id = 7` — `Alexandre Frota`
+- `participant_meals.id = 8` — `Gervasio Vaz`
+
+Correção aplicada:
+
+- `event_shift_id` foi ajustado de `13` para `NULL`
+
+Motivo técnico:
+
+- essas duas refeições eram legado antigo
+- estavam com `event_shift_id = 13`
+- mas os assignments reais desses participantes continuavam sem `event_shift_id`
+- no mesmo dia, os demais registros dos próprios participantes já estavam sem turno
+- portanto, o saneamento correto foi remover o vínculo artificial de turno dessas duas linhas, e não inventar escala nova no Workforce
+
+### Trilho de auditoria gravado
+
+Foram criadas `2` entradas novas em `audit_log`:
+
+- `action = participant_meal.update`
+- `metadata.source = manual_go_live_sanitation`
+- `metadata.reason = clear_legacy_shift_without_matching_assignment`
+
+### Auditoria pós-saneamento
+
+Integridade do evento `7` após o ajuste:
+
+- `orphan_participant`: `0`
+- `orphan_day`: `0`
+- `missing_shift_reference`: `0`
+- `shift_day_mismatch`: `0`
+- `participant_day_event_mismatch`: `0`
+- `meal_without_any_assignment`: `0`
+- `meal_without_shift_assignment_when_shifted`: `0`
+
+### Fechamento do checklist
+
+O item antes pendente:
+
+- `assignments coerentes com turno histórico`
+
+passa a ficar:
+
+- `OK`
+
+Leitura final desta rodada:
+
+- o banco do `Meals` para o evento `7` ficou saneado para go-live
+- o checklist funcional do módulo fica integralmente verde no recorte atual
+- a única pendência remanescente fora do produto é de ambiente local do `php` CLI para rodar `audit_meals.php` diretamente sem recorrer ao `psql`

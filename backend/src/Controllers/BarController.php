@@ -150,7 +150,12 @@ function checkout(array $body): void
     }
 }
 
-function findBarDigitalCardForCheckout(PDO $db, string $token): array|false
+/**
+ * @param PDO $db
+ * @param string $token
+ * @return array|bool
+ */
+function findBarDigitalCardForCheckout(PDO $db, string $token): array|bool
 {
     $token = trim($token);
 
@@ -208,4 +213,3 @@ function requestGeminiInsight(array $body): void
         jsonError($e->getMessage(), 500);
     }
 }
-

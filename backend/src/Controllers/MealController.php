@@ -38,6 +38,7 @@ function getMealsBalance(array $query): void
     $eventDayId = (int)($query['event_day_id'] ?? 0);
     $eventShiftId = (int)($query['event_shift_id'] ?? 0);
     $mealServiceId = (int)($query['meal_service_id'] ?? 0);
+    $referenceTime = trim((string)($query['reference_time'] ?? ''));
     $sector = strtolower(trim((string)($query['sector'] ?? '')));
     $roleId = (int)($query['role_id'] ?? 0);
 
@@ -64,7 +65,9 @@ function getMealsBalance(array $query): void
             $db,
             $organizerId,
             $eventId,
-            $mealServiceId > 0 ? $mealServiceId : null
+            $mealServiceId > 0 ? $mealServiceId : null,
+            null,
+            $referenceTime !== '' ? $referenceTime : null
         );
     } catch (Throwable $e) {
         $code = (int)$e->getCode();
@@ -146,14 +149,9 @@ function getMealsBalance(array $query): void
     }
     $sql .= "
         ),
-        operational_scope AS (
-            SELECT *
-            FROM event_scope
-            WHERE raw_cost_bucket = 'operational'
-        ),
         preferred_scope AS (
             SELECT *
-            FROM operational_scope scope
+            FROM event_scope scope
             WHERE CAST(:event_shift_id AS integer) IS NOT NULL
               AND scope.shift_id = CAST(:event_shift_id AS integer)
         ),
@@ -162,7 +160,7 @@ function getMealsBalance(array $query): void
             FROM preferred_scope
             UNION ALL
             SELECT scope.*
-            FROM operational_scope scope
+            FROM event_scope scope
             WHERE CAST(:event_shift_id AS integer) IS NULL
                OR NOT EXISTS (
                     SELECT 1
@@ -183,6 +181,10 @@ function getMealsBalance(array $query): void
                 CASE WHEN COUNT(DISTINCT scope.sector) = 1 THEN MAX(scope.sector) ELSE NULL END AS single_sector,
                 COUNT(DISTINCT COALESCE(scope.shift_id, 0))::int AS distinct_shift_keys_count,
                 CASE WHEN COUNT(DISTINCT COALESCE(scope.shift_id, 0)) > 1 THEN 1 ELSE 0 END::int AS has_multiple_shifts,
+                COUNT(DISTINCT scope.raw_cost_bucket)::int AS distinct_cost_buckets_count,
+                CASE WHEN COUNT(DISTINCT scope.raw_cost_bucket) = 1 THEN MAX(scope.raw_cost_bucket) ELSE NULL END AS single_cost_bucket,
+                MAX(CASE WHEN scope.raw_cost_bucket = 'managerial' THEN 1 ELSE 0 END)::int AS has_managerial_assignments,
+                MAX(CASE WHEN scope.raw_cost_bucket = 'operational' THEN 1 ELSE 0 END)::int AS has_operational_assignments,
                 CASE WHEN COUNT(DISTINCT COALESCE(scope.shift_id, 0)) = 1 THEN MAX(scope.shift_id) ELSE NULL END AS single_shift_id,
                 CASE
                     WHEN COUNT(DISTINCT COALESCE(scope.shift_id, 0)) = 1 AND MAX(scope.shift_id) IS NOT NULL
@@ -203,6 +205,7 @@ function getMealsBalance(array $query): void
         )
         SELECT
             ep.id AS participant_id,
+            ep.event_id AS event_id,
             ep.qr_token,
             p.name AS participant_name,
             ar.assignments_in_scope,
@@ -210,6 +213,9 @@ function getMealsBalance(array $query): void
             ar.has_multiple_roles,
             ar.has_multiple_sectors,
             ar.has_multiple_shifts,
+            ar.single_cost_bucket AS cost_bucket,
+            ar.has_managerial_assignments,
+            ar.has_operational_assignments,
             ar.single_role_id AS role_id,
             r.name AS role_name,
             ar.single_sector AS sector,
@@ -316,6 +322,18 @@ function getMealsBalance(array $query): void
         $configSource = (string)($row['config_source'] ?? 'default');
         $assignmentsInScope = (int)($row['assignments_in_scope'] ?? 0);
         $hasAmbiguousBaseline = ((int)($row['has_ambiguous_baseline'] ?? 0)) > 0;
+        $hasManagerialAssignments = ((int)($row['has_managerial_assignments'] ?? 0)) > 0;
+        $hasOperationalAssignments = ((int)($row['has_operational_assignments'] ?? 0)) > 0;
+        $costBucket = strtolower(trim((string)($row['cost_bucket'] ?? '')));
+        if ($costBucket === '') {
+            $costBucket = $hasManagerialAssignments && $hasOperationalAssignments
+                ? 'mixed'
+                : ($hasManagerialAssignments ? 'managerial' : 'operational');
+        }
+        $roleName = (string)($row['role_name'] ?? '');
+        $roleClass = $roleName !== ''
+            ? workforceResolveRoleClass($roleName, $costBucket === 'mixed' ? '' : $costBucket)
+            : ((((int)($row['has_multiple_roles'] ?? 0)) > 0) ? 'mixed' : 'operational');
         if (!array_key_exists($configSource, $configSources)) {
             $configSource = 'default';
         }
@@ -341,6 +359,7 @@ function getMealsBalance(array $query): void
 
         return [
             'participant_id' => (int)$row['participant_id'],
+            'event_id' => (int)($row['event_id'] ?? $eventId),
             'participant_name' => $row['participant_name'],
             'qr_token' => $row['qr_token'],
             'assignments_in_scope' => $assignmentsInScope,
@@ -348,9 +367,11 @@ function getMealsBalance(array $query): void
             'has_multiple_roles' => ((int)($row['has_multiple_roles'] ?? 0)) > 0,
             'has_multiple_sectors' => ((int)($row['has_multiple_sectors'] ?? 0)) > 0,
             'has_multiple_shifts' => ((int)($row['has_multiple_shifts'] ?? 0)) > 0,
+            'cost_bucket' => $costBucket,
+            'role_class' => $roleClass,
             'sector' => $row['sector'] !== null ? $row['sector'] : null,
             'role_id' => $row['role_id'] !== null ? (int)$row['role_id'] : null,
-            'role_name' => $row['role_name'] ?? null,
+            'role_name' => $roleName !== '' ? $roleName : null,
             'shift_id' => $row['shift_id'] !== null ? (int)$row['shift_id'] : null,
             'shift_name' => $row['shift_name'] ?? null,
             'meals_per_day' => $mealsPerDay,
@@ -494,6 +515,7 @@ function listMeals(array $query): void
     $eventDayId = (int)($query['event_day_id'] ?? 0);
     $eventShiftId = (int)($query['event_shift_id'] ?? 0);
     $mealServiceId = (int)($query['meal_service_id'] ?? 0);
+    $limit = max(1, min(100, (int)($query['limit'] ?? 30)));
 
     if ($eventId <= 0 && $eventDayId <= 0) {
         jsonError('event_id ou event_day_id é obrigatório.', 400);
@@ -509,7 +531,11 @@ function listMeals(array $query): void
 
     $sql = "
         SELECT pm.id, pm.consumed_at,
-               ep.id as participant_id, p.name as person_name,
+               ep.id as participant_id,
+               ep.event_id as event_id,
+               pm.event_day_id,
+               pm.event_shift_id,
+               p.name as person_name,
                ed.date as event_date,
                es.name as shift_name,
                ems.id as meal_service_id,
@@ -544,7 +570,7 @@ function listMeals(array $query): void
         $params[':meal_service_id'] = $mealServiceId;
     }
 
-    $sql .= " ORDER BY pm.consumed_at DESC";
+    $sql .= " ORDER BY pm.consumed_at DESC LIMIT {$limit}";
 
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
@@ -751,12 +777,29 @@ function generateExternalMealQr(array $body): void
         $stmtRole->execute([$organizerId]);
         $roleId = (int)($stmtRole->fetchColumn() ?: 0);
         if ($roleId <= 0) {
-            $stmtCreateRole = $db->prepare("
-                INSERT INTO workforce_roles (name, organizer_id, created_at)
-                VALUES ('Colaborador Externo', ?, NOW())
-                RETURNING id
-            ");
-            $stmtCreateRole->execute([$organizerId]);
+            $roleColumns = ['name', 'organizer_id'];
+            $roleValues = ["'Colaborador Externo'", ':organizer_id'];
+            $roleParams = [':organizer_id' => $organizerId];
+            if (columnExists($db, 'workforce_roles', 'sector')) {
+                $roleColumns[] = 'sector';
+                $roleValues[] = ':sector';
+                $roleParams[':sector'] = 'externo';
+            }
+            if (columnExists($db, 'workforce_roles', 'created_at')) {
+                $roleColumns[] = 'created_at';
+                $roleValues[] = 'NOW()';
+            }
+            if (columnExists($db, 'workforce_roles', 'updated_at')) {
+                $roleColumns[] = 'updated_at';
+                $roleValues[] = 'NOW()';
+            }
+
+            $stmtCreateRole = $db->prepare(sprintf(
+                'INSERT INTO workforce_roles (%s) VALUES (%s) RETURNING id',
+                implode(', ', $roleColumns),
+                implode(', ', $roleValues)
+            ));
+            $stmtCreateRole->execute($roleParams);
             $roleId = (int)$stmtCreateRole->fetchColumn();
         }
 

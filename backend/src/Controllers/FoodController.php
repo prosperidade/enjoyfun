@@ -158,7 +158,12 @@ function checkout(array $body): void
     }
 }
 
-function findDigitalCardForCheckout(PDO $db, string $token): array|false
+/**
+ * @param PDO $db
+ * @param string $token
+ * @return array|bool
+ */
+function findDigitalCardForCheckout(PDO $db, string $token): array|bool
 {
     $token = trim($token);
 

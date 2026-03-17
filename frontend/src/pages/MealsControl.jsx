@@ -12,6 +12,13 @@ function extractToken(raw = "") {
   return value;
 }
 
+function looksLikeQrTokenValue(raw = "") {
+  const value = String(raw || "").trim();
+  if (!value) return false;
+  if (/\/invite\?token=/i.test(value)) return true;
+  return /^[a-f0-9]{40,}$/i.test(value);
+}
+
 function createEmptyPayload() {
   return {
     summary: null,
@@ -44,6 +51,31 @@ function formatEventDayLabel(value) {
   return date.toLocaleDateString("pt-BR");
 }
 
+function formatDateTimeLabel(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function hasValidEventId(value) {
+  return Number(value) > 0;
+}
+
+function formatQrTokenSnippet(value = "") {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "QR não informado";
+  if (normalized.length <= 14) return normalized;
+  return `${normalized.slice(0, 8)}...${normalized.slice(-4)}`;
+}
+
 function buildSyntheticEventDayOption(event) {
   if (!event?.id || !event?.starts_at) return null;
   const startLabel = formatEventDayLabel(event.starts_at);
@@ -69,6 +101,16 @@ function formatSectorLabel(value) {
   return normalized.replace(/_/g, " ");
 }
 
+function normalizeSectorKey(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isExternalMealEntry(entry = {}) {
+  const sector = normalizeSectorKey(entry.sector);
+  const roleName = String(entry.roleName || entry.role_name || "").trim().toLowerCase();
+  return sector === "externo" || sector === "external" || /extern/.test(roleName);
+}
+
 function formatMealServiceLabel(service) {
   if (!service) return "Sem refeição";
   const label = String(service.label || service.service_code || "Refeição").trim();
@@ -78,8 +120,85 @@ function formatMealServiceLabel(service) {
   return `${label}${timeLabel}`;
 }
 
+function resolveQueuedMealServiceLabel(record, services = []) {
+  const payload = record?.payload ?? {};
+  const explicitServiceId = String(payload?.meal_service_id || "").trim();
+  if (explicitServiceId) {
+    const matchById = services.find((service) => String(service?.id || "") === explicitServiceId);
+    if (matchById) {
+      return formatMealServiceLabel(matchById);
+    }
+  }
+
+  const explicitServiceCode = String(payload?.meal_service_code || "").trim().toLowerCase();
+  if (explicitServiceCode) {
+    const matchByCode = services.find(
+      (service) => String(service?.service_code || "").trim().toLowerCase() === explicitServiceCode
+    );
+    if (matchByCode) {
+      return formatMealServiceLabel(matchByCode);
+    }
+  }
+
+  const consumedAt = String(payload?.consumed_at || "").trim();
+  if (consumedAt) {
+    const consumedDate = new Date(consumedAt);
+    if (!Number.isNaN(consumedDate.getTime())) {
+      const resolved = resolveMealServiceByTime(services, getLocalTimeString(consumedDate));
+      if (resolved) {
+        return `${formatMealServiceLabel(resolved)} (captura offline)`;
+      }
+    }
+  }
+
+  return explicitServiceCode ? explicitServiceCode : "Automático na captura";
+}
+
+function getLocalTimeString(reference = new Date()) {
+  const hours = String(reference.getHours()).padStart(2, "0");
+  const minutes = String(reference.getMinutes()).padStart(2, "0");
+  const seconds = String(reference.getSeconds()).padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+function resolveMealServiceByTime(services, referenceTime = "") {
+  const normalizedTime = String(referenceTime || "").trim();
+  if (!normalizedTime || !Array.isArray(services) || services.length === 0) {
+    return null;
+  }
+
+  const activeServices = services.filter((service) => service?.is_active !== false);
+  const pool = activeServices.length > 0 ? activeServices : services;
+  const ordered = [...pool].sort(
+    (a, b) => Number(a?.sort_order || 0) - Number(b?.sort_order || 0)
+  );
+
+  const matched = ordered.find((service) => {
+    const startsAt = String(service?.starts_at || "").slice(0, 8);
+    const endsAt = String(service?.ends_at || "").slice(0, 8);
+    return startsAt && endsAt && normalizedTime >= startsAt && normalizedTime <= endsAt;
+  });
+
+  return matched || ordered[0] || null;
+}
+
 function buildMealsContextKey(eventId) {
   return `event:${eventId}`;
+}
+
+function stampItemsWithEventId(items, eventId) {
+  const normalizedEventId = String(eventId || "").trim();
+  if (!Array.isArray(items)) return [];
+  return items.map((item) => ({
+    ...item,
+    event_id: item?.event_id ?? normalizedEventId,
+  }));
+}
+
+function belongsToSelectedEvent(item, eventId) {
+  const normalizedEventId = String(eventId || "").trim();
+  if (!normalizedEventId) return true;
+  return String(item?.event_id ?? "").trim() === normalizedEventId;
 }
 
 function getIssueLabel(code) {
@@ -128,6 +247,43 @@ function getConfigSourceBadgeLabel(source) {
   return labels[source] || "Sem origem";
 }
 
+function classifyRole(roleName = "", costBucket = "") {
+  const normalizedName = String(roleName || "").trim().toLowerCase();
+  const normalizedBucket = String(costBucket || "").trim().toLowerCase();
+
+  if (normalizedBucket === "mixed") {
+    return "mixed";
+  }
+  if (/(diretor|diretora|diretivo|diretiva|diretoria|director)/.test(normalizedName)) {
+    return "director";
+  }
+  if (/(coordenador|coordenadora|coordinator)/.test(normalizedName)) {
+    return "coordinator";
+  }
+  if (/(supervisor|supervisora|spervisor|lider|líder|lead)/.test(normalizedName)) {
+    return "supervisor";
+  }
+  if (/(gerente|manager|gestor|gestora)/.test(normalizedName)) {
+    return "manager";
+  }
+  if (normalizedBucket === "managerial") {
+    return "manager";
+  }
+  return "operational";
+}
+
+function getRoleClassLabel(roleClass = "") {
+  const labels = {
+    director: "Diretivo",
+    manager: "Gerência",
+    coordinator: "Coordenação",
+    supervisor: "Supervisão",
+    mixed: "Função mista",
+    operational: "Operacional",
+  };
+  return labels[roleClass] || "Operacional";
+}
+
 export default function MealsControl() {
   const [events, setEvents] = useState([]);
   const [eventDays, setEventDays] = useState([]);
@@ -144,6 +300,8 @@ export default function MealsControl() {
   const [registering, setRegistering] = useState(false);
   const [qrInput, setQrInput] = useState("");
   const [payload, setPayload] = useState(createEmptyPayload);
+  const [mealHistoryItems, setMealHistoryItems] = useState([]);
+  const [pendingOfflineMeals, setPendingOfflineMeals] = useState([]);
   const [workforceBaseItems, setWorkforceBaseItems] = useState([]);
   const [mealUnitCost, setMealUnitCost] = useState(0);
   const [mealUnitCostAvailable, setMealUnitCostAvailable] = useState(null);
@@ -151,14 +309,19 @@ export default function MealsControl() {
   const [mealCostDraft, setMealCostDraft] = useState(0);
   const [mealServiceDrafts, setMealServiceDrafts] = useState([]);
   const [savingMealCost, setSavingMealCost] = useState(false);
+  const [mealHistoryLoading, setMealHistoryLoading] = useState(false);
+  const [syncingOfflineMeals, setSyncingOfflineMeals] = useState(false);
+  const [isDeviceOnline, setIsDeviceOnline] = useState(() => navigator.onLine);
   const [generatingStandaloneQrId, setGeneratingStandaloneQrId] = useState(null);
-  const [externalQrForm, setExternalQrForm] = useState({ name: "", phone: "", meals_per_day: 4 });
+  const [externalQrForm, setExternalQrForm] = useState({ name: "", phone: "", meals_per_day: 4, valid_days: 1 });
   const [generatingExternalQr, setGeneratingExternalQr] = useState(false);
   const [generatedExternalQrs, setGeneratedExternalQrs] = useState([]);
+  const [deviceNow, setDeviceNow] = useState(() => new Date());
   const selectedEventRef = useRef("");
   const staticDataRequestRef = useRef(0);
   const workforceRequestRef = useRef(0);
   const balanceRequestRef = useRef(0);
+  const mealHistoryRequestRef = useRef(0);
   const eventDetailRequestRef = useRef(0);
 
   const filteredShifts = useMemo(() => {
@@ -176,6 +339,11 @@ export default function MealsControl() {
   const selectedMealService = useMemo(
     () => mealServices.find((service) => String(service.id) === String(mealServiceId)) || null,
     [mealServiceId, mealServices]
+  );
+  const deviceReferenceTime = useMemo(() => getLocalTimeString(deviceNow), [deviceNow]);
+  const automaticMealServiceData = useMemo(
+    () => resolveMealServiceByTime(mealServices, deviceReferenceTime) || payload.selectedMealService || null,
+    [deviceReferenceTime, mealServices, payload.selectedMealService]
   );
 
   const loadCachedMealsContext = async (cacheKey) => {
@@ -332,16 +500,18 @@ export default function MealsControl() {
       if (requestId !== workforceRequestRef.current || selectedEventRef.current !== normalizedEventId) {
         return;
       }
-      const rawItems = res.data?.data || [];
-      const operationalItems = rawItems.filter(item => item.cost_bucket !== 'managerial');
-      setWorkforceBaseItems(operationalItems);
-      await saveCachedMealsContext(cacheKey, { workforceBaseItems: operationalItems });
+      const rawItems = stampItemsWithEventId(res.data?.data || [], evtId);
+      setWorkforceBaseItems(rawItems);
+      await saveCachedMealsContext(cacheKey, { workforceBaseItems: rawItems });
     } catch (err) {
       if (requestId !== workforceRequestRef.current || selectedEventRef.current !== normalizedEventId) {
         return;
       }
       const cached = await loadCachedMealsContext(cacheKey);
-      const cachedItems = Array.isArray(cached?.workforceBaseItems) ? cached.workforceBaseItems : [];
+      const cachedItems = stampItemsWithEventId(
+        Array.isArray(cached?.workforceBaseItems) ? cached.workforceBaseItems : [],
+        evtId
+      );
       if (cachedItems.length > 0) {
         setWorkforceBaseItems(cachedItems);
         toast("Base do Workforce carregada do cache local do Meals.", { id: "meals-workforce-cache" });
@@ -371,7 +541,7 @@ export default function MealsControl() {
       setMealServiceId((current) =>
         services.some((service) => String(service.id) === String(current))
           ? current
-          : (services[0] ? String(services[0].id) : "")
+          : ""
       );
       await saveCachedMealsContext(cacheKey, { mealServices: services });
       return services;
@@ -384,7 +554,7 @@ export default function MealsControl() {
         setMealServiceId((current) =>
           services.some((service) => String(service.id) === String(current))
             ? current
-            : (services[0] ? String(services[0].id) : "")
+            : ""
         );
         toast("Serviços de refeição carregados do cache local.", { id: "meals-services-cache" });
         return services;
@@ -399,6 +569,13 @@ export default function MealsControl() {
     const targetEventShiftId = String(overrides.eventShiftId ?? eventShiftId ?? "");
     const targetMealServiceId = String(overrides.mealServiceId ?? mealServiceId ?? "");
     const targetSector = String(overrides.sector ?? sector ?? "").trim();
+    const targetReferenceTime = String(
+      overrides.referenceTime ?? getLocalTimeString(deviceNow)
+    ).trim();
+    const automaticService = !targetMealServiceId
+      ? resolveMealServiceByTime(mealServices, targetReferenceTime)
+      : null;
+    const cacheMealKey = targetMealServiceId || `auto:${automaticService?.id || targetReferenceTime.slice(0, 5) || "none"}`;
 
     if (!targetEventId || !targetEventDayId) {
       setPayload(createEmptyPayload());
@@ -415,6 +592,7 @@ export default function MealsControl() {
           event_day_id: targetEventDayId,
           event_shift_id: targetEventShiftId || undefined,
           meal_service_id: targetMealServiceId || undefined,
+          reference_time: !targetMealServiceId ? targetReferenceTime : undefined,
           sector: targetSector || undefined,
         },
       });
@@ -424,7 +602,7 @@ export default function MealsControl() {
       const data = res.data?.data || {};
       const nextPayload = {
         summary: data.summary || null,
-        items: data.items || [],
+        items: stampItemsWithEventId(data.items || [], targetEventId),
         operationalSummary: data.operational_summary || null,
         projectionSummary: data.projection_summary || null,
         diagnostics: data.diagnostics || null,
@@ -435,9 +613,6 @@ export default function MealsControl() {
       if (Array.isArray(data.meal_services) && data.meal_services.length > 0) {
         setMealServices(data.meal_services);
         setMealServiceDrafts(data.meal_services);
-      }
-      if (data.selected_meal_service?.id) {
-        setMealServiceId(String(data.selected_meal_service.id));
       }
       const unit = Number(
         data.projection_summary?.selected_meal_service_unit_cost ??
@@ -450,7 +625,7 @@ export default function MealsControl() {
       await saveCachedMealsContext(buildMealsContextKey(targetEventId), {
         mealServices: Array.isArray(data.meal_services) ? data.meal_services : mealServices,
         balances: {
-          [`${targetEventDayId}:${targetMealServiceId || "all"}:${targetEventShiftId || "all"}:${targetSector || "all"}`]: nextPayload,
+          [`${targetEventDayId}:${cacheMealKey}:${targetEventShiftId || "all"}:${targetSector || "all"}`]: nextPayload,
         },
       });
     } catch (err) {
@@ -458,12 +633,13 @@ export default function MealsControl() {
         return;
       }
       const cached = await loadCachedMealsContext(buildMealsContextKey(targetEventId));
-      const cacheKey = `${targetEventDayId}:${targetMealServiceId || "all"}:${targetEventShiftId || "all"}:${targetSector || "all"}`;
+      const cacheKey = `${targetEventDayId}:${cacheMealKey}:${targetEventShiftId || "all"}:${targetSector || "all"}`;
       const cachedPayload = cached?.balances?.[cacheKey];
       if (cachedPayload) {
         setPayload({
           ...createEmptyPayload(),
           ...cachedPayload,
+          items: stampItemsWithEventId(cachedPayload?.items || [], targetEventId),
         });
         if (Array.isArray(cached?.mealServices)) {
           setMealServices(cached.mealServices);
@@ -478,6 +654,162 @@ export default function MealsControl() {
       if (requestId === balanceRequestRef.current) {
         setLoading(false);
       }
+    }
+  };
+
+  const loadMealHistory = async (overrides = {}) => {
+    const targetEventId = String(overrides.eventId ?? eventId ?? "");
+    const targetEventDayId = String(overrides.eventDayId ?? eventDayId ?? "");
+    const targetEventShiftId = String(overrides.eventShiftId ?? eventShiftId ?? "");
+    const targetMealServiceId = String(overrides.mealServiceId ?? mealServiceId ?? "");
+    const targetReferenceTime = String(
+      overrides.referenceTime ?? getLocalTimeString(deviceNow)
+    ).trim();
+    const automaticService = !targetMealServiceId
+      ? resolveMealServiceByTime(mealServices, targetReferenceTime)
+      : null;
+    const resolvedMealServiceId = targetMealServiceId || String(automaticService?.id || "");
+
+    if (!targetEventId || !targetEventDayId) {
+      setMealHistoryItems([]);
+      return;
+    }
+
+    const requestId = mealHistoryRequestRef.current + 1;
+    mealHistoryRequestRef.current = requestId;
+    setMealHistoryLoading(true);
+
+    const historyCacheKey = `${targetEventDayId}:${resolvedMealServiceId || "all"}:${targetEventShiftId || "all"}`;
+    const cacheContextKey = buildMealsContextKey(targetEventId);
+
+    try {
+      const res = await api.get("/meals", {
+        params: {
+          event_id: targetEventId,
+          event_day_id: targetEventDayId,
+          event_shift_id: targetEventShiftId || undefined,
+          meal_service_id: resolvedMealServiceId || undefined,
+          limit: 25,
+        },
+      });
+      if (requestId !== mealHistoryRequestRef.current || selectedEventRef.current !== targetEventId) {
+        return;
+      }
+      const historyItems = stampItemsWithEventId(res.data?.data || [], targetEventId);
+      setMealHistoryItems(historyItems);
+
+      const cached = await loadCachedMealsContext(cacheContextKey);
+      await saveCachedMealsContext(cacheContextKey, {
+        mealHistory: {
+          ...(cached?.mealHistory || {}),
+          [historyCacheKey]: historyItems,
+        },
+      });
+    } catch (err) {
+      if (requestId !== mealHistoryRequestRef.current || selectedEventRef.current !== targetEventId) {
+        return;
+      }
+      const cached = await loadCachedMealsContext(cacheContextKey);
+      const cachedHistory = Array.isArray(cached?.mealHistory?.[historyCacheKey])
+        ? stampItemsWithEventId(cached.mealHistory[historyCacheKey], targetEventId)
+        : [];
+      if (cachedHistory.length > 0) {
+        setMealHistoryItems(cachedHistory);
+        toast("Histórico Meals carregado do cache local.", { id: "meals-history-cache" });
+      } else {
+        setMealHistoryItems([]);
+        toast.error(err.response?.data?.message || "Erro ao carregar histórico de refeições.");
+      }
+    } finally {
+      if (requestId === mealHistoryRequestRef.current) {
+        setMealHistoryLoading(false);
+      }
+    }
+  };
+
+  const loadPendingOfflineMeals = async () => {
+    try {
+      const records = await db.offlineQueue.where("status").equals("pending").toArray();
+      const mealRecords = records.filter(
+        (record) => String(record?.payload_type ?? record?.type ?? "").trim().toLowerCase() === "meal"
+      );
+      setPendingOfflineMeals(mealRecords);
+    } catch {
+      setPendingOfflineMeals([]);
+    }
+  };
+
+  const syncPendingOfflineMeals = async () => {
+    if (!navigator.onLine) {
+      toast.error("Sem rede: a fila do Meals será sincronizada quando a conexão voltar.");
+      return;
+    }
+
+    const normalizedPending = pendingOfflineMeals.map((record) => {
+      const payload = record?.payload ?? record?.data ?? {};
+      return {
+        offline_id: record?.offline_id,
+        payload_type: "meal",
+        payload: {
+          ...payload,
+          event_id: hasValidEventId(payload?.event_id) ? Number(payload.event_id) : null,
+          sector: payload?.sector ?? record?.sector ?? null,
+        },
+        created_offline_at: record?.created_offline_at ?? record?.created_at ?? new Date().toISOString(),
+      };
+    });
+
+    const validPending = normalizedPending.filter((record) => hasValidEventId(record?.payload?.event_id));
+    const invalidPending = normalizedPending.filter((record) => !hasValidEventId(record?.payload?.event_id));
+
+    if (validPending.length === 0) {
+      toast.error("Não há refeições offline válidas para sincronizar.");
+      await loadPendingOfflineMeals();
+      return;
+    }
+
+    setSyncingOfflineMeals(true);
+    toast.loading(`Sincronizando ${validPending.length} refeição(ões) offline...`, { id: "meals-sync" });
+
+    try {
+      const { data } = await api.post("/sync", { items: validPending });
+
+      if (!data?.success) {
+        toast.error("Não foi possível concluir a sincronização do Meals.", { id: "meals-sync" });
+        return;
+      }
+
+      const processedIds = data?.data?.processed_ids ?? validPending.map((item) => item.offline_id);
+      const failedIds = data?.data?.failed_ids ?? [];
+      const failedCount = Number(data?.data?.failed ?? 0);
+
+      if (processedIds.length > 0) {
+        await db.offlineQueue.bulkDelete(processedIds);
+      }
+      if (failedIds.length > 0) {
+        await db.offlineQueue.bulkDelete(failedIds);
+      }
+
+      await loadPendingOfflineMeals();
+
+      if (eventId && eventDayId) {
+        await Promise.all([loadBalance(), loadMealHistory()]);
+      }
+
+      if (failedCount > 0 || invalidPending.length > 0) {
+        toast.error(
+          `${processedIds.length} sincronizada(s), ${failedCount} removida(s) por falha letal e ${invalidPending.length} sem evento válido.`,
+          { id: "meals-sync" }
+        );
+      } else {
+        toast.success(`${processedIds.length} refeição(ões) offline sincronizada(s).`, { id: "meals-sync" });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Erro ao sincronizar a fila offline do Meals.", {
+        id: "meals-sync",
+      });
+    } finally {
+      setSyncingOfflineMeals(false);
     }
   };
 
@@ -502,6 +834,49 @@ export default function MealsControl() {
   useEffect(() => {
     loadEvents().catch(() => toast.error("Erro ao carregar eventos."));
     loadMealUnitCost();
+    loadPendingOfflineMeals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setDeviceNow(new Date());
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsDeviceOnline(true);
+      window.setTimeout(() => {
+        loadPendingOfflineMeals();
+      }, 1200);
+    };
+
+    const handleOffline = () => {
+      setIsDeviceOnline(false);
+      loadPendingOfflineMeals();
+    };
+
+    const handleFocus = () => {
+      loadPendingOfflineMeals();
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("focus", handleFocus);
+
+    const intervalId = window.setInterval(() => {
+      loadPendingOfflineMeals();
+    }, 15000);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("focus", handleFocus);
+      window.clearInterval(intervalId);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -509,6 +884,7 @@ export default function MealsControl() {
     staticDataRequestRef.current += 1;
     workforceRequestRef.current += 1;
     balanceRequestRef.current += 1;
+    mealHistoryRequestRef.current += 1;
     eventDetailRequestRef.current += 1;
     setEventDayId("");
     setEventShiftId("");
@@ -519,6 +895,7 @@ export default function MealsControl() {
     setMealServiceDrafts([]);
     setWorkforceBaseItems([]);
     setPayload(createEmptyPayload());
+    setMealHistoryItems([]);
   }, [eventId]);
 
   useEffect(() => {
@@ -551,8 +928,7 @@ export default function MealsControl() {
     }
     const valid = mealServices.some((service) => String(service.id) === String(mealServiceId));
     if (!valid) {
-      const firstActive = mealServices.find((service) => service.is_active !== false) || mealServices[0];
-      setMealServiceId(firstActive ? String(firstActive.id) : "");
+      setMealServiceId("");
     }
   }, [mealServiceId, mealServices]);
 
@@ -569,10 +945,12 @@ export default function MealsControl() {
   useEffect(() => {
     if (!eventId || !eventDayId) {
       setPayload(createEmptyPayload());
+      setMealHistoryItems([]);
       return;
     }
     if (eventDays.length <= 0) {
       setPayload(createEmptyPayload());
+      setMealHistoryItems([]);
       return;
     }
     // Previne chamadas com eventDayId de evento anterior durante a transição
@@ -581,15 +959,21 @@ export default function MealsControl() {
       return;
     }
     loadBalance();
+    loadMealHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, eventDayId, eventShiftId, mealServiceId, sector, eventDays]);
 
+  const eventScopedWorkforceBaseItems = useMemo(
+    () => workforceBaseItems.filter((item) => belongsToSelectedEvent(item, eventId)),
+    [eventId, workforceBaseItems]
+  );
+
   const availableSectors = useMemo(() => {
-    const values = workforceBaseItems
+    const values = eventScopedWorkforceBaseItems
       .map((item) => String(item.sector || "").trim().toLowerCase())
       .filter(Boolean);
     return [...new Set(values)].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [workforceBaseItems]);
+  }, [eventScopedWorkforceBaseItems]);
 
   useEffect(() => {
     if (sector && !availableSectors.includes(String(sector).trim().toLowerCase())) {
@@ -598,21 +982,32 @@ export default function MealsControl() {
   }, [availableSectors, sector]);
 
   const filteredWorkforceItems = useMemo(() => {
-    return workforceBaseItems.filter((item) => {
+    return eventScopedWorkforceBaseItems.filter((item) => {
       if (sector && String(item.sector || "").trim().toLowerCase() !== String(sector).trim().toLowerCase()) {
         return false;
       }
       return true;
     });
-  }, [sector, workforceBaseItems]);
+  }, [eventScopedWorkforceBaseItems, sector]);
+
+  const internalWorkforceItems = useMemo(
+    () => filteredWorkforceItems.filter((item) => !isExternalMealEntry(item)),
+    [filteredWorkforceItems]
+  );
+
+  const externalWorkforceItems = useMemo(
+    () => filteredWorkforceItems.filter((item) => isExternalMealEntry(item)),
+    [filteredWorkforceItems]
+  );
 
   const workforceSummary = useMemo(() => {
     const sectors = new Set();
     const uniqueParticipants = new Set();
+    const uniqueExternalParticipants = new Set();
     let mealsPerDayTotal = 0;
     let assignmentsWithShift = 0;
 
-    filteredWorkforceItems.forEach((item) => {
+    internalWorkforceItems.forEach((item) => {
       uniqueParticipants.add(String(item.participant_id || `assignment:${item.id}`));
       const normalizedSector = String(item.sector || "").trim().toLowerCase();
       if (normalizedSector) {
@@ -624,20 +1019,26 @@ export default function MealsControl() {
       }
     });
 
+    externalWorkforceItems.forEach((item) => {
+      uniqueExternalParticipants.add(String(item.participant_id || `assignment:${item.id}`));
+    });
+
     return {
       members: uniqueParticipants.size,
-      assignmentRows: filteredWorkforceItems.length,
+      assignmentRows: internalWorkforceItems.length,
       sectorsCount: sectors.size,
       mealsPerDayTotal,
       assignmentsWithShift,
-      assignmentsWithoutShift: Math.max(0, filteredWorkforceItems.length - assignmentsWithShift),
+      assignmentsWithoutShift: Math.max(0, internalWorkforceItems.length - assignmentsWithShift),
+      externalMembers: uniqueExternalParticipants.size,
+      externalAssignmentRows: externalWorkforceItems.length,
     };
-  }, [filteredWorkforceItems]);
+  }, [externalWorkforceItems, internalWorkforceItems]);
 
   const standaloneQrMembers = useMemo(() => {
     const grouped = new Map();
 
-    workforceBaseItems.forEach((item) => {
+    eventScopedWorkforceBaseItems.forEach((item) => {
       const participantId = Number(item.participant_id || 0);
       if (participantId <= 0) return;
 
@@ -688,7 +1089,61 @@ export default function MealsControl() {
         roles: [...member.roles].filter(Boolean),
       }))
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-  }, [workforceBaseItems]);
+  }, [eventScopedWorkforceBaseItems]);
+
+  const eventScopedPayloadItems = useMemo(
+    () => (payload.items || []).filter((item) => belongsToSelectedEvent(item, eventId)),
+    [eventId, payload.items]
+  );
+  const visibleMealHistoryItems = useMemo(() => {
+    const scopedItems = mealHistoryItems.filter((item) => belongsToSelectedEvent(item, eventId));
+    if (!sector) {
+      return scopedItems;
+    }
+
+    const participantIdsInScope = new Set(
+      eventScopedPayloadItems
+        .map((item) => Number(item.participant_id || 0))
+        .filter((participantId) => participantId > 0)
+    );
+    if (participantIdsInScope.size === 0) {
+      return [];
+    }
+
+    return scopedItems.filter((item) =>
+      participantIdsInScope.has(Number(item.participant_id || 0))
+    );
+  }, [eventId, eventScopedPayloadItems, mealHistoryItems, sector]);
+  const pendingOfflineMealsForCurrentEvent = useMemo(() => {
+    if (!eventId) {
+      return pendingOfflineMeals;
+    }
+    return pendingOfflineMeals.filter((record) =>
+      String(record?.payload?.event_id || "").trim() === String(eventId).trim()
+    );
+  }, [eventId, pendingOfflineMeals]);
+  const pendingOfflineMealsForCurrentDay = useMemo(() => {
+    if (!eventDayId) {
+      return pendingOfflineMealsForCurrentEvent;
+    }
+    return pendingOfflineMealsForCurrentEvent.filter((record) =>
+      String(record?.payload?.event_day_id || "").trim() === String(eventDayId).trim()
+    );
+  }, [eventDayId, pendingOfflineMealsForCurrentEvent]);
+  const visiblePendingOfflineMeals = useMemo(() => {
+    const filtered = pendingOfflineMealsForCurrentDay.filter((record) => {
+      if (!sector) return true;
+      return String(record?.payload?.sector || record?.sector || "").trim().toLowerCase() === String(sector).trim().toLowerCase();
+    });
+
+    return [...filtered]
+      .sort((a, b) => {
+        const left = new Date(a?.created_offline_at || a?.payload?.consumed_at || 0).getTime();
+        const right = new Date(b?.created_offline_at || b?.payload?.consumed_at || 0).getTime();
+        return right - left;
+      })
+      .slice(0, 8);
+  }, [pendingOfflineMealsForCurrentDay, sector]);
 
   const enqueueOfflineMeal = async (recordPayload) => {
     const pendingMeals = await db.offlineQueue.where("status").equals("pending").toArray();
@@ -729,8 +1184,8 @@ export default function MealsControl() {
       toast.error("Selecione o dia do evento.");
       return;
     }
-    if (!mealServiceId) {
-      toast.error("Selecione a refeição a validar.");
+    if (!selectedMealServiceData) {
+      toast.error("Nenhuma refeição ativa foi resolvida para este horário.");
       return;
     }
 
@@ -739,8 +1194,8 @@ export default function MealsControl() {
       qr_token: token,
       event_day_id: Number(eventDayId),
       event_shift_id: eventShiftId ? Number(eventShiftId) : null,
-      meal_service_id: Number(mealServiceId),
-      meal_service_code: selectedMealService?.service_code || null,
+      meal_service_id: mealServiceId ? Number(mealServiceId) : null,
+      meal_service_code: mealServiceId ? (selectedMealService?.service_code || null) : null,
       sector: sector || null,
       consumed_at: new Date().toISOString(),
     };
@@ -755,13 +1210,15 @@ export default function MealsControl() {
         toast.success("Refeição registrada com sucesso.");
       }
       setQrInput("");
-      await loadBalance();
+      await loadPendingOfflineMeals();
+      await Promise.all([loadBalance(), loadMealHistory()]);
     } catch (err) {
       const networkError = !navigator.onLine || err?.code === "ERR_NETWORK";
       if (networkError) {
         try {
           await enqueueOfflineMeal(requestPayload);
           setQrInput("");
+          await loadPendingOfflineMeals();
           toast.success("Sem rede: refeição enviada para sincronização offline.");
           return;
         } catch (offlineErr) {
@@ -808,7 +1265,14 @@ export default function MealsControl() {
   };
   const diagnostics = payload.diagnostics || null;
 
+  const selectedMealServiceData = mealServiceId
+    ? (selectedMealService || payload.selectedMealService || null)
+    : automaticMealServiceData;
+  const pricedMealServiceData = mealServiceId
+    ? selectedMealServiceData
+    : (automaticMealServiceData || selectedMealServiceData);
   const currentMealUnitCost = Number(
+    pricedMealServiceData?.unit_cost ??
     projectionSummary.selected_meal_service_unit_cost ??
     projectionSummary.meal_unit_cost ??
     summary.selected_meal_service_unit_cost ??
@@ -818,7 +1282,6 @@ export default function MealsControl() {
   );
   const projectionEnabled = Boolean(projectionSummary.enabled);
   const hasSelectedShift = Boolean(eventShiftId);
-  const selectedMealServiceData = payload.selectedMealService || selectedMealService || null;
   const selectedMealServiceLabel = formatMealServiceLabel(selectedMealServiceData);
   const hasConfiguredEventDays = eventDays.length > 0;
   const availableEventDayOptions = useMemo(() => {
@@ -845,7 +1308,31 @@ export default function MealsControl() {
   );
   const showWorkforceFallback = Boolean(eventId) && !hasConfiguredEventDays;
   const canUseRealMeals = Boolean(eventId) && hasConfiguredEventDays && Boolean(eventDayId);
-  const canRegisterMeal = canUseRealMeals && Boolean(mealServiceId);
+  const canRegisterMeal = canUseRealMeals && Boolean(selectedMealServiceData);
+
+  useEffect(() => {
+    if (!canUseRealMeals || showWorkforceFallback || mealServiceId) {
+      return;
+    }
+
+    loadBalance({
+      eventId,
+      eventDayId,
+      eventShiftId,
+      mealServiceId: "",
+      referenceTime: deviceReferenceTime,
+      sector,
+    });
+    loadMealHistory({
+      eventId,
+      eventDayId,
+      eventShiftId,
+      mealServiceId: "",
+      referenceTime: deviceReferenceTime,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canUseRealMeals, deviceReferenceTime, eventDayId, eventId, eventShiftId, mealServiceId, sector, showWorkforceFallback]);
+
   const configBreakdown = diagnostics?.configuration || {
     members_using_member_settings: 0,
     members_using_role_settings: 0,
@@ -913,11 +1400,11 @@ export default function MealsControl() {
       return list;
     }
 
-    if (!mealServiceId) {
+    if (!selectedMealServiceData) {
       list.push({
         tone: "warn",
-        title: "Refeição não selecionada",
-        body: "Escolha o serviço de refeição do momento para impedir repetição da mesma baixa no mesmo dia.",
+        title: "Refeição sem janela ativa",
+        body: "Nenhum serviço ativo foi resolvido pelo horário atual. Revise as janelas configuradas ou selecione manualmente uma refeição.",
       });
     }
 
@@ -968,6 +1455,7 @@ export default function MealsControl() {
     eventId,
     filteredShifts.length,
     mealServiceId,
+    selectedMealServiceData,
     showWorkforceFallback,
     operationalDiagnosticsIssues,
     syntheticEventDayOption,
@@ -978,42 +1466,131 @@ export default function MealsControl() {
 
   const tableRows = useMemo(() => {
     if (showWorkforceFallback) {
-      return filteredWorkforceItems.map((item) => ({
-        key: `workforce-${item.id ?? item.participant_id}`,
-        participantId: item.participant_id,
-        name: item.person_name,
-        roleName: item.role_name,
-        sector: item.sector || "geral",
-        mealsPerDay: Number(item.meals_per_day || 0),
-        configSource: null,
-        consumedDay: null,
-        remainingDay: null,
-        consumedShift: null,
-        shiftName: item.shift_name || "",
-        shiftId: item.shift_id ? Number(item.shift_id) : null,
-        qrToken: item.qr_token || "",
-        sourceLabel: "Base Workforce",
-        sourceDescription: "Base real complementar do evento",
-        sourceBadgeClass: "badge badge-gray",
-      }));
+      const grouped = new Map();
+
+      filteredWorkforceItems.forEach((item) => {
+        const participantId = Number(item.participant_id || 0);
+        const groupKey = participantId > 0 ? `participant-${participantId}` : `assignment-${item.id}`;
+        const existing = grouped.get(groupKey) || {
+          key: `workforce-${groupKey}`,
+          participantId: participantId || null,
+          eventId: item.event_id ? Number(item.event_id) : null,
+          name: item.person_name || item.name || `Participante #${participantId || item.id}`,
+          qrToken: item.qr_token || "",
+          assignmentsInScope: 0,
+          roleNames: new Set(),
+          sectors: new Set(),
+          shiftIds: new Set(),
+          shiftNames: new Set(),
+          costBuckets: new Set(),
+          mealsPerDayValues: new Set(),
+        };
+
+        existing.assignmentsInScope += 1;
+        if (item.role_name) {
+          existing.roleNames.add(String(item.role_name));
+        }
+        if (String(item.sector || "").trim()) {
+          existing.sectors.add(String(item.sector).trim());
+        }
+        if (item.shift_id) {
+          existing.shiftIds.add(Number(item.shift_id));
+        }
+        if (item.shift_name) {
+          existing.shiftNames.add(String(item.shift_name));
+        }
+
+        const normalizedBucket = String(item.cost_bucket || "operational").trim().toLowerCase() || "operational";
+        existing.costBuckets.add(normalizedBucket);
+
+        if (item.meals_per_day !== null && item.meals_per_day !== undefined && String(item.meals_per_day) !== "") {
+          existing.mealsPerDayValues.add(Number(item.meals_per_day));
+        }
+        if (!existing.qrToken && item.qr_token) {
+          existing.qrToken = item.qr_token;
+        }
+
+        grouped.set(groupKey, existing);
+      });
+
+      return [...grouped.values()].map((item) => {
+        const roleNames = [...item.roleNames];
+        const sectorValues = [...item.sectors];
+        const shiftIds = [...item.shiftIds];
+        const shiftNames = [...item.shiftNames];
+        const costBuckets = [...item.costBuckets];
+        const mealsPerDayValues = [...item.mealsPerDayValues];
+        const hasMultipleRoles = roleNames.length > 1;
+        const hasMultipleSectors = sectorValues.length > 1;
+        const hasMultipleShifts = shiftIds.length > 1;
+        const costBucket = costBuckets.length === 1
+          ? costBuckets[0]
+          : (costBuckets.includes("managerial") && costBuckets.includes("operational") ? "mixed" : (costBuckets[0] || "operational"));
+        const roleName = hasMultipleRoles
+          ? "Cargos múltiplos"
+          : (roleNames[0] || "Cargo não informado");
+        const sectorLabel = hasMultipleSectors
+          ? "Setores múltiplos"
+          : (sectorValues[0] || "geral");
+        const shiftId = shiftIds.length === 1 ? shiftIds[0] : null;
+        const shiftName = shiftNames.length === 1 ? shiftNames[0] : "";
+        const mealsPerDay = mealsPerDayValues.length === 0
+          ? null
+          : (mealsPerDayValues.length === 1 ? mealsPerDayValues[0] : Math.max(...mealsPerDayValues));
+
+        return {
+          key: item.key,
+          participantId: item.participantId,
+          eventId: item.eventId,
+          name: item.name,
+          roleName,
+          roleClass: hasMultipleRoles ? classifyRole("", costBucket) : classifyRole(roleName, costBucket),
+          costBucket,
+          sector: sectorLabel,
+          mealsPerDay,
+          configSource: null,
+          baselineStatus: "fallback",
+          hasAmbiguousBaseline: false,
+          consumedDay: null,
+          remainingDay: null,
+          consumedShift: null,
+          shiftName,
+          shiftId,
+          assignmentsInScope: item.assignmentsInScope,
+          hasMultipleAssignments: item.assignmentsInScope > 1,
+          hasMultipleRoles,
+          hasMultipleSectors,
+          hasMultipleShifts,
+          qrToken: item.qrToken || "",
+          sourceLabel: "Base Workforce",
+          sourceDescription: item.assignmentsInScope > 1
+            ? `Base complementar consolidada em ${item.assignmentsInScope} assignments do evento selecionado.`
+            : "Base real complementar do evento selecionado.",
+          sourceBadgeClass: "badge badge-gray",
+        };
+      });
     }
 
-    return (payload.items || []).map((item) => {
+    return eventScopedPayloadItems.map((item) => {
       const assignmentsInScope = Number(item.assignments_in_scope || 0);
       const hasMultipleAssignments = Boolean(item.has_multiple_assignments);
       const hasMultipleRoles = Boolean(item.has_multiple_roles);
-        const hasMultipleSectors = Boolean(item.has_multiple_sectors);
-        const hasMultipleShifts = Boolean(item.has_multiple_shifts);
-        const hasAmbiguousBaseline = Boolean(item.has_ambiguous_baseline);
-        const shiftId = item.shift_id ? Number(item.shift_id) : null;
-        const roleName = item.role_name || (hasMultipleRoles ? "Cargos múltiplos" : "Cargo não unívoco");
-        const sectorLabel = item.sector || (hasMultipleSectors ? "Setores múltiplos" : "Setor não unívoco");
+      const hasMultipleSectors = Boolean(item.has_multiple_sectors);
+      const hasMultipleShifts = Boolean(item.has_multiple_shifts);
+      const hasAmbiguousBaseline = Boolean(item.has_ambiguous_baseline);
+      const shiftId = item.shift_id ? Number(item.shift_id) : null;
+      const roleName = item.role_name || (hasMultipleRoles ? "Cargos múltiplos" : "Cargo não unívoco");
+      const costBucket = String(item.cost_bucket || "operational").trim().toLowerCase() || "operational";
+      const sectorLabel = item.sector || (hasMultipleSectors ? "Setores múltiplos" : "Setor não unívoco");
 
       return {
         key: `meal-${item.participant_id}`,
         participantId: item.participant_id,
+        eventId: item.event_id ? Number(item.event_id) : null,
         name: item.participant_name,
         roleName,
+        roleClass: item.role_class || classifyRole(roleName, costBucket),
+        costBucket,
         sector: sectorLabel,
         mealsPerDay: item.meals_per_day === null || item.meals_per_day === undefined
           ? null
@@ -1025,7 +1602,7 @@ export default function MealsControl() {
         remainingDay: item.remaining_day === null || item.remaining_day === undefined
           ? null
           : Number(item.remaining_day),
-        consumedShift: Number(item.consumed_shift || 0),
+        consumedShift: Number(item.consumed_service ?? item.consumed_shift ?? 0),
         shiftName: item.shift_name || "",
         shiftId,
         assignmentsInScope,
@@ -1044,22 +1621,182 @@ export default function MealsControl() {
       };
     });
   }, [
+    eventScopedPayloadItems,
     filteredWorkforceItems,
-    payload.items,
     showWorkforceFallback,
   ]);
 
   const tableHighlights = useMemo(() => {
+      const staffRows = tableRows.filter((row) => !isExternalMealEntry(row));
       return {
-        consumedMembers: tableRows.filter((row) => Number(row.consumedDay || 0) > 0).length,
-        exhaustedMembers: tableRows.filter(
+        consumedMembers: staffRows.filter((row) => Number(row.consumedDay || 0) > 0).length,
+        exhaustedMembers: staffRows.filter(
           (row) => row.remainingDay !== null && Number(row.remainingDay) <= 0
         ).length,
-        ambiguousBaselineMembers: tableRows.filter((row) => row.hasAmbiguousBaseline).length,
-        withoutUniqueShiftMembers: tableRows.filter((row) => !row.shiftId).length,
-        multiAssignmentMembers: tableRows.filter((row) => Number(row.assignmentsInScope || 0) > 1).length,
+        ambiguousBaselineMembers: staffRows.filter((row) => row.hasAmbiguousBaseline).length,
+        withoutUniqueShiftMembers: staffRows.filter((row) => !row.shiftId).length,
+        multiAssignmentMembers: staffRows.filter((row) => Number(row.assignmentsInScope || 0) > 1).length,
       };
   }, [tableRows]);
+
+  const staffTableRows = useMemo(
+    () => tableRows.filter((row) => !isExternalMealEntry(row)),
+    [tableRows]
+  );
+
+  const externalTableRows = useMemo(
+    () => tableRows.filter((row) => isExternalMealEntry(row)),
+    [tableRows]
+  );
+  const participantNameByQrToken = useMemo(() => {
+    const map = new Map();
+
+    tableRows.forEach((row) => {
+      const token = String(row.qrToken || "").trim();
+      if (token) {
+        map.set(token, row.name);
+      }
+    });
+
+    eventScopedWorkforceBaseItems.forEach((item) => {
+      const token = String(item.qr_token || "").trim();
+      const name = String(item.person_name || item.name || "").trim();
+      if (token && name && !map.has(token)) {
+        map.set(token, name);
+      }
+    });
+
+    return map;
+  }, [eventScopedWorkforceBaseItems, tableRows]);
+
+  const staffOperationalSummary = useMemo(() => {
+    return staffTableRows.reduce((acc, row) => {
+      acc.members += 1;
+      acc.meals_per_day_total += Number(row.mealsPerDay || 0);
+      acc.consumed_day_total += Number(row.consumedDay || 0);
+      acc.remaining_day_total += Number(row.remainingDay || 0);
+      acc.consumed_service_total += Number(row.consumedShift || 0);
+      return acc;
+    }, {
+      members: 0,
+      meals_per_day_total: 0,
+      consumed_day_total: 0,
+      remaining_day_total: 0,
+      consumed_service_total: 0,
+    });
+  }, [staffTableRows]);
+
+  const staffConfigBreakdown = useMemo(() => {
+    return staffTableRows.reduce((acc, row) => {
+      if (row.hasAmbiguousBaseline) {
+        acc.members_with_ambiguous_baseline += 1;
+      }
+      if (row.configSource === "member_override") {
+        acc.members_using_member_settings += 1;
+      } else if (row.configSource === "role_settings") {
+        acc.members_using_role_settings += 1;
+      } else if (row.configSource === "default") {
+        acc.members_using_default_fallback += 1;
+      }
+      return acc;
+    }, {
+      members_using_member_settings: 0,
+      members_using_role_settings: 0,
+      members_using_default_fallback: 0,
+      members_with_ambiguous_baseline: 0,
+    });
+  }, [staffTableRows]);
+
+  const roleComposition = useMemo(() => {
+    return staffTableRows.reduce((acc, row) => {
+      const roleClass = row.roleClass || classifyRole(row.roleName, row.costBucket);
+      const costBucket = String(row.costBucket || "operational").trim().toLowerCase() || "operational";
+
+      if (costBucket === "managerial") {
+        acc.managerialMembers += 1;
+      } else if (costBucket === "mixed") {
+        acc.mixedBucketMembers += 1;
+      } else {
+        acc.operationalMembers += 1;
+      }
+
+      if (roleClass === "director") {
+        acc.directors += 1;
+      } else if (roleClass === "manager") {
+        acc.managers += 1;
+      } else if (roleClass === "coordinator") {
+        acc.coordinators += 1;
+      } else if (roleClass === "supervisor") {
+        acc.supervisors += 1;
+      }
+
+      if (["director", "manager", "coordinator", "supervisor"].includes(roleClass)) {
+        acc.leadershipMembers += 1;
+      }
+
+      return acc;
+    }, {
+      leadershipMembers: 0,
+      directors: 0,
+      managers: 0,
+      coordinators: 0,
+      supervisors: 0,
+      managerialMembers: 0,
+      operationalMembers: 0,
+      mixedBucketMembers: 0,
+    });
+  }, [staffTableRows]);
+
+  const breakdownEntries = useMemo(() => {
+    const sectorEntries = Object.entries(
+      staffTableRows.reduce((acc, row) => {
+        const sectorName = row.sector || "Sem setor";
+        acc[sectorName] = (acc[sectorName] || 0) + 1;
+        return acc;
+      }, {})
+    )
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => ({
+        key: `sector-${label}`,
+        label,
+        count,
+        capitalize: true,
+      }));
+
+    const roleEntries = [
+      ["Diretivos", roleComposition.directors],
+      ["Gerentes", roleComposition.managers],
+      ["Coordenadores", roleComposition.coordinators],
+      ["Supervisores", roleComposition.supervisors],
+      ["Operacionais", roleComposition.operationalMembers],
+    ]
+      .filter(([, count]) => count > 0)
+      .map(([label, count]) => ({
+        key: `role-${label}`,
+        label,
+        count,
+        capitalize: false,
+      }));
+
+    if (externalTableRows.length > 0) {
+      roleEntries.unshift({
+        key: "external-qr",
+        label: "Externos com QR",
+        count: externalTableRows.length,
+        capitalize: false,
+      });
+    }
+
+    return [...sectorEntries, ...roleEntries];
+  }, [
+    externalTableRows.length,
+    roleComposition.coordinators,
+    roleComposition.directors,
+    roleComposition.managers,
+    roleComposition.operationalMembers,
+    roleComposition.supervisors,
+    staffTableRows,
+  ]);
 
   const operationalCards = useMemo(() => {
     if (showWorkforceFallback) {
@@ -1069,8 +1806,8 @@ export default function MealsControl() {
           value: workforceSummary.members,
           valueClassName: "text-white",
           helper: workforceSummary.assignmentRows > workforceSummary.members
-            ? `Base complementar com ${workforceSummary.assignmentRows} assignments reais para ${workforceSummary.members} pessoa(s).`
-            : "Base complementar do evento enquanto o saldo diário ainda não pode ser lido.",
+            ? `Base complementar com ${workforceSummary.assignmentRows} assignments reais para ${workforceSummary.members} pessoa(s) do staff.${workforceSummary.externalMembers > 0 ? ` Externos com QR fora desta contagem: ${workforceSummary.externalMembers}.` : ""}`
+            : `Base complementar do evento enquanto o saldo diário ainda não pode ser lido.${workforceSummary.externalMembers > 0 ? ` Externos com QR fora desta contagem: ${workforceSummary.externalMembers}.` : ""}`,
           badge: "Base Workforce",
           badgeClassName: "badge badge-gray",
         },
@@ -1090,33 +1827,43 @@ export default function MealsControl() {
           badge: "Workspace real",
           badgeClassName: "badge badge-gray",
         },
+        {
+          label: "Lideranças visíveis",
+          value: roleComposition.leadershipMembers,
+          valueClassName: roleComposition.leadershipMembers > 0 ? "text-cyan-400" : "text-white",
+          helper: `${roleComposition.directors} diretivo(s) · ${roleComposition.managers} gerente(s) · ${roleComposition.coordinators} coordenador(es) · ${roleComposition.supervisors} supervisor(es).`,
+          badge: roleComposition.leadershipMembers > 0 ? "Somadas" : "Sem liderança",
+          badgeClassName: roleComposition.leadershipMembers > 0 ? "badge badge-blue" : "badge badge-gray",
+        },
       ];
     }
 
     return [
       {
         label: "Membros",
-        value: operationalSummary.members,
+        value: staffOperationalSummary.members,
         valueClassName: "text-white",
-        helper: "Saldo real de Meals carregado para o dia selecionado.",
+        helper: roleComposition.leadershipMembers > 0
+          ? `Saldo real de Meals carregado para o dia selecionado. Inclui ${roleComposition.leadershipMembers} liderança(s) com assignment no recorte.${externalTableRows.length > 0 ? ` Externos com QR fora desta contagem principal: ${externalTableRows.length}.` : ""}`
+          : `Saldo real de Meals carregado para o dia selecionado.${externalTableRows.length > 0 ? ` Externos com QR fora desta contagem principal: ${externalTableRows.length}.` : ""}`,
         badge: "Saldo real Meals",
         badgeClassName: "badge badge-green",
       },
       {
         label: "Cota dia",
-        value: operationalSummary.meals_per_day_total,
+        value: staffOperationalSummary.meals_per_day_total,
         valueClassName: "text-white",
-        helper: configBreakdown.members_with_ambiguous_baseline > 0
+        helper: staffConfigBreakdown.members_with_ambiguous_baseline > 0
           ? "Parte da equipe segue com baseline ambíguo e fica fora da cota derivada confiável."
-          : configBreakdown.members_using_default_fallback > 0
-            ? `Parte da equipe (${configBreakdown.members_using_default_fallback}) ainda usa fallback default neste recorte.`
+          : staffConfigBreakdown.members_using_default_fallback > 0
+            ? `Parte da equipe (${staffConfigBreakdown.members_using_default_fallback}) ainda usa fallback default neste recorte.`
             : "Cota diária consolidada para o recorte operacional do dia.",
-        badge: configBreakdown.members_with_ambiguous_baseline > 0 ? "Origem parcial" : "Origem visível",
-        badgeClassName: configBreakdown.members_with_ambiguous_baseline > 0 ? "badge badge-yellow" : "badge badge-blue",
+        badge: staffConfigBreakdown.members_with_ambiguous_baseline > 0 ? "Origem parcial" : "Origem visível",
+        badgeClassName: staffConfigBreakdown.members_with_ambiguous_baseline > 0 ? "badge badge-yellow" : "badge badge-blue",
       },
       {
         label: "Consumidas dia",
-        value: operationalSummary.consumed_day_total,
+        value: staffOperationalSummary.consumed_day_total,
         valueClassName: "text-amber-400",
         helper: `${tableHighlights.consumedMembers} participante(s) ja consumiram no dia.`,
         badge: tableHighlights.consumedMembers > 0 ? "Com consumo" : "Sem consumo",
@@ -1124,7 +1871,7 @@ export default function MealsControl() {
       },
       {
         label: "Saldo dia",
-        value: operationalSummary.remaining_day_total,
+        value: staffOperationalSummary.remaining_day_total,
         valueClassName: tableHighlights.exhaustedMembers > 0 ? "text-red-400" : "text-green-400",
         helper: `${tableHighlights.exhaustedMembers} participante(s) sem saldo restante.`,
         badge: tableHighlights.exhaustedMembers > 0 ? "Sem saldo" : "Saldo ok",
@@ -1132,24 +1879,38 @@ export default function MealsControl() {
       },
       {
         label: "Consumidas refeição",
-        value: operationalSummary.consumed_service_total,
+        value: staffOperationalSummary.consumed_service_total,
         valueClassName: "text-blue-400",
         helper: `${selectedMealServiceLabel}.${hasSelectedShift ? " Turno aplicado como filtro complementar." : " Sem turno, o recorte continua diário."}`,
         badge: hasSelectedShift ? "Refeição + turno" : "Refeição ativa",
         badgeClassName: hasSelectedShift ? "badge badge-blue" : "badge badge-gray",
       },
+      {
+        label: "Lideranças",
+        value: roleComposition.leadershipMembers,
+        valueClassName: roleComposition.leadershipMembers > 0 ? "text-cyan-400" : "text-white",
+        helper: `${roleComposition.directors} diretivo(s) · ${roleComposition.managers} gerente(s) · ${roleComposition.coordinators} coordenador(es) · ${roleComposition.supervisors} supervisor(es).`,
+        badge: roleComposition.leadershipMembers > 0 ? "Somadas" : "Sem liderança",
+        badgeClassName: roleComposition.leadershipMembers > 0 ? "badge badge-blue" : "badge badge-gray",
+      },
     ];
   }, [
-    configBreakdown.members_using_default_fallback,
-    configBreakdown.members_with_ambiguous_baseline,
+    externalTableRows.length,
     hasSelectedShift,
-    operationalSummary.consumed_day_total,
-    operationalSummary.consumed_service_total,
-    operationalSummary.meals_per_day_total,
-    operationalSummary.members,
-    operationalSummary.remaining_day_total,
+    roleComposition.coordinators,
+    roleComposition.directors,
+    roleComposition.leadershipMembers,
+    roleComposition.managers,
+    roleComposition.supervisors,
     selectedMealServiceLabel,
     showWorkforceFallback,
+    staffConfigBreakdown.members_using_default_fallback,
+    staffConfigBreakdown.members_with_ambiguous_baseline,
+    staffOperationalSummary.consumed_day_total,
+    staffOperationalSummary.consumed_service_total,
+    staffOperationalSummary.meals_per_day_total,
+    staffOperationalSummary.members,
+    staffOperationalSummary.remaining_day_total,
     tableHighlights.consumedMembers,
     tableHighlights.exhaustedMembers,
     tableHighlights.withoutUniqueShiftMembers,
@@ -1190,8 +1951,8 @@ export default function MealsControl() {
     ? "Registro de refeição indisponível: este evento ainda não possui `event_days`, então o módulo permanece em modo complementar do Workforce."
     : !eventDayId
       ? "Selecione um dia operacional para habilitar o registro de refeição."
-      : !mealServiceId
-        ? "Selecione a refeição do momento para habilitar o registro e bloquear repetição indevida."
+      : !selectedMealServiceData
+        ? "Nenhuma refeição ativa foi resolvida para o horário atual. Revise as janelas configuradas no modal de refeições."
         : hasSelectedShift
           ? sector
             ? `Registro ativo para ${selectedMealServiceLabel}, turno e setor selecionados.`
@@ -1199,6 +1960,26 @@ export default function MealsControl() {
           : sector
             ? `Registro ativo para ${selectedMealServiceLabel} e setor selecionados. O turno permanece opcional.`
             : `Registro ativo para ${selectedMealServiceLabel}. O turno permanece opcional.`;
+  const mealHistoryMessage = showWorkforceFallback
+    ? "O histórico HTTP de refeições fica disponível quando o evento operar com `event_days` reais."
+    : !eventDayId
+      ? "Selecione um dia operacional para consultar o histórico recente de baixas."
+      : selectedMealServiceData
+        ? sector
+          ? `Últimas baixas de ${selectedMealServiceLabel}, com o setor filtrado pela base atual do recorte.`
+          : `Últimas baixas de ${selectedMealServiceLabel} no recorte atual do dia.`
+        : "Últimas baixas do dia selecionado. Nenhuma refeição ativa foi resolvida para restringir o histórico por serviço.";
+  const pendingOfflineMealsOutsideCurrentEventCount = Math.max(
+    0,
+    pendingOfflineMeals.length - pendingOfflineMealsForCurrentEvent.length
+  );
+  const pendingOfflineMealsMessage = !eventId
+    ? "A fila offline do Meals mostra tudo o que ainda está salvo localmente neste dispositivo."
+    : !eventDayId
+      ? "A fila offline já está filtrada pelo evento atual. Selecione um dia para afunilar o recorte operacional."
+      : sector
+        ? "As pendências exibidas abaixo estão filtradas por evento, dia e setor."
+        : "As pendências exibidas abaixo estão filtradas por evento e dia operacionais.";
 
   const handleRefresh = async () => {
     if (!eventId) return;
@@ -1207,15 +1988,24 @@ export default function MealsControl() {
     const staticData = await loadStaticData(eventId);
     await loadWorkforceBase(eventId);
     await loadMealServices(eventId);
+    await loadPendingOfflineMeals();
 
     if (!staticData?.stale && staticData?.nextDay) {
-      await loadBalance({
-        eventId,
-        eventDayId: staticData.nextDay,
-        eventShiftId: staticData.nextShift,
-        mealServiceId,
-        sector,
-      });
+      await Promise.all([
+        loadBalance({
+          eventId,
+          eventDayId: staticData.nextDay,
+          eventShiftId: staticData.nextShift,
+          mealServiceId,
+          sector,
+        }),
+        loadMealHistory({
+          eventId,
+          eventDayId: staticData.nextDay,
+          eventShiftId: staticData.nextShift,
+          mealServiceId,
+        }),
+      ]);
     }
   };
 
@@ -1315,7 +2105,7 @@ export default function MealsControl() {
       setMealServiceDrafts(saved);
       setMealCostModalOpen(false);
       toast.success("Configuração de refeições salva.");
-      await loadBalance();
+      await Promise.all([loadBalance(), loadMealHistory()]);
     } catch (err) {
       toast.error(err.response?.data?.message || "Erro ao salvar configuração de refeições.");
     } finally {
@@ -1327,6 +2117,10 @@ export default function MealsControl() {
     e.preventDefault();
     if (!eventId) { toast.error("Selecione um evento."); return; }
     if (!externalQrForm.name.trim()) { toast.error("Informe o nome do colaborador."); return; }
+    if (looksLikeQrTokenValue(externalQrForm.name)) {
+      toast.error("O nome do colaborador não pode ser um QR/token.");
+      return;
+    }
     setGeneratingExternalQr(true);
     try {
       const res = await api.post("/meals/external-qr", {
@@ -1349,6 +2143,11 @@ export default function MealsControl() {
       setGeneratingExternalQr(false);
     }
   };
+
+  const visibleGeneratedExternalQrs = useMemo(
+    () => generatedExternalQrs.filter((item) => !looksLikeQrTokenValue(item?.name || "")),
+    [generatedExternalQrs]
+  );
 
 
   return (
@@ -1439,7 +2238,9 @@ export default function MealsControl() {
                 ? "Selecione um dia"
                 : mealServices.length === 0
                   ? "Sem serviços configurados"
-                  : "Refeição atual..."}
+                  : selectedMealServiceData
+                    ? `Automático: ${selectedMealServiceLabel}`
+                    : "Automático pelo horário"}
           </option>
           {mealServices.map((svc) => (
             <option key={svc.id} value={svc.id} disabled={!svc.is_active}>
@@ -1477,6 +2278,132 @@ export default function MealsControl() {
         <p className="mt-3 text-xs text-gray-500">{registerMealMessage}</p>
       </form>
 
+      <div className="card p-4 space-y-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-white">Operação offline do Meals</p>
+            <p className="mt-1 text-xs text-gray-500">{pendingOfflineMealsMessage}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className={isDeviceOnline ? "badge badge-green" : "badge badge-yellow"}>
+              {isDeviceOnline ? "Conectado" : "Offline"}
+            </span>
+            <span className="badge badge-blue">
+              {pendingOfflineMealsForCurrentEvent.length} pendente(s) {eventId ? "no evento" : "Meals"}
+            </span>
+            {eventId && pendingOfflineMealsOutsideCurrentEventCount > 0 && (
+              <span className="badge badge-gray">
+                +{pendingOfflineMealsOutsideCurrentEventCount} outro(s) evento(s)
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
+            <p className="text-xs text-gray-500">Pendentes Meals</p>
+            <p className="text-lg font-bold text-white">{pendingOfflineMeals.length}</p>
+            <p className="mt-1 text-[11px] text-gray-500">Fila local total neste dispositivo.</p>
+          </div>
+          <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
+            <p className="text-xs text-gray-500">Neste evento</p>
+            <p className="text-lg font-bold text-white">{pendingOfflineMealsForCurrentEvent.length}</p>
+            <p className="mt-1 text-[11px] text-gray-500">Pendências ligadas ao evento selecionado.</p>
+          </div>
+          <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
+            <p className="text-xs text-gray-500">Neste dia</p>
+            <p className="text-lg font-bold text-white">{pendingOfflineMealsForCurrentDay.length}</p>
+            <p className="mt-1 text-[11px] text-gray-500">Recorte atual do dia operacional.</p>
+          </div>
+          <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
+            <p className="text-xs text-gray-500">Sincronização</p>
+            <p className={`text-lg font-bold ${syncingOfflineMeals ? "text-blue-400" : isDeviceOnline ? "text-green-400" : "text-amber-400"}`}>
+              {syncingOfflineMeals ? "Em andamento" : isDeviceOnline ? "Pronta" : "Aguardando rede"}
+            </p>
+            <p className="mt-1 text-[11px] text-gray-500">
+              A fila local também tenta sincronizar automaticamente quando a conexão volta.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn-secondary inline-flex items-center gap-2"
+            onClick={loadPendingOfflineMeals}
+          >
+            <RefreshCw size={14} /> Atualizar fila
+          </button>
+          <button
+            type="button"
+            className="btn-primary inline-flex items-center gap-2"
+            onClick={syncPendingOfflineMeals}
+            disabled={syncingOfflineMeals || !isDeviceOnline || pendingOfflineMeals.length === 0}
+          >
+            <RefreshCw size={14} className={syncingOfflineMeals ? "animate-spin" : ""} />
+            {syncingOfflineMeals ? "Sincronizando..." : "Sincronizar pendentes"}
+          </button>
+        </div>
+
+        {visiblePendingOfflineMeals.length === 0 ? (
+          <p className="text-sm text-gray-400">
+            Nenhuma refeição offline pendente neste recorte.
+          </p>
+        ) : (
+          <div className="table-wrapper">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Captura</th>
+                  <th>Pessoa / QR</th>
+                  <th>Refeição</th>
+                  <th>Contexto</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visiblePendingOfflineMeals.map((record) => {
+                  const payloadItem = record?.payload ?? {};
+                  const qrToken = String(payloadItem?.qr_token || "").trim();
+                  const participantName = participantNameByQrToken.get(qrToken) || "";
+                  const shiftName = filteredShifts.find(
+                    (shift) => String(shift?.id || "") === String(payloadItem?.event_shift_id || "")
+                  )?.name;
+                  const sectorLabel = String(payloadItem?.sector || record?.sector || "").trim();
+
+                  return (
+                    <tr key={`offline-meal-${record.offline_id}`}>
+                      <td className="text-sm text-gray-300">
+                        {formatDateTimeLabel(record.created_offline_at || payloadItem.consumed_at)}
+                      </td>
+                      <td>
+                        <div className="space-y-1">
+                          <p className="font-medium text-white">
+                            {participantName || "Participante ainda não resolvido"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            QR {formatQrTokenSnippet(qrToken)}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="text-sm text-gray-300">
+                        {resolveQueuedMealServiceLabel(record, mealServices)}
+                      </td>
+                      <td className="text-sm text-gray-300">
+                        {sectorLabel || "Sem setor"}{shiftName ? ` · ${shiftName}` : " · Sem turno"}
+                      </td>
+                      <td>
+                        <span className="badge badge-yellow">Pendente local</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {eventId && (
         <div className="card p-4 space-y-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -1487,7 +2414,7 @@ export default function MealsControl() {
                 O gerente informa nome + contato, o sistema cria o acesso e gera o link para enviar pelo WhatsApp.
               </p>
             </div>
-            <span className="badge badge-blue">{generatedExternalQrs.length} gerado(s)</span>
+            <span className="badge badge-blue">{visibleGeneratedExternalQrs.length} gerado(s)</span>
           </div>
 
           <form onSubmit={handleGenerateExternalQr} className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1544,12 +2471,15 @@ export default function MealsControl() {
               </button>
             </div>
           </form>
+          <p className="text-xs text-gray-500">
+            O link para compartilhar aparece logo abaixo, com botões para copiar ou abrir direto no WhatsApp.
+          </p>
 
-          {generatedExternalQrs.length > 0 && (
+          {visibleGeneratedExternalQrs.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs text-gray-500 font-semibold">QRs gerados nesta sessão:</p>
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                {generatedExternalQrs.map((item, i) => {
+                {visibleGeneratedExternalQrs.map((item, i) => {
                   const inviteLink = buildInviteLink(item.qr_token);
                   const waLink = item.phone
                     ? `https://wa.me/${item.phone.replace(/\D/g, "")}?text=${encodeURIComponent("Acesse seu QR de refeição: " + inviteLink)}`
@@ -1559,7 +2489,9 @@ export default function MealsControl() {
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <p className="font-semibold text-white text-sm">{item.name}</p>
-                          <p className="text-xs text-gray-500">{item.phone || "Sem telefone"} · {item.meals_per_day} refeições/dia</p>
+                          <p className="text-xs text-gray-500">
+                            {item.phone || "Sem telefone"} · {item.meals_per_day} refeições/dia · {item.valid_days || 1} dia(s)
+                          </p>
                         </div>
                         <span className="badge badge-green">Ativo</span>
                       </div>
@@ -1591,7 +2523,7 @@ export default function MealsControl() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
         {operationalCards.map((card) => (
           <div key={card.label} className="card p-3 space-y-3">
             <div className="flex items-start justify-between gap-3">
@@ -1630,6 +2562,13 @@ export default function MealsControl() {
             <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
               <p className="text-xs text-gray-500">Valor unitário refeição</p>
               <p className="text-lg font-bold text-white">{projectionEnabled ? formatCurrency(currentMealUnitCost) : "Indisponível"}</p>
+              <p className="mt-1 text-[11px] text-gray-500">
+                {mealServiceId && pricedMealServiceData
+                  ? `Valor exibido pela refeição selecionada: ${formatMealServiceLabel(pricedMealServiceData)}`
+                  : pricedMealServiceData
+                    ? `Janela ativa do dispositivo: ${formatMealServiceLabel(pricedMealServiceData)}`
+                    : "Valor dinâmico pela janela de horário configurada."}
+              </p>
             </div>
             <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
               <p className="text-xs text-gray-500">Custo estimado (dia)</p>
@@ -1673,14 +2612,24 @@ export default function MealsControl() {
           <span className={readingContext.badgeClassName}>{readingContext.badge}</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          {!showWorkforceFallback && configBreakdown.members_using_default_fallback > 0 && (
-            <span className="badge badge-yellow">
-              Default {configBreakdown.members_using_default_fallback}
+          {!showWorkforceFallback && roleComposition.leadershipMembers > 0 && (
+            <span className="badge badge-blue">
+              Liderança {roleComposition.leadershipMembers}
             </span>
           )}
-          {!showWorkforceFallback && configBreakdown.members_with_ambiguous_baseline > 0 && (
+          {!showWorkforceFallback && staffConfigBreakdown.members_using_default_fallback > 0 && (
+            <span className="badge badge-yellow">
+              Default {staffConfigBreakdown.members_using_default_fallback}
+            </span>
+          )}
+          {!showWorkforceFallback && staffConfigBreakdown.members_with_ambiguous_baseline > 0 && (
             <span className="badge badge-red">
-              Ambígua {configBreakdown.members_with_ambiguous_baseline}
+              Ambígua {staffConfigBreakdown.members_with_ambiguous_baseline}
+            </span>
+          )}
+          {!showWorkforceFallback && externalTableRows.length > 0 && (
+            <span className="badge badge-gray">
+              Externos {externalTableRows.length}
             </span>
           )}
           {!showWorkforceFallback && tableHighlights.exhaustedMembers > 0 && (
@@ -1701,28 +2650,93 @@ export default function MealsControl() {
         </div>
       </div>
 
+      {!showWorkforceFallback && eventId && (
+        <div className="card p-4 space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-white">Histórico recente de refeições</p>
+              <p className="mt-1 text-xs text-gray-500">{mealHistoryMessage}</p>
+            </div>
+            <span className={mealHistoryLoading ? "badge badge-blue" : "badge badge-gray"}>
+              {mealHistoryLoading ? "Carregando..." : `${visibleMealHistoryItems.length} registro(s)`}
+            </span>
+          </div>
+
+          {!eventDayId ? (
+            <p className="text-sm text-gray-400">
+              O histórico fica disponível assim que um dia operacional for selecionado.
+            </p>
+          ) : mealHistoryLoading && visibleMealHistoryItems.length === 0 ? (
+            <div className="py-6 text-center">
+              <div className="spinner w-6 h-6 mx-auto" />
+            </div>
+          ) : visibleMealHistoryItems.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              Nenhuma baixa recente foi encontrada para este recorte.
+            </p>
+          ) : (
+            <div className="table-wrapper">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Horário</th>
+                    <th>Pessoa</th>
+                    <th>Refeição</th>
+                    <th>Turno</th>
+                    <th>Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleMealHistoryItems.map((item) => (
+                    <tr key={`meal-history-${item.id}`}>
+                      <td className="text-sm text-gray-300">
+                        {formatDateTimeLabel(item.consumed_at)}
+                      </td>
+                      <td>
+                        <div className="space-y-1">
+                          <p className="font-medium text-white">{item.person_name || `Participante #${item.participant_id}`}</p>
+                          <p className="text-xs text-gray-500">{formatEventDayLabel(item.event_date)}</p>
+                        </div>
+                      </td>
+                      <td className="text-sm text-gray-300">
+                        {item.meal_service_label || item.meal_service_code || "Sem serviço"}
+                      </td>
+                      <td className="text-sm text-gray-300">
+                        {item.shift_name || "Sem turno"}
+                      </td>
+                      <td className="text-sm text-gray-300">
+                        {formatCurrency(item.unit_cost_applied)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="card p-4 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-white">Membros por Setor (Breakdown)</p>
           <span className="badge badge-blue">
-            {tableRows.length} membros na leitura atual
+            {staffTableRows.length} membros na leitura atual
           </span>
         </div>
-        <div className="flex flex-wrap gap-2 mt-2">
-          {Object.entries(
-            tableRows.reduce((acc, row) => {
-              const sec = row.sector || "Sem setor";
-              acc[sec] = (acc[sec] || 0) + 1;
-              return acc;
-            }, {})
-          )
-            .sort((a, b) => b[1] - a[1])
-            .map(([sec, count]) => (
-              <div key={sec} className="px-3 py-1.5 rounded-lg border border-gray-800 bg-gray-950/40 flex items-center gap-2">
-                <span className="text-xs text-gray-400 font-medium capitalize">{sec}</span>
-                <span className="text-xs text-white bg-gray-800 px-1.5 py-0.5 rounded">{count}</span>
-              </div>
-            ))}
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:flex-nowrap lg:items-center lg:gap-2 lg:overflow-x-auto lg:pb-1">
+          {breakdownEntries.map((entry) => (
+            <div
+              key={entry.key}
+              className="rounded-lg border border-gray-800 bg-gray-950/40 px-3 py-2 flex items-center justify-between gap-3 min-w-0 lg:min-w-max lg:flex-none lg:py-1.5"
+            >
+              <span className={`text-xs text-gray-400 font-medium ${entry.capitalize ? "capitalize" : ""}`}>
+                {entry.label}
+              </span>
+              <span className="text-xs text-white bg-gray-800 px-1.5 py-0.5 rounded shrink-0">
+                {entry.count}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -1744,7 +2758,7 @@ export default function MealsControl() {
                   <div className="spinner w-6 h-6 mx-auto" />
                 </td>
               </tr>
-            ) : (showWorkforceFallback ? filteredWorkforceItems.length === 0 : payload.items.length === 0) ? (
+            ) : (showWorkforceFallback ? tableRows.length === 0 : eventScopedPayloadItems.length === 0) ? (
               <tr>
                 <td colSpan={5} className="py-8 text-center text-sm text-gray-500">
                   {emptyTableMessage}
@@ -1784,6 +2798,9 @@ export default function MealsControl() {
                         )}
                         {!showWorkforceFallback && row.hasAmbiguousBaseline && (
                           <span className="badge badge-red">Baseline ambíguo</span>
+                        )}
+                        {row.roleClass && row.roleClass !== "operational" && (
+                          <span className="badge badge-blue">{getRoleClassLabel(row.roleClass)}</span>
                         )}
                         {!showWorkforceFallback && (row.hasMultipleRoles || row.hasMultipleSectors || row.hasMultipleShifts) && (
                           <span className="badge badge-gray">Contexto múltiplo</span>

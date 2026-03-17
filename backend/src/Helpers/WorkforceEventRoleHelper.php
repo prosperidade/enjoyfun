@@ -163,14 +163,14 @@ function workforceResolveRoleClass(string $roleName, string $costBucket = ''): s
     }
 
     if ($normalizedName !== '') {
-        if (preg_match('/\b(gerente|diretor|manager|gestor)\b/u', $normalizedName)) {
-            return 'manager';
-        }
         if (preg_match('/\bcoordenador\b/u', $normalizedName)) {
             return 'coordinator';
         }
-        if (preg_match('/\b(supervisor|lider|chefe)\b/u', $normalizedName)) {
+        if (preg_match('/\b(supervisor|spervisor|lider|líder|chefe)\b/u', $normalizedName)) {
             return 'supervisor';
+        }
+        if (preg_match('/\b(gerente|diretor|manager|gestor)\b/u', $normalizedName)) {
+            return 'manager';
         }
     }
 

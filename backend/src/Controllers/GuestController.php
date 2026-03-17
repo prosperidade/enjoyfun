@@ -371,6 +371,7 @@ function importGuests(): void
         jsonError("Arquivo CSV obrigatório no campo 'file'.", 422);
     }
 
+    $db = null;
     try {
         $db = Database::getInstance();
 
@@ -491,7 +492,7 @@ function importGuests(): void
         ], $message);
 
     } catch (Throwable $e) {
-        if (isset($db) && $db->inTransaction()) $db->rollBack();
+        if ($db && $db->inTransaction()) $db->rollBack();
         jsonError("Erro na importação: " . $e->getMessage(), 500);
     }
 }

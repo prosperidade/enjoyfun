@@ -25,9 +25,15 @@ function createOrganizer(array $body): void
         jsonError("Todos os campos são obrigatórios.", 422);
     }
 
+    $db = null;
+    $ownTransaction = false; // Initialize $ownTransaction
     try {
         $db = Database::getInstance();
-        $db->beginTransaction();
+        // Se já não estivermos numa transação, criamos uma nova (permite reutilizar do Controller)
+        if (!$db->inTransaction()) {
+            $db->beginTransaction();
+            $ownTransaction = true;
+        }
 
         // 1. Verifica se já existe
         $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
@@ -50,13 +56,12 @@ function createOrganizer(array $body): void
            ->execute([$newId, $newId]);
 
         $db->commit();
-
-        jsonSuccess(['id' => $newId], "Organizador criado com sucesso!", 201);
-
     } catch (Exception $e) {
-        if (isset($db) && $db->inTransaction()) $db->rollBack();
+        if ($db && $db->inTransaction()) $db->rollBack();
         jsonError("Erro ao criar: " . $e->getMessage(), 500);
     }
+
+    jsonSuccess(['id' => $newId], "Organizador criado com sucesso!", 201);
 }
 
 function listOrganizers(): void

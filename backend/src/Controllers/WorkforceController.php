@@ -987,7 +987,7 @@ function listAssignments(array $query): void
                {$rootManagerEventRoleIdSelect},
                {$eventRolePublicIdSelect},
                {$rootEventRolePublicIdSelect},
-               ep.id as participant_id, ep.category_id, ep.qr_token,
+               ep.id as participant_id, ep.event_id, ep.category_id, ep.qr_token,
                p.name as person_name, p.name as name,
                p.email as person_email, p.email as email, p.phone,
                r.id as role_id, r.name as role_name,
@@ -1153,7 +1153,7 @@ function createAssignment(array $body): void
         $sector = normalizeSector((string)$managerEventRole['sector']);
     }
 
-    if ($requestedManagerUserId > 0) {
+    if ($requestedManagerUserId > 0 && !$managerEventRole) {
         if (!$sector && $roleSector) {
             $sector = $roleSector;
         }
@@ -1554,7 +1554,7 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
     if ($targetRoleId > 0) {
         $isManagerialByBucket = ($requestedRoleBucket === 'managerial');
         $isManagerialByName   = ($requestedRoleName !== null && inferCostBucketFromRoleName($requestedRoleName) === 'managerial');
-        if ($isManagerialByBucket || $isManagerialByName) {
+        if (($isManagerialByBucket || $isManagerialByName) && $forcedManagerId > 0 && !$managerEventRole) {
             $targetRoleId = ensureSectorDefaultRole($db, $organizerId, $targetSector);
             $managerialRedirect = true;
         }
@@ -2578,6 +2578,106 @@ function findLeaderParticipantBindingByIdentity(PDO $db, int $organizerId, int $
     return $row ? fetchLeaderParticipantBindingContext($db, $organizerId, $eventId, (int)$row['participant_id']) : null;
 }
 
+function findPersonIdByIdentity(PDO $db, int $organizerId, string $email = '', string $document = ''): ?int
+{
+    $normalizedEmail = strtolower(trim($email));
+    $normalizedDocument = preg_replace('/\D+/', '', (string)$document);
+    if ($normalizedEmail === '' && $normalizedDocument === '') {
+        return null;
+    }
+
+    $conditions = [];
+    $params = [':organizer_id' => $organizerId];
+    if ($normalizedEmail !== '') {
+        $conditions[] = "LOWER(TRIM(COALESCE(p.email, ''))) = :email";
+        $params[':email'] = $normalizedEmail;
+    }
+    if ($normalizedDocument !== '') {
+        $conditions[] = "REGEXP_REPLACE(COALESCE(p.document, ''), '\D', '', 'g') = :document";
+        $params[':document'] = $normalizedDocument;
+    }
+
+    $stmt = $db->prepare("
+        SELECT p.id
+        FROM people p
+        WHERE p.organizer_id = :organizer_id
+          AND (" . implode(' OR ', $conditions) . ")
+        ORDER BY p.id ASC
+        LIMIT 1
+    ");
+    $stmt->execute($params);
+    $id = $stmt->fetchColumn();
+    return $id ? (int)$id : null;
+}
+
+function ensureLeadershipParticipantFromIdentity(
+    PDO $db,
+    int $organizerId,
+    int $eventId,
+    string $leaderName,
+    string $leaderCpf,
+    string $leaderPhone = '',
+    ?array $leaderUser = null
+): ?array {
+    $normalizedName = trim($leaderName);
+    $normalizedDocument = preg_replace('/\D+/', '', (string)$leaderCpf);
+    if ($eventId <= 0 || $normalizedName === '' || $normalizedDocument === '') {
+        return null;
+    }
+
+    $email = trim((string)($leaderUser['email'] ?? ''));
+    $personId = findPersonIdByIdentity($db, $organizerId, $email, $leaderCpf);
+    if (!$personId) {
+        $stmtInsertPerson = $db->prepare("
+            INSERT INTO people (name, email, document, phone, organizer_id, created_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
+            RETURNING id
+        ");
+        $stmtInsertPerson->execute([
+            $normalizedName,
+            $email !== '' ? $email : null,
+            $leaderCpf,
+            $leaderPhone !== '' ? $leaderPhone : null,
+            $organizerId,
+        ]);
+        $personId = (int)$stmtInsertPerson->fetchColumn();
+    } else {
+        $stmtUpdatePerson = $db->prepare("
+            UPDATE people
+            SET name = COALESCE(NULLIF(?, ''), name),
+                email = COALESCE(NULLIF(?, ''), email),
+                phone = COALESCE(NULLIF(?, ''), phone),
+                document = COALESCE(NULLIF(?, ''), document),
+                updated_at = NOW()
+            WHERE id = ?
+        ");
+        $stmtUpdatePerson->execute([
+            $normalizedName,
+            $email,
+            $leaderPhone,
+            $leaderCpf,
+            $personId,
+        ]);
+    }
+
+    $participantId = findEventParticipantId($db, $eventId, $personId);
+    if (!$participantId) {
+        $categoryId = resolveDefaultCategoryId($db, $organizerId);
+        $qrToken = 'PT_' . bin2hex(random_bytes(16));
+        $stmtInsertParticipant = $db->prepare("
+            INSERT INTO event_participants (event_id, person_id, category_id, qr_token, created_at)
+            VALUES (?, ?, ?, ?, NOW())
+            RETURNING id
+        ");
+        $stmtInsertParticipant->execute([$eventId, $personId, $categoryId, $qrToken]);
+        $participantId = (int)$stmtInsertParticipant->fetchColumn();
+    } else {
+        ensureParticipantQrToken($db, $participantId);
+    }
+
+    return fetchLeaderParticipantBindingContext($db, $organizerId, $eventId, $participantId);
+}
+
 function findEventRoleByIdentifier(PDO $db, int $organizerId, string $identifier): ?array
 {
     $trimmed = trim($identifier);
@@ -2720,6 +2820,51 @@ function persistEventRoleFromPayload(
         }
     }
 
+    if (!$leaderParticipant && !$leaderParticipantIdProvided && $leaderCpf !== '') {
+        $leaderParticipant = findLeaderParticipantBindingByIdentity(
+            $db,
+            $organizerId,
+            $eventId,
+            '',
+            $leaderCpf
+        );
+        if ($leaderParticipant) {
+            $leaderParticipantId = (int)($leaderParticipant['participant_id'] ?? 0);
+        }
+    }
+
+    if (!$leaderUser && !$leaderUserIdProvided && $leaderCpf !== '') {
+        $leaderUser = findLeaderUserBindingByIdentity(
+            $db,
+            $organizerId,
+            '',
+            $leaderCpf
+        );
+        if ($leaderUser) {
+            $leaderUserId = (int)($leaderUser['id'] ?? 0);
+        }
+    }
+
+    if (
+        !$leaderParticipant
+        && $costBucket === 'managerial'
+        && $leaderName !== ''
+        && $leaderCpf !== ''
+    ) {
+        $leaderParticipant = ensureLeadershipParticipantFromIdentity(
+            $db,
+            $organizerId,
+            $eventId,
+            $leaderName,
+            $leaderCpf,
+            $leaderPhone,
+            $leaderUser
+        );
+        if ($leaderParticipant) {
+            $leaderParticipantId = (int)($leaderParticipant['participant_id'] ?? 0);
+        }
+    }
+
     if (!$leaderUser && !$leaderUserIdProvided && $leaderParticipant) {
         $leaderUser = findLeaderUserBindingByIdentity(
             $db,
@@ -2801,61 +2946,250 @@ function persistEventRoleFromPayload(
         'is_placeholder' => $isPlaceholder ? 'true' : 'false',
     ];
 
-    if ($existing) {
-        $setClauses = [];
-        $params = [':id' => (int)$existing['id']];
-        if ($publicId !== '') {
-            $data['public_id'] = $publicId;
-        }
-        foreach ($data as $column => $value) {
-            $setClauses[] = "{$column} = :{$column}";
-            $params[":{$column}"] = $value;
+    $ownsTransaction = !$db->inTransaction();
+
+    try {
+        if ($ownsTransaction) {
+            $db->beginTransaction();
         }
 
-        $stmt = $db->prepare("
-            UPDATE workforce_event_roles
-            SET " . implode(",\n                ", $setClauses) . ",
-                updated_at = NOW()
-            WHERE id = :id
-            RETURNING *
-        ");
-        $stmt->execute($params);
-        $saved = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-    } else {
-        if ($publicId !== '') {
-            $data['public_id'] = $publicId;
-        }
-        $columns = array_keys($data);
-        $placeholders = array_map(static fn(string $column): string => ':' . $column, $columns);
-        $params = [];
-        foreach ($data as $column => $value) {
-            $params[':' . $column] = $value;
+        if ($existing) {
+            $setClauses = [];
+            $params = [':id' => (int)$existing['id']];
+            if ($publicId !== '') {
+                $data['public_id'] = $publicId;
+            }
+            foreach ($data as $column => $value) {
+                $setClauses[] = "{$column} = :{$column}";
+                $params[":{$column}"] = $value;
+            }
+
+            $stmt = $db->prepare("
+                UPDATE workforce_event_roles
+                SET " . implode(",\n                ", $setClauses) . ",
+                    updated_at = NOW()
+                WHERE id = :id
+                RETURNING *
+            ");
+            $stmt->execute($params);
+            $saved = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        } else {
+            if ($publicId !== '') {
+                $data['public_id'] = $publicId;
+            }
+            $columns = array_keys($data);
+            $placeholders = array_map(static fn(string $column): string => ':' . $column, $columns);
+            $params = [];
+            foreach ($data as $column => $value) {
+                $params[':' . $column] = $value;
+            }
+
+            $stmt = $db->prepare("
+                INSERT INTO workforce_event_roles (" . implode(', ', $columns) . ", created_at, updated_at)
+                VALUES (" . implode(', ', $placeholders) . ", NOW(), NOW())
+                RETURNING *
+            ");
+            $stmt->execute($params);
+            $saved = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
         }
 
-        $stmt = $db->prepare("
-            INSERT INTO workforce_event_roles (" . implode(', ', $columns) . ", created_at, updated_at)
-            VALUES (" . implode(', ', $placeholders) . ", NOW(), NOW())
-            RETURNING *
-        ");
-        $stmt->execute($params);
-        $saved = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $saved = workforceNormalizeEventRoleRow($saved);
+        if ((int)($saved['parent_event_role_id'] ?? 0) <= 0 && (int)($saved['root_event_role_id'] ?? 0) <= 0 && (int)($saved['id'] ?? 0) > 0) {
+            $stmtRoot = $db->prepare("
+                UPDATE workforce_event_roles
+                SET root_event_role_id = id, updated_at = NOW()
+                WHERE id = :id
+                RETURNING *
+            ");
+            $stmtRoot->execute([':id' => (int)$saved['id']]);
+            $saved = workforceNormalizeEventRoleRow($stmtRoot->fetch(PDO::FETCH_ASSOC) ?: $saved);
+        }
+
+        $saved['role_name'] = $roleName;
+        $saved['role_sector'] = (string)($role['sector'] ?? '');
+        syncLeadershipAssignmentForEventRole($db, $organizerId, $saved, $role);
+
+        if ($ownsTransaction) {
+            $db->commit();
+        }
+    } catch (\Throwable $e) {
+        if ($ownsTransaction && $db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
     }
 
-    $saved = workforceNormalizeEventRoleRow($saved);
-    if ((int)($saved['parent_event_role_id'] ?? 0) <= 0 && (int)($saved['root_event_role_id'] ?? 0) <= 0 && (int)($saved['id'] ?? 0) > 0) {
-        $stmtRoot = $db->prepare("
-            UPDATE workforce_event_roles
-            SET root_event_role_id = id, updated_at = NOW()
-            WHERE id = :id
-            RETURNING *
-        ");
-        $stmtRoot->execute([':id' => (int)$saved['id']]);
-        $saved = workforceNormalizeEventRoleRow($stmtRoot->fetch(PDO::FETCH_ASSOC) ?: $saved);
-    }
-
-    $saved['role_name'] = $roleName;
-    $saved['role_sector'] = (string)($role['sector'] ?? '');
     return $saved;
+}
+
+function syncLeadershipAssignmentForEventRole(PDO $db, int $organizerId, array $eventRole, array $role): void
+{
+    if (!workforceAssignmentsHaveEventRoleColumns($db)) {
+        return;
+    }
+
+    $eventRoleId = (int)($eventRole['id'] ?? 0);
+    if ($eventRoleId <= 0) {
+        return;
+    }
+
+    $supportsManagerBinding = columnExists($db, 'workforce_assignments', 'manager_user_id')
+        && columnExists($db, 'workforce_assignments', 'source_file_name');
+    $supportsPublicId = workforceAssignmentsHavePublicId($db);
+    $roleName = (string)($eventRole['role_name'] ?? $role['name'] ?? '');
+    $costBucket = normalizeCostBucket((string)($eventRole['cost_bucket'] ?? ''), $roleName);
+    $roleId = (int)($eventRole['role_id'] ?? $role['id'] ?? 0);
+    $sector = normalizeSector((string)($eventRole['sector'] ?? $role['sector'] ?? ''));
+    $eventId = (int)($eventRole['event_id'] ?? 0);
+    $leaderParticipantId = (int)($eventRole['leader_participant_id'] ?? 0);
+    $rootEventRoleId = (int)($eventRole['root_event_role_id'] ?? 0) ?: $eventRoleId;
+
+    if (
+        $costBucket !== 'managerial'
+        || $roleId <= 0
+        || $eventId <= 0
+        || $sector === ''
+        || $leaderParticipantId <= 0
+    ) {
+        if ($supportsManagerBinding) {
+            purgeSyncedLeadershipAssignmentsForEventRole($db, $eventRoleId);
+        }
+        return;
+    }
+
+    $leaderParticipant = fetchLeaderParticipantBindingContext($db, $organizerId, $eventId, $leaderParticipantId);
+    if (!$leaderParticipant) {
+        if ($supportsManagerBinding) {
+            purgeSyncedLeadershipAssignmentsForEventRole($db, $eventRoleId);
+        }
+        return;
+    }
+
+    if ($supportsManagerBinding) {
+        purgeSyncedLeadershipAssignmentsForEventRole($db, $eventRoleId, $leaderParticipantId, $sector);
+    }
+
+    $existingColumns = ['id', 'event_shift_id', 'event_role_id', 'root_manager_event_role_id'];
+    if ($supportsManagerBinding) {
+        $existingColumns[] = 'manager_user_id';
+        $existingColumns[] = 'source_file_name';
+    }
+    if ($supportsPublicId) {
+        $existingColumns[] = 'public_id';
+    }
+
+    $stmtExisting = $db->prepare("
+        SELECT " . implode(', ', $existingColumns) . "
+        FROM workforce_assignments
+        WHERE participant_id = :participant_id
+          AND LOWER(COALESCE(sector, '')) = :sector
+        LIMIT 1
+    ");
+    $stmtExisting->execute([
+        ':participant_id' => $leaderParticipantId,
+        ':sector' => $sector,
+    ]);
+    $existingAssignment = $stmtExisting->fetch(PDO::FETCH_ASSOC) ?: null;
+
+    if ($existingAssignment) {
+        $setClauses = [
+            'role_id = :role_id',
+            'sector = :sector',
+            'event_role_id = :event_role_id',
+            'root_manager_event_role_id = :root_manager_event_role_id',
+        ];
+        $params = [
+            ':role_id' => $roleId,
+            ':sector' => $sector,
+            ':event_role_id' => $eventRoleId,
+            ':root_manager_event_role_id' => $rootEventRoleId,
+            ':id' => (int)$existingAssignment['id'],
+        ];
+        if ($supportsManagerBinding) {
+            $setClauses[] = 'manager_user_id = :manager_user_id';
+            $setClauses[] = 'source_file_name = :source_file_name';
+            $params[':manager_user_id'] = null;
+            $params[':source_file_name'] = 'leadership_sync';
+        }
+
+        $stmtSync = $db->prepare("
+            UPDATE workforce_assignments
+            SET " . implode(",\n                ", $setClauses) . "
+            WHERE id = :id
+        ");
+        $stmtSync->execute($params);
+        return;
+    }
+
+    $columns = [
+        'participant_id',
+        'role_id',
+        'sector',
+        'event_shift_id',
+        'event_role_id',
+        'root_manager_event_role_id',
+        'created_at',
+    ];
+    $values = [
+        ':participant_id',
+        ':role_id',
+        ':sector',
+        'NULL',
+        ':event_role_id',
+        ':root_manager_event_role_id',
+        'NOW()',
+    ];
+    $params = [
+        ':participant_id' => $leaderParticipantId,
+        ':role_id' => $roleId,
+        ':sector' => $sector,
+        ':event_role_id' => $eventRoleId,
+        ':root_manager_event_role_id' => $rootEventRoleId,
+    ];
+
+    if ($supportsManagerBinding) {
+        $columns[] = 'manager_user_id';
+        $columns[] = 'source_file_name';
+        $values[] = ':manager_user_id';
+        $values[] = ':source_file_name';
+        $params[':manager_user_id'] = null;
+        $params[':source_file_name'] = 'leadership_sync';
+    }
+
+    $stmtInsert = $db->prepare("
+        INSERT INTO workforce_assignments (" . implode(', ', $columns) . ")
+        VALUES (" . implode(', ', $values) . ")
+    ");
+    $stmtInsert->execute($params);
+}
+
+function purgeSyncedLeadershipAssignmentsForEventRole(
+    PDO $db,
+    int $eventRoleId,
+    ?int $keepParticipantId = null,
+    string $keepSector = ''
+): void {
+    if ($eventRoleId <= 0 || !columnExists($db, 'workforce_assignments', 'source_file_name')) {
+        return;
+    }
+
+    $conditions = [
+        'event_role_id = :event_role_id',
+        "source_file_name = 'leadership_sync'",
+    ];
+    $params = [':event_role_id' => $eventRoleId];
+
+    if (($keepParticipantId ?? 0) > 0 && $keepSector !== '') {
+        $conditions[] = '(participant_id <> :participant_id OR LOWER(COALESCE(sector, \'\')) <> :sector)';
+        $params[':participant_id'] = (int)$keepParticipantId;
+        $params[':sector'] = normalizeSector($keepSector);
+    }
+
+    $stmt = $db->prepare("
+        DELETE FROM workforce_assignments
+        WHERE " . implode("\n          AND ", $conditions)
+    );
+    $stmt->execute($params);
 }
 
 function ensureEventRoleForAssignment(
