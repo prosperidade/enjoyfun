@@ -123,6 +123,7 @@ function createEvent(array $body): void
         $stmt->execute($values);
         $id = (int)$stmt->fetchColumn();
 
+        syncEventOperationalCalendar($db, $id, $payload);
         persistEventCommercialConfig($db, $id, $organizerId, $commercialConfig);
         $db->commit();
 
@@ -201,6 +202,7 @@ function updateEvent(int $id, array $body): void
         ");
         $stmt->execute($values);
 
+        syncEventOperationalCalendar($db, $id, $payload);
         persistEventCommercialConfig($db, $id, $organizerId, $commercialConfig);
         $db->commit();
 
@@ -431,6 +433,154 @@ function normalizeEventPayload(array $body): array
         'status' => $status,
         'capacity' => array_key_exists('capacity', $body) && $body['capacity'] !== '' ? (int)$body['capacity'] : 0,
     ];
+}
+
+function syncEventOperationalCalendar(PDO $db, int $eventId, array $payload): void
+{
+    if (!eventTableExists($db, 'event_days')) {
+        return;
+    }
+
+    $calendar = buildDerivedEventDaysCalendar($payload);
+    if ($calendar === []) {
+        return;
+    }
+
+    if (eventOperationalCalendarHasLiveDependencies($db, $eventId)) {
+        return;
+    }
+
+    if (eventTableExists($db, 'event_shifts')) {
+        $stmtDeleteShifts = $db->prepare("
+            DELETE FROM event_shifts
+            WHERE event_day_id IN (
+                SELECT id
+                FROM event_days
+                WHERE event_id = ?
+            )
+        ");
+        $stmtDeleteShifts->execute([$eventId]);
+    }
+
+    $stmtDeleteDays = $db->prepare("DELETE FROM event_days WHERE event_id = ?");
+    $stmtDeleteDays->execute([$eventId]);
+
+    $stmtCreateDay = $db->prepare("
+        INSERT INTO event_days (event_id, date, starts_at, ends_at, created_at)
+        VALUES (?, ?, ?, ?, NOW())
+        RETURNING id
+    ");
+    $stmtCreateShift = eventTableExists($db, 'event_shifts')
+        ? $db->prepare("
+            INSERT INTO event_shifts (event_day_id, name, starts_at, ends_at, created_at)
+            VALUES (?, ?, ?, ?, NOW())
+        ")
+        : null;
+
+    foreach ($calendar as $item) {
+        $stmtCreateDay->execute([
+            $eventId,
+            $item['date'],
+            $item['starts_at'],
+            $item['ends_at'],
+        ]);
+        $eventDayId = (int)$stmtCreateDay->fetchColumn();
+        if ($eventDayId <= 0 || !$stmtCreateShift) {
+            continue;
+        }
+
+        $stmtCreateShift->execute([
+            $eventDayId,
+            'Turno Único',
+            $item['starts_at'],
+            $item['ends_at'],
+        ]);
+    }
+}
+
+function buildDerivedEventDaysCalendar(array $payload): array
+{
+    $startsAt = trim((string)($payload['starts_at'] ?? ''));
+    if ($startsAt === '') {
+        return [];
+    }
+
+    try {
+        $eventStart = new DateTimeImmutable($startsAt);
+    } catch (Throwable) {
+        return [];
+    }
+
+    $endsAt = trim((string)($payload['ends_at'] ?? ''));
+    try {
+        $eventEnd = $endsAt !== '' ? new DateTimeImmutable($endsAt) : $eventStart;
+    } catch (Throwable) {
+        $eventEnd = $eventStart;
+    }
+    if ($eventEnd < $eventStart) {
+        $eventEnd = $eventStart;
+    }
+
+    $currentDay = $eventStart->setTime(0, 0, 0);
+    $lastDay = $eventEnd->setTime(0, 0, 0);
+    $startDateKey = $eventStart->format('Y-m-d');
+    $endDateKey = $eventEnd->format('Y-m-d');
+    $days = [];
+
+    while ($currentDay <= $lastDay) {
+        $dateKey = $currentDay->format('Y-m-d');
+        $dayStart = $dateKey === $startDateKey
+            ? $eventStart
+            : $currentDay->setTime(0, 0, 0);
+        $dayEnd = $dateKey === $endDateKey
+            ? $eventEnd
+            : $currentDay->setTime(23, 59, 59);
+        if ($dayEnd < $dayStart) {
+            $dayEnd = $dayStart;
+        }
+
+        $days[] = [
+            'date' => $dateKey,
+            'starts_at' => $dayStart->format('Y-m-d H:i:s'),
+            'ends_at' => $dayEnd->format('Y-m-d H:i:s'),
+        ];
+
+        $currentDay = $currentDay->modify('+1 day');
+    }
+
+    return $days;
+}
+
+function eventOperationalCalendarHasLiveDependencies(PDO $db, int $eventId): bool
+{
+    if (eventTableExists($db, 'participant_meals')) {
+        $stmtMeals = $db->prepare("
+            SELECT COUNT(*)
+            FROM participant_meals pm
+            JOIN event_days ed ON ed.id = pm.event_day_id
+            WHERE ed.event_id = ?
+        ");
+        $stmtMeals->execute([$eventId]);
+        if ((int)$stmtMeals->fetchColumn() > 0) {
+            return true;
+        }
+    }
+
+    if (eventTableExists($db, 'workforce_assignments') && eventTableExists($db, 'event_shifts')) {
+        $stmtAssignments = $db->prepare("
+            SELECT COUNT(*)
+            FROM workforce_assignments wa
+            JOIN event_shifts es ON es.id = wa.event_shift_id
+            JOIN event_days ed ON ed.id = es.event_day_id
+            WHERE ed.event_id = ?
+        ");
+        $stmtAssignments->execute([$eventId]);
+        if ((int)$stmtAssignments->fetchColumn() > 0) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function normalizeCommercialConfigPayload(mixed $input): array

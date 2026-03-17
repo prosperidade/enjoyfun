@@ -10,6 +10,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 {
     $operator = requireAuth(); // Require logged-in user (optional: require specific roles like 'staff')
     require_once __DIR__ . '/../Services/SalesDomainService.php';
+    require_once __DIR__ . '/../Services/MealsDomainService.php';
 
     if ($method !== 'POST') {
         jsonError('Method not allowed.', 405);
@@ -42,6 +43,8 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
             if ($type === 'sale') {
                 $payload = normalizeOfflineSalePayload($payload, $item);
+            } elseif ($type === 'meal') {
+                $payload = normalizeOfflineMealPayload($payload, $item);
             }
 
             // 1. Verificar duplicidade (Idempotência)
@@ -78,6 +81,8 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
             // 3. Processar a regra de negócio baseada no Type
             if ($type === 'sale') {
                 processSale($db, $operator, $payload, $offlineId);
+            } elseif ($type === 'meal') {
+                processMeal($db, $operator, $payload, $offlineId);
             } else {
                 throw new Exception("Tipo de payload offline não suportado: {$type}.", 422);
             }
@@ -185,5 +190,50 @@ function normalizeOfflineSalePayload(array $payload, array $item): array
         'sector' => strtolower(trim((string)($payload['sector'] ?? $item['sector'] ?? 'bar'))),
         'card_id' => $cardId !== '' ? $cardId : null,
         'items' => $normalizedItems,
+    ];
+}
+
+function processMeal(PDO $db, array $operator, array $payload, string $offlineId): void
+{
+    $organizerId = (int)(($operator['role'] ?? '') === 'admin'
+        ? ($operator['organizer_id'] ?? $operator['id'] ?? 0)
+        : ($operator['organizer_id'] ?? 0));
+
+    if ($organizerId <= 0) {
+        throw new Exception('Organizador inválido para sincronização offline de refeições.', 422);
+    }
+
+    \EnjoyFun\Services\MealsDomainService::registerOperationalMealByReference(
+        $db,
+        $organizerId,
+        isset($payload['participant_id']) ? (int)$payload['participant_id'] : null,
+        $payload['qr_token'] ?? null,
+        (int)($payload['event_day_id'] ?? 0),
+        isset($payload['event_shift_id']) && (int)$payload['event_shift_id'] > 0 ? (int)$payload['event_shift_id'] : null,
+        $payload['sector'] ?? null,
+        isset($payload['meal_service_id']) && (int)$payload['meal_service_id'] > 0 ? (int)$payload['meal_service_id'] : null,
+        $payload['meal_service_code'] ?? null,
+        $offlineId,
+        $payload['consumed_at'] ?? null
+    );
+}
+
+function normalizeOfflineMealPayload(array $payload, array $item): array
+{
+    $eventDayId = (int)($payload['event_day_id'] ?? 0);
+    if ($eventDayId <= 0) {
+        throw new Exception('event_day_id é obrigatório para sincronização offline de refeições.', 422);
+    }
+
+    return [
+        'event_id' => (int)($payload['event_id'] ?? 0),
+        'event_day_id' => $eventDayId,
+        'event_shift_id' => isset($payload['event_shift_id']) ? (int)$payload['event_shift_id'] : null,
+        'participant_id' => isset($payload['participant_id']) ? (int)$payload['participant_id'] : null,
+        'qr_token' => trim((string)($payload['qr_token'] ?? '')),
+        'sector' => strtolower(trim((string)($payload['sector'] ?? $item['sector'] ?? ''))),
+        'meal_service_id' => isset($payload['meal_service_id']) ? (int)$payload['meal_service_id'] : null,
+        'meal_service_code' => trim((string)($payload['meal_service_code'] ?? '')),
+        'consumed_at' => $payload['consumed_at'] ?? null,
     ];
 }

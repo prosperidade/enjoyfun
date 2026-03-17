@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import api from '../lib/api';
+import publicApi from '../lib/publicApi';
 
 export default function GuestTicket() {
   const [searchParams] = useSearchParams();
@@ -16,7 +16,7 @@ export default function GuestTicket() {
       return;
     }
 
-    api.get('/guests/ticket', { params: { token } })
+    publicApi.get('/guests/ticket', { params: { token } })
       .then(({ data }) => {
         setTicket(data.data || null);
       })

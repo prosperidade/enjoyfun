@@ -377,6 +377,16 @@ function workforceResolveParticipantOperationalConfig(PDO $db, int $participantI
     $legacyJoin = $parts['has_legacy_settings']
         ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id"
         : '';
+    $memberJoin = workforceHelperTableExists($db, 'workforce_member_settings')
+        ? "LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id"
+        : "LEFT JOIN LATERAL (
+                SELECT
+                    NULL::integer AS participant_id,
+                    NULL::integer AS max_shifts_event,
+                    NULL::numeric AS shift_hours,
+                    NULL::integer AS meals_per_day,
+                    NULL::numeric AS payment_amount
+           ) wms ON TRUE";
     $preferredAssignmentJoin = workforceBuildPreferredAssignmentJoinSql($db, 'ep.id', 'wa');
 
     $stmt = $db->prepare("
@@ -391,7 +401,7 @@ function workforceResolveParticipantOperationalConfig(PDO $db, int $participantI
         FROM event_participants ep
         {$preferredAssignmentJoin}
         LEFT JOIN workforce_roles r ON r.id = wa.role_id
-        LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
+        {$memberJoin}
         {$parts['event_role_join']}
         {$legacyJoin}
         WHERE ep.id = :participant_id

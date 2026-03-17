@@ -99,6 +99,16 @@ function getGuestTicket(array $query): void
         $roleSettingsJoin = $parts['has_legacy_settings']
             ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id AND wrs.organizer_id = e.organizer_id"
             : "";
+        $memberSettingsJoin = guestPublicTableExists($db, 'workforce_member_settings')
+            ? "LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id"
+            : "LEFT JOIN LATERAL (
+                    SELECT
+                        NULL::integer AS participant_id,
+                        NULL::integer AS max_shifts_event,
+                        NULL::numeric AS shift_hours,
+                        NULL::integer AS meals_per_day,
+                        NULL::numeric AS payment_amount
+               ) wms ON TRUE";
         $preferredAssignmentJoin = workforceBuildPreferredAssignmentJoinSql($db, 'ep.id', 'wa');
 
         // 2) Fluxo público de workforce/event_participants
@@ -135,7 +145,7 @@ function getGuestTicket(array $query): void
             LEFT JOIN participant_categories c ON c.id = ep.category_id
             {$preferredAssignmentJoin}
             LEFT JOIN workforce_roles wr ON wr.id = wa.role_id
-            LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
+            {$memberSettingsJoin}
             {$parts['event_role_join']}
             {$roleSettingsJoin}
             WHERE ep.qr_token = ?

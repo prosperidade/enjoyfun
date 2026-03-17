@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { QrCode, UtensilsCrossed, RefreshCw, Settings2, Save, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Copy, QrCode, UtensilsCrossed, RefreshCw, Settings2, Save, X } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../lib/api";
+import { db } from "../lib/db";
 
 function extractToken(raw = "") {
   const value = String(raw || "").trim();
@@ -18,11 +19,67 @@ function createEmptyPayload() {
     operationalSummary: null,
     projectionSummary: null,
     diagnostics: null,
+    mealServices: [],
+    selectedMealService: null,
   };
+}
+
+function createOfflineId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `meal-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function formatCurrency(value) {
   return `R$ ${Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+}
+
+function formatEventDayLabel(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return date.toLocaleDateString("pt-BR");
+}
+
+function buildSyntheticEventDayOption(event) {
+  if (!event?.id || !event?.starts_at) return null;
+  const startLabel = formatEventDayLabel(event.starts_at);
+  const endLabel = event.ends_at ? formatEventDayLabel(event.ends_at) : "";
+  const suffix = endLabel && endLabel !== startLabel ? ` até ${endLabel}` : "";
+  return {
+    id: `event:${event.id}`,
+    date: `${startLabel}${suffix} (dia-base do evento)`,
+    synthetic: true,
+  };
+}
+
+function buildInviteLink(token) {
+  if (!token) return "";
+  const path = `/invite?token=${encodeURIComponent(token)}`;
+  if (typeof window === "undefined") return path;
+  return `${window.location.origin}${path}`;
+}
+
+function formatSectorLabel(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "sem setor";
+  return normalized.replace(/_/g, " ");
+}
+
+function formatMealServiceLabel(service) {
+  if (!service) return "Sem refeição";
+  const label = String(service.label || service.service_code || "Refeição").trim();
+  const startsAt = String(service.starts_at || "").slice(0, 5);
+  const endsAt = String(service.ends_at || "").slice(0, 5);
+  const timeLabel = startsAt && endsAt ? ` • ${startsAt} - ${endsAt}` : "";
+  return `${label}${timeLabel}`;
+}
+
+function buildMealsContextKey(eventId) {
+  return `event:${eventId}`;
 }
 
 function getIssueLabel(code) {
@@ -34,6 +91,7 @@ function getIssueLabel(code) {
     members_using_default_meal_fallback: "Parte da equipe está usando cota default, sem configuração específica.",
     ambiguous_meal_baseline_in_scope: "Parte da equipe está com baseline de refeições ambíguo neste recorte.",
     no_real_meal_consumption_for_day: "Ainda não há consumo real registrado para o dia selecionado.",
+    event_has_no_meal_services: "O evento ainda não possui serviços de refeição ativos configurados.",
     meal_unit_cost_schema_unavailable: "O custo de refeição está indisponível neste ambiente.",
     meal_unit_cost_not_configured: "O custo de refeição ainda não foi configurado.",
   };
@@ -44,7 +102,7 @@ function getConfigSourceLabel(source) {
   const labels = {
     member_override: "Config. do membro",
     role_settings: "Config. do cargo",
-    default: "Fallback default",
+    default: "Cota padrão (4 ref/dia)",
     ambiguous: "Baseline ambíguo",
   };
   return labels[source] || "Origem não informada";
@@ -64,7 +122,7 @@ function getConfigSourceBadgeLabel(source) {
   const labels = {
     member_override: "Cota própria",
     role_settings: "Cota do cargo",
-    default: "Fallback",
+    default: "Cota padrão",
     ambiguous: "Ambígua",
   };
   return labels[source] || "Sem origem";
@@ -74,10 +132,12 @@ export default function MealsControl() {
   const [events, setEvents] = useState([]);
   const [eventDays, setEventDays] = useState([]);
   const [eventShifts, setEventShifts] = useState([]);
+  const [mealServices, setMealServices] = useState([]);
 
   const [eventId, setEventId] = useState("");
   const [eventDayId, setEventDayId] = useState("");
   const [eventShiftId, setEventShiftId] = useState("");
+  const [mealServiceId, setMealServiceId] = useState("");
   const [sector, setSector] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -89,49 +149,169 @@ export default function MealsControl() {
   const [mealUnitCostAvailable, setMealUnitCostAvailable] = useState(null);
   const [mealCostModalOpen, setMealCostModalOpen] = useState(false);
   const [mealCostDraft, setMealCostDraft] = useState(0);
+  const [mealServiceDrafts, setMealServiceDrafts] = useState([]);
   const [savingMealCost, setSavingMealCost] = useState(false);
+  const [generatingStandaloneQrId, setGeneratingStandaloneQrId] = useState(null);
+  const [externalQrForm, setExternalQrForm] = useState({ name: "", phone: "", meals_per_day: 4 });
+  const [generatingExternalQr, setGeneratingExternalQr] = useState(false);
+  const [generatedExternalQrs, setGeneratedExternalQrs] = useState([]);
+  const selectedEventRef = useRef("");
+  const staticDataRequestRef = useRef(0);
+  const workforceRequestRef = useRef(0);
+  const balanceRequestRef = useRef(0);
+  const eventDetailRequestRef = useRef(0);
 
   const filteredShifts = useMemo(() => {
     if (!eventDayId) return [];
     return eventShifts.filter((s) => String(s.event_day_id) === String(eventDayId));
   }, [eventShifts, eventDayId]);
+  const selectedEvent = useMemo(
+    () => events.find((event) => String(event.id) === String(eventId)) || null,
+    [eventId, events]
+  );
+  const syntheticEventDayOption = useMemo(
+    () => buildSyntheticEventDayOption(selectedEvent),
+    [selectedEvent]
+  );
+  const selectedMealService = useMemo(
+    () => mealServices.find((service) => String(service.id) === String(mealServiceId)) || null,
+    [mealServiceId, mealServices]
+  );
+
+  const loadCachedMealsContext = async (cacheKey) => {
+    try {
+      return await db.mealsContext.get(cacheKey);
+    } catch {
+      return null;
+    }
+  };
+
+  const saveCachedMealsContext = async (cacheKey, patch) => {
+    try {
+      const current = (await db.mealsContext.get(cacheKey)) || { cache_key: cacheKey };
+      await db.mealsContext.put({
+        ...current,
+        ...patch,
+        cache_key: cacheKey,
+        updated_at: new Date().toISOString(),
+      });
+    } catch {
+      // cache offline é melhor esforço
+    }
+  };
 
   const loadEvents = async () => {
-    const res = await api.get("/events");
-    const list = res.data?.data || [];
-    setEvents(list);
-    if (!eventId && list.length > 0) {
-      // Prioriza selecionar um evento em andamento, fallback para o primeiro
-      const now = new Date();
-      const inProgress = list.find((ev) => {
-        if (!ev.starts_at || !ev.ends_at) return false;
-        return new Date(ev.starts_at) <= now && new Date(ev.ends_at) >= now;
+    try {
+      const res = await api.get("/events");
+      const list = res.data?.data || [];
+      setEvents(list);
+      await saveCachedMealsContext("events:list", { items: list });
+      if (!eventId && list.length > 0) {
+        const now = new Date();
+        const inProgress = list.find((ev) => {
+          if (!ev.starts_at || !ev.ends_at) return false;
+          return new Date(ev.starts_at) <= now && new Date(ev.ends_at) >= now;
+        });
+        setEventId(String(inProgress ? inProgress.id : list[0].id));
+      }
+      return list;
+    } catch (err) {
+      const cached = await loadCachedMealsContext("events:list");
+      const cachedList = Array.isArray(cached?.items) ? cached.items : [];
+      if (cachedList.length > 0) {
+        setEvents(cachedList);
+        if (!eventId) {
+          setEventId(String(cachedList[0].id));
+        }
+        toast("Eventos carregados do cache local do Meals.", { id: "meals-events-cache" });
+        return cachedList;
+      }
+      throw err;
+    }
+  };
+
+  const loadEventSnapshot = async (evtId) => {
+    if (!evtId) return null;
+
+    const normalizedEventId = String(evtId);
+    const requestId = eventDetailRequestRef.current + 1;
+    eventDetailRequestRef.current = requestId;
+
+    try {
+      const res = await api.get(`/events/${evtId}`);
+      if (requestId !== eventDetailRequestRef.current || selectedEventRef.current !== normalizedEventId) {
+        return null;
+      }
+
+      const eventData = res.data?.data || null;
+      if (!eventData?.id) {
+        return null;
+      }
+
+      setEvents((current) => {
+        const next = [...current];
+        const index = next.findIndex((event) => String(event.id) === String(eventData.id));
+        if (index >= 0) {
+          next[index] = { ...next[index], ...eventData };
+        } else {
+          next.push(eventData);
+        }
+        return next;
       });
-      setEventId(String(inProgress ? inProgress.id : list[0].id));
+
+      return eventData;
+    } catch {
+      return null;
     }
   };
 
   const loadStaticData = async (evtId) => {
     if (!evtId) return;
-    const [daysRes, shiftsRes] = await Promise.all([
-      api.get(`/event-days?event_id=${evtId}`),
-      api.get(`/event-shifts?event_id=${evtId}`),
-    ]);
-    const days = daysRes.data?.data || [];
-    const shifts = shiftsRes.data?.data || [];
+    const normalizedEventId = String(evtId);
+    const cacheKey = buildMealsContextKey(evtId);
+    const requestId = staticDataRequestRef.current + 1;
+    staticDataRequestRef.current = requestId;
+    let days = [];
+    let shifts = [];
+    try {
+      const [daysRes, shiftsRes] = await Promise.all([
+        api.get(`/event-days?event_id=${evtId}`),
+        api.get(`/event-shifts?event_id=${evtId}`),
+      ]);
+      days = daysRes.data?.data || [];
+      shifts = shiftsRes.data?.data || [];
+      await saveCachedMealsContext(cacheKey, {
+        eventDays: days,
+        eventShifts: shifts,
+      });
+    } catch (err) {
+      const cached = await loadCachedMealsContext(cacheKey);
+      days = Array.isArray(cached?.eventDays) ? cached.eventDays : [];
+      shifts = Array.isArray(cached?.eventShifts) ? cached.eventShifts : [];
+      if (days.length === 0 && shifts.length === 0) {
+        throw err;
+      }
+      toast("Dias, turnos e contexto operacional carregados do cache local.", { id: "meals-static-cache" });
+    }
+    if (requestId !== staticDataRequestRef.current || selectedEventRef.current !== normalizedEventId) {
+      return { days: [], shifts: [], nextDay: "", nextShift: "", stale: true };
+    }
+    const nextDay = days.some((day) => String(day.id) === String(eventDayId))
+      ? String(eventDayId)
+      : (days[0] ? String(days[0].id) : "");
+    const nextShift = nextDay && shifts.some(
+      (shift) =>
+        String(shift.event_day_id) === String(nextDay) &&
+        String(shift.id) === String(eventShiftId)
+    )
+      ? String(eventShiftId)
+      : "";
     setEventDays(days);
     setEventShifts(shifts);
     setPayload(createEmptyPayload());
-
-    setEventDayId((prev) => {
-      const nextDay = days.some((day) => String(day.id) === String(prev))
-        ? String(prev)
-        : (days[0] ? String(days[0].id) : "");
-      if (!nextDay) {
-        setEventShiftId("");
-      }
-      return nextDay;
-    });
+    setEventDayId(nextDay);
+    setEventShiftId(nextShift);
+    return { days, shifts, nextDay, nextShift, stale: false };
   };
 
   const loadWorkforceBase = async (evtId) => {
@@ -140,51 +320,164 @@ export default function MealsControl() {
       return;
     }
 
+    const normalizedEventId = String(evtId);
+    const cacheKey = buildMealsContextKey(evtId);
+    const requestId = workforceRequestRef.current + 1;
+    workforceRequestRef.current = requestId;
+
     try {
       const res = await api.get("/workforce/assignments", {
         params: { event_id: evtId },
       });
-      setWorkforceBaseItems(res.data?.data || []);
+      if (requestId !== workforceRequestRef.current || selectedEventRef.current !== normalizedEventId) {
+        return;
+      }
+      const rawItems = res.data?.data || [];
+      const operationalItems = rawItems.filter(item => item.cost_bucket !== 'managerial');
+      setWorkforceBaseItems(operationalItems);
+      await saveCachedMealsContext(cacheKey, { workforceBaseItems: operationalItems });
     } catch (err) {
+      if (requestId !== workforceRequestRef.current || selectedEventRef.current !== normalizedEventId) {
+        return;
+      }
+      const cached = await loadCachedMealsContext(cacheKey);
+      const cachedItems = Array.isArray(cached?.workforceBaseItems) ? cached.workforceBaseItems : [];
+      if (cachedItems.length > 0) {
+        setWorkforceBaseItems(cachedItems);
+        toast("Base do Workforce carregada do cache local do Meals.", { id: "meals-workforce-cache" });
+        return;
+      }
       setWorkforceBaseItems([]);
       toast.error(err.response?.data?.message || "Erro ao carregar base do workforce para Meals.");
     }
   };
 
-  const loadBalance = async () => {
-    if (!eventId || !eventDayId) {
+  const loadMealServices = async (evtId) => {
+    if (!evtId) {
+      setMealServices([]);
+      setMealServiceDrafts([]);
+      setMealServiceId("");
+      return [];
+    }
+
+    const cacheKey = buildMealsContextKey(evtId);
+    try {
+      const res = await api.get("/meals/services", {
+        params: { event_id: evtId },
+      });
+      const services = res.data?.data?.services || [];
+      setMealServices(services);
+      setMealServiceDrafts(services);
+      setMealServiceId((current) =>
+        services.some((service) => String(service.id) === String(current))
+          ? current
+          : (services[0] ? String(services[0].id) : "")
+      );
+      await saveCachedMealsContext(cacheKey, { mealServices: services });
+      return services;
+    } catch (err) {
+      const cached = await loadCachedMealsContext(cacheKey);
+      const services = Array.isArray(cached?.mealServices) ? cached.mealServices : [];
+      if (services.length > 0) {
+        setMealServices(services);
+        setMealServiceDrafts(services);
+        setMealServiceId((current) =>
+          services.some((service) => String(service.id) === String(current))
+            ? current
+            : (services[0] ? String(services[0].id) : "")
+        );
+        toast("Serviços de refeição carregados do cache local.", { id: "meals-services-cache" });
+        return services;
+      }
+      throw err;
+    }
+  };
+
+  const loadBalance = async (overrides = {}) => {
+    const targetEventId = String(overrides.eventId ?? eventId ?? "");
+    const targetEventDayId = String(overrides.eventDayId ?? eventDayId ?? "");
+    const targetEventShiftId = String(overrides.eventShiftId ?? eventShiftId ?? "");
+    const targetMealServiceId = String(overrides.mealServiceId ?? mealServiceId ?? "");
+    const targetSector = String(overrides.sector ?? sector ?? "").trim();
+
+    if (!targetEventId || !targetEventDayId) {
       setPayload(createEmptyPayload());
       return;
     }
+
+    const requestId = balanceRequestRef.current + 1;
+    balanceRequestRef.current = requestId;
     setLoading(true);
     try {
       const res = await api.get("/meals/balance", {
         params: {
-          event_id: eventId,
-          event_day_id: eventDayId,
-          event_shift_id: eventShiftId || undefined,
-          sector: sector.trim() || undefined,
+          event_id: targetEventId,
+          event_day_id: targetEventDayId,
+          event_shift_id: targetEventShiftId || undefined,
+          meal_service_id: targetMealServiceId || undefined,
+          sector: targetSector || undefined,
         },
       });
+      if (requestId !== balanceRequestRef.current || selectedEventRef.current !== targetEventId) {
+        return;
+      }
       const data = res.data?.data || {};
-      setPayload({
+      const nextPayload = {
         summary: data.summary || null,
         items: data.items || [],
         operationalSummary: data.operational_summary || null,
         projectionSummary: data.projection_summary || null,
         diagnostics: data.diagnostics || null,
-      });
+        mealServices: data.meal_services || [],
+        selectedMealService: data.selected_meal_service || null,
+      };
+      setPayload(nextPayload);
+      if (Array.isArray(data.meal_services) && data.meal_services.length > 0) {
+        setMealServices(data.meal_services);
+        setMealServiceDrafts(data.meal_services);
+      }
+      if (data.selected_meal_service?.id) {
+        setMealServiceId(String(data.selected_meal_service.id));
+      }
       const unit = Number(
+        data.projection_summary?.selected_meal_service_unit_cost ??
         data.projection_summary?.meal_unit_cost ??
+        data.summary?.selected_meal_service_unit_cost ??
         data.summary?.meal_unit_cost ??
         0
       );
       setMealUnitCost(unit);
+      await saveCachedMealsContext(buildMealsContextKey(targetEventId), {
+        mealServices: Array.isArray(data.meal_services) ? data.meal_services : mealServices,
+        balances: {
+          [`${targetEventDayId}:${targetMealServiceId || "all"}:${targetEventShiftId || "all"}:${targetSector || "all"}`]: nextPayload,
+        },
+      });
     } catch (err) {
-      setPayload(createEmptyPayload());
-      toast.error(err.response?.data?.message || "Erro ao carregar saldo de refeições.");
+      if (requestId !== balanceRequestRef.current || selectedEventRef.current !== targetEventId) {
+        return;
+      }
+      const cached = await loadCachedMealsContext(buildMealsContextKey(targetEventId));
+      const cacheKey = `${targetEventDayId}:${targetMealServiceId || "all"}:${targetEventShiftId || "all"}:${targetSector || "all"}`;
+      const cachedPayload = cached?.balances?.[cacheKey];
+      if (cachedPayload) {
+        setPayload({
+          ...createEmptyPayload(),
+          ...cachedPayload,
+        });
+        if (Array.isArray(cached?.mealServices)) {
+          setMealServices(cached.mealServices);
+          setMealServiceDrafts(cached.mealServices);
+        }
+        toast("Saldo Meals carregado do cache local.", { id: "meals-balance-cache" });
+      } else {
+        setPayload(createEmptyPayload());
+        toast.error(err.response?.data?.message || "Erro ao carregar saldo de refeições.");
+      }
     } finally {
-      setLoading(false);
+      if (requestId === balanceRequestRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -196,13 +489,15 @@ export default function MealsControl() {
       const unitCostAvailable = settings.meal_unit_cost_available !== false;
       setMealUnitCost(unitCost);
       setMealUnitCostAvailable(unitCostAvailable);
-      setMealCostDraft(unitCost);
     } catch {
       setMealUnitCost(0);
       setMealUnitCostAvailable(null);
-      setMealCostDraft(0);
     }
   };
+
+  useEffect(() => {
+    selectedEventRef.current = String(eventId || "");
+  }, [eventId]);
 
   useEffect(() => {
     loadEvents().catch(() => toast.error("Erro ao carregar eventos."));
@@ -211,17 +506,31 @@ export default function MealsControl() {
   }, []);
 
   useEffect(() => {
+    staticDataRequestRef.current += 1;
+    workforceRequestRef.current += 1;
+    balanceRequestRef.current += 1;
+    eventDetailRequestRef.current += 1;
     setEventDayId("");
     setEventShiftId("");
+    setMealServiceId("");
+    setEventDays([]);
+    setEventShifts([]);
+    setMealServices([]);
+    setMealServiceDrafts([]);
+    setWorkforceBaseItems([]);
     setPayload(createEmptyPayload());
   }, [eventId]);
 
   useEffect(() => {
     if (!eventId) return;
+    loadEventSnapshot(eventId);
     loadStaticData(eventId).catch((err) =>
       toast.error(err.response?.data?.message || "Erro ao carregar dias/turnos.")
     );
     loadWorkforceBase(eventId);
+    loadMealServices(eventId).catch((err) =>
+      toast.error(err.response?.data?.message || "Erro ao carregar serviços de refeição.")
+    );
   }, [eventId]);
 
   useEffect(() => {
@@ -236,7 +545,33 @@ export default function MealsControl() {
   }, [eventDayId, eventShiftId, filteredShifts]);
 
   useEffect(() => {
+    if (mealServices.length === 0) {
+      setMealServiceId("");
+      return;
+    }
+    const valid = mealServices.some((service) => String(service.id) === String(mealServiceId));
+    if (!valid) {
+      const firstActive = mealServices.find((service) => service.is_active !== false) || mealServices[0];
+      setMealServiceId(firstActive ? String(firstActive.id) : "");
+    }
+  }, [mealServiceId, mealServices]);
+
+  useEffect(() => {
+    if (!eventId || eventDays.length > 0 || !syntheticEventDayOption) {
+      return;
+    }
+
+    if (String(eventDayId) !== String(syntheticEventDayOption.id)) {
+      setEventDayId(String(syntheticEventDayOption.id));
+    }
+  }, [eventDayId, eventDays.length, eventId, syntheticEventDayOption]);
+
+  useEffect(() => {
     if (!eventId || !eventDayId) {
+      setPayload(createEmptyPayload());
+      return;
+    }
+    if (eventDays.length <= 0) {
       setPayload(createEmptyPayload());
       return;
     }
@@ -247,7 +582,7 @@ export default function MealsControl() {
     }
     loadBalance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, eventDayId, eventShiftId, sector, eventDays]);
+  }, [eventId, eventDayId, eventShiftId, mealServiceId, sector, eventDays]);
 
   const availableSectors = useMemo(() => {
     const values = workforceBaseItems
@@ -299,6 +634,90 @@ export default function MealsControl() {
     };
   }, [filteredWorkforceItems]);
 
+  const standaloneQrMembers = useMemo(() => {
+    const grouped = new Map();
+
+    workforceBaseItems.forEach((item) => {
+      const participantId = Number(item.participant_id || 0);
+      if (participantId <= 0) return;
+
+      const existing = grouped.get(participantId) || {
+        participantId,
+        name: item.person_name || item.name || `Participante #${participantId}`,
+        phone: item.phone || "",
+        email: item.person_email || item.email || "",
+        qrToken: item.qr_token || "",
+        roles: new Set(),
+        assignmentRows: 0,
+        hasDefinedSector: false,
+        hasOperationalAssignment: false,
+        hasNonOperationalAssignment: false,
+      };
+
+      existing.assignmentRows += 1;
+      if (item.role_name) {
+        existing.roles.add(String(item.role_name));
+      }
+      if (String(item.sector || "").trim() !== "") {
+        existing.hasDefinedSector = true;
+      }
+
+      const costBucket = String(item.cost_bucket || "operational").trim().toLowerCase();
+      if (costBucket === "operational") {
+        existing.hasOperationalAssignment = true;
+      } else {
+        existing.hasNonOperationalAssignment = true;
+      }
+
+      if (!existing.qrToken && item.qr_token) {
+        existing.qrToken = item.qr_token;
+      }
+
+      grouped.set(participantId, existing);
+    });
+
+    return [...grouped.values()]
+      .filter(
+        (member) =>
+          member.hasOperationalAssignment &&
+          !member.hasNonOperationalAssignment &&
+          !member.hasDefinedSector
+      )
+      .map((member) => ({
+        ...member,
+        roles: [...member.roles].filter(Boolean),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  }, [workforceBaseItems]);
+
+  const enqueueOfflineMeal = async (recordPayload) => {
+    const pendingMeals = await db.offlineQueue.where("status").equals("pending").toArray();
+    const duplicatedPending = pendingMeals.some((record) => {
+      const payloadItem = record?.payload ?? {};
+      return (
+        (record?.payload_type ?? record?.type) === "meal" &&
+        String(payloadItem.qr_token || "").trim() === String(recordPayload.qr_token || "").trim() &&
+        String(payloadItem.event_day_id || "") === String(recordPayload.event_day_id || "") &&
+        String(payloadItem.meal_service_id || "") === String(recordPayload.meal_service_id || "")
+      );
+    });
+
+    if (duplicatedPending) {
+      throw new Error("Esta refeição já está pendente de sincronização offline para este QR e este serviço.");
+    }
+
+    const offlineId = createOfflineId();
+    await db.offlineQueue.put({
+      offline_id: offlineId,
+      payload_type: "meal",
+      payload: recordPayload,
+      status: "pending",
+      created_offline_at: new Date().toISOString(),
+      sector: recordPayload.sector || null,
+    });
+    return offlineId;
+  };
+
   const handleRegisterMeal = async (e) => {
     e.preventDefault();
     const token = extractToken(qrInput);
@@ -310,18 +729,46 @@ export default function MealsControl() {
       toast.error("Selecione o dia do evento.");
       return;
     }
+    if (!mealServiceId) {
+      toast.error("Selecione a refeição a validar.");
+      return;
+    }
+
+    const requestPayload = {
+      event_id: Number(eventId),
+      qr_token: token,
+      event_day_id: Number(eventDayId),
+      event_shift_id: eventShiftId ? Number(eventShiftId) : null,
+      meal_service_id: Number(mealServiceId),
+      meal_service_code: selectedMealService?.service_code || null,
+      sector: sector || null,
+      consumed_at: new Date().toISOString(),
+    };
 
     setRegistering(true);
     try {
-      await api.post("/meals", {
-        qr_token: token,
-        event_day_id: Number(eventDayId),
-        event_shift_id: eventShiftId ? Number(eventShiftId) : null,
-      });
-      toast.success("Refeição registrada com sucesso.");
+      if (!navigator.onLine) {
+        await enqueueOfflineMeal(requestPayload);
+        toast.success("Refeição salva na fila offline do Meals.");
+      } else {
+        await api.post("/meals", requestPayload);
+        toast.success("Refeição registrada com sucesso.");
+      }
       setQrInput("");
       await loadBalance();
     } catch (err) {
+      const networkError = !navigator.onLine || err?.code === "ERR_NETWORK";
+      if (networkError) {
+        try {
+          await enqueueOfflineMeal(requestPayload);
+          setQrInput("");
+          toast.success("Sem rede: refeição enviada para sincronização offline.");
+          return;
+        } catch (offlineErr) {
+          toast.error(offlineErr.message || "Falha ao registrar refeição offline.");
+          return;
+        }
+      }
       toast.error(err.response?.data?.message || "Falha ao registrar refeição.");
     } finally {
       setRegistering(false);
@@ -333,34 +780,60 @@ export default function MealsControl() {
     meals_per_day_total: 0,
     consumed_day_total: 0,
     remaining_day_total: 0,
-    consumed_shift_total: 0,
+    consumed_service_total: 0,
     meal_unit_cost: mealUnitCost,
+    selected_meal_service_unit_cost: mealUnitCost,
     estimated_day_cost_total: 0,
     consumed_day_cost_total: 0,
     remaining_day_cost_total: 0,
+    selected_service_estimated_cost_total: 0,
+    selected_service_consumed_cost_total: 0,
   };
   const operationalSummary = payload.operationalSummary || {
     members: summary.members,
     meals_per_day_total: summary.meals_per_day_total,
     consumed_day_total: summary.consumed_day_total,
     remaining_day_total: summary.remaining_day_total,
-    consumed_shift_total: summary.consumed_shift_total,
+    consumed_service_total: summary.consumed_service_total ?? summary.consumed_shift_total ?? 0,
   };
   const projectionSummary = payload.projectionSummary || {
     enabled: false,
     meal_unit_cost: 0,
+    selected_meal_service_unit_cost: 0,
     estimated_day_cost_total: 0,
     consumed_day_cost_total: 0,
     remaining_day_cost_total: 0,
+    selected_service_estimated_cost_total: 0,
+    selected_service_consumed_cost_total: 0,
   };
   const diagnostics = payload.diagnostics || null;
 
   const currentMealUnitCost = Number(
-    projectionSummary.meal_unit_cost ?? summary.meal_unit_cost ?? mealUnitCost ?? 0
+    projectionSummary.selected_meal_service_unit_cost ??
+    projectionSummary.meal_unit_cost ??
+    summary.selected_meal_service_unit_cost ??
+    summary.meal_unit_cost ??
+    mealUnitCost ??
+    0
   );
   const projectionEnabled = Boolean(projectionSummary.enabled);
   const hasSelectedShift = Boolean(eventShiftId);
+  const selectedMealServiceData = payload.selectedMealService || selectedMealService || null;
+  const selectedMealServiceLabel = formatMealServiceLabel(selectedMealServiceData);
   const hasConfiguredEventDays = eventDays.length > 0;
+  const availableEventDayOptions = useMemo(() => {
+    if (eventDays.length > 0) {
+      return eventDays.map((day) => ({
+        id: String(day.id),
+        date: day.date,
+        synthetic: false,
+      }));
+    }
+    return syntheticEventDayOption ? [syntheticEventDayOption] : [];
+  }, [eventDays, syntheticEventDayOption]);
+  const displayedEventDayId = hasConfiguredEventDays
+    ? eventDayId
+    : String(syntheticEventDayOption?.id || "");
   const diagnosticsIssues = useMemo(() => diagnostics?.issues || [], [diagnostics]);
   const operationalDiagnosticsIssues = useMemo(
     () => diagnosticsIssues.filter((issue) => !issue.startsWith("meal_unit_cost_")),
@@ -372,7 +845,7 @@ export default function MealsControl() {
   );
   const showWorkforceFallback = Boolean(eventId) && !hasConfiguredEventDays;
   const canUseRealMeals = Boolean(eventId) && hasConfiguredEventDays && Boolean(eventDayId);
-  const canRegisterMeal = canUseRealMeals;
+  const canRegisterMeal = canUseRealMeals && Boolean(mealServiceId);
   const configBreakdown = diagnostics?.configuration || {
     members_using_member_settings: 0,
     members_using_role_settings: 0,
@@ -414,6 +887,13 @@ export default function MealsControl() {
           ? `Este evento ainda não possui \`event_days\`. Disponível agora: base complementar do Workforce por pessoa/setor. Indisponível agora: saldo real por dia, registro de refeição e projeção financeira diária. Base atual: ${workforceSummary.members} pessoa(s) em ${workforceSummary.assignmentRows} assignment(s).`
           : "Este evento ainda não possui `event_days`. O Meals permanece em modo complementar até existir base diária do evento.",
       });
+      if (syntheticEventDayOption) {
+        list.push({
+          tone: "info",
+          title: "Configuração atual do evento refletida no dia",
+          body: `O seletor está usando ${syntheticEventDayOption.date} a partir de \`starts_at/ends_at\` do evento. O saldo real continua bloqueado até existir \`event_day\` real.`,
+        });
+      }
       if (workforceSummary.members > 0 && workforceSummary.assignmentsWithShift <= 0) {
         list.push({
           tone: "info",
@@ -428,16 +908,24 @@ export default function MealsControl() {
       list.push({
         tone: "warn",
         title: "Dia não selecionado",
-        body: "Selecione um dia operacional do evento para habilitar o saldo real de Meals, o recorte por turno e o registro de refeição.",
+        body: "Selecione um dia operacional do evento para habilitar o saldo real de Meals, a refeição do momento e o registro por QR.",
       });
       return list;
+    }
+
+    if (!mealServiceId) {
+      list.push({
+        tone: "warn",
+        title: "Refeição não selecionada",
+        body: "Escolha o serviço de refeição do momento para impedir repetição da mesma baixa no mesmo dia.",
+      });
     }
 
     if (filteredShifts.length === 0) {
       list.push({
         tone: "info",
         title: "Dia sem turnos cadastrados",
-        body: "O backend aceita operação sem turno. O filtro está realmente em `Todos os turnos` para este dia.",
+        body: "O turno segue opcional e complementar ao Workforce. A baixa principal do Meals agora depende da refeição escolhida.",
       });
     }
 
@@ -460,8 +948,8 @@ export default function MealsControl() {
     if (operationalDiagnosticsIssues.includes("members_using_default_meal_fallback")) {
       list.push({
         tone: "warn",
-        title: "Equipe com fallback default",
-        body: "Parte da equipe está sem configuração específica de refeições e está usando o fallback operacional padrão.",
+        title: "Equipe com cota padrão",
+        body: "Parte da equipe não tem cota específica configurada nos cargos e está usando a cota padrão (4 refeições/dia).",
       });
     }
 
@@ -479,8 +967,10 @@ export default function MealsControl() {
     eventDayId,
     eventId,
     filteredShifts.length,
+    mealServiceId,
     showWorkforceFallback,
     operationalDiagnosticsIssues,
+    syntheticEventDayOption,
     workforceSummary.assignmentsWithShift,
     workforceSummary.assignmentRows,
     workforceSummary.members,
@@ -641,20 +1131,12 @@ export default function MealsControl() {
         badgeClassName: tableHighlights.exhaustedMembers > 0 ? "badge badge-red" : "badge badge-green",
       },
       {
-        label: hasSelectedShift ? "Consumidas turno" : "Consumo no recorte",
-        value: operationalSummary.consumed_shift_total,
+        label: "Consumidas refeição",
+        value: operationalSummary.consumed_service_total,
         valueClassName: "text-blue-400",
-        helper: hasSelectedShift
-          ? tableHighlights.withoutUniqueShiftMembers > 0
-            ? `${tableHighlights.withoutUniqueShiftMembers} participante(s) seguem sem vínculo único de turno no Workforce.`
-            : "Turno selecionado com vínculo operacional visível no recorte."
-          : "Sem turno selecionado, o backend retorna o consumo agregado do dia neste recorte.",
-        badge: hasSelectedShift
-          ? (tableHighlights.withoutUniqueShiftMembers > 0 ? "Turno parcial" : "Turno ok")
-          : "Sem recorte turno",
-        badgeClassName: hasSelectedShift
-          ? (tableHighlights.withoutUniqueShiftMembers > 0 ? "badge badge-yellow" : "badge badge-blue")
-          : "badge badge-gray",
+        helper: `${selectedMealServiceLabel}.${hasSelectedShift ? " Turno aplicado como filtro complementar." : " Sem turno, o recorte continua diário."}`,
+        badge: hasSelectedShift ? "Refeição + turno" : "Refeição ativa",
+        badgeClassName: hasSelectedShift ? "badge badge-blue" : "badge badge-gray",
       },
     ];
   }, [
@@ -662,10 +1144,11 @@ export default function MealsControl() {
     configBreakdown.members_with_ambiguous_baseline,
     hasSelectedShift,
     operationalSummary.consumed_day_total,
-    operationalSummary.consumed_shift_total,
+    operationalSummary.consumed_service_total,
     operationalSummary.meals_per_day_total,
     operationalSummary.members,
     operationalSummary.remaining_day_total,
+    selectedMealServiceLabel,
     showWorkforceFallback,
     tableHighlights.consumedMembers,
     tableHighlights.exhaustedMembers,
@@ -696,11 +1179,9 @@ export default function MealsControl() {
             badge: "Selecione o dia",
             badgeClassName: "badge badge-yellow",
           }
-        : {
+      : {
             title: "Saldo real do Meals ativo",
-            body: hasSelectedShift
-              ? "A tela está lendo saldo e consumo reais do dia com recorte de turno aplicado. Turno e ausência de turno continuam visíveis como apoio complementar do Workforce."
-              : "A tela está lendo saldo e consumo reais do dia. Sem turno selecionado, o consumo do recorte permanece agregado no dia.",
+            body: `A tela está lendo saldo e consumo reais do dia por serviço de refeição. Serviço selecionado: ${selectedMealServiceLabel}.${hasSelectedShift ? " O turno continua como filtro complementar do Workforce." : ""}`,
             badge: "Saldo real Meals",
             badgeClassName: "badge badge-green",
           };
@@ -709,17 +1190,109 @@ export default function MealsControl() {
     ? "Registro de refeição indisponível: este evento ainda não possui `event_days`, então o módulo permanece em modo complementar do Workforce."
     : !eventDayId
       ? "Selecione um dia operacional para habilitar o registro de refeição."
-      : hasSelectedShift
-        ? "Registro de refeição ativo para o dia e turno selecionados."
-        : "Registro de refeição ativo para o dia selecionado. Sem turno, a baixa fica agregada no recorte diário.";
+      : !mealServiceId
+        ? "Selecione a refeição do momento para habilitar o registro e bloquear repetição indevida."
+        : hasSelectedShift
+          ? sector
+            ? `Registro ativo para ${selectedMealServiceLabel}, turno e setor selecionados.`
+            : `Registro ativo para ${selectedMealServiceLabel} com turno selecionado.`
+          : sector
+            ? `Registro ativo para ${selectedMealServiceLabel} e setor selecionados. O turno permanece opcional.`
+            : `Registro ativo para ${selectedMealServiceLabel}. O turno permanece opcional.`;
 
   const handleRefresh = async () => {
     if (!eventId) return;
-    if (showWorkforceFallback) {
-      await loadWorkforceBase(eventId);
+    await loadEvents();
+    await loadEventSnapshot(eventId);
+    const staticData = await loadStaticData(eventId);
+    await loadWorkforceBase(eventId);
+    await loadMealServices(eventId);
+
+    if (!staticData?.stale && staticData?.nextDay) {
+      await loadBalance({
+        eventId,
+        eventDayId: staticData.nextDay,
+        eventShiftId: staticData.nextShift,
+        mealServiceId,
+        sector,
+      });
+    }
+  };
+
+  const syncParticipantQrToken = (participantId, qrToken) => {
+    setWorkforceBaseItems((current) =>
+      current.map((item) =>
+        Number(item.participant_id || 0) === Number(participantId)
+          ? { ...item, qr_token: qrToken }
+          : item
+      )
+    );
+    setPayload((current) => ({
+      ...current,
+      items: (current.items || []).map((item) =>
+        Number(item.participant_id || 0) === Number(participantId)
+          ? { ...item, qr_token: qrToken }
+          : item
+      ),
+    }));
+  };
+
+  const handleCopyStandaloneInvite = async (token) => {
+    const inviteLink = buildInviteLink(token);
+    if (!inviteLink) {
+      toast.error("Nenhum QR disponível para copiar.");
       return;
     }
-    await loadBalance();
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(inviteLink);
+        toast.success("Link do QR copiado.");
+        return;
+      }
+    } catch {
+      // segue para fallback abaixo
+    }
+
+    if (typeof window !== "undefined") {
+      window.prompt("Copie o link do QR:", inviteLink);
+    }
+  };
+
+  const handleOpenStandaloneInvite = (token) => {
+    const inviteLink = buildInviteLink(token);
+    if (!inviteLink) {
+      toast.error("Nenhum QR disponível para abrir.");
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.open(inviteLink, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  const handleGenerateStandaloneQr = async (member) => {
+    setGeneratingStandaloneQrId(member.participantId);
+    try {
+      const res = await api.post("/meals/standalone-qrs", {
+        participant_id: member.participantId,
+      });
+      const data = res.data?.data || {};
+      const qrToken = String(data.qr_token || "").trim();
+      if (!qrToken) {
+        toast.error("O backend não retornou um QR válido.");
+        return "";
+      }
+
+      syncParticipantQrToken(member.participantId, qrToken);
+      toast.success(data.created_now ? "QR avulso gerado." : "QR avulso confirmado.");
+      return qrToken;
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Erro ao gerar QR avulso do Meals.");
+      return "";
+    } finally {
+      setGeneratingStandaloneQrId(null);
+    }
   };
 
   const bannerClassByTone = {
@@ -728,48 +1301,55 @@ export default function MealsControl() {
     warn: "border-amber-900/60 bg-amber-950/30 text-amber-100",
   };
 
-  const saveMealCost = async (e) => {
+  const saveMealServices = async (e) => {
     e.preventDefault();
-    if (mealUnitCostAvailable === false) {
-      toast.error("O ambiente atual não sustenta `meal_unit_cost`. O ajuste permanece indisponível nesta base.");
-      return;
-    }
-    const safeValue = Math.max(0, Number(mealCostDraft || 0));
+    if (!eventId) return;
     setSavingMealCost(true);
     try {
-      const res = await api.get("/organizer-finance/settings");
-      const settings = res.data?.data || {};
-      const unitCostAvailable = settings.meal_unit_cost_available !== false;
-      setMealUnitCostAvailable(unitCostAvailable);
-      if (!unitCostAvailable) {
-        toast.error("O ambiente atual não sustenta `meal_unit_cost`. O ajuste permanece indisponível nesta base.");
-        return;
-      }
-      const saveRes = await api.put("/organizer-finance/settings", {
-        currency: settings.currency || "BRL",
-        tax_rate: Number(settings.tax_rate ?? 0),
-        meal_unit_cost: safeValue
+      const res = await api.put("/meals/services", {
+        event_id: Number(eventId),
+        services: mealServiceDrafts,
       });
-      const persistedSettings = saveRes.data?.data || {};
-      const persistedUnit = Number(persistedSettings.meal_unit_cost ?? 0);
-      const persistedUnitAvailable = persistedSettings.meal_unit_cost_available !== false;
-      const persistedMatchesRequest = Math.abs(persistedUnit - safeValue) < 0.005;
-      setMealUnitCost(persistedUnit);
-      setMealUnitCostAvailable(persistedUnitAvailable);
-      setMealCostDraft(persistedUnit);
+      const saved = res.data?.data?.services || [];
+      setMealServices(saved);
+      setMealServiceDrafts(saved);
       setMealCostModalOpen(false);
+      toast.success("Configuração de refeições salva.");
       await loadBalance();
-      if (persistedUnitAvailable && persistedMatchesRequest) {
-        toast.success("Valor unitário de refeição atualizado.");
-      } else {
-        toast.error("O ambiente atual não sustentou `meal_unit_cost`. A projeção financeira continua indisponível.");
-      }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Erro ao salvar valor unitário da refeição.");
+      toast.error(err.response?.data?.message || "Erro ao salvar configuração de refeições.");
     } finally {
       setSavingMealCost(false);
     }
   };
+
+  const handleGenerateExternalQr = async (e) => {
+    e.preventDefault();
+    if (!eventId) { toast.error("Selecione um evento."); return; }
+    if (!externalQrForm.name.trim()) { toast.error("Informe o nome do colaborador."); return; }
+    setGeneratingExternalQr(true);
+    try {
+      const res = await api.post("/meals/external-qr", {
+        event_id: Number(eventId),
+        name: externalQrForm.name.trim(),
+        phone: externalQrForm.phone.trim(),
+        meals_per_day: Number(externalQrForm.meals_per_day) || 4,
+        valid_days: Number(externalQrForm.valid_days) || 1,
+      });
+      const data = res.data?.data || {};
+      setGeneratedExternalQrs((prev) => [
+        { ...data, created_at: new Date().toISOString() },
+        ...prev,
+      ]);
+      setExternalQrForm({ name: "", phone: "", meals_per_day: 4, valid_days: 1 });
+      toast.success("QR do colaborador externo gerado!");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Erro ao gerar QR externo.");
+    } finally {
+      setGeneratingExternalQr(false);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -792,11 +1372,12 @@ export default function MealsControl() {
         <button
           className="btn-secondary flex items-center gap-2"
           onClick={() => {
-            setMealCostDraft(mealUnitCost);
+            setMealServiceDrafts(mealServices.length > 0 ? mealServices : []);
             setMealCostModalOpen(true);
           }}
+          disabled={!eventId}
         >
-          <Settings2 size={16} /> Valor Refeição
+          <Settings2 size={16} /> Configurar Refeições
         </button>
       </div>
 
@@ -826,40 +1407,43 @@ export default function MealsControl() {
 
         <select
           className="input"
-          value={eventDayId}
+          value={displayedEventDayId}
           onChange={(e) => setEventDayId(e.target.value)}
-          disabled={!eventId || showWorkforceFallback}
+          disabled={!eventId || availableEventDayOptions.length <= 0}
         >
           <option value="">
             {showWorkforceFallback
-              ? "Evento sem dias operacionais"
+              ? syntheticEventDayOption
+                ? "Selecione o dia-base do evento"
+                : "Evento sem dias operacionais"
               : "Selecione o dia..."}
           </option>
-          {eventDays.map((d) => (
+          {availableEventDayOptions.map((d) => (
             <option key={d.id} value={d.id}>
               {d.date}
             </option>
           ))}
         </select>
 
+        {/* Seletor de refeição (principal) */}
         <select
           className="input"
-          value={eventShiftId}
-          onChange={(e) => setEventShiftId(e.target.value)}
-          disabled={!eventId || showWorkforceFallback || !eventDayId}
+          value={mealServiceId}
+          onChange={(e) => setMealServiceId(e.target.value)}
+          disabled={!eventId || !eventDayId || mealServices.length === 0}
         >
           <option value="">
-            {showWorkforceFallback
-              ? "Turnos indisponíveis sem dias operacionais"
+            {!eventId
+              ? "Selecione um evento"
               : !eventDayId
-                ? "Selecione um dia primeiro"
-                : filteredShifts.length > 0
-                  ? "Todos os turnos"
-                  : "Dia sem turnos cadastrados"}
+                ? "Selecione um dia"
+                : mealServices.length === 0
+                  ? "Sem serviços configurados"
+                  : "Refeição atual..."}
           </option>
-          {filteredShifts.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
+          {mealServices.map((svc) => (
+            <option key={svc.id} value={svc.id} disabled={!svc.is_active}>
+              {svc.label}{!svc.is_active ? " (inativa)" : ""}
             </option>
           ))}
         </select>
@@ -892,6 +1476,120 @@ export default function MealsControl() {
         </div>
         <p className="mt-3 text-xs text-gray-500">{registerMealMessage}</p>
       </form>
+
+      {eventId && (
+        <div className="card p-4 space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-white">QR para colaborador externo</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Gera um QR de refeição para colaboradores que não estão cadastrados no Workforce.
+                O gerente informa nome + contato, o sistema cria o acesso e gera o link para enviar pelo WhatsApp.
+              </p>
+            </div>
+            <span className="badge badge-blue">{generatedExternalQrs.length} gerado(s)</span>
+          </div>
+
+          <form onSubmit={handleGenerateExternalQr} className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input
+              className="input"
+              placeholder="Nome completo *"
+              value={externalQrForm.name}
+              onChange={(e) => setExternalQrForm((f) => ({ ...f, name: e.target.value }))}
+              disabled={generatingExternalQr}
+            />
+            <input
+              className="input"
+              placeholder="Telefone (WhatsApp)"
+              value={externalQrForm.phone}
+              onChange={(e) => setExternalQrForm((f) => ({ ...f, phone: e.target.value }))}
+              disabled={generatingExternalQr}
+            />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <select
+                  className="input w-full"
+                  value={externalQrForm.meals_per_day}
+                  onChange={(e) => setExternalQrForm((f) => ({ ...f, meals_per_day: Number(e.target.value) }))}
+                  disabled={generatingExternalQr}
+                >
+                  {[1, 2, 3, 4].map((n) => (
+                    <option key={n} value={n}>{n} refeição{n > 1 ? "ões" : " "}/dia</option>
+                  ))}
+                </select>
+              </div>
+              <div className="w-32">
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="1"
+                    max="30"
+                    className="input w-full pr-12"
+                    placeholder="Dias"
+                    value={externalQrForm.valid_days || 1}
+                    onChange={(e) => setExternalQrForm((f) => ({ ...f, valid_days: Math.max(1, Number(e.target.value)) }))}
+                    disabled={generatingExternalQr}
+                  />
+                  <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                    <span className="text-gray-400 text-sm">{externalQrForm.valid_days === 1 ? 'dia' : 'dias'}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="btn-primary whitespace-nowrap"
+                disabled={generatingExternalQr || !externalQrForm.name.trim()}
+              >
+                {generatingExternalQr ? "Gerando..." : "Gerar QR"}
+              </button>
+            </div>
+          </form>
+
+          {generatedExternalQrs.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500 font-semibold">QRs gerados nesta sessão:</p>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                {generatedExternalQrs.map((item, i) => {
+                  const inviteLink = buildInviteLink(item.qr_token);
+                  const waLink = item.phone
+                    ? `https://wa.me/${item.phone.replace(/\D/g, "")}?text=${encodeURIComponent("Acesse seu QR de refeição: " + inviteLink)}`
+                    : null;
+                  return (
+                    <div key={i} className="rounded-2xl border border-gray-800 bg-gray-950/60 p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-white text-sm">{item.name}</p>
+                          <p className="text-xs text-gray-500">{item.phone || "Sem telefone"} · {item.meals_per_day} refeições/dia</p>
+                        </div>
+                        <span className="badge badge-green">Ativo</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="btn-secondary inline-flex items-center gap-2 text-xs"
+                          onClick={() => handleCopyStandaloneInvite(item.qr_token)}
+                        >
+                          <Copy size={13} /> Copiar link
+                        </button>
+                        {waLink && (
+                          <a
+                            href={waLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-secondary inline-flex items-center gap-2 text-xs"
+                          >
+                            <QrCode size={13} /> WhatsApp
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
         {operationalCards.map((card) => (
@@ -1003,6 +1701,31 @@ export default function MealsControl() {
         </div>
       </div>
 
+      <div className="card p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-white">Membros por Setor (Breakdown)</p>
+          <span className="badge badge-blue">
+            {tableRows.length} membros na leitura atual
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-2">
+          {Object.entries(
+            tableRows.reduce((acc, row) => {
+              const sec = row.sector || "Sem setor";
+              acc[sec] = (acc[sec] || 0) + 1;
+              return acc;
+            }, {})
+          )
+            .sort((a, b) => b[1] - a[1])
+            .map(([sec, count]) => (
+              <div key={sec} className="px-3 py-1.5 rounded-lg border border-gray-800 bg-gray-950/40 flex items-center gap-2">
+                <span className="text-xs text-gray-400 font-medium capitalize">{sec}</span>
+                <span className="text-xs text-white bg-gray-800 px-1.5 py-0.5 rounded">{count}</span>
+              </div>
+            ))}
+        </div>
+      </div>
+
       <div className="table-wrapper">
         <table className="table">
           <thead>
@@ -1010,7 +1733,7 @@ export default function MealsControl() {
               <th>Pessoa</th>
               <th>Cota</th>
               <th>Leitura operacional</th>
-              <th>Turno</th>
+              <th>Refeições</th>
               <th>Base / QR</th>
             </tr>
           </thead>
@@ -1133,20 +1856,23 @@ export default function MealsControl() {
                   </td>
                   <td className="align-top">
                     <div className="space-y-2">
-                      <span className={row.shiftId ? "badge badge-blue" : row.hasMultipleShifts ? "badge badge-yellow" : "badge badge-red"}>
-                        {row.shiftId
-                          ? (row.shiftName || `Turno #${row.shiftId}`)
-                          : row.hasMultipleShifts
-                            ? "Turnos múltiplos"
-                            : "Sem vínculo"}
-                      </span>
+                      {row.consumedDay > 0 ? (
+                        <span className="badge badge-blue">Consumiu {row.consumedDay} hoje</span>
+                      ) : (
+                        <span className="badge badge-gray">Nenhuma hoje</span>
+                      )}
                       <p className="text-xs text-gray-500">
-                        {row.shiftId
-                          ? "Turno complementar unívoco visível na base do Workforce."
-                          : row.hasMultipleShifts
-                            ? "O participante possui mais de um contexto de turno no Workforce; o saldo continua consolidado por pessoa."
-                            : "Ausencia de turno mantida explicita na leitura operacional."}
+                        {row.remainingDay !== null
+                          ? `${row.remainingDay} restante${row.remainingDay === 1 ? "" : "s"} de ${row.mealsPerDay}`
+                          : row.configSource === "default"
+                            ? `Cota padrão: ${row.mealsPerDay ?? 4} refeições/dia`
+                            : "Cota não resolvida"}
                       </p>
+                      {row.shiftId && (
+                        <p className="text-xs text-gray-400">
+                          Turno: {row.shiftName || `#${row.shiftId}`}
+                        </p>
+                      )}
                     </div>
                   </td>
                   <td className="align-top">
@@ -1172,39 +1898,78 @@ export default function MealsControl() {
 
       {mealCostModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md overflow-hidden">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg overflow-hidden">
             <div className="p-4 border-b border-gray-800 flex items-center justify-between">
               <div>
                 <h3 className="text-white font-bold">Configuração de Refeições</h3>
-                <p className="text-xs text-gray-500 mt-1">Defina o valor unitário para custo operacional.</p>
+                <p className="text-xs text-gray-500 mt-1">Defina o valor e os horários de cada tipo de refeição do evento.</p>
               </div>
               <button onClick={() => setMealCostModalOpen(false)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800">
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={saveMealCost} className="p-5 space-y-4">
-              <label className="text-xs text-gray-400 block">
-                Valor unitário da refeição (R$)
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="input mt-1 w-full"
-                  value={mealCostDraft}
-                  onChange={(e) => setMealCostDraft(Number(e.target.value))}
-                  disabled={mealUnitCostAvailable === false || savingMealCost}
-                />
-              </label>
-              {mealUnitCostAvailable === false && (
-                <p className="text-xs text-amber-300">
-                  Este ambiente não possui a coluna `meal_unit_cost` em `organizer_financial_settings`.
-                  O ajuste fica bloqueado ate a migration/readiness correta da base.
-                </p>
+            <form onSubmit={saveMealServices} className="p-5 space-y-4">
+              {mealServiceDrafts.length === 0 ? (
+                <p className="text-sm text-gray-500">Nenhum serviço de refeição encontrado. Salve o evento para criar os serviços padrão.</p>
+              ) : (
+                <div className="space-y-3">
+                  {mealServiceDrafts.map((svc, idx) => (
+                    <div key={svc.id} className="rounded-xl border border-gray-800 bg-gray-950/60 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-white">{svc.label}</p>
+                        <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={svc.is_active !== false}
+                            onChange={(e) => setMealServiceDrafts((prev) =>
+                              prev.map((s, i) => i === idx ? { ...s, is_active: e.target.checked } : s)
+                            )}
+                          />
+                          Ativa
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[11px] text-gray-500 block">Início</label>
+                          <input
+                            type="time"
+                            className="input w-full text-xs"
+                            value={(svc.starts_at || "").slice(0, 5)}
+                            onChange={(e) => setMealServiceDrafts((prev) =>
+                              prev.map((s, i) => i === idx ? { ...s, starts_at: e.target.value } : s)
+                            )}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-gray-500 block">Fim</label>
+                          <input
+                            type="time"
+                            className="input w-full text-xs"
+                            value={(svc.ends_at || "").slice(0, 5)}
+                            onChange={(e) => setMealServiceDrafts((prev) =>
+                              prev.map((s, i) => i === idx ? { ...s, ends_at: e.target.value } : s)
+                            )}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-gray-500 block">Valor (R$)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="input w-full text-xs"
+                            value={svc.unit_cost ?? 0}
+                            onChange={(e) => setMealServiceDrafts((prev) =>
+                              prev.map((s, i) => i === idx ? { ...s, unit_cost: Number(e.target.value) } : s)
+                            )}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-              <p className="text-xs text-gray-500">
-                O consumo total é calculado automaticamente com base em turnos e refeições configurados no Workforce.
-              </p>
 
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setMealCostModalOpen(false)} className="btn-secondary">
@@ -1212,7 +1977,7 @@ export default function MealsControl() {
                 </button>
                 <button
                   type="submit"
-                  disabled={savingMealCost || mealUnitCostAvailable === false}
+                  disabled={savingMealCost || mealServiceDrafts.length === 0}
                   className="btn-primary flex items-center gap-2"
                 >
                   <Save size={16} /> Salvar

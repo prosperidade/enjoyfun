@@ -6,10 +6,12 @@
 
 require_once BASE_PATH . '/src/Services/PaymentGatewayService.php';
 require_once BASE_PATH . '/src/Services/FinancialSettingsService.php';
+require_once BASE_PATH . '/src/Services/MealsDomainService.php';
 require_once __DIR__ . '/../Helpers/WorkforceEventRoleHelper.php';
 
 use EnjoyFun\Services\PaymentGatewayService;
 use EnjoyFun\Services\FinancialSettingsService;
+use EnjoyFun\Services\MealsDomainService;
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -264,6 +266,15 @@ function getWorkforceCosts(array $query): void
         $stmtMealCost->execute([$organizerId]);
         $mealUnitCost = (float)($stmtMealCost->fetchColumn() ?: 0);
     }
+    $mealCostContext = $eventId > 0
+        ? MealsDomainService::buildCostContext($db, $organizerId, $eventId)
+        : [
+            'services' => [],
+            'active_services' => [],
+            'fallback_unit_cost' => $mealUnitCost,
+        ];
+    $activeMealServices = $mealCostContext['active_services'] ?? [];
+    $mealServicesCostLabel = MealsDomainService::buildServiceCostLabel($mealCostContext['services'] ?? []);
 
     if ($hasParticipantCheckins) {
         $sqlPresence = "
@@ -362,6 +373,7 @@ function getWorkforceCosts(array $query): void
     $totalEstimatedPayment = 0.0;
     $totalEstimatedHours = 0.0;
     $totalEstimatedMeals = 0;
+    $totalEstimatedMealsCost = 0.0;
     $managerialRolesPaymentTotal = 0.0;
     $operationalMembersPaymentTotal = 0.0;
     $bySector = [];
@@ -385,6 +397,7 @@ function getWorkforceCosts(array $query): void
                 'estimated_payment_total' => 0.0,
                 'estimated_hours_total' => 0.0,
                 'estimated_meals_total' => 0,
+                'estimated_meals_cost_total' => 0.0,
             ];
         }
     };
@@ -401,6 +414,10 @@ function getWorkforceCosts(array $query): void
         $estimatedPayment = round($paymentAmount * $maxShifts, 2);
         $estimatedHours = round($maxShifts * $shiftHours, 2);
         $estimatedMeals = $maxShifts * $mealsPerDay;
+        $estimatedMealsCost = round(
+            $maxShifts * MealsDomainService::calculateDailyMealCost($mealsPerDay, $activeMealServices, $mealUnitCost),
+            2
+        );
         $participantIsPresent = !empty($presenceByParticipantId[(int)($row['participant_id'] ?? 0)]);
 
         $items[] = [
@@ -419,6 +436,7 @@ function getWorkforceCosts(array $query): void
             'estimated_payment_total' => $estimatedPayment,
             'estimated_hours_total' => $estimatedHours,
             'estimated_meals_total' => $estimatedMeals,
+            'estimated_meals_cost_total' => $estimatedMealsCost,
             'is_present' => $participantIsPresent,
         ];
 
@@ -431,6 +449,7 @@ function getWorkforceCosts(array $query): void
         $totalEstimatedPayment += $estimatedPayment;
         $totalEstimatedHours += $estimatedHours;
         $totalEstimatedMeals += $estimatedMeals;
+        $totalEstimatedMealsCost += $estimatedMealsCost;
         $operationalMembersPaymentTotal += $estimatedPayment;
         $operationalMembersTotal++;
         $operationalMembers[] = end($items);
@@ -446,6 +465,7 @@ function getWorkforceCosts(array $query): void
         $bySector[$sector]['estimated_payment_total'] += $estimatedPayment;
         $bySector[$sector]['estimated_hours_total'] += $estimatedHours;
         $bySector[$sector]['estimated_meals_total'] += $estimatedMeals;
+        $bySector[$sector]['estimated_meals_cost_total'] += $estimatedMealsCost;
 
         $roleKey = $sector . '::' . $roleName;
         if (!isset($byRole[$roleKey])) {
@@ -463,6 +483,7 @@ function getWorkforceCosts(array $query): void
                 'estimated_payment_total' => 0.0,
                 'estimated_hours_total' => 0.0,
                 'estimated_meals_total' => 0,
+                'estimated_meals_cost_total' => 0.0,
             ];
         }
         $byRole[$roleKey]['members']++;
@@ -472,6 +493,7 @@ function getWorkforceCosts(array $query): void
         $byRole[$roleKey]['estimated_payment_total'] += $estimatedPayment;
         $byRole[$roleKey]['estimated_hours_total'] += $estimatedHours;
         $byRole[$roleKey]['estimated_meals_total'] += $estimatedMeals;
+        $byRole[$roleKey]['estimated_meals_cost_total'] += $estimatedMealsCost;
     }
 
     // Cargos gerenciais/diretivos entram como baseline próprio de custo (1 posição por cargo),
@@ -537,12 +559,17 @@ function getWorkforceCosts(array $query): void
             $estimatedPayment = round($paymentAmount * $maxShifts, 2);
             $estimatedHours = round($maxShifts * $shiftHours, 2);
             $estimatedMeals = $maxShifts * $mealsPerDay;
+            $estimatedMealsCost = round(
+                $maxShifts * MealsDomainService::calculateDailyMealCost($mealsPerDay, $activeMealServices, $mealUnitCost),
+                2
+            );
 
             $totalMembers++;
             $plannedMembersTotal++;
             $totalEstimatedPayment += $estimatedPayment;
             $totalEstimatedHours += $estimatedHours;
             $totalEstimatedMeals += $estimatedMeals;
+            $totalEstimatedMealsCost += $estimatedMealsCost;
             $managerialRolesPaymentTotal += $estimatedPayment;
             $leadershipPositionsTotal++;
             if ($isFilled) {
@@ -573,6 +600,7 @@ function getWorkforceCosts(array $query): void
             $bySector[$sector]['estimated_payment_total'] += $estimatedPayment;
             $bySector[$sector]['estimated_hours_total'] += $estimatedHours;
             $bySector[$sector]['estimated_meals_total'] += $estimatedMeals;
+            $bySector[$sector]['estimated_meals_cost_total'] += $estimatedMealsCost;
 
             $byRoleManagerial[] = [
                 'sector' => $sector,
@@ -592,6 +620,7 @@ function getWorkforceCosts(array $query): void
                 'estimated_payment_total' => $estimatedPayment,
                 'estimated_hours_total' => $estimatedHours,
                 'estimated_meals_total' => $estimatedMeals,
+                'estimated_meals_cost_total' => $estimatedMealsCost,
             ];
         }
     } elseif ($hasRoleSettings) {
@@ -639,6 +668,10 @@ function getWorkforceCosts(array $query): void
             $estimatedPayment = round($paymentAmount * $maxShifts, 2);
             $estimatedHours = round($maxShifts * $shiftHours, 2);
             $estimatedMeals = $maxShifts * $mealsPerDay;
+            $estimatedMealsCost = round(
+                $maxShifts * MealsDomainService::calculateDailyMealCost($mealsPerDay, $activeMealServices, $mealUnitCost),
+                2
+            );
 
             $totalMembers++;
             $plannedMembersTotal++;
@@ -646,6 +679,7 @@ function getWorkforceCosts(array $query): void
             $totalEstimatedPayment += $estimatedPayment;
             $totalEstimatedHours += $estimatedHours;
             $totalEstimatedMeals += $estimatedMeals;
+            $totalEstimatedMealsCost += $estimatedMealsCost;
             $managerialRolesPaymentTotal += $estimatedPayment;
             $leadershipPositionsTotal++;
             $leadershipFilledTotal++;
@@ -659,6 +693,7 @@ function getWorkforceCosts(array $query): void
             $bySector[$sector]['estimated_payment_total'] += $estimatedPayment;
             $bySector[$sector]['estimated_hours_total'] += $estimatedHours;
             $bySector[$sector]['estimated_meals_total'] += $estimatedMeals;
+            $bySector[$sector]['estimated_meals_cost_total'] += $estimatedMealsCost;
 
             $byRoleManagerial[] = [
                 'sector' => $sector,
@@ -676,6 +711,7 @@ function getWorkforceCosts(array $query): void
                 'estimated_payment_total' => $estimatedPayment,
                 'estimated_hours_total' => $estimatedHours,
                 'estimated_meals_total' => $estimatedMeals,
+                'estimated_meals_cost_total' => $estimatedMealsCost,
             ];
         }
     }
@@ -684,6 +720,7 @@ function getWorkforceCosts(array $query): void
         $row['members'] = (int)($row['planned_members_total'] ?? $row['members'] ?? 0);
         $row['estimated_payment_total'] = round((float)$row['estimated_payment_total'], 2);
         $row['estimated_hours_total'] = round((float)$row['estimated_hours_total'], 2);
+        $row['estimated_meals_cost_total'] = round((float)($row['estimated_meals_cost_total'] ?? 0), 2);
         return $row;
     }, $bySector));
 
@@ -691,12 +728,14 @@ function getWorkforceCosts(array $query): void
         $row['members'] = (int)($row['planned_members_total'] ?? $row['members'] ?? 0);
         $row['estimated_payment_total'] = round((float)$row['estimated_payment_total'], 2);
         $row['estimated_hours_total'] = round((float)$row['estimated_hours_total'], 2);
+        $row['estimated_meals_cost_total'] = round((float)($row['estimated_meals_cost_total'] ?? 0), 2);
         return $row;
     }, $byRole));
     $byRoleManagerial = array_values(array_map(function ($row) {
         $row['members'] = (int)($row['planned_members_total'] ?? $row['members'] ?? 0);
         $row['estimated_payment_total'] = round((float)$row['estimated_payment_total'], 2);
         $row['estimated_hours_total'] = round((float)$row['estimated_hours_total'], 2);
+        $row['estimated_meals_cost_total'] = round((float)($row['estimated_meals_cost_total'] ?? 0), 2);
         return $row;
     }, $byRoleManagerial));
 
@@ -710,7 +749,7 @@ function getWorkforceCosts(array $query): void
         return $c !== 0 ? $c : strcmp($a['role_name'], $b['role_name']);
     });
 
-    $estimatedMealsCostTotal = round($totalEstimatedMeals * $mealUnitCost, 2);
+    $estimatedMealsCostTotal = round($totalEstimatedMealsCost, 2);
     $estimatedTotalCost = round($totalEstimatedPayment + $estimatedMealsCostTotal, 2);
 
     jsonSuccess([
@@ -723,7 +762,7 @@ function getWorkforceCosts(array $query): void
             'estimated_payment_total' => 'payment_amount * max_shifts_event',
             'estimated_hours_total' => 'max_shifts_event * shift_hours',
             'estimated_meals_total' => 'max_shifts_event * meals_per_day',
-            'estimated_meals_cost_total' => 'estimated_meals_total * meal_unit_cost',
+            'estimated_meals_cost_total' => 'max_shifts_event * custo_diario_das_refeicoes_ativas_do_evento',
             'estimated_total_cost' => 'estimated_payment_total + estimated_meals_cost_total'
         ],
         'summary' => [
@@ -739,6 +778,8 @@ function getWorkforceCosts(array $query): void
             'estimated_hours_total' => round($totalEstimatedHours, 2),
             'estimated_meals_total' => $totalEstimatedMeals,
             'meal_unit_cost' => round($mealUnitCost, 2),
+            'meal_services_costs_label' => $mealServicesCostLabel,
+            'event_meal_services' => $mealCostContext['services'] ?? [],
             'estimated_meals_cost_total' => $estimatedMealsCostTotal,
             'estimated_total_cost' => $estimatedTotalCost,
             'managerial_roles_payment_total' => round($managerialRolesPaymentTotal, 2),

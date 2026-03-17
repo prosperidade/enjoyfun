@@ -287,7 +287,7 @@ export default function Tickets() {
         </div>
         <div className="flex flex-wrap gap-3 w-full sm:w-auto">
           <Link
-            to="/scanner?mode=portaria"
+            to={`/scanner?mode=portaria${effectiveEventId ? `&event_id=${effectiveEventId}` : ""}`}
             state={{ returnTo: "/tickets" }}
             className="btn-outline flex-1 sm:flex-none justify-center"
           >

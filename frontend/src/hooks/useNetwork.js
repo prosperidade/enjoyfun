@@ -9,6 +9,7 @@ function hasValidEventId(eventId) {
 
 function normalizePendingSyncRecord(record) {
   const payload = record?.payload ?? record?.data ?? {};
+  const payloadType = record?.payload_type ?? record?.type ?? 'sale';
   const cardId =
     payload.card_id ??
     payload.qr_token ??
@@ -18,12 +19,12 @@ function normalizePendingSyncRecord(record) {
 
   return {
     offline_id: record?.offline_id,
-    payload_type: record?.payload_type ?? record?.type ?? 'sale',
+    payload_type: payloadType,
     payload: {
       ...payload,
       event_id: hasValidEventId(payload?.event_id) ? Number(payload.event_id) : null,
-      sector: payload?.sector ?? record?.sector ?? 'bar',
-      card_id: cardId,
+      sector: payload?.sector ?? record?.sector ?? (payloadType === 'sale' ? 'bar' : null),
+      ...(payloadType === 'sale' ? { card_id: cardId } : {}),
     },
     created_offline_at: record?.created_offline_at ?? record?.created_at ?? new Date().toISOString(),
   };

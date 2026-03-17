@@ -19,13 +19,13 @@ function processScan(array $body): void
     }
 
     $token = normalizeScannerToken((string)($body['token'] ?? ''));
-    $mode = strtolower(trim((string)($body['mode'] ?? 'portaria')));
+    $mode = normalizeScannerMode((string)($body['mode'] ?? 'portaria'));
 
     if ($token === '') {
         jsonError('Token é obrigatório.', 422);
     }
 
-    if (!in_array($mode, ['portaria', 'bar', 'food', 'shop', 'parking'], true)) {
+    if (!scannerModeIsValid($mode)) {
         jsonError("Modo '{$mode}' inválido ou não suportado.", 422);
     }
 
@@ -53,6 +53,11 @@ function processScan(array $body): void
 
 function processGuestScan(PDO $db, array $guest, string $mode, array $operator): void
 {
+    if ($mode !== 'portaria') {
+        scannerAuditFailure($operator, (string)$guest['qr_code_token'], $mode, 'guest_mode_not_allowed', (int)$guest['id']);
+        jsonError("Guest só pode ser validado na portaria.", 422);
+    }
+
     $guestStatus = normalizeScannerStatus((string)($guest['status'] ?? ''));
     if (in_array($guestStatus, ['cancelled', 'bloqueado', 'blocked', 'inapto'], true)) {
         scannerAuditFailure($operator, (string)$guest['qr_code_token'], $mode, 'guest_blocked', (int)$guest['id']);
@@ -102,9 +107,9 @@ function processParticipantScan(PDO $db, array $participant, string $mode, array
         jsonError('Participante bloqueado/inapto para validação.', 403);
     }
 
-    if (!in_array($mode, ['portaria', 'parking'], true)) {
+    if (!scannerModeAllowsParticipant($db, $participantId, $mode)) {
         scannerAuditFailure($operator, (string)$participant['qr_token'], $mode, 'mode_not_allowed_for_participant', $participantId);
-        jsonError("Modo '{$mode}' não permitido para este QR de equipe.", 422);
+        jsonError("Modo '{$mode}' não permitido para este QR de equipe ou setor não vinculado ao participante.", 422);
     }
 
     if (isset($participant['max_shifts_event'])) {
@@ -223,6 +228,39 @@ function findParticipantByToken(PDO $db, int $organizerId, string $token): ?arra
 function normalizeScannerStatus(string $status): string
 {
     return strtolower(trim($status));
+}
+
+function normalizeScannerMode(string $mode): string
+{
+    $normalized = strtolower(trim($mode));
+    $normalized = preg_replace('/\s+/', '_', $normalized);
+    return trim((string)$normalized, '_');
+}
+
+function scannerModeIsValid(string $mode): bool
+{
+    if ($mode === '') {
+        return false;
+    }
+
+    return preg_match('/^[a-z0-9_-]+$/', $mode) === 1;
+}
+
+function scannerModeAllowsParticipant(PDO $db, int $participantId, string $mode): bool
+{
+    if ($mode === 'portaria') {
+        return true;
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM workforce_assignments wa
+        WHERE wa.participant_id = ?
+          AND LOWER(REGEXP_REPLACE(COALESCE(wa.sector, ''), '\s+', '_', 'g')) = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$participantId, $mode]);
+    return (bool)$stmt->fetchColumn();
 }
 
 function normalizeScannerToken(string $rawToken): string
