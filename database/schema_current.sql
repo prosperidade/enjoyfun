@@ -2750,6 +2750,41 @@ CREATE UNIQUE INDEX idx_tickets_qr_token ON public.tickets USING btree (qr_token
 
 
 --
+-- Name: idx_event_participants_category; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_event_participants_category ON public.event_participants USING btree (category_id);
+
+
+--
+-- Name: idx_event_participants_event; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_event_participants_event ON public.event_participants USING btree (event_id);
+
+
+--
+-- Name: idx_event_participants_person; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_event_participants_person ON public.event_participants USING btree (person_id);
+
+
+--
+-- Name: idx_participant_checkins_participant; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_participant_checkins_participant ON public.participant_checkins USING btree (participant_id);
+
+
+--
+-- Name: idx_participant_checkins_recorded_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_participant_checkins_recorded_at ON public.participant_checkins USING btree (recorded_at);
+
+
+--
 -- Name: idx_workforce_assignments_event_role; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2761,6 +2796,13 @@ CREATE INDEX idx_workforce_assignments_event_role ON public.workforce_assignment
 --
 
 CREATE INDEX idx_workforce_assignments_manager_user ON public.workforce_assignments USING btree (manager_user_id);
+
+
+--
+-- Name: idx_workforce_assignments_participant; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_workforce_assignments_participant ON public.workforce_assignments USING btree (participant_id);
 
 
 --
@@ -2778,10 +2820,24 @@ CREATE INDEX idx_workforce_assignments_root_manager_event_role ON public.workfor
 
 
 --
+-- Name: idx_workforce_assignments_role; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_workforce_assignments_role ON public.workforce_assignments USING btree (role_id);
+
+
+--
 -- Name: idx_workforce_assignments_sector; Type: INDEX; Schema: public; Owner: postgres
 --
 
 CREATE INDEX idx_workforce_assignments_sector ON public.workforce_assignments USING btree (sector);
+
+
+--
+-- Name: idx_workforce_assignments_shift; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_workforce_assignments_shift ON public.workforce_assignments USING btree (event_shift_id);
 
 
 --
@@ -3014,6 +3070,38 @@ ALTER TABLE ONLY public.participant_meals
 
 
 --
+-- Name: event_participants fk_event_participants_category; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.event_participants
+    ADD CONSTRAINT fk_event_participants_category FOREIGN KEY (category_id) REFERENCES public.participant_categories(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: event_participants fk_event_participants_event; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.event_participants
+    ADD CONSTRAINT fk_event_participants_event FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE;
+
+
+--
+-- Name: event_participants fk_event_participants_person; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.event_participants
+    ADD CONSTRAINT fk_event_participants_person FOREIGN KEY (person_id) REFERENCES public.people(id) ON DELETE CASCADE;
+
+
+--
+-- Name: participant_checkins fk_participant_checkins_participant; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.participant_checkins
+    ADD CONSTRAINT fk_participant_checkins_participant FOREIGN KEY (participant_id) REFERENCES public.event_participants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: sales fk_sales_operator; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -3078,11 +3166,43 @@ ALTER TABLE ONLY public.workforce_assignments
 
 
 --
+-- Name: workforce_assignments fk_workforce_assignments_event_shift; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.workforce_assignments
+    ADD CONSTRAINT fk_workforce_assignments_event_shift FOREIGN KEY (event_shift_id) REFERENCES public.event_shifts(id) ON DELETE SET NULL;
+
+
+--
+-- Name: workforce_assignments fk_workforce_assignments_participant; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.workforce_assignments
+    ADD CONSTRAINT fk_workforce_assignments_participant FOREIGN KEY (participant_id) REFERENCES public.event_participants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: workforce_assignments fk_workforce_assignments_role; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.workforce_assignments
+    ADD CONSTRAINT fk_workforce_assignments_role FOREIGN KEY (role_id) REFERENCES public.workforce_roles(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: workforce_assignments fk_workforce_assignments_root_manager_event_role; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.workforce_assignments
     ADD CONSTRAINT fk_workforce_assignments_root_manager_event_role FOREIGN KEY (root_manager_event_role_id) REFERENCES public.workforce_event_roles(id) ON DELETE SET NULL;
+
+
+--
+-- Name: workforce_member_settings fk_workforce_member_settings_participant; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.workforce_member_settings
+    ADD CONSTRAINT fk_workforce_member_settings_participant FOREIGN KEY (participant_id) REFERENCES public.event_participants(id) ON DELETE CASCADE;
 
 
 --
@@ -3242,4 +3362,3 @@ ALTER TABLE ONLY public.user_roles
 --
 
 \unrestrict RNOeLt9WylrSk6mMdWLSNGixzaLg4Kqdupc2nEZfBuNHLs6pnEjgdcacT8n9oAM
-

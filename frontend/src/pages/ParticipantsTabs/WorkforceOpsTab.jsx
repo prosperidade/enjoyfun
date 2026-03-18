@@ -110,27 +110,66 @@ const inferRoleClassFromRoleName = (name = "", costBucket = "") => {
   return normalizeCostBucket(costBucket, name) === "managerial" ? "manager" : "operational";
 };
 
+const parseSqlDateTime = (value = "") => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+
+  const parsed = new Date(normalized.replace(" ", "T"));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const calculateShiftDurationHours = (shift = {}) => {
+  const startsAt = parseSqlDateTime(shift?.starts_at);
+  const endsAt = parseSqlDateTime(shift?.ends_at);
+  if (!startsAt || !endsAt) {
+    return 0;
+  }
+
+  let durationMs = endsAt.getTime() - startsAt.getTime();
+  if (durationMs < 0) {
+    durationMs += 24 * 60 * 60 * 1000;
+  }
+
+  return durationMs / (60 * 60 * 1000);
+};
+
+const calculateOperationalShiftSlots = (shifts = [], shiftHours = 8) => {
+  const normalizedShiftHours = Number(shiftHours || 0);
+  if (!(normalizedShiftHours > 0)) {
+    return Array.isArray(shifts) ? shifts.length : 0;
+  }
+
+  return (Array.isArray(shifts) ? shifts : []).reduce((total, shift) => {
+    const durationHours = calculateShiftDurationHours(shift);
+    if (!(durationHours > 0)) {
+      return total + 1;
+    }
+
+    return total + Math.max(1, Math.ceil(durationHours / normalizedShiftHours));
+  }, 0);
+};
+
 const WORKFORCE_SNAPSHOT_PREFIX = "enjoyfun_workforce_snapshot_v2";
 
 const getWorkforceSnapshotKey = (eventId) => `${WORKFORCE_SNAPSHOT_PREFIX}_${eventId}`;
 
 const readWorkforceSnapshot = (eventId) => {
   if (!eventId || typeof window === "undefined" || !window.localStorage) {
-    return null;
+    return { data: null, error: null };
   }
 
   try {
     const raw = window.localStorage.getItem(getWorkforceSnapshotKey(eventId));
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
+    if (!raw) return { data: null, error: null };
+    return { data: JSON.parse(raw), error: null };
+  } catch (error) {
+    return { data: null, error };
   }
 };
 
 const writeWorkforceSnapshot = (eventId, payload) => {
   if (!eventId || typeof window === "undefined" || !window.localStorage) {
-    return;
+    return { ok: false, error: null };
   }
 
   try {
@@ -141,8 +180,9 @@ const writeWorkforceSnapshot = (eventId, payload) => {
         saved_at: new Date().toISOString()
       })
     );
-  } catch {
-    // Snapshot local é best-effort para operação offline.
+    return { ok: true, error: null };
+  } catch (error) {
+    return { ok: false, error };
   }
 };
 
@@ -293,6 +333,9 @@ const buildRootHeadcountMap = (eventRoles = [], assignments = []) => {
   assignments.forEach((assignment) => {
     const rootId = Number(assignment?.root_manager_event_role_id || 0);
     if (rootId <= 0) return;
+    if (normalizeCostBucket(assignment?.cost_bucket, assignment?.role_name) === "managerial") {
+      return;
+    }
 
     const bucket = ensureBucket(rootId, normalizeSector(assignment?.sector || "") || "geral");
     bucket.operational_members_total += 1;
@@ -450,6 +493,7 @@ const buildManagerStructureRows = (eventRoles = [], assignments = [], manager = 
         ...row,
         cost_bucket: normalizedCostBucket,
         role_class: normalizedRoleClass,
+        qr_token: row?.leader_qr_token || "",
         event_role_id: eventRoleId || null,
         event_role_public_id: row?.public_id || "",
         root_event_role_id: Number(row?.root_event_role_id || eventRoleId || 0) || null,
@@ -537,6 +581,7 @@ export default function WorkforceOpsTab({ eventId }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadedFromSnapshot, setLoadedFromSnapshot] = useState(false);
+  const [snapshotWarning, setSnapshotWarning] = useState("");
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -554,7 +599,12 @@ export default function WorkforceOpsTab({ eventId }) {
   const [isSectorCostsModalOpen, setIsSectorCostsModalOpen] = useState(false);
   const [managerRoleSettings, setManagerRoleSettings] = useState(null);
   const [managerRoleSettingsLoading, setManagerRoleSettingsLoading] = useState(false);
-  const [eventStructure, setEventStructure] = useState({ days: 0, shifts: 0 });
+  const [eventStructure, setEventStructure] = useState({
+    days: 0,
+    shifts: 0,
+    registeredShifts: 0,
+    shiftHours: 8
+  });
   const [newManagerRoleName, setNewManagerRoleName] = useState("");
   const [savingNewManagerRole, setSavingNewManagerRole] = useState(false);
   const [pendingManagerRoleId, setPendingManagerRoleId] = useState(null);
@@ -594,13 +644,18 @@ export default function WorkforceOpsTab({ eventId }) {
       setEventRoles(nextEventRoles);
       setLoadedFromSnapshot(false);
 
-      writeWorkforceSnapshot(eventId, {
+      const snapshotWrite = writeWorkforceSnapshot(eventId, {
         managers: nextManagers,
         roles: nextRoles,
         assignments: nextAssignments,
         tree_status: nextTreeStatus,
         event_roles: nextEventRoles
       });
+      setSnapshotWarning(
+        snapshotWrite.ok
+          ? ""
+          : "Nao foi possivel atualizar o snapshot local deste dispositivo. A operacao offline pode ficar desatualizada."
+      );
 
       return {
         managers: nextManagers,
@@ -611,7 +666,13 @@ export default function WorkforceOpsTab({ eventId }) {
       };
     } catch (error) {
       console.error(error);
-      const snapshot = readWorkforceSnapshot(eventId);
+      const snapshotResult = readWorkforceSnapshot(eventId);
+      const snapshot = snapshotResult.data;
+      setSnapshotWarning(
+        snapshotResult.error
+          ? "O snapshot local deste evento esta indisponivel ou corrompido neste dispositivo."
+          : ""
+      );
       if (snapshot) {
         setManagers(snapshot.managers || []);
         setRoles(snapshot.roles || []);
@@ -704,7 +765,7 @@ export default function WorkforceOpsTab({ eventId }) {
   const loadManagerOperationalContext = async (manager = selectedManager) => {
     if (!manager?.role_id || !eventId) {
       setManagerRoleSettings(null);
-      setEventStructure({ days: 0, shifts: 0 });
+      setEventStructure({ days: 0, shifts: 0, registeredShifts: 0, shiftHours: 8 });
       return;
     }
 
@@ -725,15 +786,20 @@ export default function WorkforceOpsTab({ eventId }) {
         api.get(`/event-shifts?event_id=${eventId}`)
       ]);
 
-      setManagerRoleSettings(roleRes.data?.data || null);
+      const nextRoleSettings = roleRes.data?.data || null;
+      const nextShiftHours = Number(nextRoleSettings?.shift_hours ?? 8) || 8;
+      const nextShifts = shiftsRes.data?.data || [];
+      setManagerRoleSettings(nextRoleSettings);
       setEventStructure({
         days: (daysRes.data?.data || []).length,
-        shifts: (shiftsRes.data?.data || []).length
+        shifts: calculateOperationalShiftSlots(nextShifts, nextShiftHours),
+        registeredShifts: nextShifts.length,
+        shiftHours: nextShiftHours
       });
     } catch (error) {
       console.error(error);
       setManagerRoleSettings(null);
-      setEventStructure({ days: 0, shifts: 0 });
+      setEventStructure({ days: 0, shifts: 0, registeredShifts: 0, shiftHours: 8 });
     } finally {
       setManagerRoleSettingsLoading(false);
     }
@@ -767,6 +833,32 @@ export default function WorkforceOpsTab({ eventId }) {
     [assignments, eventManagerRootsAvailable, eventRoles, managers, roles]
   );
 
+  const legacyManagersCount = useMemo(() => {
+    const uniqueKeys = new Set();
+
+    assignments.forEach((assignment) => {
+      if (normalizeCostBucket(assignment?.cost_bucket, assignment?.role_name) !== "managerial") {
+        return;
+      }
+
+      const hasFullStructuralBinding =
+        Number(assignment?.event_role_id || 0) > 0 &&
+        Number(assignment?.root_manager_event_role_id || 0) > 0;
+      if (hasFullStructuralBinding) {
+        return;
+      }
+
+      const participantId = Number(assignment?.participant_id || 0);
+      const roleId = Number(assignment?.role_id || 0);
+      const sector = normalizeSector(assignment?.sector || "") || "geral";
+      uniqueKeys.add(
+        participantId > 0 ? `participant-${participantId}` : `role-${roleId}-${sector}`
+      );
+    });
+
+    return uniqueKeys.size;
+  }, [assignments]);
+
   const selectedManagerStructureRows = useMemo(
     () => buildManagerStructureRows(eventRoles, assignments, selectedManager),
     [assignments, eventRoles, selectedManager]
@@ -794,7 +886,7 @@ export default function WorkforceOpsTab({ eventId }) {
   useEffect(() => {
     if (!selectedManager) {
       setManagerRoleSettings(null);
-      setEventStructure({ days: 0, shifts: 0 });
+      setEventStructure({ days: 0, shifts: 0, registeredShifts: 0, shiftHours: 8 });
       return;
     }
     syncManagerOperationalContextEffect(selectedManager);
@@ -1210,7 +1302,7 @@ export default function WorkforceOpsTab({ eventId }) {
             </div>
             <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
               <p className="text-[10px] uppercase tracking-wider text-gray-500">Gerentes do cadastro antigo</p>
-              <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.legacy_managers_count || 0).toLocaleString("pt-BR")}</p>
+              <p className="mt-2 text-lg font-black text-white">{Number(legacyManagersCount).toLocaleString("pt-BR")}</p>
             </div>
             <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
               <p className="text-[10px] uppercase tracking-wider text-gray-500">Pessoas já ligadas a um gerente</p>
@@ -1225,6 +1317,12 @@ export default function WorkforceOpsTab({ eventId }) {
           {loadedFromSnapshot && (
             <p className="mt-3 text-xs text-amber-400 uppercase tracking-wider">
               Painel exibido com dados salvos neste dispositivo. Confirme a sincronização antes de fazer alterações.
+            </p>
+          )}
+
+          {snapshotWarning && (
+            <p className="mt-3 text-xs text-rose-400">
+              {snapshotWarning}
             </p>
           )}
 
@@ -1289,6 +1387,31 @@ export default function WorkforceOpsTab({ eventId }) {
                           {Number(mgr.leadership_positions_total || 0).toLocaleString("pt-BR")} • Operação:{" "}
                           {Number(mgr.operational_members_total || 0).toLocaleString("pt-BR")}
                         </p>
+                        <div className="mt-2">
+                          {mgr.qr_token ? (
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleCopyLink(mgr.qr_token)}
+                                className="p-1 px-2 text-[10px] bg-gray-800 border border-gray-700 rounded-lg inline-flex items-center gap-1"
+                              >
+                                <Copy size={11} /> Copiar link
+                              </button>
+                              <a
+                                href={`${window.location.origin}/invite?token=${mgr.qr_token}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1 px-2 text-[10px] text-brand-light border border-brand/30 rounded-lg inline-flex items-center gap-1"
+                              >
+                                <QrCode size={11} /> QR
+                              </a>
+                            </div>
+                          ) : (
+                            <p className="text-[10px] uppercase tracking-wider text-amber-400">
+                              QR nominal indisponível até vincular participante ao cargo.
+                            </p>
+                          )}
+                        </div>
                      </td>
                     <td className="px-5 py-4">
                         <div className="flex justify-end gap-2">
@@ -1341,6 +1464,7 @@ export default function WorkforceOpsTab({ eventId }) {
           isOpen={isRoleSettingsModalOpen}
           role={roleSettingsRole}
           eventId={eventId}
+          availableRoles={roles}
           roleMembersCount={0}
           onClose={() => {
             setIsRoleSettingsModalOpen(false);
@@ -1489,8 +1613,11 @@ export default function WorkforceOpsTab({ eventId }) {
                 <p className="mt-2 text-lg font-black text-white">{eventStructure.days}</p>
               </div>
               <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Turnos</p>
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Turnos operacionais</p>
                 <p className="mt-2 text-lg font-black text-white">{eventStructure.shifts}</p>
+                <p className="mt-1 text-[11px] text-gray-500">
+                  {eventStructure.registeredShifts} janela(s) cadastrada(s) com base de {eventStructure.shiftHours}h por turno.
+                </p>
               </div>
             </div>
             <p className="mt-3 text-xs text-gray-500">
@@ -1564,6 +1691,12 @@ export default function WorkforceOpsTab({ eventId }) {
             Painel exibido com dados salvos neste dispositivo para operação sem internet.
           </p>
         )}
+
+        {snapshotWarning && (
+          <p className="mt-3 text-xs text-rose-400">
+            {snapshotWarning}
+          </p>
+        )}
       </div>
 
       {selectedManagerStructureRows.length > 0 && (
@@ -1623,6 +1756,34 @@ export default function WorkforceOpsTab({ eventId }) {
                       {Number(row.payment_amount ?? 0).toFixed(2)}
                     </p>
                   </div>
+
+                  {row.cost_bucket === "managerial" && (
+                    <div className="mt-3">
+                      {row.qr_token ? (
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLink(row.qr_token)}
+                            className="p-1 px-2 text-[10px] bg-gray-800 border border-gray-700 rounded-lg inline-flex items-center gap-1"
+                          >
+                            <Copy size={11} /> Copiar link
+                          </button>
+                          <a
+                            href={`${window.location.origin}/invite?token=${row.qr_token}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1 px-2 text-[10px] text-brand-light border border-brand/30 rounded-lg inline-flex items-center gap-1"
+                          >
+                            <QrCode size={11} /> QR
+                          </a>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] uppercase tracking-wider text-amber-400">
+                          QR nominal indisponível até vincular participante ao cargo.
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div className="mt-4 flex items-center gap-2">
                     <button
@@ -1876,6 +2037,7 @@ export default function WorkforceOpsTab({ eventId }) {
         isOpen={isRoleSettingsModalOpen}
         role={roleSettingsRole}
         eventId={eventId}
+        availableRoles={roles}
         roleMembersCount={Number(roleSettingsRole?.id || 0) === Number(selectedManagerRole?.id || 0) ? managerRoleMembersCount : 0}
         onClose={() => {
           setIsRoleSettingsModalOpen(false);

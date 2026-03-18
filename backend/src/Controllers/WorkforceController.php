@@ -578,10 +578,11 @@ function updateEventRole(string $identifier, array $body): void
         jsonError('Linha estrutural do evento não encontrada.', 404);
     }
 
-    $role = getRoleById($db, $organizerId, (int)($existing['role_id'] ?? 0));
-    if (!$role) {
+    $currentRole = getRoleById($db, $organizerId, (int)($existing['role_id'] ?? 0));
+    if (!$currentRole) {
         jsonError('Cargo vinculado à linha estrutural não encontrado.', 404);
     }
+    $role = resolveEditableRoleForEventRole($db, $organizerId, $currentRole, $body);
 
     $row = persistEventRoleFromPayload($db, $organizerId, (int)$existing['event_id'], $role, $body, $existing);
     jsonSuccess($row, 'Linha estrutural do evento atualizada com sucesso.');
@@ -864,10 +865,11 @@ function upsertRoleSettings(int $roleId, array $body, array $query = []): void
     $canBypassSector = canBypassSectorAcl($user);
     $userSector = resolveUserSector($db, $user);
 
-    $role = getRoleById($db, $organizerId, $roleId);
-    if (!$role) {
+    $currentRole = getRoleById($db, $organizerId, $roleId);
+    if (!$currentRole) {
         jsonError('Cargo não encontrado.', 404);
     }
+    $role = resolveEditableRoleForEventRole($db, $organizerId, $currentRole, $body);
     $roleSector = normalizeSector((string)($role['sector'] ?? ''));
     if (!$canBypassSector && $userSector !== 'all' && $roleSector !== '' && $roleSector !== $userSector) {
         jsonError('Sem permissão para este cargo.', 403);
@@ -2091,6 +2093,103 @@ function getRoleById(PDO $db, int $organizerId, int $roleId): ?array
     return $role ?: null;
 }
 
+function findRoleByNameAndSector(PDO $db, int $organizerId, string $roleName, string $sector = ''): ?array
+{
+    $roleName = trim($roleName);
+    $sector = normalizeSector($sector);
+    if ($roleName === '') {
+        return null;
+    }
+
+    if (columnExists($db, 'workforce_roles', 'sector')) {
+        $stmt = $db->prepare("
+            SELECT id, name, sector
+            FROM workforce_roles
+            WHERE organizer_id = ?
+              AND LOWER(name) = LOWER(?)
+              AND LOWER(COALESCE(sector, '')) = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$organizerId, $roleName, $sector]);
+    } else {
+        $stmt = $db->prepare("
+            SELECT id, name, NULL::varchar AS sector
+            FROM workforce_roles
+            WHERE organizer_id = ?
+              AND LOWER(name) = LOWER(?)
+            LIMIT 1
+        ");
+        $stmt->execute([$organizerId, $roleName]);
+    }
+
+    $role = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $role ?: null;
+}
+
+function ensureRoleByNameAndSector(PDO $db, int $organizerId, string $roleName, string $sector = ''): array
+{
+    $existing = findRoleByNameAndSector($db, $organizerId, $roleName, $sector);
+    if ($existing) {
+        return $existing;
+    }
+
+    $roleName = trim($roleName);
+    $sector = normalizeSector($sector);
+    if ($roleName === '') {
+        jsonError('Nome do cargo é obrigatório.', 422);
+    }
+
+    if (columnExists($db, 'workforce_roles', 'sector')) {
+        $stmt = $db->prepare("
+            INSERT INTO workforce_roles (organizer_id, name, sector, created_at)
+            VALUES (?, ?, ?, NOW())
+            RETURNING id, name, sector
+        ");
+        $stmt->execute([$organizerId, $roleName, $sector]);
+    } else {
+        $stmt = $db->prepare("
+            INSERT INTO workforce_roles (organizer_id, name, created_at)
+            VALUES (?, ?, NOW())
+            RETURNING id, name, NULL::varchar AS sector
+        ");
+        $stmt->execute([$organizerId, $roleName]);
+    }
+
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: [
+        'id' => 0,
+        'name' => $roleName,
+        'sector' => $sector,
+    ];
+}
+
+function resolveEditableRoleForEventRole(PDO $db, int $organizerId, array $currentRole, array $payload): array
+{
+    $requestedRoleId = (int)($payload['role_id'] ?? $currentRole['id'] ?? 0);
+    $baseRole = getRoleById($db, $organizerId, $requestedRoleId);
+    if (!$baseRole) {
+        jsonError('Cargo não encontrado.', 404);
+    }
+
+    $desiredRoleName = trim((string)($payload['role_name'] ?? $baseRole['name'] ?? $currentRole['name'] ?? ''));
+    $desiredSector = normalizeSector((string)($payload['sector'] ?? $baseRole['sector'] ?? $currentRole['sector'] ?? ''));
+
+    if ($desiredRoleName === '') {
+        jsonError('Nome do cargo é obrigatório.', 422);
+    }
+
+    $baseName = trim((string)($baseRole['name'] ?? ''));
+    $baseSector = normalizeSector((string)($baseRole['sector'] ?? ''));
+    $sameName = function_exists('mb_strtolower')
+        ? mb_strtolower($desiredRoleName, 'UTF-8') === mb_strtolower($baseName, 'UTF-8')
+        : strtolower($desiredRoleName) === strtolower($baseName);
+
+    if ($sameName && $desiredSector === $baseSector) {
+        return $baseRole;
+    }
+
+    return ensureRoleByNameAndSector($db, $organizerId, $desiredRoleName, $desiredSector);
+}
+
 function resolveRoleCostBucket(PDO $db, int $organizerId, array $role): string
 {
     $roleId = (int)($role['id'] ?? 0);
@@ -3007,6 +3106,7 @@ function persistEventRoleFromPayload(
 
         $saved['role_name'] = $roleName;
         $saved['role_sector'] = (string)($role['sector'] ?? '');
+        syncAssignmentsForEventRoleDefinition($db, $saved, $role);
         syncLeadershipAssignmentForEventRole($db, $organizerId, $saved, $role);
 
         if ($ownsTransaction) {
@@ -3163,6 +3263,32 @@ function syncLeadershipAssignmentForEventRole(PDO $db, int $organizerId, array $
     $stmtInsert->execute($params);
 }
 
+function syncAssignmentsForEventRoleDefinition(PDO $db, array $eventRole, array $role): void
+{
+    if (!workforceAssignmentsHaveEventRoleColumns($db)) {
+        return;
+    }
+
+    $eventRoleId = (int)($eventRole['id'] ?? 0);
+    $roleId = (int)($role['id'] ?? 0);
+    $sector = normalizeSector((string)($eventRole['sector'] ?? $role['sector'] ?? ''));
+    if ($eventRoleId <= 0 || $roleId <= 0 || $sector === '') {
+        return;
+    }
+
+    $stmt = $db->prepare("
+        UPDATE workforce_assignments
+        SET role_id = :role_id,
+            sector = :sector
+        WHERE event_role_id = :event_role_id
+    ");
+    $stmt->execute([
+        ':role_id' => $roleId,
+        ':sector' => $sector,
+        ':event_role_id' => $eventRoleId,
+    ]);
+}
+
 function purgeSyncedLeadershipAssignmentsForEventRole(
     PDO $db,
     int $eventRoleId,
@@ -3243,9 +3369,16 @@ function ensureEventRoleForAssignment(
 function listLegacyManagersForEvent(PDO $db, int $organizerId, int $eventId, bool $canBypassSector, string $userSector): array
 {
     $hasRoleSettings = tableExists($db, 'workforce_role_settings');
+    $hasEventBindings = workforceAssignmentsHaveEventRoleColumns($db);
     $bucketSelect = $hasRoleSettings
         ? "COALESCE(wrs.cost_bucket, '') AS configured_cost_bucket"
         : "'' AS configured_cost_bucket";
+    $eventRoleIdSelect = $hasEventBindings
+        ? 'wa.event_role_id'
+        : 'NULL::integer AS event_role_id';
+    $rootManagerEventRoleIdSelect = $hasEventBindings
+        ? 'wa.root_manager_event_role_id'
+        : 'NULL::integer AS root_manager_event_role_id';
 
     $sql = "
         SELECT
@@ -3257,9 +3390,10 @@ function listLegacyManagersForEvent(PDO $db, int $organizerId, int $eventId, boo
                r.id as role_id,
                r.name as role_name,
                wa.sector,
+               {$eventRoleIdSelect},
+               {$rootManagerEventRoleIdSelect},
                {$bucketSelect},
                COALESCE(wa.manager_user_id, u.id) AS user_id,
-               NULL::integer AS event_role_id,
                NULL::uuid AS event_role_public_id,
                NULL::integer AS root_event_role_id,
                NULL::varchar AS authority_level,
@@ -3291,7 +3425,15 @@ function listLegacyManagersForEvent(PDO $db, int $organizerId, int $eventId, boo
     $stmt->execute($params);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    return array_values(array_filter($rows, static function (array $row): bool {
+    return array_values(array_filter($rows, static function (array $row) use ($hasEventBindings): bool {
+        if ($hasEventBindings) {
+            $hasFullStructuralBinding = (int)($row['event_role_id'] ?? 0) > 0
+                && (int)($row['root_manager_event_role_id'] ?? 0) > 0;
+            if ($hasFullStructuralBinding) {
+                return false;
+            }
+        }
+
         return normalizeCostBucket(
             (string)($row['configured_cost_bucket'] ?? ''),
             (string)($row['role_name'] ?? '')
@@ -3548,15 +3690,18 @@ function buildWorkforceTreeStatus(
         SELECT
             COUNT(DISTINCT LOWER(COALESCE(wa.sector, '')))::int AS active_sectors_count,
             COUNT(*)::int AS assignments_total,
-            COUNT(*) FILTER (WHERE wa.event_role_id IS NOT NULL)::int AS assignments_with_event_role,
-            COUNT(*) FILTER (WHERE wa.root_manager_event_role_id IS NOT NULL)::int AS assignments_with_root_manager,
+            COUNT(*) FILTER (WHERE COALESCE(wa.event_role_id, 0) > 0)::int AS assignments_with_event_role,
+            COUNT(*) FILTER (WHERE COALESCE(wa.root_manager_event_role_id, 0) > 0)::int AS assignments_with_root_manager,
             COUNT(*) FILTER (
-                WHERE wa.event_role_id IS NULL
-                   OR wa.root_manager_event_role_id IS NULL
+                WHERE COALESCE(wa.event_role_id, 0) <= 0
+                   OR COALESCE(wa.root_manager_event_role_id, 0) <= 0
             )::int AS assignments_missing_bindings
         FROM workforce_assignments wa
         JOIN event_participants ep ON ep.id = wa.participant_id
+        JOIN workforce_roles wr ON wr.id = wa.role_id
         WHERE ep.event_id = :event_id
+          AND LOWER(COALESCE(wa.sector, '')) <> 'externo'
+          AND LOWER(COALESCE(wr.name, '')) NOT LIKE '%externo%'
     ";
     $assignmentParams = [':event_id' => $eventId];
     if ($effectiveSector !== '') {

@@ -69,6 +69,7 @@ export default function WorkforceRoleSettingsModal({
   isOpen,
   role,
   eventId,
+  availableRoles = [],
   roleMembersCount = 0,
   onClose,
   onSaved
@@ -82,6 +83,9 @@ export default function WorkforceRoleSettingsModal({
   const [organizerUsers, setOrganizerUsers] = useState([]);
   const [treeRoles, setTreeRoles] = useState([]);
   const [structuralLinkValue, setStructuralLinkValue] = useState("");
+  const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [roleNameInput, setRoleNameInput] = useState("");
+  const [roleSectorInput, setRoleSectorInput] = useState("");
   const normalizedSector = normalizeSector(role?.sector || "");
   const currentTreeRootId = useMemo(
     () => Number(role?.root_event_role_id || role?.event_role_id || 0),
@@ -96,19 +100,6 @@ export default function WorkforceRoleSettingsModal({
     [role?.event_role_id, role?.event_role_public_id]
   );
 
-  const visibleUsers = useMemo(() => {
-    return organizerUsers.filter((user) => {
-      const userSector = normalizeSector(user?.sector || "");
-      return (
-        Number(user?.id || 0) === Number(form.leader_user_id || 0) ||
-        !normalizedSector ||
-        userSector === "" ||
-        userSector === "all" ||
-        userSector === normalizedSector
-      );
-    });
-  }, [form.leader_user_id, organizerUsers, normalizedSector]);
-
   const leadershipLinked = useMemo(
     () => Number(form.leader_user_id || 0) > 0 || Number(form.leader_participant_id || 0) > 0,
     [form.leader_participant_id, form.leader_user_id]
@@ -121,11 +112,6 @@ export default function WorkforceRoleSettingsModal({
         (participant) => Number(participant?.participant_id || 0) === Number(form.leader_participant_id || 0)
       ) || null,
     [eventParticipants, form.leader_participant_id]
-  );
-
-  const selectedLeaderUser = useMemo(
-    () => visibleUsers.find((user) => Number(user?.id || 0) === Number(form.leader_user_id || 0)) || null,
-    [form.leader_user_id, visibleUsers]
   );
 
   const treeLeadershipOptions = useMemo(() => {
@@ -178,6 +164,41 @@ export default function WorkforceRoleSettingsModal({
     [structuralLinkValue, treeLeadershipOptions]
   );
 
+  const selectableRoles = useMemo(() => {
+    return (availableRoles || [])
+      .filter((candidate) => Number(candidate?.id || 0) > 0)
+      .sort((left, right) =>
+        String(left?.name || "").localeCompare(String(right?.name || ""), "pt-BR")
+      );
+  }, [availableRoles]);
+
+  const selectedRoleOption = useMemo(
+    () =>
+      selectableRoles.find(
+        (candidate) => Number(candidate?.id || 0) === Number(selectedRoleId || role?.id || 0)
+      ) || null,
+    [role?.id, selectableRoles, selectedRoleId]
+  );
+  const effectiveSector = normalizeSector(roleSectorInput || selectedRoleOption?.sector || normalizedSector);
+
+  const visibleUsers = useMemo(() => {
+    return organizerUsers.filter((user) => {
+      const userSector = normalizeSector(user?.sector || "");
+      return (
+        Number(user?.id || 0) === Number(form.leader_user_id || 0) ||
+        !effectiveSector ||
+        userSector === "" ||
+        userSector === "all" ||
+        userSector === effectiveSector
+      );
+    });
+  }, [effectiveSector, form.leader_user_id, organizerUsers]);
+
+  const selectedLeaderUser = useMemo(
+    () => visibleUsers.find((user) => Number(user?.id || 0) === Number(form.leader_user_id || 0)) || null,
+    [form.leader_user_id, visibleUsers]
+  );
+
   const leaderBindingValue = useMemo(() => {
     if (selectedTreeLeadershipOption) {
       return selectedTreeLeadershipOption.value;
@@ -192,6 +213,9 @@ export default function WorkforceRoleSettingsModal({
     if (!isOpen || !role?.id) return;
     setLoading(true);
     setStructuralLinkValue("");
+    setSelectedRoleId(String(role?.id || ""));
+    setRoleNameInput(String(role?.name || ""));
+    setRoleSectorInput(normalizeSector(role?.sector || ""));
     const params = new URLSearchParams();
     if (eventId) params.set("event_id", String(eventId));
     if (normalizedSector) params.set("sector", normalizedSector);
@@ -229,6 +253,12 @@ export default function WorkforceRoleSettingsModal({
       })
       .finally(() => setLoading(false));
   }, [isOpen, role?.id, role?.event_role_id, role?.event_role_public_id, role?.parent_event_role_id, role?.parent_public_id, role?.authority_level, eventId, normalizedSector]);
+
+  useEffect(() => {
+    if (!isOpen || !selectedRoleOption) return;
+    setRoleNameInput(String(selectedRoleOption?.name || ""));
+    setRoleSectorInput(normalizeSector(selectedRoleOption?.sector || ""));
+  }, [isOpen, selectedRoleOption]);
 
   useEffect(() => {
     if (!isOpen || !eventId) {
@@ -456,8 +486,10 @@ export default function WorkforceRoleSettingsModal({
     try {
       await api.put(`/workforce/role-settings/${role.id}`, {
         ...form,
+        role_id: Number(selectedRoleId || role?.id || 0) || undefined,
+        role_name: String(roleNameInput || "").trim() || undefined,
         event_id: eventId || undefined,
-        sector: normalizedSector || undefined,
+        sector: effectiveSector || undefined,
         event_role_id: role?.event_role_id || undefined,
         event_role_public_id: role?.event_role_public_id || undefined,
         parent_event_role_id: role?.parent_event_role_id || undefined,
@@ -486,7 +518,7 @@ export default function WorkforceRoleSettingsModal({
         <div className="p-4 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
           <div>
             <h3 className="text-white font-bold">Configuração por Cargo</h3>
-            <p className="text-xs text-gray-500 mt-1">{role.name}</p>
+            <p className="text-xs text-gray-500 mt-1">{roleNameInput || role.name}</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800">
             <X size={18} />
@@ -496,7 +528,42 @@ export default function WorkforceRoleSettingsModal({
         <form onSubmit={save} className="flex flex-col min-h-0">
           <div className="p-4 grid grid-cols-2 gap-3 overflow-y-auto min-h-0">
             <label className="text-xs text-gray-400 col-span-2">
-              Nome do Gerente / Diretor
+              Cargo existente
+              <select
+                className="input mt-1 w-full"
+                value={selectedRoleId}
+                onChange={(e) => setSelectedRoleId(e.target.value)}
+              >
+                <option value="">Usar o cargo atual</option>
+                {selectableRoles.map((candidate) => (
+                  <option key={candidate.id} value={String(candidate.id)}>
+                    {candidate.name}{candidate?.sector ? ` • ${candidate.sector}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-gray-400 col-span-2">
+              Nome do cargo
+              <input
+                type="text"
+                className="input mt-1 w-full"
+                value={roleNameInput}
+                onChange={(e) => setRoleNameInput(e.target.value)}
+                placeholder="Ex.: Supervisor de Bar"
+              />
+            </label>
+            <label className="text-xs text-gray-400 col-span-2">
+              Setor do cargo
+              <input
+                type="text"
+                className="input mt-1 w-full"
+                value={roleSectorInput}
+                onChange={(e) => setRoleSectorInput(e.target.value)}
+                placeholder="Ex.: bar"
+              />
+            </label>
+            <label className="text-xs text-gray-400 col-span-2">
+              Nome da liderança
               <input
                 type="text"
                 className="input mt-1 w-full"

@@ -9,6 +9,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
     match (true) {
         $method === 'GET'    && $id === 'categories' => listCategories(),
         $method === 'GET'    && $id === null => listParticipants($query),
+        $method === 'POST'   && $id === 'backfill-qrs' => backfillParticipantQrs($body),
         $method === 'POST'   && $id === 'bulk-delete' => bulkDeleteParticipants($body),
         $method === 'POST'   && $id === null && $sub === null => createParticipant($body),
         $method === 'POST'   && $id === 'import' => importParticipants($body),
@@ -35,21 +36,6 @@ function listParticipants(array $query): void
     $checkEvent->execute([$eventId, $organizerId]);
     if (!$checkEvent->fetch()) jsonError('Evento não encontrado.', 404);
 
-    // Garante QR token para participantes antigos sem token.
-    $stmtFixQr = $db->prepare("
-        UPDATE event_participants ep
-        SET qr_token = 'PT_' || md5(random()::text || clock_timestamp()::text || ep.id::text)
-        FROM people p
-        WHERE ep.person_id = p.id
-          AND ep.event_id = :event_id
-          AND p.organizer_id = :organizer_id
-          AND (ep.qr_token IS NULL OR TRIM(ep.qr_token) = '')
-    ");
-    $stmtFixQr->execute([
-        ':event_id' => $eventId,
-        ':organizer_id' => $organizerId
-    ]);
-
     $categoryId = $query['category_id'] ?? null;
     $assignedOnly = ($query['assigned_only'] ?? '0') === '1';
     $roleId = (int)($query['role_id'] ?? 0);
@@ -74,6 +60,7 @@ function listParticipants(array $query): void
 
     $sql = "
         SELECT DISTINCT ep.id as participant_id, ep.category_id, ep.status, ep.qr_token, ep.created_at,
+               CASE WHEN ep.qr_token IS NULL OR TRIM(ep.qr_token) = '' THEN true ELSE false END AS qr_token_missing,
                p.id as person_id, p.name, p.email, p.document, p.phone,
                c.name as category_name, c.type as category_type
         FROM event_participants ep
@@ -103,7 +90,23 @@ function listParticipants(array $query): void
     }
 
     $stmt->execute();
-    jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC));
+    $participants = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $missingQrCount = 0;
+
+    foreach ($participants as &$participant) {
+        $isMissingQr = filter_var($participant['qr_token_missing'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $participant['qr_token_missing'] = $isMissingQr;
+        if ($isMissingQr) {
+            $missingQrCount++;
+        }
+    }
+    unset($participant);
+
+    $message = $missingQrCount > 0
+        ? "Existem {$missingQrCount} participante(s) sem QR token. A listagem não faz mais backfill automático; use POST /participants/backfill-qrs para regularizar o evento."
+        : '';
+
+    jsonSuccess($participants, $message);
 }
 
 function createParticipant(array $body): void
@@ -622,6 +625,43 @@ function listCategories(): void
     }
 
     jsonError('Nenhuma categoria de participantes cadastrada para este organizador.', 422);
+}
+
+function backfillParticipantQrs(array $body): void
+{
+    $user = requireAuth(['admin', 'organizer']);
+    $db = Database::getInstance();
+    $organizerId = resolveOrganizerId($user);
+
+    $eventId = (int)($body['event_id'] ?? 0);
+    if ($eventId <= 0) {
+        jsonError('event_id é obrigatório.', 400);
+    }
+
+    $checkEvent = $db->prepare("SELECT id FROM events WHERE id = ? AND organizer_id = ?");
+    $checkEvent->execute([$eventId, $organizerId]);
+    if (!$checkEvent->fetch()) {
+        jsonError('Evento não encontrado.', 404);
+    }
+
+    $stmt = $db->prepare("
+        UPDATE event_participants ep
+        SET qr_token = 'PT_' || md5(random()::text || clock_timestamp()::text || ep.id::text)
+        FROM people p
+        WHERE ep.person_id = p.id
+          AND ep.event_id = :event_id
+          AND p.organizer_id = :organizer_id
+          AND (ep.qr_token IS NULL OR TRIM(ep.qr_token) = '')
+    ");
+    $stmt->execute([
+        ':event_id' => $eventId,
+        ':organizer_id' => $organizerId,
+    ]);
+
+    jsonSuccess([
+        'event_id' => $eventId,
+        'updated' => $stmt->rowCount(),
+    ], 'Backfill explícito de QR concluído.');
 }
 
 function canBypassParticipantSectorAcl(array $user): bool

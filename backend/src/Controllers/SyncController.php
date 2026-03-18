@@ -8,7 +8,7 @@
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
-    $operator = requireAuth(); // Require logged-in user (optional: require specific roles like 'staff')
+    $operator = requireAuth(['admin', 'organizer', 'manager', 'staff']);
     require_once __DIR__ . '/../Services/SalesDomainService.php';
     require_once __DIR__ . '/../Services/MealsDomainService.php';
 
@@ -24,6 +24,8 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
     $db = Database::getInstance();
     $processedCount = 0;
     $processedIds = [];
+    $processedNewIds = [];
+    $deduplicatedIds = [];
     $failedIds = [];
     $errors = [];
 
@@ -47,14 +49,16 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
                 $payload = normalizeOfflineMealPayload($payload, $item);
             }
 
+            authorizeOfflineSyncPayload($db, $operator, $type, $payload);
+
             // 1. Verificar duplicidade (Idempotência)
             $check = $db->prepare('SELECT id FROM offline_queue WHERE offline_id = ? FOR UPDATE SKIP LOCKED');
             $check->execute([$offlineId]);
             if ($check->fetch()) {
-                // Já processado antes, apenas pula silenciosamente
                 $db->rollBack();
                 $processedCount++;
                 $processedIds[] = $offlineId;
+                $deduplicatedIds[] = $offlineId;
                 continue;
             }
 
@@ -90,6 +94,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
             $db->commit();
             $processedCount++;
             $processedIds[] = $offlineId;
+            $processedNewIds[] = $offlineId;
         } catch (Throwable $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
@@ -109,24 +114,32 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         http_response_code(207); // Multi-Status
         echo json_encode([
             'success' => true,
-            'message' => 'Parcialmente sincronizado.',
-            'data'    => [
-                'processed' => $processedCount,
-                'failed' => count($errors),
-                'processed_ids' => $processedIds,
-                'failed_ids' => $failedIds,
-                'errors' => $errors
-            ]
+                'message' => 'Parcialmente sincronizado.',
+                'data'    => [
+                    'processed' => $processedCount,
+                    'processed_new' => count($processedNewIds),
+                    'deduplicated' => count($deduplicatedIds),
+                    'failed' => count($errors),
+                    'processed_ids' => $processedIds,
+                    'processed_new_ids' => $processedNewIds,
+                    'deduplicated_ids' => $deduplicatedIds,
+                    'failed_ids' => $failedIds,
+                    'errors' => $errors
+                ]
         ]);
         exit;
     }
 
     jsonSuccess([
         'processed' => $processedCount,
+        'processed_new' => count($processedNewIds),
+        'deduplicated' => count($deduplicatedIds),
         'failed' => 0,
         'processed_ids' => $processedIds,
+        'processed_new_ids' => $processedNewIds,
+        'deduplicated_ids' => $deduplicatedIds,
         'failed_ids' => [],
-    ], "$processedCount itens sincronizados com sucesso.");
+    ], "$processedCount itens reconciliados com sucesso.");
 }
 
 /**
@@ -236,4 +249,89 @@ function normalizeOfflineMealPayload(array $payload, array $item): array
         'meal_service_code' => trim((string)($payload['meal_service_code'] ?? '')),
         'consumed_at' => $payload['consumed_at'] ?? null,
     ];
+}
+
+function authorizeOfflineSyncPayload(PDO $db, array $operator, string $type, array $payload): void
+{
+    $eventId = (int)($payload['event_id'] ?? 0);
+    if ($eventId <= 0) {
+        throw new Exception('Evento inválido para sincronização offline.', 422);
+    }
+
+    $organizerId = resolveSyncOrganizerId($operator);
+    if ($organizerId <= 0) {
+        throw new Exception('Operador sem organizer_id válido para sincronização offline.', 403);
+    }
+
+    static $eventOrganizerCache = [];
+    if (!array_key_exists($eventId, $eventOrganizerCache)) {
+        $stmt = $db->prepare('SELECT organizer_id FROM events WHERE id = ? LIMIT 1');
+        $stmt->execute([$eventId]);
+        $eventOrganizer = $stmt->fetchColumn();
+        if ($eventOrganizer === false) {
+            throw new Exception('Evento não encontrado para sincronização offline.', 404);
+        }
+        $eventOrganizerCache[$eventId] = (int)$eventOrganizer;
+    }
+
+    if ((int)$eventOrganizerCache[$eventId] !== $organizerId) {
+        throw new Exception('Evento fora do escopo do operador para sincronização offline.', 403);
+    }
+
+    if (syncCanBypassSectorAcl($operator)) {
+        return;
+    }
+
+    $userSector = resolveSyncUserSector($db, $operator);
+    if ($userSector === 'all') {
+        return;
+    }
+
+    $payloadSector = normalizeSyncSector((string)($payload['sector'] ?? ''));
+    if ($type === 'sale' && $payloadSector === '') {
+        throw new Exception('Setor é obrigatório para sincronização offline de vendas.', 422);
+    }
+
+    if ($payloadSector !== '' && $payloadSector !== $userSector) {
+        throw new Exception('Setor fora do escopo do operador para sincronização offline.', 403);
+    }
+}
+
+function resolveSyncOrganizerId(array $operator): int
+{
+    if (($operator['role'] ?? '') === 'admin') {
+        return (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    }
+
+    return (int)($operator['organizer_id'] ?? 0);
+}
+
+function syncCanBypassSectorAcl(array $operator): bool
+{
+    $role = strtolower((string)($operator['role'] ?? ''));
+    return $role === 'admin' || $role === 'organizer';
+}
+
+function resolveSyncUserSector(PDO $db, array $operator): string
+{
+    $tokenSector = normalizeSyncSector((string)($operator['sector'] ?? ''));
+    if ($tokenSector !== '') {
+        return $tokenSector;
+    }
+
+    $userId = (int)($operator['id'] ?? 0);
+    if ($userId <= 0) {
+        return 'all';
+    }
+
+    $stmt = $db->prepare("SELECT COALESCE(NULLIF(TRIM(sector), ''), 'all') FROM users WHERE id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    $sector = $stmt->fetchColumn();
+    return normalizeSyncSector((string)$sector) ?: 'all';
+}
+
+function normalizeSyncSector(string $value): string
+{
+    $normalized = strtolower(trim($value));
+    return preg_replace('/\s+/', '_', $normalized) ?? '';
 }

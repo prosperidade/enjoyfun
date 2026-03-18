@@ -2000,3 +2000,145 @@ Leitura final desta rodada:
 - o banco do `Meals` para o evento `7` ficou saneado para go-live
 - o checklist funcional do módulo fica integralmente verde no recorte atual
 - a única pendência remanescente fora do produto é de ambiente local do `php` CLI para rodar `audit_meals.php` diretamente sem recorrer ao `psql`
+
+## 28. Cronograma enxuto de hardening pós-go-live do Meals
+
+### Leitura consolidada
+
+- O `Meals` está encerrado funcionalmente no evento piloto.
+- O que sobra agora não é mais correção de operação principal; é hardening de domínio, auditoria e banco para reduzir risco estrutural futuro.
+- A janela realista para esse fechamento não é de `4 semanas`.
+- O recorte atual cabe em `3 lotes principais`, com um `4º lote` opcional se o objetivo for endurecer também a arquitetura offline.
+
+## Lote 1 — Domínio e validação
+
+### Prazo estimado
+- `0,5 a 1 dia`
+
+### Arquivos
+- `backend/src/Services/MealsDomainService.php`
+- `backend/src/Controllers/MealController.php`
+
+### Escopo
+- corrigir seleção automática de serviço para janela `overnight`
+- validar e normalizar `consumed_at`
+- retornar `400` explícito para data/hora inválida
+
+### Risco
+- baixo
+
+### Consequência esperada
+- entradas inválidas que hoje podem cair em fallback silencioso passam a falhar corretamente
+
+### Mitigação
+- teste de serviço `22:00-02:00`
+- teste de `consumed_at` válido
+- teste de `consumed_at` inválido
+
+### Critério de aceite
+- serviço noturno resolve corretamente
+- `consumed_at` inválido não gera `500`
+
+## Lote 2 — Auditoria forte
+
+### Prazo estimado
+- `0,5 a 1 dia`
+
+### Arquivos
+- `backend/scripts/audit_meals.php`
+
+### Escopo
+- detectar `meal_service_id` de outro evento
+- detectar `consumed_at` fora do dia operacional
+- detectar `participant_meals.event_day_id IS NULL`
+
+### Risco
+- baixo
+
+### Consequência esperada
+- podem aparecer legados antes invisíveis
+
+### Mitigação
+- separar resultado em:
+  - bloqueante
+  - legado
+- não misturar auditoria estrutural com feed operacional da UI
+
+### Critério de aceite
+- auditoria cobre as inconsistências novas sem escondê-las por `INNER JOIN`
+
+## Lote 3 — Hardening de banco
+
+### Prazo estimado
+- `1 a 2 dias`
+
+### Arquivos
+- migration nova de `participant_meals`
+- `database/schema_current.sql`
+
+### Escopo
+- `CHECK unit_cost_applied >= 0`
+- `event_day_id NOT NULL`
+- coerência `event_shift_id x event_day_id`
+- coerência `meal_service_id x evento`
+
+### Risco
+- médio
+
+### Consequência esperada
+- qualquer drift legado ou gravação manual inconsistente passa a falhar na base
+
+### Mitigação
+- rollout em etapas:
+  - auditoria e saneamento primeiro
+  - constraint `NOT VALID`
+  - validação final depois
+- só aplicar `NOT NULL` quando a base estiver comprovadamente limpa
+
+### Critério de aceite
+- o banco rejeita mismatch estrutural sem depender só da aplicação
+
+## Lote 4 — Offline avançado e trilha forense
+
+### Prazo estimado
+- `2 a 4 dias`
+
+### Status
+- opcional no recorte atual
+- não bloqueia o encerramento prático do `Meals`
+
+### Escopo
+- inbox offline
+- assinatura/HMAC de request
+- trilha com:
+  - `device_id`
+  - `source`
+  - `app_version`
+  - `ingested_at`
+  - `operator_id`
+
+### Risco
+- médio
+
+### Consequência esperada
+- muda contrato e reconciliação do sync offline
+
+### Mitigação
+- compatibilidade temporária com payload antigo
+- ativação progressiva por versão
+
+### Critério de aceite
+- sync offline passa a ser rastreável, reconciliável e auditável por dispositivo
+
+## Ordem recomendada
+
+- executar agora:
+  - `Lote 1`
+  - `Lote 2`
+  - `Lote 3`
+- deixar `Lote 4` para decisão específica de plataforma/offline
+
+## Estimativa consolidada
+
+- fechamento dos gaps reais da auditoria atual: `2 a 4 dias`
+- fechamento com offline forense avançado: `4 a 8 dias`

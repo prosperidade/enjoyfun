@@ -3,13 +3,70 @@
  * EnjoyFun 2.0 — Backend Entry Point (VERSÃO FINAL BLINDADA)
  */
 
-// ── CORS (ALINHADO COM FRONTEND 3000/3001) ────────────────────────────────────────
+define('BASE_PATH', dirname(__DIR__));
+
+function loadBackendEnv(string $envFile): void
+{
+    if (!file_exists($envFile)) {
+        return;
+    }
+
+    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        if (str_starts_with(trim($line), '#')) {
+            continue;
+        }
+
+        $parts = explode('=', $line, 2);
+        if (count($parts) !== 2) {
+            continue;
+        }
+
+        [$name, $value] = [trim($parts[0]), trim(trim($parts[1]), '"\'')];
+        if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
+            putenv("$name=$value");
+            $_ENV[$name] = $_SERVER[$name] = $value;
+        }
+    }
+}
+
+function resolveAllowedCorsOrigins(): array
+{
+    $fromEnv = trim((string)($_ENV['CORS_ALLOWED_ORIGINS'] ?? ''));
+    if ($fromEnv !== '') {
+        return array_values(array_filter(array_map('trim', explode(',', $fromEnv))));
+    }
+
+    $appEnv = strtolower((string)($_ENV['APP_ENV'] ?? 'development'));
+    if ($appEnv !== 'production') {
+        return [
+            'http://localhost:3000',
+            'http://localhost:3001',
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:3001',
+        ];
+    }
+
+    return [];
+}
+
+function generateCorrelationId(): string
+{
+    try {
+        return bin2hex(random_bytes(8));
+    } catch (\Throwable $e) {
+        return substr(md5((string)microtime(true)), 0, 16);
+    }
+}
+
+// ── Env Loader ────────────────────────────────────────────────────────────────
+loadBackendEnv(BASE_PATH . '/.env');
+
+// ── CORS (ALINHADO POR AMBIENTE) ──────────────────────────────────────────────
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-$allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'];
-if (in_array($origin, $allowedOrigins)) {
+$allowedOrigins = resolveAllowedCorsOrigins();
+header('Vary: Origin');
+if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
     header("Access-Control-Allow-Origin: $origin");
-} else {
-    header('Access-Control-Allow-Origin: http://localhost:3000');
 }
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
@@ -25,24 +82,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 ob_start();
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
-define('BASE_PATH', dirname(__DIR__)); 
-
-// ── Env Loader ────────────────────────────────────────────────────────────────
-$envFile = BASE_PATH . '/.env';
-if (file_exists($envFile)) {
-    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-        if (str_starts_with(trim($line), '#')) continue;
-        $parts = explode('=', $line, 2);
-        if (count($parts) === 2) {
-            [$name, $value] = [trim($parts[0]), trim(trim($parts[1]), '"\'')];
-            if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
-                putenv("$name=$value");
-                $_ENV[$name] = $_SERVER[$name] = $value;
-            }
-        }
-    }
-}
-
 // ── Imports Essenciais ────────────────────────────────────────────────────────
 require_once BASE_PATH . '/config/Database.php';
 require_once BASE_PATH . '/src/Helpers/JWT.php';
@@ -60,10 +99,14 @@ function jsonSuccess($data = null, $message = '', $code = 200): never {
     exit;
 }
 
-function jsonError($message = '', $code = 400): never {
+function jsonError($message = '', $code = 400, array $meta = []): never {
     if (ob_get_length()) ob_clean();
     http_response_code($code);
-    echo json_encode(['success' => false, 'message' => $message], JSON_UNESCAPED_UNICODE);
+    $response = ['success' => false, 'message' => $message];
+    if (!empty($meta)) {
+        $response['meta'] = $meta;
+    }
+    echo json_encode($response, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -117,7 +160,6 @@ if ($raw && ($decoded = json_decode($raw, true)) !== null) {
         'workforce' => BASE_PATH . '/src/Controllers/WorkforceController.php',
         'participant-checkins' => BASE_PATH . '/src/Controllers/ParticipantCheckinController.php',
         'meals'    => BASE_PATH . '/src/Controllers/MealController.php',
-        'bot'      => BASE_PATH . '/src/Controllers/BotController.php',
         'health'     => BASE_PATH . '/src/Controllers/HealthController.php',
         'superadmin' => BASE_PATH . '/src/Controllers/SuperAdminController.php',
         'organizer-settings' => BASE_PATH . '/src/Controllers/OrganizerSettingsController.php',
@@ -149,5 +191,17 @@ try {
         jsonError("Funcao dispatch ausente no controller.", 500);
     }
 } catch (\Throwable $e) {
-    jsonError($e->getMessage(), 500);
+    $correlationId = generateCorrelationId();
+    error_log(sprintf(
+        '[API][%s] %s /%s failed: %s in %s:%d',
+        $correlationId,
+        $method,
+        $uri,
+        $e->getMessage(),
+        $e->getFile(),
+        $e->getLine()
+    ));
+    jsonError('Erro interno. Informe o codigo de correlacao se o problema persistir.', 500, [
+        'correlation_id' => $correlationId,
+    ]);
 }

@@ -3253,3 +3253,115 @@ CREATE INDEX IF NOT EXISTS idx_workforce_assignments_root_manager_event_role
 
 - Na publicação desta frente para o git, o usuário autorizou também a remoção dos arquivos auxiliares antigos de auditoria, teste e dump que já estavam fora do fluxo principal do sistema.
 - Essa limpeza entra junto com a entrega homologada de `Workforce`, sem alterar a base funcional da aplicação.
+
+## 55. Hardening pós-auditoria do `Participants Hub` com foco em `Workforce`
+
+### 1. O que o diagnóstico trouxe que já estava superado
+- O drift sobre `workforce_event_roles` já não existia mais:
+  - a migration `010_workforce_event_roles_phase1.sql` já estava aplicada
+  - o `schema_current.sql` já continha `workforce_event_roles`
+- O snapshot local/offline do `Workforce` também já estava implementado no frontend:
+  - leitura por evento via `localStorage`
+  - fallback local quando a leitura online falha
+  - banner explícito de operação por snapshot na UI
+- A homologação estrutural da frente já tinha sido fechada:
+  - árvore por evento
+  - liderança
+  - vínculos automáticos
+  - QR público
+  - scanner
+  - custos e dashboard
+
+### 2. O que ainda era problema real no código
+- `backend/public/index.php` ainda:
+  - expunha `exception message` no `500`
+  - mantinha fallback fixo de CORS para `http://localhost:3000`
+  - declarava a rota `bot` para um controller inexistente
+- `GET /participants` ainda fazia `UPDATE` para gerar QR automaticamente durante a listagem.
+- `POST /sync` ainda:
+  - aceitava qualquer usuário autenticado
+  - não separava replay deduplicado de processamento novo
+  - não validava explicitamente o escopo do evento antes de reconciliar payload offline
+- O baseline oficial ainda seguia sem FKs centrais de `Participants/Workforce`.
+- O snapshot local do `Workforce` era best-effort, mas falha de leitura/escrita ainda ficava invisível para o operador.
+
+### 3. Correções aplicadas nesta rodada
+- `backend/public/index.php`
+  - CORS passou a respeitar allowlist por ambiente, com leitura de `CORS_ALLOWED_ORIGINS`
+  - o fallback fixo para `localhost` saiu
+  - `500` deixou de expor erro interno ao cliente e passou a responder com `correlation_id`
+  - a rota `bot` órfã foi removida do roteador
+- `backend/src/Controllers/ParticipantController.php`
+  - `GET /participants` deixou de mutar estado
+  - a listagem agora só informa `qr_token_missing`
+  - entrou `POST /participants/backfill-qrs` para regularização explícita por `event_id`
+- `backend/src/Controllers/SyncController.php`
+  - o endpoint passou a exigir roles explícitas
+  - cada item agora valida `event_id` contra o escopo do operador
+  - quando houver setor no payload, a ACL setorial é respeitada no sync
+  - a resposta passou a separar:
+    - `processed_new`
+    - `deduplicated`
+    - `processed_ids`
+    - `processed_new_ids`
+    - `deduplicated_ids`
+- `frontend/src/pages/ParticipantsTabs/WorkforceOpsTab.jsx`
+  - falha de snapshot local passou a aparecer na tela
+  - leitura por snapshot continua existindo, mas agora o operador sabe quando o cache local falhou ou ficou corrompido
+- Banco
+  - entrou a migration `013_participants_workforce_integrity.sql`
+  - o `schema_current.sql` foi alinhado com:
+    - FKs de `event_participants`
+    - FK de `participant_checkins`
+    - FKs de `workforce_assignments`
+    - FK de `workforce_member_settings`
+    - índices operacionais principais dessas tabelas
+
+### 4. Consequência prática
+- O diagnóstico pós-homologação deixou de apontar lacunas vermelhas na base de `Workforce`.
+- O que sobra agora como resíduo não é mais falha estrutural do módulo:
+  - testes de contrato automatizados
+  - SLO/telemetria operacional
+  - playbook de incidente
+- Esses itens passam a ser governança de release/observabilidade, não bloqueio funcional da frente `Workforce`.
+
+## 56. Ajuste conservador dos indicadores operacionais do Workforce
+
+### 1. Problema observado
+- O card `Estrutura operacional` estava mostrando a contagem bruta de linhas em `event_shifts`.
+- No evento piloto isso produzia leitura enganosa:
+  - `7` dias
+  - `7` turnos
+- Na prática, as janelas do evento estão cobrindo dias inteiros com `Turno Único`, e a operação trabalha com base de `8h` por turno.
+- Ao mesmo tempo, o badge `Sem gerente` estava marcando `7`, mas esse número vinha dos `Colaborador Externo`, não de equipe sem liderança estrutural.
+
+### 2. Correções aplicadas
+- `frontend/src/pages/ParticipantsTabs/WorkforceOpsTab.jsx`
+  - o card passou a calcular `turnos operacionais` pela duração real das janelas do evento dividida pela base de horas do cargo selecionado
+  - a UI também passou a exibir quantas janelas foram cadastradas, para não perder a leitura administrativa do calendário
+- `backend/src/Controllers/WorkforceController.php`
+  - o diagnóstico da árvore deixou de contar `Colaborador Externo` como assignment sem gerente
+  - a contagem de bindings passou a tratar `0` como ausência real de vínculo estrutural, em vez de depender só de `NULL`
+
+### 3. Consequências controladas
+- O ajuste não altera cadastros, não move assignments e não recria árvore.
+- Ele corrige apenas a leitura operacional:
+  - `Sem gerente` deixa de inflar por QR externo
+  - `Turnos` deixa de refletir só a quantidade de janelas cadastradas
+- Se o evento tiver primeiro ou último dia parcial, os turnos operacionais podem ficar menores do que `dias x 3`, porque agora o cálculo respeita a cobertura horária real configurada.
+
+## 57. Exposição dos QR nominais da liderança no Workforce
+
+### 1. Problema observado
+- A UI já mostrava QR nominal para membros da tabela operacional.
+- Para liderança, o QR do gerente aparecia de forma parcial e supervisor/coordenador continuavam sem ação visível no card estrutural.
+
+### 2. Correção aplicada
+- `frontend/src/pages/ParticipantsTabs/WorkforceOpsTab.jsx`
+  - a tabela principal de gerentes passou a exibir `Copiar link` e `QR` quando a liderança raiz já tem `qr_token`
+  - os cards estruturais de gerente, coordenação e supervisão passaram a usar o `leader_qr_token` vindo de `workforce/event-roles`
+  - cargos operacionais continuam sem esse atalho no card estrutural para não misturar QR herdado com QR nominal
+
+### 3. Consequência controlada
+- A mudança não gera QR novo e não altera vínculos.
+- Ela apenas expõe na interface os tokens nominais já existentes para a liderança realmente vinculada ao evento.
