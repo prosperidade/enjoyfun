@@ -85,6 +85,64 @@ $$;
 
 ALTER FUNCTION public.update_updated_at_column() OWNER TO postgres;
 
+--
+-- Name: validate_participant_meal_consistency(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.validate_participant_meal_consistency() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    day_event_id integer;
+    shift_day_id integer;
+    service_event_id integer;
+BEGIN
+    IF NEW.event_day_id IS NULL THEN
+        RAISE EXCEPTION 'participant_meals.event_day_id e obrigatorio.';
+    END IF;
+
+    IF NEW.unit_cost_applied IS NULL THEN
+        NEW.unit_cost_applied := 0;
+    END IF;
+
+    IF NEW.unit_cost_applied < (0)::numeric THEN
+        RAISE EXCEPTION 'participant_meals.unit_cost_applied nao pode ser negativo.';
+    END IF;
+
+    SELECT ed.event_id
+    INTO day_event_id
+    FROM public.event_days ed
+    WHERE ed.id = NEW.event_day_id;
+
+    IF NEW.event_shift_id IS NOT NULL THEN
+        SELECT es.event_day_id
+        INTO shift_day_id
+        FROM public.event_shifts es
+        WHERE es.id = NEW.event_shift_id;
+
+        IF shift_day_id IS NOT NULL AND shift_day_id <> NEW.event_day_id THEN
+            RAISE EXCEPTION 'participant_meals.event_shift_id nao pertence ao event_day_id informado.';
+        END IF;
+    END IF;
+
+    IF NEW.meal_service_id IS NOT NULL AND day_event_id IS NOT NULL THEN
+        SELECT ems.event_id
+        INTO service_event_id
+        FROM public.event_meal_services ems
+        WHERE ems.id = NEW.meal_service_id;
+
+        IF service_event_id IS NOT NULL AND service_event_id <> day_event_id THEN
+            RAISE EXCEPTION 'participant_meals.meal_service_id nao pertence ao evento do event_day_id informado.';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.validate_participant_meal_consistency() OWNER TO postgres;
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -1012,12 +1070,14 @@ ALTER SEQUENCE public.participant_checkins_id_seq OWNED BY public.participant_ch
 CREATE TABLE public.participant_meals (
     id integer NOT NULL,
     participant_id integer NOT NULL,
-    event_day_id integer,
+    event_day_id integer NOT NULL,
     event_shift_id integer,
     consumed_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     meal_service_id integer,
-    unit_cost_applied numeric(12,2),
-    offline_request_id character varying(100)
+    unit_cost_applied numeric(12,2) DEFAULT 0 NOT NULL,
+    offline_request_id character varying(100),
+    CONSTRAINT chk_pm_event_day_required CHECK ((event_day_id IS NOT NULL)),
+    CONSTRAINT chk_pm_unit_cost_non_negative CHECK ((unit_cost_applied >= (0)::numeric))
 );
 
 
@@ -2957,6 +3017,13 @@ CREATE UNIQUE INDEX ux_ticket_commissions_ticket ON public.ticket_commissions US
 --
 
 CREATE TRIGGER trg_audit_log_immutable BEFORE DELETE OR UPDATE ON public.audit_log FOR EACH ROW EXECUTE FUNCTION public.audit_log_immutable();
+
+
+--
+-- Name: participant_meals trg_validate_participant_meal_consistency; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER trg_validate_participant_meal_consistency BEFORE INSERT OR UPDATE ON public.participant_meals FOR EACH ROW EXECUTE FUNCTION public.validate_participant_meal_consistency();
 
 
 --

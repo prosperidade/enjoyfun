@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { db } from '../lib/db';
+import { db, markOfflineQueueItemsFailed } from '../lib/db';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
@@ -60,6 +60,13 @@ export function useNetwork() {
       );
 
       if (payloadOut.length === 0) {
+        await markOfflineQueueItemsFailed(
+          invalidPending.map((record) => record.offline_id),
+          invalidPending.map((record) => ({
+            offline_id: record.offline_id,
+            error: 'Registro offline sem event_id valido. Corrija o payload antes de reenfileirar.',
+          })),
+        );
         toast.error(
           'Existem registros offline pendentes sem evento valido. A sincronizacao foi bloqueada.',
           { id: 'sync' },
@@ -79,12 +86,22 @@ export function useNetwork() {
         
         const failedIds = data?.data?.failed_ids ?? [];
         if (failedIds.length > 0) {
-          await db.offlineQueue.bulkDelete(failedIds);
+          await markOfflineQueueItemsFailed(failedIds, data?.data?.errors ?? []);
+        }
+
+        if (invalidPending.length > 0) {
+          await markOfflineQueueItemsFailed(
+            invalidPending.map((record) => record.offline_id),
+            invalidPending.map((record) => ({
+              offline_id: record.offline_id,
+              error: 'Registro offline sem event_id valido. Corrija o payload antes de reenfileirar.',
+            })),
+          );
         }
 
         if (failedCount > 0 || invalidPending.length > 0) {
           toast.error(
-            `${processedIds.length} registros sincronizados, ${failedCount} purgados por falha letal e ${invalidPending.length} sem evento valido.`,
+            `${processedIds.length} registros sincronizados, ${failedCount} mantidos como falha local e ${invalidPending.length} bloqueados por evento invalido.`,
             { id: 'sync' },
           );
         } else {

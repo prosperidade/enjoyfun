@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../Helpers/WorkforceEventRoleHelper.php';
 require_once __DIR__ . '/../Services/MealsDomainService.php';
+require_once BASE_PATH . '/src/Services/AuditService.php';
 
 use EnjoyFun\Services\MealsDomainService;
 
@@ -39,7 +40,7 @@ function getMealsBalance(array $query): void
     $eventShiftId = (int)($query['event_shift_id'] ?? 0);
     $mealServiceId = (int)($query['meal_service_id'] ?? 0);
     $referenceTime = trim((string)($query['reference_time'] ?? ''));
-    $sector = strtolower(trim((string)($query['sector'] ?? '')));
+    $sector = mealResolveRequestedSectorScope($db, $user, (string)($query['sector'] ?? ''));
     $roleId = (int)($query['role_id'] ?? 0);
 
     if ($eventId <= 0) {
@@ -268,10 +269,8 @@ function getMealsBalance(array $query): void
             FROM participant_meals pm
             LEFT JOIN event_meal_services ems ON ems.id = pm.meal_service_id
             WHERE pm.event_day_id = :event_day_id
-              AND (
-                    CAST(:meal_service_id AS integer) IS NULL
-                    OR pm.meal_service_id = CAST(:meal_service_id AS integer)
-                  )
+              AND CAST(:meal_service_id AS integer) IS NOT NULL
+              AND pm.meal_service_id = CAST(:meal_service_id AS integer)
             GROUP BY participant_id
         ) service_meals ON service_meals.participant_id = ep.id
         WHERE ep.event_id = :event_id
@@ -289,6 +288,8 @@ function getMealsBalance(array $query): void
         'consumed_day_total' => 0,
         'remaining_day_total' => 0,
         'consumed_service_total' => 0,
+        'participants_with_consumption_day' => 0,
+        'participants_exhausted_day' => 0,
         'selected_service_members_total' => 0,
         'meal_unit_cost' => round($mealUnitCost, 2),
         'selected_meal_service_unit_cost' => $selectedMealServiceCost,
@@ -305,7 +306,7 @@ function getMealsBalance(array $query): void
         'ambiguous' => 0,
     ];
 
-    $normalizedItems = array_map(function ($row) use (&$summary, &$configSources, $mealUnitCost, $activeMealServices, $selectedMealService, $selectedMealServiceCost) {
+    $normalizedItems = array_map(function ($row) use (&$summary, &$configSources, $mealUnitCost, $activeMealServices, $selectedMealService, $selectedMealServiceCost, $eventId) {
         $mealsPerDay = $row['meals_per_day'] !== null ? (int)$row['meals_per_day'] : null;
         $consumedDay = (int)$row['consumed_day'];
         $consumedDayCost = round((float)($row['consumed_day_cost'] ?? 0), 2);
@@ -344,6 +345,9 @@ function getMealsBalance(array $query): void
         $summary['consumed_day_cost_total'] += $consumedDayCost;
         $summary['selected_service_consumed_cost_total'] += $consumedServiceCost;
         $configSources[$configSource]++;
+        if ($consumedDay > 0) {
+            $summary['participants_with_consumption_day']++;
+        }
         if ($mealsPerDay !== null) {
             $summary['meals_per_day_total'] += $mealsPerDay;
             $summary['estimated_day_cost_total'] += $estimatedDayCost ?? 0;
@@ -351,6 +355,9 @@ function getMealsBalance(array $query): void
         if ($remainingDay !== null) {
             $summary['remaining_day_total'] += $remainingDay;
             $summary['remaining_day_cost_total'] += $remainingDayCost ?? 0;
+            if ($remainingDay <= 0) {
+                $summary['participants_exhausted_day']++;
+            }
         }
         if ($selectedServiceAllowed) {
             $summary['selected_service_members_total']++;
@@ -403,6 +410,8 @@ function getMealsBalance(array $query): void
         'remaining_day_total' => (int)$summary['remaining_day_total'],
         'consumed_service_total' => (int)$summary['consumed_service_total'],
         'consumed_shift_total' => (int)$summary['consumed_service_total'],
+        'participants_with_consumption_day' => (int)$summary['participants_with_consumption_day'],
+        'participants_exhausted_day' => (int)$summary['participants_exhausted_day'],
         'ambiguous_baseline_members' => (int)($configSources['ambiguous'] ?? 0),
     ];
     $projectionSummary = [
@@ -463,10 +472,15 @@ function getMealServices(array $query): void
 
     try {
         MealsDomainService::resolveEventContext($db, $organizerId, $eventId, null, null);
-        $services = MealsDomainService::ensureEventMealServices($db, $organizerId, $eventId);
+        $services = MealsDomainService::listEventMealServices($db, $organizerId, $eventId, true);
+        $draftServices = !empty($services)
+            ? $services
+            : MealsDomainService::buildDefaultMealServiceDrafts($db, $organizerId, $eventId);
         jsonSuccess([
             'event_id' => $eventId,
             'services' => $services,
+            'draft_services' => $draftServices,
+            'has_persisted_services' => !empty($services),
             'service_costs_label' => MealsDomainService::buildServiceCostLabel($services),
         ], 'Serviços de refeição carregados.');
     } catch (Throwable $e) {
@@ -510,11 +524,13 @@ function listMeals(array $query): void
     $user = requireAuth(['admin', 'organizer', 'manager', 'staff']);
     $db = Database::getInstance();
     $organizerId = resolveOrganizerId($user);
+    mealEnsureMealsReadSchema($db);
 
     $eventId = (int)($query['event_id'] ?? 0);
     $eventDayId = (int)($query['event_day_id'] ?? 0);
     $eventShiftId = (int)($query['event_shift_id'] ?? 0);
     $mealServiceId = (int)($query['meal_service_id'] ?? 0);
+    $sector = mealResolveRequestedSectorScope($db, $user, (string)($query['sector'] ?? ''));
     $limit = max(1, min(100, (int)($query['limit'] ?? 30)));
 
     if ($eventId <= 0 && $eventDayId <= 0) {
@@ -569,6 +585,24 @@ function listMeals(array $query): void
         $sql .= " AND pm.meal_service_id = :meal_service_id";
         $params[':meal_service_id'] = $mealServiceId;
     }
+    if ($sector !== '') {
+        $sql .= "
+            AND EXISTS (
+                SELECT 1
+                FROM workforce_assignments wa_scope
+                LEFT JOIN event_shifts es_scope ON es_scope.id = wa_scope.event_shift_id
+                WHERE wa_scope.participant_id = ep.id
+                  AND LOWER(COALESCE(wa_scope.sector, '')) = :sector
+                  AND (
+                        wa_scope.event_shift_id IS NULL
+                        OR pm.event_shift_id IS NULL
+                        OR wa_scope.event_shift_id = pm.event_shift_id
+                        OR es_scope.event_day_id = pm.event_day_id
+                      )
+            )
+        ";
+        $params[':sector'] = $sector;
+    }
 
     $sql .= " ORDER BY pm.consumed_at DESC LIMIT {$limit}";
 
@@ -590,12 +624,12 @@ function registerMeal(array $body): void
     $eventShiftId = (int)($body['event_shift_id'] ?? 0);
     $mealServiceId = (int)($body['meal_service_id'] ?? 0);
     $mealServiceCode = trim((string)($body['meal_service_code'] ?? ''));
-    $sector = strtolower(trim((string)($body['sector'] ?? '')));
+    $sector = mealResolveRequestedSectorScope($db, $user, (string)($body['sector'] ?? ''));
     $offlineRequestId = trim((string)($body['offline_request_id'] ?? ''));
     $consumedAt = trim((string)($body['consumed_at'] ?? ''));
 
-    if ((!$participantId && !$qrToken) || $eventDayId <= 0) {
-        jsonError('participant_id (ou qr_token) e event_day_id são obrigatórios.', 400);
+    if (!$participantId && !$qrToken) {
+        jsonError('participant_id ou qr_token é obrigatório.', 400);
     }
 
     try {
@@ -605,7 +639,7 @@ function registerMeal(array $body): void
             $organizerId,
             $participantId,
             $qrToken !== '' ? $qrToken : null,
-            $eventDayId,
+            $eventDayId > 0 ? $eventDayId : null,
             $eventShiftId > 0 ? $eventShiftId : null,
             $sector !== '' ? $sector : null,
             $mealServiceId > 0 ? $mealServiceId : null,
@@ -617,10 +651,25 @@ function registerMeal(array $body): void
         $mealId = (int)($result['id'] ?? 0);
         $alreadyProcessed = !empty($result['already_processed']);
         $mealService = $result['meal_service'] ?? null;
+        mealAuditRegisterSuccess($user, $result, [
+            'source' => $offlineRequestId !== '' ? 'offline_replay' : 'online',
+            'requested_sector' => $sector !== '' ? $sector : null,
+        ]);
     } catch (Throwable $e) {
         if ($db->inTransaction()) {
             $db->rollBack();
         }
+
+        mealAuditRegisterFailure($user, [
+            'participant_id' => $participantId,
+            'qr_token_tail' => $qrToken !== '' ? substr($qrToken, -10) : null,
+            'event_day_id' => $eventDayId > 0 ? $eventDayId : null,
+            'event_shift_id' => $eventShiftId > 0 ? $eventShiftId : null,
+            'meal_service_id' => $mealServiceId > 0 ? $mealServiceId : null,
+            'meal_service_code' => $mealServiceCode !== '' ? $mealServiceCode : null,
+            'sector' => $sector !== '' ? $sector : null,
+            'offline_request_id' => $offlineRequestId !== '' ? $offlineRequestId : null,
+        ], $e->getMessage());
 
         $code = (int)$e->getCode();
         jsonError($e->getMessage(), ($code >= 400 && $code < 600) ? $code : 500);
@@ -916,6 +965,103 @@ function resolveOrganizerId(array $user): int
         return (int)($user['organizer_id'] ?? $user['id'] ?? 0);
     }
     return (int)($user['organizer_id'] ?? 0);
+}
+
+function mealCanBypassSectorAcl(array $user): bool
+{
+    $role = strtolower((string)($user['role'] ?? ''));
+    return $role === 'admin' || $role === 'organizer';
+}
+
+function mealResolveUserSector(PDO $db, array $user): string
+{
+    $sectorFromToken = mealNormalizeSector((string)($user['sector'] ?? ''));
+    if ($sectorFromToken !== '') {
+        return $sectorFromToken;
+    }
+
+    $userId = (int)($user['id'] ?? 0);
+    if ($userId <= 0) {
+        return 'all';
+    }
+
+    $stmt = $db->prepare("SELECT COALESCE(NULLIF(TRIM(sector), ''), 'all') FROM users WHERE id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    $sector = $stmt->fetchColumn();
+    return mealNormalizeSector((string)$sector) ?: 'all';
+}
+
+function mealResolveRequestedSectorScope(PDO $db, array $user, string $requestedSector): string
+{
+    $requestedSector = mealNormalizeSector($requestedSector);
+    if (mealCanBypassSectorAcl($user)) {
+        return $requestedSector;
+    }
+
+    $userSector = mealResolveUserSector($db, $user);
+    if ($userSector === 'all') {
+        return $requestedSector;
+    }
+
+    if ($requestedSector !== '' && $requestedSector !== $userSector) {
+        jsonError('Setor fora do escopo do operador para Meals.', 403);
+    }
+
+    return $userSector;
+}
+
+function mealNormalizeSector(string $value): string
+{
+    $normalized = strtolower(trim($value));
+    return preg_replace('/\s+/', '_', $normalized) ?? '';
+}
+
+function mealAuditRegisterSuccess(array $user, array $result, array $metadata = []): void
+{
+    if (!class_exists('AuditService')) {
+        return;
+    }
+
+    AuditService::log(
+        'meal.register',
+        'participant_meal',
+        $result['id'] ?? null,
+        null,
+        [
+            'participant_id' => $result['participant_id'] ?? null,
+            'event_day_id' => $result['event_day_id'] ?? null,
+            'event_shift_id' => $result['event_shift_id'] ?? null,
+            'meal_service_id' => $result['meal_service']['id'] ?? null,
+            'meal_service_code' => $result['meal_service']['service_code'] ?? null,
+            'already_processed' => !empty($result['already_processed']),
+            'sector' => $result['sector'] ?? null,
+        ],
+        $user,
+        'success',
+        [
+            'event_id' => $result['event_id'] ?? null,
+            'metadata' => $metadata,
+        ]
+    );
+}
+
+function mealAuditRegisterFailure(array $user, array $metadata, string $reason): void
+{
+    if (!class_exists('AuditService')) {
+        return;
+    }
+
+    AuditService::logFailure(
+        'meal.register',
+        'participant_meal',
+        null,
+        $reason,
+        $user,
+        [
+            'event_id' => $metadata['event_id'] ?? null,
+            'metadata' => $metadata,
+        ]
+    );
 }
 
 

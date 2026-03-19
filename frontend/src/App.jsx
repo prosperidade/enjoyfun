@@ -13,6 +13,7 @@ import Cards from "./pages/Cards";
 import SuperAdminPanel from "./pages/SuperAdminPanel";
 import Guests from "./pages/Guests";
 import GuestTicket from "./pages/GuestTicket";
+import AppVersionGuard from "./components/AppVersionGuard";
 
 // Nossos arquivos independentes
 import Bar from "./pages/Bar";
@@ -59,6 +60,7 @@ export default function App() {
             success: { iconTheme: { primary: "#8b5cf6", secondary: "#fff" } },
           }}
         />
+        <AppVersionGuard />
         <Routes>
           <Route path="/login" element={<Login />} />
 

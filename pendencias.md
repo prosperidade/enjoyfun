@@ -95,3 +95,45 @@
 
 - `docs/progresso6.md`
 - `docs/progresso7.md`
+
+
+# Pendencias
+
+## Meals
+
+### P0
+
+- Nenhuma pendencia operacional critica aberta no fechamento atual de `Meals`.
+
+### P1
+
+- Aplicar a `database/014_participant_meals_domain_hardening.sql` em janela controlada, somente depois de confirmar base limpa e validar constraints pendentes.
+- Validar em ambiente real as constraints adicionadas com rollout compativel para legado.
+- Criar testes de contrato/minimos para:
+  - `GET /meals/balance`
+  - `GET /meals`
+  - `POST /meals`
+  - `GET /meals/services`
+  - `POST /sync` com payload de `meal`
+- Adicionar telemetria operacional do modulo:
+  - latencia por endpoint
+  - taxa de falha do sync
+  - taxa de rejeicao por ACL, cota e ambiguidade operacional
+  - backlog offline por dispositivo
+
+### P2
+
+- Executar teste de carga do fluxo `Meals` com volume operacional mais proximo do evento real.
+- Revisar paginacao real do historico, hoje ainda limitada por `cap` fixo.
+- Evoluir a reconciliacao offline para um fluxo mais completo de DLQ/revisao/exportacao, se isso virar necessidade operacional.
+- Atualizar `docs/progresso7.md` com uma nota curta de fechamento para evitar diagnostico historico divergente.
+- Avaliar refactor futuro para reduzir duplicacao residual entre controller e service sem abrir risco de regressao agora.
+
+## Observacoes
+
+- Escopo acima reflete somente o que ficou pendente da auditoria de `Meals`.
+- `database/015_participant_meals_operational_day_reconciliation.sql` ja foi aplicada no banco local.
+- `database/016_participant_meals_outside_operational_day_review.sql` e somente leitura; antes da `017` ele evidenciou os `8` legados fora de janela e, apos a quarentena, passou a retornar `0` linhas.
+- `database/017_participant_meals_outside_operational_day_quarantine.sql` ja foi aplicada no banco local.
+- A auditoria de `outside_operational_day` ficou zerada apos a `017`.
+- O check `meal_without_shift_assignment_when_shifted` foi alinhado ao dominio atual e tambem ficou zerado.

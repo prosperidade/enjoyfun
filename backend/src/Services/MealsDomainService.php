@@ -40,6 +40,24 @@ class MealsDomainService
         ],
     ];
 
+    private const ALLOWED_SERVICE_CODES = [
+        'breakfast',
+        'lunch',
+        'afternoon_snack',
+        'dinner',
+        'supper',
+        'extra',
+    ];
+
+    private const DEFAULT_SORT_ORDERS = [
+        'breakfast' => 10,
+        'lunch' => 20,
+        'afternoon_snack' => 30,
+        'dinner' => 40,
+        'supper' => 50,
+        'extra' => 60,
+    ];
+
     public static function resolveEventContext(PDO $db, int $organizerId, ?int $eventId, ?int $eventDayId, ?int $eventShiftId): array
     {
         $resolvedEventId = $eventId !== null && $eventId > 0 ? $eventId : null;
@@ -110,6 +128,96 @@ class MealsDomainService
             'event_id' => $resolvedEventId,
             'event_day_id' => $resolvedEventDayId,
             'event_shift_id' => $resolvedEventShiftId,
+        ];
+    }
+
+    public static function resolveOperationalConsumptionContext(
+        PDO $db,
+        int $organizerId,
+        int $eventId,
+        ?int $eventDayId,
+        ?int $eventShiftId,
+        ?string $consumedAt
+    ): array {
+        $resolvedConsumedAt = self::normalizeConsumedAt($consumedAt);
+        $baseContext = self::resolveEventContext(
+            $db,
+            $organizerId,
+            $eventId > 0 ? $eventId : null,
+            $eventDayId,
+            $eventShiftId
+        );
+        $resolvedEventId = (int)($baseContext['event_id'] ?? $eventId);
+        if ($resolvedEventId <= 0) {
+            throw new Exception('Evento operacional inválido para registro de refeição.', 400);
+        }
+
+        $matchedEventDay = self::resolveEventDayByConsumedAt($db, $organizerId, $resolvedEventId, $resolvedConsumedAt);
+        $resolvedEventDayId = isset($baseContext['event_day_id']) && $baseContext['event_day_id'] !== null
+            ? (int)$baseContext['event_day_id']
+            : null;
+
+        if ($resolvedEventDayId !== null) {
+            if ($matchedEventDay === null) {
+                throw new Exception(
+                    'Nenhum dia operacional cobre o horário informado. Revise as janelas de event_days do evento.',
+                    409
+                );
+            }
+            if ((int)$matchedEventDay['id'] !== $resolvedEventDayId) {
+                throw new Exception(
+                    'event_day_id não corresponde ao dia operacional do horário informado. O Meals resolve o dia automaticamente pelo consumed_at.',
+                    409
+                );
+            }
+        } else {
+            if ($matchedEventDay === null) {
+                throw new Exception(
+                    'Nenhum dia operacional cobre o horário informado. Revise as janelas de event_days do evento.',
+                    409
+                );
+            }
+            $resolvedEventDayId = (int)$matchedEventDay['id'];
+        }
+
+        $matchedEventShift = self::resolveEventShiftByConsumedAt(
+            $db,
+            $organizerId,
+            $resolvedEventId,
+            $resolvedEventDayId,
+            $resolvedConsumedAt
+        );
+        $resolvedEventShiftId = isset($baseContext['event_shift_id']) && $baseContext['event_shift_id'] !== null
+            ? (int)$baseContext['event_shift_id']
+            : null;
+
+        if ($resolvedEventShiftId !== null) {
+            $validatedShiftContext = self::resolveEventContext(
+                $db,
+                $organizerId,
+                $resolvedEventId,
+                $resolvedEventDayId,
+                $resolvedEventShiftId
+            );
+            $resolvedEventShiftId = isset($validatedShiftContext['event_shift_id']) && $validatedShiftContext['event_shift_id'] !== null
+                ? (int)$validatedShiftContext['event_shift_id']
+                : null;
+
+            if ($matchedEventShift === null || $resolvedEventShiftId !== (int)$matchedEventShift['id']) {
+                throw new Exception(
+                    'event_shift_id não corresponde ao turno operacional do horário informado. O Meals resolve o turno automaticamente pelo consumed_at.',
+                    409
+                );
+            }
+        } else {
+            $resolvedEventShiftId = $matchedEventShift !== null ? (int)$matchedEventShift['id'] : null;
+        }
+
+        return [
+            'event_id' => $resolvedEventId,
+            'event_day_id' => $resolvedEventDayId,
+            'event_shift_id' => $resolvedEventShiftId,
+            'consumed_at' => $resolvedConsumedAt,
         ];
     }
 
@@ -254,6 +362,12 @@ class MealsDomainService
         return self::listEventMealServices($db, $organizerId, $eventId, true);
     }
 
+    public static function buildDefaultMealServiceDrafts(PDO $db, int $organizerId, int $eventId): array
+    {
+        self::resolveEventContext($db, $organizerId, $eventId, null, null);
+        return self::buildDefaultServicesPayload($eventId, self::getLegacyMealUnitCost($db, $organizerId));
+    }
+
     public static function listEventMealServices(PDO $db, int $organizerId, int $eventId, bool $includeInactive = true): array
     {
         if (!self::tableExists($db, 'event_meal_services')) {
@@ -320,15 +434,51 @@ class MealsDomainService
         }
 
         self::resolveEventContext($db, $organizerId, $eventId, null, null);
-        self::ensureEventMealServices($db, $organizerId, $eventId);
         $current = self::listEventMealServices($db, $organizerId, $eventId, true);
         $currentById = [];
         $currentByCode = [];
+        $finalByCode = [];
         foreach ($current as $service) {
             $currentById[(int)$service['id']] = $service;
             $currentByCode[(string)$service['service_code']] = $service;
+            $finalByCode[(string)$service['service_code']] = [
+                'id' => (int)$service['id'],
+                'service_code' => (string)$service['service_code'],
+                'label' => (string)$service['label'],
+                'sort_order' => (int)$service['sort_order'],
+                'starts_at' => (string)($service['starts_at'] ?? ''),
+                'ends_at' => (string)($service['ends_at'] ?? ''),
+                'unit_cost' => round((float)($service['unit_cost'] ?? 0), 2),
+                'is_active' => !empty($service['is_active']),
+            ];
         }
+        $normalizedInputServices = [];
 
+        $insert = $db->prepare("
+            INSERT INTO event_meal_services (
+                event_id,
+                service_code,
+                label,
+                sort_order,
+                starts_at,
+                ends_at,
+                unit_cost,
+                is_active,
+                created_at,
+                updated_at
+            ) VALUES (
+                :event_id,
+                :service_code,
+                :label,
+                :sort_order,
+                :starts_at,
+                :ends_at,
+                :unit_cost,
+                :is_active,
+                NOW(),
+                NOW()
+            )
+        ");
         $update = $db->prepare("
             UPDATE event_meal_services
             SET label = :label,
@@ -344,27 +494,39 @@ class MealsDomainService
 
         foreach ($services as $service) {
             if (!is_array($service)) {
-                continue;
+                throw new InvalidArgumentException('Cada item de services deve ser um objeto válido.');
             }
 
             $serviceId = (int)($service['id'] ?? 0);
-            $serviceCode = strtolower(trim((string)($service['service_code'] ?? '')));
+            $serviceCode = self::normalizeServiceCode((string)($service['service_code'] ?? ''));
             $currentRow = $serviceId > 0
                 ? ($currentById[$serviceId] ?? null)
                 : ($serviceCode !== '' ? ($currentByCode[$serviceCode] ?? null) : null);
-            if (!$currentRow) {
-                throw new InvalidArgumentException('Serviço de refeição inválido para este evento.');
+            if ($serviceCode === '') {
+                throw new InvalidArgumentException('service_code do serviço de refeição é obrigatório.');
             }
 
-            $label = trim((string)($service['label'] ?? $currentRow['label']));
+            $label = trim((string)($service['label'] ?? ($currentRow['label'] ?? '')));
             if ($label === '') {
                 throw new InvalidArgumentException('label do serviço de refeição é obrigatório.');
             }
 
-            $sortOrder = (int)($service['sort_order'] ?? $currentRow['sort_order']);
-            $startsAt = self::normalizeTime((string)($service['starts_at'] ?? $currentRow['starts_at'] ?? ''));
-            $endsAt = self::normalizeTime((string)($service['ends_at'] ?? $currentRow['ends_at'] ?? ''));
-            $unitCost = round((float)($service['unit_cost'] ?? $currentRow['unit_cost'] ?? 0), 2);
+            $sortOrder = (int)($service['sort_order'] ?? ($currentRow['sort_order'] ?? 0));
+            if ($sortOrder <= 0) {
+                $sortOrder = self::defaultSortOrderForServiceCode($serviceCode);
+            }
+            if ($sortOrder <= 0) {
+                throw new InvalidArgumentException(sprintf('sort_order inválido para o serviço "%s".', $label));
+            }
+            $startsAt = self::normalizeTime((string)($service['starts_at'] ?? ($currentRow['starts_at'] ?? '')));
+            $endsAt = self::normalizeTime((string)($service['ends_at'] ?? ($currentRow['ends_at'] ?? '')));
+            if ($startsAt === null || $endsAt === null) {
+                throw new InvalidArgumentException(sprintf('Os horários de início e fim do serviço "%s" são obrigatórios.', $label));
+            }
+            if ($startsAt === $endsAt) {
+                throw new InvalidArgumentException(sprintf('A janela do serviço "%s" não pode ter início e fim iguais.', $label));
+            }
+            $unitCost = round((float)($service['unit_cost'] ?? ($currentRow['unit_cost'] ?? 0)), 2);
             if ($unitCost < 0) {
                 throw new InvalidArgumentException('unit_cost não pode ser negativo.');
             }
@@ -373,15 +535,50 @@ class MealsDomainService
                 $isActive = true;
             }
 
-            $update->execute([
-                ':label' => $label,
-                ':sort_order' => $sortOrder,
-                ':starts_at' => $startsAt,
-                ':ends_at' => $endsAt,
-                ':unit_cost' => $unitCost,
-                ':is_active' => $isActive,
-                ':id' => (int)$currentRow['id'],
+            $normalizedService = [
+                'id' => $currentRow ? (int)$currentRow['id'] : null,
+                'service_code' => $serviceCode,
+                'label' => $label,
+                'sort_order' => $sortOrder,
+                'starts_at' => $startsAt,
+                'ends_at' => $endsAt,
+                'unit_cost' => $unitCost,
+                'is_active' => $isActive,
+            ];
+            $normalizedInputServices[] = $normalizedService;
+
+            if ($currentRow && (string)$currentRow['service_code'] !== $serviceCode) {
+                unset($finalByCode[(string)$currentRow['service_code']]);
+            }
+            $finalByCode[$serviceCode] = $normalizedService;
+        }
+
+        self::validateMealServiceGrid(array_values($finalByCode));
+
+        foreach ($normalizedInputServices as $service) {
+            $currentRow = $currentByCode[(string)$service['service_code']] ?? null;
+            if ($currentRow) {
+                $update->execute([
+                    ':label' => (string)$service['label'],
+                    ':sort_order' => (int)$service['sort_order'],
+                    ':starts_at' => (string)$service['starts_at'],
+                    ':ends_at' => (string)$service['ends_at'],
+                    ':unit_cost' => (float)$service['unit_cost'],
+                    ':is_active' => !empty($service['is_active']),
+                    ':id' => (int)$currentRow['id'],
+                    ':event_id' => $eventId,
+                ]);
+                continue;
+            }
+            $insert->execute([
                 ':event_id' => $eventId,
+                ':service_code' => (string)$service['service_code'],
+                ':label' => (string)$service['label'],
+                ':sort_order' => (int)$service['sort_order'],
+                ':starts_at' => (string)$service['starts_at'],
+                ':ends_at' => (string)$service['ends_at'],
+                ':unit_cost' => (float)$service['unit_cost'],
+                ':is_active' => !empty($service['is_active']),
             ]);
         }
 
@@ -390,7 +587,7 @@ class MealsDomainService
 
     public static function resolveMealServiceSelection(PDO $db, int $organizerId, int $eventId, ?int $mealServiceId = null, ?string $mealServiceCode = null, ?string $consumedAt = null): ?array
     {
-        $services = self::ensureEventMealServices($db, $organizerId, $eventId);
+        $services = self::listEventMealServices($db, $organizerId, $eventId, true);
         if (empty($services)) {
             return null;
         }
@@ -425,18 +622,18 @@ class MealsDomainService
             foreach ($pool as $service) {
                 $startsAt = $service['starts_at'] ?? null;
                 $endsAt = $service['ends_at'] ?? null;
-                if ($startsAt !== null && $endsAt !== null && $timeReference >= $startsAt && $timeReference <= $endsAt) {
+                if (self::serviceMatchesTimeReference($startsAt, $endsAt, $timeReference)) {
                     return $service;
                 }
             }
         }
 
-        return $pool[0];
+        return null;
     }
 
     public static function buildCostContext(PDO $db, int $organizerId, int $eventId): array
     {
-        $services = self::ensureEventMealServices($db, $organizerId, $eventId);
+        $services = self::listEventMealServices($db, $organizerId, $eventId, true);
         $activeServices = array_values(array_filter($services, static fn(array $service): bool => !empty($service['is_active'])));
         $fallbackUnitCost = self::getLegacyMealUnitCost($db, $organizerId);
 
@@ -492,7 +689,7 @@ class MealsDomainService
         int $organizerId,
         ?int $participantId,
         ?string $qrToken,
-        int $eventDayId,
+        ?int $eventDayId = null,
         ?int $eventShiftId = null,
         ?string $sector = null,
         ?int $mealServiceId = null,
@@ -521,7 +718,7 @@ class MealsDomainService
         int $organizerId,
         int $participantId,
         int $eventId,
-        int $eventDayId,
+        ?int $eventDayId = null,
         ?int $eventShiftId = null,
         ?string $sector = null,
         ?int $mealServiceId = null,
@@ -529,20 +726,14 @@ class MealsDomainService
         ?string $offlineRequestId = null,
         ?string $consumedAt = null
     ): array {
-        if ($eventDayId <= 0) {
-            throw new Exception('event_day_id é obrigatório.', 400);
-        }
-
-        $context = self::resolveEventContext($db, $organizerId, $eventId, $eventDayId, $eventShiftId);
+        $offlineRequestId = trim((string)($offlineRequestId ?? ''));
+        $context = self::resolveOperationalConsumptionContext($db, $organizerId, $eventId, $eventDayId, $eventShiftId, $consumedAt);
         $eventId = (int)($context['event_id'] ?? 0);
         $eventDayId = (int)($context['event_day_id'] ?? 0);
         $eventShiftId = isset($context['event_shift_id']) && $context['event_shift_id'] !== null
             ? (int)$context['event_shift_id']
             : null;
-
-        $offlineRequestId = trim((string)($offlineRequestId ?? ''));
-        $consumedAt = trim((string)($consumedAt ?? ''));
-        $resolvedConsumedAt = $consumedAt !== '' ? $consumedAt : date('Y-m-d H:i:s');
+        $resolvedConsumedAt = (string)($context['consumed_at'] ?? self::normalizeConsumedAt($consumedAt));
         $selectedMealService = self::resolveMealServiceSelection(
             $db,
             $organizerId,
@@ -552,7 +743,15 @@ class MealsDomainService
             $resolvedConsumedAt
         );
         if (!$selectedMealService) {
-            throw new Exception('Nenhum serviço de refeição ativo foi encontrado para este evento.', 409);
+            $availableServices = self::listEventMealServices($db, $organizerId, $eventId, true);
+            if (empty($availableServices)) {
+                throw new Exception('Nenhum serviço de refeição ativo foi encontrado para este evento.', 409);
+            }
+
+            throw new Exception(
+                'Nenhum serviço de refeição cobre o horário informado. Selecione a refeição manualmente ou revise as janelas configuradas no evento.',
+                409
+            );
         }
 
         $selectedMealServiceId = (int)$selectedMealService['id'];
@@ -646,6 +845,11 @@ class MealsDomainService
             'id' => $mealId,
             'already_processed' => false,
             'meal_service' => $selectedMealService,
+            'participant_id' => $participantId,
+            'event_id' => $eventId,
+            'event_day_id' => $eventDayId,
+            'event_shift_id' => $eventShiftId,
+            'sector' => $sector !== null ? trim((string)$sector) : null,
         ];
     }
 
@@ -902,6 +1106,90 @@ class MealsDomainService
         };
     }
 
+    private static function resolveEventDayByConsumedAt(PDO $db, int $organizerId, int $eventId, string $consumedAt): ?array
+    {
+        $stmt = $db->prepare("
+            SELECT
+                ed.id,
+                ed.event_id,
+                ed.date,
+                ed.starts_at,
+                ed.ends_at
+            FROM event_days ed
+            JOIN events e ON e.id = ed.event_id
+            WHERE ed.event_id = :event_id
+              AND e.organizer_id = :organizer_id
+              AND (
+                    (ed.starts_at IS NOT NULL AND ed.ends_at IS NOT NULL AND CAST(:consumed_at AS timestamp) >= ed.starts_at AND CAST(:consumed_at AS timestamp) <= ed.ends_at)
+                    OR ((ed.starts_at IS NULL OR ed.ends_at IS NULL) AND CAST(:consumed_at AS date) = ed.date)
+                  )
+            ORDER BY COALESCE(ed.starts_at, ed.date::timestamp) ASC, ed.id ASC
+            LIMIT 2
+        ");
+        $stmt->execute([
+            ':event_id' => $eventId,
+            ':organizer_id' => $organizerId,
+            ':consumed_at' => $consumedAt,
+        ]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if (count($rows) === 0) {
+            return null;
+        }
+        if (count($rows) > 1) {
+            throw new Exception('Mais de um dia operacional cobre o horário informado. Revise as janelas de event_days do evento.', 409);
+        }
+
+        return $rows[0];
+    }
+
+    private static function resolveEventShiftByConsumedAt(
+        PDO $db,
+        int $organizerId,
+        int $eventId,
+        int $eventDayId,
+        string $consumedAt
+    ): ?array {
+        if ($eventDayId <= 0) {
+            return null;
+        }
+
+        $stmt = $db->prepare("
+            SELECT
+                es.id,
+                es.event_day_id,
+                es.name,
+                es.starts_at,
+                es.ends_at
+            FROM event_shifts es
+            JOIN event_days ed ON ed.id = es.event_day_id
+            JOIN events e ON e.id = ed.event_id
+            WHERE es.event_day_id = :event_day_id
+              AND ed.event_id = :event_id
+              AND e.organizer_id = :organizer_id
+              AND es.starts_at IS NOT NULL
+              AND es.ends_at IS NOT NULL
+              AND CAST(:consumed_at AS timestamp) >= es.starts_at
+              AND CAST(:consumed_at AS timestamp) <= es.ends_at
+            ORDER BY es.starts_at ASC, es.id ASC
+            LIMIT 2
+        ");
+        $stmt->execute([
+            ':event_day_id' => $eventDayId,
+            ':event_id' => $eventId,
+            ':organizer_id' => $organizerId,
+            ':consumed_at' => $consumedAt,
+        ]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if (count($rows) === 0) {
+            return null;
+        }
+        if (count($rows) > 1) {
+            throw new Exception('Mais de um turno operacional cobre o horário informado. Revise as janelas de event_shifts do evento.', 409);
+        }
+
+        return $rows[0];
+    }
+
     private static function normalizeTime(string $value): ?string
     {
         $trimmed = trim($value);
@@ -916,6 +1204,236 @@ class MealsDomainService
         return strlen($trimmed) === 5 ? $trimmed . ':00' : $trimmed;
     }
 
+    private static function normalizeServiceCode(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        if ($normalized === '') {
+            return '';
+        }
+
+        if (!in_array($normalized, self::ALLOWED_SERVICE_CODES, true)) {
+            throw new InvalidArgumentException('service_code do serviço de refeição é inválido.');
+        }
+
+        return $normalized;
+    }
+
+    private static function defaultSortOrderForServiceCode(string $serviceCode): int
+    {
+        $normalizedCode = strtolower(trim($serviceCode));
+        return (int)(self::DEFAULT_SORT_ORDERS[$normalizedCode] ?? 0);
+    }
+
+    private static function validateMealServiceGrid(array $services): void
+    {
+        if (empty($services)) {
+            throw new InvalidArgumentException('Nenhum serviço de refeição foi informado para validação.');
+        }
+
+        $sortOrders = [];
+        $activeServices = [];
+
+        foreach ($services as $service) {
+            $label = trim((string)($service['label'] ?? $service['service_code'] ?? 'Serviço'));
+            $sortOrder = (int)($service['sort_order'] ?? 0);
+            $startsAt = self::normalizeTime((string)($service['starts_at'] ?? ''));
+            $endsAt = self::normalizeTime((string)($service['ends_at'] ?? ''));
+
+            if ($sortOrder <= 0) {
+                throw new InvalidArgumentException(sprintf('sort_order inválido para o serviço "%s".', $label));
+            }
+            if (isset($sortOrders[$sortOrder])) {
+                throw new InvalidArgumentException(sprintf(
+                    'sort_order duplicado na grade de refeições: "%s" e "%s" usam a mesma posição operacional.',
+                    $sortOrders[$sortOrder],
+                    $label
+                ));
+            }
+            $sortOrders[$sortOrder] = $label;
+
+            if ($startsAt === null || $endsAt === null) {
+                throw new InvalidArgumentException(sprintf('Os horários do serviço "%s" estão incompletos.', $label));
+            }
+            if ($startsAt === $endsAt) {
+                throw new InvalidArgumentException(sprintf('A janela do serviço "%s" não pode ter início e fim iguais.', $label));
+            }
+
+            if (!empty($service['is_active'])) {
+                $activeServices[] = [
+                    'service_code' => (string)($service['service_code'] ?? ''),
+                    'label' => $label,
+                    'sort_order' => $sortOrder,
+                    'starts_at' => $startsAt,
+                    'ends_at' => $endsAt,
+                ];
+            }
+        }
+
+        if (count($activeServices) === 0) {
+            throw new InvalidArgumentException('Mantenha ao menos um serviço de refeição ativo na grade.');
+        }
+
+        usort($activeServices, static fn(array $left, array $right): int => $left['sort_order'] <=> $right['sort_order']);
+
+        $previousRank = 0;
+        $previousLabel = null;
+        foreach ($activeServices as $service) {
+            $rank = self::resolveMealServiceRank(
+                (int)$service['sort_order'],
+                (string)$service['service_code']
+            );
+            if ($rank <= $previousRank) {
+                throw new InvalidArgumentException(sprintf(
+                    'sort_order incompatível com a regra de cota: "%s" precisa ficar depois de "%s" sem compartilhar o mesmo slot operacional.',
+                    (string)$service['label'],
+                    (string)$previousLabel
+                ));
+            }
+
+            $previousRank = $rank;
+            $previousLabel = (string)$service['label'];
+        }
+
+        $activeCount = count($activeServices);
+        for ($leftIndex = 0; $leftIndex < $activeCount; $leftIndex++) {
+            for ($rightIndex = $leftIndex + 1; $rightIndex < $activeCount; $rightIndex++) {
+                $leftService = $activeServices[$leftIndex];
+                $rightService = $activeServices[$rightIndex];
+                if (!self::mealServiceWindowsOverlap($leftService, $rightService)) {
+                    continue;
+                }
+
+                throw new InvalidArgumentException(sprintf(
+                    'As janelas de "%s" (%s-%s) e "%s" (%s-%s) se sobrepõem. Ajuste a grade antes de salvar.',
+                    (string)$leftService['label'],
+                    (string)$leftService['starts_at'],
+                    (string)$leftService['ends_at'],
+                    (string)$rightService['label'],
+                    (string)$rightService['starts_at'],
+                    (string)$rightService['ends_at']
+                ));
+            }
+        }
+    }
+
+    private static function mealServiceWindowsOverlap(array $leftService, array $rightService): bool
+    {
+        $leftSegments = self::splitMealServiceWindowIntoSegments(
+            (string)($leftService['starts_at'] ?? ''),
+            (string)($leftService['ends_at'] ?? '')
+        );
+        $rightSegments = self::splitMealServiceWindowIntoSegments(
+            (string)($rightService['starts_at'] ?? ''),
+            (string)($rightService['ends_at'] ?? '')
+        );
+
+        foreach ($leftSegments as $leftSegment) {
+            foreach ($rightSegments as $rightSegment) {
+                if (
+                    max($leftSegment['start'], $rightSegment['start']) <=
+                    min($leftSegment['end'], $rightSegment['end'])
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static function splitMealServiceWindowIntoSegments(string $startsAt, string $endsAt): array
+    {
+        $start = self::timeToSeconds($startsAt);
+        $end = self::timeToSeconds($endsAt);
+        if ($start === null || $end === null) {
+            return [];
+        }
+
+        if ($start < $end) {
+            return [
+                ['start' => $start, 'end' => $end],
+            ];
+        }
+
+        return [
+            ['start' => $start, 'end' => 86399],
+            ['start' => 0, 'end' => $end],
+        ];
+    }
+
+    private static function timeToSeconds(string $value): ?int
+    {
+        $normalized = self::normalizeTime($value);
+        if ($normalized === null) {
+            return null;
+        }
+
+        [$hours, $minutes, $seconds] = array_map('intval', explode(':', $normalized));
+        return ($hours * 3600) + ($minutes * 60) + $seconds;
+    }
+
+    private static function buildDefaultServicesPayload(int $eventId, float $fallbackUnitCost): array
+    {
+        return array_map(static function (array $service) use ($eventId, $fallbackUnitCost): array {
+            return [
+                'id' => null,
+                'event_id' => $eventId,
+                'service_code' => (string)$service['service_code'],
+                'label' => (string)$service['label'],
+                'sort_order' => (int)$service['sort_order'],
+                'starts_at' => (string)$service['starts_at'],
+                'ends_at' => (string)$service['ends_at'],
+                'unit_cost' => round($fallbackUnitCost, 2),
+                'is_active' => true,
+                'created_at' => null,
+                'updated_at' => null,
+            ];
+        }, self::DEFAULT_SERVICES);
+    }
+
+    public static function normalizeConsumedAt(?string $value): string
+    {
+        $trimmed = trim((string)($value ?? ''));
+        if ($trimmed === '') {
+            return date('Y-m-d H:i:s');
+        }
+
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::(\d{2}))?(?:\.\d+)?$/', $trimmed, $matches)) {
+            return sprintf(
+                '%s %s:%s',
+                $matches[1],
+                $matches[2],
+                $matches[3] ?? '00'
+            );
+        }
+
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2}))?(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$/i', $trimmed, $matches)) {
+            return sprintf(
+                '%s %s:%s',
+                $matches[1],
+                $matches[2],
+                $matches[3] ?? '00'
+            );
+        }
+
+        throw new Exception('consumed_at inválido. Use ISO 8601 ou YYYY-MM-DD HH:MM[:SS].', 400);
+    }
+
+    private static function serviceMatchesTimeReference(?string $startsAt, ?string $endsAt, string $timeReference): bool
+    {
+        $normalizedStart = self::normalizeTime((string)($startsAt ?? ''));
+        $normalizedEnd = self::normalizeTime((string)($endsAt ?? ''));
+        if ($normalizedStart === null || $normalizedEnd === null) {
+            return false;
+        }
+
+        if ($normalizedStart <= $normalizedEnd) {
+            return $timeReference >= $normalizedStart && $timeReference <= $normalizedEnd;
+        }
+
+        return $timeReference >= $normalizedStart || $timeReference <= $normalizedEnd;
+    }
+
     private static function extractTimeReference(?string $value): ?string
     {
         $value = trim((string)($value ?? ''));
@@ -923,12 +1441,11 @@ class MealsDomainService
             return date('H:i:s');
         }
 
-        $timestamp = strtotime($value);
-        if ($timestamp === false) {
-            return date('H:i:s');
+        if (preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $value)) {
+            return self::normalizeTime($value);
         }
 
-        return date('H:i:s', $timestamp);
+        return substr(self::normalizeConsumedAt($value), 11, 8);
     }
 
     private static function formatMoney(float $value): string

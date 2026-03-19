@@ -221,7 +221,7 @@ function processMeal(PDO $db, array $operator, array $payload, string $offlineId
         $organizerId,
         isset($payload['participant_id']) ? (int)$payload['participant_id'] : null,
         $payload['qr_token'] ?? null,
-        (int)($payload['event_day_id'] ?? 0),
+        isset($payload['event_day_id']) && (int)$payload['event_day_id'] > 0 ? (int)$payload['event_day_id'] : null,
         isset($payload['event_shift_id']) && (int)$payload['event_shift_id'] > 0 ? (int)$payload['event_shift_id'] : null,
         $payload['sector'] ?? null,
         isset($payload['meal_service_id']) && (int)$payload['meal_service_id'] > 0 ? (int)$payload['meal_service_id'] : null,
@@ -233,10 +233,9 @@ function processMeal(PDO $db, array $operator, array $payload, string $offlineId
 
 function normalizeOfflineMealPayload(array $payload, array $item): array
 {
-    $eventDayId = (int)($payload['event_day_id'] ?? 0);
-    if ($eventDayId <= 0) {
-        throw new Exception('event_day_id é obrigatório para sincronização offline de refeições.', 422);
-    }
+    $eventDayId = isset($payload['event_day_id']) && (int)$payload['event_day_id'] > 0
+        ? (int)$payload['event_day_id']
+        : null;
 
     return [
         'event_id' => (int)($payload['event_id'] ?? 0),

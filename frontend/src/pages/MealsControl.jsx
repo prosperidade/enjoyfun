@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Copy, QrCode, UtensilsCrossed, RefreshCw, Settings2, Save, X } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../lib/api";
-import { db } from "../lib/db";
+import { db, markOfflineQueueItemsFailed, requeueOfflineQueueItems } from "../lib/db";
 
 function extractToken(raw = "") {
   const value = String(raw || "").trim();
@@ -31,6 +31,13 @@ function createEmptyPayload() {
   };
 }
 
+function getMealServiceDraftKey(service = {}, index = 0) {
+  const serviceCode = String(service?.service_code || "").trim();
+  if (serviceCode) return serviceCode;
+  if (service?.id) return String(service.id);
+  return `draft-${index}`;
+}
+
 function createOfflineId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -53,7 +60,7 @@ function formatEventDayLabel(value) {
 
 function formatDateTimeLabel(value) {
   if (!value) return "";
-  const date = new Date(value);
+  const date = parseLocalDateTimeValue(value) || new Date(value);
   if (Number.isNaN(date.getTime())) {
     return String(value);
   }
@@ -65,8 +72,116 @@ function formatDateTimeLabel(value) {
   });
 }
 
+function formatLocalDateTimeValue(reference = new Date()) {
+  const date = reference instanceof Date ? reference : new Date(reference);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const year = String(date.getFullYear()).padStart(4, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+function parseLocalDateTimeValue(value = "") {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+  const candidate = normalized.includes("T") ? normalized : normalized.replace(" ", "T");
+  const parsed = new Date(candidate);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function buildLocalDateKey(reference = new Date()) {
+  const date = reference instanceof Date ? reference : new Date(reference);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const year = String(date.getFullYear()).padStart(4, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function resolveEventDayByDateTime(days = [], reference = new Date()) {
+  if (!Array.isArray(days) || days.length === 0) {
+    return null;
+  }
+
+  const referenceDate = reference instanceof Date ? reference : new Date(reference);
+  if (Number.isNaN(referenceDate.getTime())) {
+    return null;
+  }
+  const referenceTime = referenceDate.getTime();
+  const referenceDateKey = buildLocalDateKey(referenceDate);
+
+  const matches = days.filter((day) => {
+    const startsAt = parseLocalDateTimeValue(day?.starts_at);
+    const endsAt = parseLocalDateTimeValue(day?.ends_at);
+    if (startsAt && endsAt) {
+      return referenceTime >= startsAt.getTime() && referenceTime <= endsAt.getTime();
+    }
+    return String(day?.date || "").slice(0, 10) === referenceDateKey;
+  });
+  if (matches.length === 0) {
+    return null;
+  }
+
+  return [...matches].sort((left, right) => {
+    const leftStart = parseLocalDateTimeValue(left?.starts_at)?.getTime() ?? 0;
+    const rightStart = parseLocalDateTimeValue(right?.starts_at)?.getTime() ?? 0;
+    return leftStart - rightStart;
+  })[0];
+}
+
+function resolveEventShiftByDateTime(shifts = [], eventDayId = "", reference = new Date()) {
+  if (!Array.isArray(shifts) || shifts.length === 0 || !eventDayId) {
+    return null;
+  }
+
+  const referenceDate = reference instanceof Date ? reference : new Date(reference);
+  if (Number.isNaN(referenceDate.getTime())) {
+    return null;
+  }
+  const referenceTime = referenceDate.getTime();
+
+  const matches = shifts.filter((shift) => {
+    if (String(shift?.event_day_id || "") !== String(eventDayId)) {
+      return false;
+    }
+    const startsAt = parseLocalDateTimeValue(shift?.starts_at);
+    const endsAt = parseLocalDateTimeValue(shift?.ends_at);
+    if (!startsAt || !endsAt) {
+      return false;
+    }
+    return referenceTime >= startsAt.getTime() && referenceTime <= endsAt.getTime();
+  });
+  if (matches.length === 0) {
+    return null;
+  }
+
+  return [...matches].sort((left, right) => {
+    const leftStart = parseLocalDateTimeValue(left?.starts_at)?.getTime() ?? 0;
+    const rightStart = parseLocalDateTimeValue(right?.starts_at)?.getTime() ?? 0;
+    return leftStart - rightStart;
+  })[0];
+}
+
 function hasValidEventId(value) {
   return Number(value) > 0;
+}
+
+function isMealOfflineRecord(record = {}) {
+  return String(record?.payload_type ?? record?.type ?? "").trim().toLowerCase() === "meal";
+}
+
+function buildInvalidOfflineMealErrors(records = []) {
+  return records.map((record) => ({
+    offline_id: record?.offline_id,
+    error: "Registro offline sem event_id valido. Corrija o payload antes de reenfileirar.",
+  }));
 }
 
 function formatQrTokenSnippet(value = "") {
@@ -142,7 +257,7 @@ function resolveQueuedMealServiceLabel(record, services = []) {
 
   const consumedAt = String(payload?.consumed_at || "").trim();
   if (consumedAt) {
-    const consumedDate = new Date(consumedAt);
+    const consumedDate = parseLocalDateTimeValue(consumedAt) || new Date(consumedAt);
     if (!Number.isNaN(consumedDate.getTime())) {
       const resolved = resolveMealServiceByTime(services, getLocalTimeString(consumedDate));
       if (resolved) {
@@ -161,6 +276,209 @@ function getLocalTimeString(reference = new Date()) {
   return `${hours}:${minutes}:${seconds}`;
 }
 
+function isTimeWithinMealWindow(referenceTime = "", startsAt = "", endsAt = "") {
+  const normalizedReference = String(referenceTime || "").trim().slice(0, 8);
+  const normalizedStart = String(startsAt || "").trim().slice(0, 8);
+  const normalizedEnd = String(endsAt || "").trim().slice(0, 8);
+  if (!normalizedReference || !normalizedStart || !normalizedEnd) {
+    return false;
+  }
+  if (normalizedStart <= normalizedEnd) {
+    return normalizedReference >= normalizedStart && normalizedReference <= normalizedEnd;
+  }
+  return normalizedReference >= normalizedStart || normalizedReference <= normalizedEnd;
+}
+
+function normalizeMealServiceTime(value = "") {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return "";
+  }
+  if (/^\d{2}:\d{2}$/.test(normalized)) {
+    return `${normalized}:00`;
+  }
+  if (/^\d{2}:\d{2}:\d{2}$/.test(normalized)) {
+    return normalized;
+  }
+  return "";
+}
+
+function mealServiceTimeToSeconds(value = "") {
+  const normalized = normalizeMealServiceTime(value);
+  if (!normalized) {
+    return null;
+  }
+  const [hours, minutes, seconds] = normalized.split(":").map(Number);
+  if ([hours, minutes, seconds].some((part) => Number.isNaN(part))) {
+    return null;
+  }
+  return (hours * 3600) + (minutes * 60) + seconds;
+}
+
+function getMealServiceQuotaRank(service = {}) {
+  const serviceCode = String(service?.service_code || "").trim().toLowerCase();
+  if (serviceCode === "breakfast") return 1;
+  if (serviceCode === "lunch") return 2;
+  if (serviceCode === "afternoon_snack") return 3;
+  if (serviceCode === "dinner") return 4;
+
+  const sortOrder = Number(service?.sort_order || 0);
+  if (sortOrder <= 10) return 1;
+  if (sortOrder <= 20) return 2;
+  if (sortOrder <= 30) return 3;
+  return 4;
+}
+
+function splitMealServiceWindowIntoSegments(service = {}) {
+  const start = mealServiceTimeToSeconds(service?.starts_at);
+  const end = mealServiceTimeToSeconds(service?.ends_at);
+  if (start === null || end === null) {
+    return [];
+  }
+  if (start < end) {
+    return [{ start, end }];
+  }
+  return [
+    { start, end: 86399 },
+    { start: 0, end },
+  ];
+}
+
+function mealServiceWindowsOverlap(leftService = {}, rightService = {}) {
+  const leftSegments = splitMealServiceWindowIntoSegments(leftService);
+  const rightSegments = splitMealServiceWindowIntoSegments(rightService);
+
+  return leftSegments.some((leftSegment) =>
+    rightSegments.some((rightSegment) =>
+      Math.max(leftSegment.start, rightSegment.start) <= Math.min(leftSegment.end, rightSegment.end)
+    )
+  );
+}
+
+function countMealServiceGaps(services = []) {
+  const segments = services
+    .flatMap((service) => splitMealServiceWindowIntoSegments(service))
+    .sort((left, right) => left.start - right.start);
+  if (segments.length === 0) {
+    return 0;
+  }
+
+  const merged = [];
+  segments.forEach((segment) => {
+    const last = merged[merged.length - 1];
+    if (!last || segment.start > (last.end + 1)) {
+      merged.push({ ...segment });
+      return;
+    }
+    last.end = Math.max(last.end, segment.end);
+  });
+
+  let gapCount = 0;
+  for (let index = 1; index < merged.length; index += 1) {
+    if (merged[index].start > (merged[index - 1].end + 1)) {
+      gapCount += 1;
+    }
+  }
+
+  if (!(merged.length === 1 && merged[0].start === 0 && merged[0].end === 86399)) {
+    if (merged[0].start > 0 || merged[merged.length - 1].end < 86399) {
+      gapCount += 1;
+    }
+  }
+
+  return gapCount;
+}
+
+function analyzeMealServiceDrafts(services = []) {
+  const errors = [];
+  const warnings = [];
+  const sortOrders = new Map();
+  const activeServices = [];
+
+  services.forEach((service, index) => {
+    const label = String(service?.label || service?.service_code || `Serviço ${index + 1}`).trim();
+    const startsAt = normalizeMealServiceTime(service?.starts_at);
+    const endsAt = normalizeMealServiceTime(service?.ends_at);
+    const sortOrder = Number(service?.sort_order || 0);
+    const unitCost = Number(service?.unit_cost ?? 0);
+
+    if (!startsAt || !endsAt) {
+      errors.push(`Os horários de "${label}" estão incompletos.`);
+    } else if (startsAt === endsAt) {
+      errors.push(`A janela de "${label}" não pode ter início e fim iguais.`);
+    }
+
+    if (!Number.isFinite(unitCost) || unitCost < 0) {
+      errors.push(`O valor de "${label}" deve ser um número maior ou igual a zero.`);
+    }
+
+    if (!Number.isFinite(sortOrder) || sortOrder <= 0) {
+      errors.push(`sort_order inválido em "${label}".`);
+    } else if (sortOrders.has(sortOrder)) {
+      errors.push(`"${label}" e "${sortOrders.get(sortOrder)}" usam o mesmo sort_order.`);
+    } else {
+      sortOrders.set(sortOrder, label);
+    }
+
+    if (service?.is_active !== false) {
+      activeServices.push({
+        ...service,
+        label,
+        starts_at: startsAt,
+        ends_at: endsAt,
+        sort_order: sortOrder,
+      });
+    }
+  });
+
+  if (activeServices.length === 0) {
+    errors.push("Mantenha ao menos um serviço de refeição ativo.");
+  }
+
+  const activeOrdered = [...activeServices].sort(
+    (left, right) => Number(left.sort_order || 0) - Number(right.sort_order || 0)
+  );
+
+  let previousRank = 0;
+  let previousLabel = "";
+  activeOrdered.forEach((service) => {
+    const rank = getMealServiceQuotaRank(service);
+    if (rank <= previousRank) {
+      errors.push(
+        `"${service.label}" está fora da ordem operacional de cota. Ajuste o sort_order para ficar depois de "${previousLabel}".`
+      );
+    }
+    previousRank = rank;
+    previousLabel = service.label;
+  });
+
+  for (let leftIndex = 0; leftIndex < activeOrdered.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < activeOrdered.length; rightIndex += 1) {
+      const leftService = activeOrdered[leftIndex];
+      const rightService = activeOrdered[rightIndex];
+      if (!mealServiceWindowsOverlap(leftService, rightService)) {
+        continue;
+      }
+
+      errors.push(
+        `As janelas de "${leftService.label}" (${leftService.starts_at.slice(0, 5)}-${leftService.ends_at.slice(0, 5)}) e "${rightService.label}" (${rightService.starts_at.slice(0, 5)}-${rightService.ends_at.slice(0, 5)}) se sobrepõem.`
+      );
+    }
+  }
+
+  const gapCount = countMealServiceGaps(activeOrdered);
+  if (gapCount > 0) {
+    warnings.push(
+      `A grade ativa possui ${gapCount} lacuna(s) horária(s). Nesses períodos o Meals não resolverá refeição automaticamente.`
+    );
+  }
+
+  return {
+    errors: [...new Set(errors)],
+    warnings: [...new Set(warnings)],
+  };
+}
+
 function resolveMealServiceByTime(services, referenceTime = "") {
   const normalizedTime = String(referenceTime || "").trim();
   if (!normalizedTime || !Array.isArray(services) || services.length === 0) {
@@ -176,10 +494,10 @@ function resolveMealServiceByTime(services, referenceTime = "") {
   const matched = ordered.find((service) => {
     const startsAt = String(service?.starts_at || "").slice(0, 8);
     const endsAt = String(service?.ends_at || "").slice(0, 8);
-    return startsAt && endsAt && normalizedTime >= startsAt && normalizedTime <= endsAt;
+    return isTimeWithinMealWindow(normalizedTime, startsAt, endsAt);
   });
 
-  return matched || ordered[0] || null;
+  return matched || null;
 }
 
 function buildMealsContextKey(eventId) {
@@ -302,12 +620,14 @@ export default function MealsControl() {
   const [payload, setPayload] = useState(createEmptyPayload);
   const [mealHistoryItems, setMealHistoryItems] = useState([]);
   const [pendingOfflineMeals, setPendingOfflineMeals] = useState([]);
+  const [failedOfflineMeals, setFailedOfflineMeals] = useState([]);
   const [workforceBaseItems, setWorkforceBaseItems] = useState([]);
   const [mealUnitCost, setMealUnitCost] = useState(0);
   const [mealUnitCostAvailable, setMealUnitCostAvailable] = useState(null);
   const [mealCostModalOpen, setMealCostModalOpen] = useState(false);
   const [mealCostDraft, setMealCostDraft] = useState(0);
   const [mealServiceDrafts, setMealServiceDrafts] = useState([]);
+  const [mealServiceDraftTemplates, setMealServiceDraftTemplates] = useState([]);
   const [savingMealCost, setSavingMealCost] = useState(false);
   const [mealHistoryLoading, setMealHistoryLoading] = useState(false);
   const [syncingOfflineMeals, setSyncingOfflineMeals] = useState(false);
@@ -323,6 +643,9 @@ export default function MealsControl() {
   const balanceRequestRef = useRef(0);
   const mealHistoryRequestRef = useRef(0);
   const eventDetailRequestRef = useRef(0);
+  const autoRefreshSignatureRef = useRef("");
+  const activeForegroundBalanceRequestsRef = useRef(0);
+  const activeForegroundMealHistoryRequestsRef = useRef(0);
 
   const filteredShifts = useMemo(() => {
     if (!eventDayId) return [];
@@ -335,6 +658,14 @@ export default function MealsControl() {
   const syntheticEventDayOption = useMemo(
     () => buildSyntheticEventDayOption(selectedEvent),
     [selectedEvent]
+  );
+  const automaticOperationalDay = useMemo(
+    () => resolveEventDayByDateTime(eventDays, deviceNow),
+    [deviceNow, eventDays]
+  );
+  const automaticOperationalShift = useMemo(
+    () => resolveEventShiftByDateTime(eventShifts, automaticOperationalDay?.id || "", deviceNow),
+    [automaticOperationalDay?.id, deviceNow, eventShifts]
   );
   const selectedMealService = useMemo(
     () => mealServices.find((service) => String(service.id) === String(mealServiceId)) || null,
@@ -464,10 +795,16 @@ export default function MealsControl() {
     if (requestId !== staticDataRequestRef.current || selectedEventRef.current !== normalizedEventId) {
       return { days: [], shifts: [], nextDay: "", nextShift: "", stale: true };
     }
-    const nextDay = days.some((day) => String(day.id) === String(eventDayId))
-      ? String(eventDayId)
-      : (days[0] ? String(days[0].id) : "");
-    const nextShift = nextDay && shifts.some(
+    const automaticDay = resolveEventDayByDateTime(days, deviceNow);
+    const nextDay = automaticDay
+      ? String(automaticDay.id)
+      : days.some((day) => String(day.id) === String(eventDayId))
+        ? String(eventDayId)
+        : (days[0] ? String(days[0].id) : "");
+    const automaticShift = resolveEventShiftByDateTime(shifts, nextDay, deviceNow);
+    const nextShift = automaticShift
+      ? String(automaticShift.id)
+      : nextDay && shifts.some(
       (shift) =>
         String(shift.event_day_id) === String(nextDay) &&
         String(shift.id) === String(eventShiftId)
@@ -526,6 +863,7 @@ export default function MealsControl() {
     if (!evtId) {
       setMealServices([]);
       setMealServiceDrafts([]);
+      setMealServiceDraftTemplates([]);
       setMealServiceId("");
       return [];
     }
@@ -536,21 +874,28 @@ export default function MealsControl() {
         params: { event_id: evtId },
       });
       const services = res.data?.data?.services || [];
+      const draftServices = res.data?.data?.draft_services || services;
       setMealServices(services);
-      setMealServiceDrafts(services);
+      setMealServiceDraftTemplates(draftServices);
       setMealServiceId((current) =>
         services.some((service) => String(service.id) === String(current))
           ? current
           : ""
       );
-      await saveCachedMealsContext(cacheKey, { mealServices: services });
+      await saveCachedMealsContext(cacheKey, {
+        mealServices: services,
+        mealServiceDraftTemplates: draftServices,
+      });
       return services;
     } catch (err) {
       const cached = await loadCachedMealsContext(cacheKey);
       const services = Array.isArray(cached?.mealServices) ? cached.mealServices : [];
+      const draftServices = Array.isArray(cached?.mealServiceDraftTemplates)
+        ? cached.mealServiceDraftTemplates
+        : services;
       if (services.length > 0) {
         setMealServices(services);
-        setMealServiceDrafts(services);
+        setMealServiceDraftTemplates(draftServices);
         setMealServiceId((current) =>
           services.some((service) => String(service.id) === String(current))
             ? current
@@ -558,6 +903,12 @@ export default function MealsControl() {
         );
         toast("Serviços de refeição carregados do cache local.", { id: "meals-services-cache" });
         return services;
+      }
+      if (draftServices.length > 0) {
+        setMealServices([]);
+        setMealServiceDraftTemplates(draftServices);
+        toast("Rascunho local de serviços de refeição carregado do cache.", { id: "meals-services-cache" });
+        return [];
       }
       throw err;
     }
@@ -569,6 +920,7 @@ export default function MealsControl() {
     const targetEventShiftId = String(overrides.eventShiftId ?? eventShiftId ?? "");
     const targetMealServiceId = String(overrides.mealServiceId ?? mealServiceId ?? "");
     const targetSector = String(overrides.sector ?? sector ?? "").trim();
+    const backgroundRefresh = Boolean(overrides.backgroundRefresh);
     const targetReferenceTime = String(
       overrides.referenceTime ?? getLocalTimeString(deviceNow)
     ).trim();
@@ -584,7 +936,10 @@ export default function MealsControl() {
 
     const requestId = balanceRequestRef.current + 1;
     balanceRequestRef.current = requestId;
-    setLoading(true);
+    if (!backgroundRefresh) {
+      activeForegroundBalanceRequestsRef.current += 1;
+      setLoading(true);
+    }
     try {
       const res = await api.get("/meals/balance", {
         params: {
@@ -612,7 +967,7 @@ export default function MealsControl() {
       setPayload(nextPayload);
       if (Array.isArray(data.meal_services) && data.meal_services.length > 0) {
         setMealServices(data.meal_services);
-        setMealServiceDrafts(data.meal_services);
+        setMealServiceDraftTemplates(data.meal_services);
       }
       const unit = Number(
         data.projection_summary?.selected_meal_service_unit_cost ??
@@ -643,7 +998,9 @@ export default function MealsControl() {
         });
         if (Array.isArray(cached?.mealServices)) {
           setMealServices(cached.mealServices);
-          setMealServiceDrafts(cached.mealServices);
+          setMealServiceDraftTemplates(
+            Array.isArray(cached?.mealServiceDraftTemplates) ? cached.mealServiceDraftTemplates : cached.mealServices
+          );
         }
         toast("Saldo Meals carregado do cache local.", { id: "meals-balance-cache" });
       } else {
@@ -651,8 +1008,14 @@ export default function MealsControl() {
         toast.error(err.response?.data?.message || "Erro ao carregar saldo de refeições.");
       }
     } finally {
-      if (requestId === balanceRequestRef.current) {
-        setLoading(false);
+      if (!backgroundRefresh) {
+        activeForegroundBalanceRequestsRef.current = Math.max(
+          0,
+          activeForegroundBalanceRequestsRef.current - 1
+        );
+        if (activeForegroundBalanceRequestsRef.current === 0) {
+          setLoading(false);
+        }
       }
     }
   };
@@ -662,6 +1025,8 @@ export default function MealsControl() {
     const targetEventDayId = String(overrides.eventDayId ?? eventDayId ?? "");
     const targetEventShiftId = String(overrides.eventShiftId ?? eventShiftId ?? "");
     const targetMealServiceId = String(overrides.mealServiceId ?? mealServiceId ?? "");
+    const targetSector = String(overrides.sector ?? sector ?? "").trim();
+    const backgroundRefresh = Boolean(overrides.backgroundRefresh);
     const targetReferenceTime = String(
       overrides.referenceTime ?? getLocalTimeString(deviceNow)
     ).trim();
@@ -677,9 +1042,12 @@ export default function MealsControl() {
 
     const requestId = mealHistoryRequestRef.current + 1;
     mealHistoryRequestRef.current = requestId;
-    setMealHistoryLoading(true);
+    if (!backgroundRefresh) {
+      activeForegroundMealHistoryRequestsRef.current += 1;
+      setMealHistoryLoading(true);
+    }
 
-    const historyCacheKey = `${targetEventDayId}:${resolvedMealServiceId || "all"}:${targetEventShiftId || "all"}`;
+    const historyCacheKey = `${targetEventDayId}:${resolvedMealServiceId || "all"}:${targetEventShiftId || "all"}:${targetSector || "all"}`;
     const cacheContextKey = buildMealsContextKey(targetEventId);
 
     try {
@@ -689,6 +1057,7 @@ export default function MealsControl() {
           event_day_id: targetEventDayId,
           event_shift_id: targetEventShiftId || undefined,
           meal_service_id: resolvedMealServiceId || undefined,
+          sector: targetSector || undefined,
           limit: 25,
         },
       });
@@ -721,21 +1090,27 @@ export default function MealsControl() {
         toast.error(err.response?.data?.message || "Erro ao carregar histórico de refeições.");
       }
     } finally {
-      if (requestId === mealHistoryRequestRef.current) {
-        setMealHistoryLoading(false);
+      if (!backgroundRefresh) {
+        activeForegroundMealHistoryRequestsRef.current = Math.max(
+          0,
+          activeForegroundMealHistoryRequestsRef.current - 1
+        );
+        if (activeForegroundMealHistoryRequestsRef.current === 0) {
+          setMealHistoryLoading(false);
+        }
       }
     }
   };
 
   const loadPendingOfflineMeals = async () => {
     try {
-      const records = await db.offlineQueue.where("status").equals("pending").toArray();
-      const mealRecords = records.filter(
-        (record) => String(record?.payload_type ?? record?.type ?? "").trim().toLowerCase() === "meal"
-      );
-      setPendingOfflineMeals(mealRecords);
+      const records = await db.offlineQueue.where("status").anyOf("pending", "failed").toArray();
+      const mealRecords = records.filter((record) => isMealOfflineRecord(record));
+      setPendingOfflineMeals(mealRecords.filter((record) => String(record?.status || "").trim() === "pending"));
+      setFailedOfflineMeals(mealRecords.filter((record) => String(record?.status || "").trim() === "failed"));
     } catch {
       setPendingOfflineMeals([]);
+      setFailedOfflineMeals([]);
     }
   };
 
@@ -745,7 +1120,9 @@ export default function MealsControl() {
       return;
     }
 
-    const normalizedPending = pendingOfflineMeals.map((record) => {
+    const pendingRecords = (await db.offlineQueue.where("status").equals("pending").toArray())
+      .filter((record) => isMealOfflineRecord(record));
+    const normalizedPending = pendingRecords.map((record) => {
       const payload = record?.payload ?? record?.data ?? {};
       return {
         offline_id: record?.offline_id,
@@ -763,7 +1140,13 @@ export default function MealsControl() {
     const invalidPending = normalizedPending.filter((record) => !hasValidEventId(record?.payload?.event_id));
 
     if (validPending.length === 0) {
-      toast.error("Não há refeições offline válidas para sincronizar.");
+      if (invalidPending.length > 0) {
+        await markOfflineQueueItemsFailed(
+          invalidPending.map((record) => record.offline_id),
+          buildInvalidOfflineMealErrors(invalidPending)
+        );
+      }
+      toast.error("Não há refeições offline válidas para sincronizar. Falhas inválidas permaneceram na fila local.");
       await loadPendingOfflineMeals();
       return;
     }
@@ -787,7 +1170,13 @@ export default function MealsControl() {
         await db.offlineQueue.bulkDelete(processedIds);
       }
       if (failedIds.length > 0) {
-        await db.offlineQueue.bulkDelete(failedIds);
+        await markOfflineQueueItemsFailed(failedIds, data?.data?.errors ?? []);
+      }
+      if (invalidPending.length > 0) {
+        await markOfflineQueueItemsFailed(
+          invalidPending.map((record) => record.offline_id),
+          buildInvalidOfflineMealErrors(invalidPending)
+        );
       }
 
       await loadPendingOfflineMeals();
@@ -798,7 +1187,7 @@ export default function MealsControl() {
 
       if (failedCount > 0 || invalidPending.length > 0) {
         toast.error(
-          `${processedIds.length} sincronizada(s), ${failedCount} removida(s) por falha letal e ${invalidPending.length} sem evento válido.`,
+          `${processedIds.length} sincronizada(s), ${failedCount} mantida(s) como falha local e ${invalidPending.length} bloqueada(s) por evento inválido.`,
           { id: "meals-sync" }
         );
       } else {
@@ -886,6 +1275,10 @@ export default function MealsControl() {
     balanceRequestRef.current += 1;
     mealHistoryRequestRef.current += 1;
     eventDetailRequestRef.current += 1;
+    activeForegroundBalanceRequestsRef.current = 0;
+    activeForegroundMealHistoryRequestsRef.current = 0;
+    setLoading(false);
+    setMealHistoryLoading(false);
     setEventDayId("");
     setEventShiftId("");
     setMealServiceId("");
@@ -893,6 +1286,7 @@ export default function MealsControl() {
     setEventShifts([]);
     setMealServices([]);
     setMealServiceDrafts([]);
+    setMealServiceDraftTemplates([]);
     setWorkforceBaseItems([]);
     setPayload(createEmptyPayload());
     setMealHistoryItems([]);
@@ -1130,35 +1524,77 @@ export default function MealsControl() {
       String(record?.payload?.event_day_id || "").trim() === String(eventDayId).trim()
     );
   }, [eventDayId, pendingOfflineMealsForCurrentEvent]);
-  const visiblePendingOfflineMeals = useMemo(() => {
+  const failedOfflineMealsForCurrentEvent = useMemo(() => {
+    if (!eventId) {
+      return failedOfflineMeals;
+    }
+    return failedOfflineMeals.filter((record) =>
+      String(record?.payload?.event_id || "").trim() === String(eventId).trim()
+    );
+  }, [eventId, failedOfflineMeals]);
+  const failedOfflineMealsForCurrentDay = useMemo(() => {
+    if (!eventDayId) {
+      return failedOfflineMealsForCurrentEvent;
+    }
+    return failedOfflineMealsForCurrentEvent.filter((record) =>
+      String(record?.payload?.event_day_id || "").trim() === String(eventDayId).trim()
+    );
+  }, [eventDayId, failedOfflineMealsForCurrentEvent]);
+  const scopedPendingOfflineMeals = useMemo(() => {
     const filtered = pendingOfflineMealsForCurrentDay.filter((record) => {
       if (!sector) return true;
       return String(record?.payload?.sector || record?.sector || "").trim().toLowerCase() === String(sector).trim().toLowerCase();
     });
 
-    return [...filtered]
+    return [...filtered].sort((a, b) => {
+      const left = new Date(a?.created_offline_at || a?.payload?.consumed_at || 0).getTime();
+      const right = new Date(b?.created_offline_at || b?.payload?.consumed_at || 0).getTime();
+      return right - left;
+    });
+  }, [pendingOfflineMealsForCurrentDay, sector]);
+  const scopedFailedOfflineMeals = useMemo(() => {
+    const filtered = failedOfflineMealsForCurrentDay.filter((record) => {
+      if (!sector) return true;
+      return String(record?.payload?.sector || record?.sector || "").trim().toLowerCase() === String(sector).trim().toLowerCase();
+    });
+
+    return [...filtered].sort((a, b) => {
+      const left = new Date(a?.last_error_at || a?.created_offline_at || a?.payload?.consumed_at || 0).getTime();
+      const right = new Date(b?.last_error_at || b?.created_offline_at || b?.payload?.consumed_at || 0).getTime();
+      return right - left;
+    });
+  }, [failedOfflineMealsForCurrentDay, sector]);
+  const visibleOfflineMeals = useMemo(() => {
+    return [...scopedPendingOfflineMeals, ...scopedFailedOfflineMeals]
       .sort((a, b) => {
-        const left = new Date(a?.created_offline_at || a?.payload?.consumed_at || 0).getTime();
-        const right = new Date(b?.created_offline_at || b?.payload?.consumed_at || 0).getTime();
+        const left = new Date(a?.last_error_at || a?.created_offline_at || a?.payload?.consumed_at || 0).getTime();
+        const right = new Date(b?.last_error_at || b?.created_offline_at || b?.payload?.consumed_at || 0).getTime();
         return right - left;
       })
       .slice(0, 8);
-  }, [pendingOfflineMealsForCurrentDay, sector]);
+  }, [scopedFailedOfflineMeals, scopedPendingOfflineMeals]);
+  const visibleFailedOfflineMealIds = useMemo(
+    () => scopedFailedOfflineMeals.map((record) => String(record?.offline_id || "").trim()).filter(Boolean),
+    [scopedFailedOfflineMeals]
+  );
 
   const enqueueOfflineMeal = async (recordPayload) => {
-    const pendingMeals = await db.offlineQueue.where("status").equals("pending").toArray();
-    const duplicatedPending = pendingMeals.some((record) => {
+    const queuedMeals = (await db.offlineQueue.where("status").anyOf("pending", "failed").toArray())
+      .filter((record) => isMealOfflineRecord(record));
+    const duplicatedPending = queuedMeals.some((record) => {
       const payloadItem = record?.payload ?? {};
       return (
-        (record?.payload_type ?? record?.type) === "meal" &&
         String(payloadItem.qr_token || "").trim() === String(recordPayload.qr_token || "").trim() &&
         String(payloadItem.event_day_id || "") === String(recordPayload.event_day_id || "") &&
-        String(payloadItem.meal_service_id || "") === String(recordPayload.meal_service_id || "")
+        (
+          String(payloadItem.meal_service_id || "") === String(recordPayload.meal_service_id || "") ||
+          String(payloadItem.meal_service_code || "").trim().toLowerCase() === String(recordPayload.meal_service_code || "").trim().toLowerCase()
+        )
       );
     });
 
     if (duplicatedPending) {
-      throw new Error("Esta refeição já está pendente de sincronização offline para este QR e este serviço.");
+      throw new Error("Esta refeição já existe na fila local do Meals para este QR e este serviço. Reenfileire a falha existente ou sincronize a pendência atual.");
     }
 
     const offlineId = createOfflineId();
@@ -1173,6 +1609,24 @@ export default function MealsControl() {
     return offlineId;
   };
 
+  const handleRetryOfflineMeals = async (offlineIds) => {
+    const normalizedIds = Array.isArray(offlineIds)
+      ? offlineIds.map((offlineId) => String(offlineId || "").trim()).filter(Boolean)
+      : [];
+    if (normalizedIds.length === 0) {
+      toast.error("Nenhuma falha local do Meals foi selecionada para reenfileirar.");
+      return;
+    }
+
+    try {
+      await requeueOfflineQueueItems(normalizedIds);
+      await loadPendingOfflineMeals();
+      toast.success(`${normalizedIds.length} falha(s) do Meals reenfileirada(s) para nova sincronização.`);
+    } catch {
+      toast.error("Não foi possível reenfileirar as falhas locais do Meals.");
+    }
+  };
+
   const handleRegisterMeal = async (e) => {
     e.preventDefault();
     const token = extractToken(qrInput);
@@ -1180,8 +1634,8 @@ export default function MealsControl() {
       toast.error("Informe um token QR válido.");
       return;
     }
-    if (!eventDayId) {
-      toast.error("Selecione o dia do evento.");
+    if (!registrationEventDayId) {
+      toast.error("Nenhum dia operacional ativo cobre o horário atual.");
       return;
     }
     if (!selectedMealServiceData) {
@@ -1192,12 +1646,41 @@ export default function MealsControl() {
     const requestPayload = {
       event_id: Number(eventId),
       qr_token: token,
-      event_day_id: Number(eventDayId),
-      event_shift_id: eventShiftId ? Number(eventShiftId) : null,
+      event_day_id: Number(registrationEventDayId),
+      event_shift_id: registrationEventShiftId ? Number(registrationEventShiftId) : null,
       meal_service_id: mealServiceId ? Number(mealServiceId) : null,
       meal_service_code: mealServiceId ? (selectedMealService?.service_code || null) : null,
       sector: sector || null,
-      consumed_at: new Date().toISOString(),
+      consumed_at: formatLocalDateTimeValue(new Date()),
+    };
+    const registrationReferenceTime = getLocalTimeString(parseLocalDateTimeValue(requestPayload.consumed_at) || new Date());
+    const syncViewToRegisteredContext = async () => {
+      const targetEventDayId = String(registrationEventDayId || "");
+      const targetEventShiftId = String(registrationEventShiftId || "");
+
+      if (targetEventDayId) {
+        setEventDayId(targetEventDayId);
+      }
+      setEventShiftId(targetEventShiftId);
+
+      await Promise.all([
+        loadBalance({
+          eventId,
+          eventDayId: targetEventDayId,
+          eventShiftId: targetEventShiftId,
+          mealServiceId,
+          referenceTime: registrationReferenceTime,
+          sector,
+        }),
+        loadMealHistory({
+          eventId,
+          eventDayId: targetEventDayId,
+          eventShiftId: targetEventShiftId,
+          mealServiceId,
+          referenceTime: registrationReferenceTime,
+          sector,
+        }),
+      ]);
     };
 
     setRegistering(true);
@@ -1211,7 +1694,7 @@ export default function MealsControl() {
       }
       setQrInput("");
       await loadPendingOfflineMeals();
-      await Promise.all([loadBalance(), loadMealHistory()]);
+      await syncViewToRegisteredContext();
     } catch (err) {
       const networkError = !navigator.onLine || err?.code === "ERR_NETWORK";
       if (networkError) {
@@ -1219,6 +1702,7 @@ export default function MealsControl() {
           await enqueueOfflineMeal(requestPayload);
           setQrInput("");
           await loadPendingOfflineMeals();
+          await syncViewToRegisteredContext();
           toast.success("Sem rede: refeição enviada para sincronização offline.");
           return;
         } catch (offlineErr) {
@@ -1252,6 +1736,8 @@ export default function MealsControl() {
     consumed_day_total: summary.consumed_day_total,
     remaining_day_total: summary.remaining_day_total,
     consumed_service_total: summary.consumed_service_total ?? summary.consumed_shift_total ?? 0,
+    participants_with_consumption_day: 0,
+    participants_exhausted_day: 0,
   };
   const projectionSummary = payload.projectionSummary || {
     enabled: false,
@@ -1297,6 +1783,16 @@ export default function MealsControl() {
   const displayedEventDayId = hasConfiguredEventDays
     ? eventDayId
     : String(syntheticEventDayOption?.id || "");
+  const registrationEventDayId = automaticOperationalDay ? String(automaticOperationalDay.id) : "";
+  const registrationEventShiftId = automaticOperationalShift ? String(automaticOperationalShift.id) : "";
+  const registrationOperationalContextLabel = automaticOperationalDay
+    ? `${formatEventDayLabel(automaticOperationalDay.date)}${automaticOperationalShift?.name ? ` · ${automaticOperationalShift.name}` : ""}`
+    : "";
+  const consultationDayDiffersFromRegistration = Boolean(
+    eventDayId &&
+      registrationEventDayId &&
+      String(eventDayId) !== String(registrationEventDayId)
+  );
   const diagnosticsIssues = useMemo(() => diagnostics?.issues || [], [diagnostics]);
   const operationalDiagnosticsIssues = useMemo(
     () => diagnosticsIssues.filter((issue) => !issue.startsWith("meal_unit_cost_")),
@@ -1308,12 +1804,34 @@ export default function MealsControl() {
   );
   const showWorkforceFallback = Boolean(eventId) && !hasConfiguredEventDays;
   const canUseRealMeals = Boolean(eventId) && hasConfiguredEventDays && Boolean(eventDayId);
-  const canRegisterMeal = canUseRealMeals && Boolean(selectedMealServiceData);
+  const canRegisterRealMeals = Boolean(eventId) && hasConfiguredEventDays && Boolean(registrationEventDayId);
+  const canRegisterMeal = canRegisterRealMeals && Boolean(selectedMealServiceData);
+  const mealServiceGridAnalysis = useMemo(
+    () => analyzeMealServiceDrafts(mealServiceDrafts),
+    [mealServiceDrafts]
+  );
 
   useEffect(() => {
     if (!canUseRealMeals || showWorkforceFallback || mealServiceId) {
+      autoRefreshSignatureRef.current = "";
       return;
     }
+
+    const refreshSignature = [
+      String(eventId || ""),
+      String(eventDayId || ""),
+      String(eventShiftId || ""),
+      String(sector || "").trim().toLowerCase(),
+      String(automaticMealServiceData?.id || ""),
+      String(registrationEventDayId || ""),
+      String(registrationEventShiftId || ""),
+    ].join("|");
+
+    if (refreshSignature === autoRefreshSignatureRef.current) {
+      return;
+    }
+
+    autoRefreshSignatureRef.current = refreshSignature;
 
     loadBalance({
       eventId,
@@ -1322,6 +1840,7 @@ export default function MealsControl() {
       mealServiceId: "",
       referenceTime: deviceReferenceTime,
       sector,
+      backgroundRefresh: true,
     });
     loadMealHistory({
       eventId,
@@ -1329,9 +1848,23 @@ export default function MealsControl() {
       eventShiftId,
       mealServiceId: "",
       referenceTime: deviceReferenceTime,
+      sector,
+      backgroundRefresh: true,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canUseRealMeals, deviceReferenceTime, eventDayId, eventId, eventShiftId, mealServiceId, sector, showWorkforceFallback]);
+  }, [
+    automaticMealServiceData?.id,
+    canUseRealMeals,
+    deviceReferenceTime,
+    eventDayId,
+    eventId,
+    eventShiftId,
+    mealServiceId,
+    registrationEventDayId,
+    registrationEventShiftId,
+    sector,
+    showWorkforceFallback,
+  ]);
 
   const configBreakdown = diagnostics?.configuration || {
     members_using_member_settings: 0,
@@ -1616,7 +2149,7 @@ export default function MealsControl() {
           ? "Consumo real preservado, mas a cota deste participante ficou ambígua no recorte."
           : assignmentsInScope > 1
             ? `Saldo real por participante com ${assignmentsInScope} assignments no recorte.`
-          : "Saldo real Meals com contexto complementar consolidado do Workforce.",
+            : "Saldo real Meals com contexto complementar consolidado do Workforce.",
         sourceBadgeClass: "badge badge-green",
       };
     });
@@ -1634,10 +2167,30 @@ export default function MealsControl() {
           (row) => row.remainingDay !== null && Number(row.remainingDay) <= 0
         ).length,
         ambiguousBaselineMembers: staffRows.filter((row) => row.hasAmbiguousBaseline).length,
-        withoutUniqueShiftMembers: staffRows.filter((row) => !row.shiftId).length,
         multiAssignmentMembers: staffRows.filter((row) => Number(row.assignmentsInScope || 0) > 1).length,
       };
   }, [tableRows]);
+
+  const authoritativeTableHighlights = useMemo(() => {
+    if (showWorkforceFallback) {
+      return tableHighlights;
+    }
+
+    return {
+      ...tableHighlights,
+      consumedMembers: Number(
+        operationalSummary.participants_with_consumption_day ?? tableHighlights.consumedMembers
+      ),
+      exhaustedMembers: Number(
+        operationalSummary.participants_exhausted_day ?? tableHighlights.exhaustedMembers
+      ),
+    };
+  }, [
+    operationalSummary.participants_exhausted_day,
+    operationalSummary.participants_with_consumption_day,
+    showWorkforceFallback,
+    tableHighlights,
+  ]);
 
   const staffTableRows = useMemo(
     () => tableRows.filter((row) => !isExternalMealEntry(row)),
@@ -1685,6 +2238,30 @@ export default function MealsControl() {
       consumed_service_total: 0,
     });
   }, [staffTableRows]);
+
+  const authoritativeOperationalSummary = useMemo(() => {
+    if (showWorkforceFallback) {
+      return staffOperationalSummary;
+    }
+
+    return {
+      members: Number(operationalSummary.members ?? staffOperationalSummary.members),
+      meals_per_day_total: Number(
+        operationalSummary.meals_per_day_total ?? staffOperationalSummary.meals_per_day_total
+      ),
+      consumed_day_total: Number(
+        operationalSummary.consumed_day_total ?? staffOperationalSummary.consumed_day_total
+      ),
+      remaining_day_total: Number(
+        operationalSummary.remaining_day_total ?? staffOperationalSummary.remaining_day_total
+      ),
+      consumed_service_total: Number(
+        operationalSummary.consumed_service_total ??
+          operationalSummary.consumed_shift_total ??
+          staffOperationalSummary.consumed_service_total
+      ),
+    };
+  }, [operationalSummary, showWorkforceFallback, staffOperationalSummary]);
 
   const staffConfigBreakdown = useMemo(() => {
     return staffTableRows.reduce((acc, row) => {
@@ -1839,50 +2416,50 @@ export default function MealsControl() {
     }
 
     return [
-      {
-        label: "Membros",
-        value: staffOperationalSummary.members,
-        valueClassName: "text-white",
-        helper: roleComposition.leadershipMembers > 0
-          ? `Saldo real de Meals carregado para o dia selecionado. Inclui ${roleComposition.leadershipMembers} liderança(s) com assignment no recorte.${externalTableRows.length > 0 ? ` Externos com QR fora desta contagem principal: ${externalTableRows.length}.` : ""}`
+        {
+          label: "Membros",
+          value: authoritativeOperationalSummary.members,
+          valueClassName: "text-white",
+          helper: roleComposition.leadershipMembers > 0
+            ? `Saldo real de Meals carregado para o dia selecionado. Inclui ${roleComposition.leadershipMembers} liderança(s) com assignment no recorte.${externalTableRows.length > 0 ? ` Externos com QR fora desta contagem principal: ${externalTableRows.length}.` : ""}`
           : `Saldo real de Meals carregado para o dia selecionado.${externalTableRows.length > 0 ? ` Externos com QR fora desta contagem principal: ${externalTableRows.length}.` : ""}`,
         badge: "Saldo real Meals",
         badgeClassName: "badge badge-green",
       },
-      {
-        label: "Cota dia",
-        value: staffOperationalSummary.meals_per_day_total,
-        valueClassName: "text-white",
-        helper: staffConfigBreakdown.members_with_ambiguous_baseline > 0
-          ? "Parte da equipe segue com baseline ambíguo e fica fora da cota derivada confiável."
+        {
+          label: "Cota dia",
+          value: authoritativeOperationalSummary.meals_per_day_total,
+          valueClassName: "text-white",
+          helper: staffConfigBreakdown.members_with_ambiguous_baseline > 0
+            ? "Parte da equipe segue com baseline ambíguo e fica fora da cota derivada confiável."
           : staffConfigBreakdown.members_using_default_fallback > 0
             ? `Parte da equipe (${staffConfigBreakdown.members_using_default_fallback}) ainda usa fallback default neste recorte.`
             : "Cota diária consolidada para o recorte operacional do dia.",
         badge: staffConfigBreakdown.members_with_ambiguous_baseline > 0 ? "Origem parcial" : "Origem visível",
         badgeClassName: staffConfigBreakdown.members_with_ambiguous_baseline > 0 ? "badge badge-yellow" : "badge badge-blue",
       },
-      {
-        label: "Consumidas dia",
-        value: staffOperationalSummary.consumed_day_total,
-        valueClassName: "text-amber-400",
-        helper: `${tableHighlights.consumedMembers} participante(s) ja consumiram no dia.`,
-        badge: tableHighlights.consumedMembers > 0 ? "Com consumo" : "Sem consumo",
-        badgeClassName: tableHighlights.consumedMembers > 0 ? "badge badge-blue" : "badge badge-gray",
-      },
-      {
-        label: "Saldo dia",
-        value: staffOperationalSummary.remaining_day_total,
-        valueClassName: tableHighlights.exhaustedMembers > 0 ? "text-red-400" : "text-green-400",
-        helper: `${tableHighlights.exhaustedMembers} participante(s) sem saldo restante.`,
-        badge: tableHighlights.exhaustedMembers > 0 ? "Sem saldo" : "Saldo ok",
-        badgeClassName: tableHighlights.exhaustedMembers > 0 ? "badge badge-red" : "badge badge-green",
-      },
-      {
-        label: "Consumidas refeição",
-        value: staffOperationalSummary.consumed_service_total,
-        valueClassName: "text-blue-400",
-        helper: `${selectedMealServiceLabel}.${hasSelectedShift ? " Turno aplicado como filtro complementar." : " Sem turno, o recorte continua diário."}`,
-        badge: hasSelectedShift ? "Refeição + turno" : "Refeição ativa",
+        {
+          label: "Consumidas dia",
+          value: authoritativeOperationalSummary.consumed_day_total,
+          valueClassName: "text-amber-400",
+          helper: `${authoritativeTableHighlights.consumedMembers} participante(s) ja consumiram no dia.`,
+          badge: authoritativeTableHighlights.consumedMembers > 0 ? "Com consumo" : "Sem consumo",
+          badgeClassName: authoritativeTableHighlights.consumedMembers > 0 ? "badge badge-blue" : "badge badge-gray",
+        },
+        {
+          label: "Saldo dia",
+          value: authoritativeOperationalSummary.remaining_day_total,
+          valueClassName: authoritativeTableHighlights.exhaustedMembers > 0 ? "text-red-400" : "text-green-400",
+          helper: `${authoritativeTableHighlights.exhaustedMembers} participante(s) sem saldo restante.`,
+          badge: authoritativeTableHighlights.exhaustedMembers > 0 ? "Sem saldo" : "Saldo ok",
+          badgeClassName: authoritativeTableHighlights.exhaustedMembers > 0 ? "badge badge-red" : "badge badge-green",
+        },
+        {
+          label: "Consumidas refeição",
+          value: authoritativeOperationalSummary.consumed_service_total,
+          valueClassName: "text-blue-400",
+          helper: `${selectedMealServiceLabel}.${hasSelectedShift ? " Turno aplicado como filtro complementar." : " Sem turno, o recorte continua diário."}`,
+          badge: hasSelectedShift ? "Refeição + turno" : "Refeição ativa",
         badgeClassName: hasSelectedShift ? "badge badge-blue" : "badge badge-gray",
       },
       {
@@ -1906,14 +2483,13 @@ export default function MealsControl() {
     showWorkforceFallback,
     staffConfigBreakdown.members_using_default_fallback,
     staffConfigBreakdown.members_with_ambiguous_baseline,
-    staffOperationalSummary.consumed_day_total,
-    staffOperationalSummary.consumed_service_total,
-    staffOperationalSummary.meals_per_day_total,
-    staffOperationalSummary.members,
-    staffOperationalSummary.remaining_day_total,
-    tableHighlights.consumedMembers,
-    tableHighlights.exhaustedMembers,
-    tableHighlights.withoutUniqueShiftMembers,
+    authoritativeOperationalSummary.consumed_day_total,
+    authoritativeOperationalSummary.consumed_service_total,
+    authoritativeOperationalSummary.meals_per_day_total,
+    authoritativeOperationalSummary.members,
+    authoritativeOperationalSummary.remaining_day_total,
+    authoritativeTableHighlights.consumedMembers,
+    authoritativeTableHighlights.exhaustedMembers,
     workforceSummary.assignmentRows,
     workforceSummary.members,
     workforceSummary.sectorsCount,
@@ -1949,17 +2525,15 @@ export default function MealsControl() {
 
   const registerMealMessage = showWorkforceFallback
     ? "Registro de refeição indisponível: este evento ainda não possui `event_days`, então o módulo permanece em modo complementar do Workforce."
-    : !eventDayId
-      ? "Selecione um dia operacional para habilitar o registro de refeição."
+    : !registrationEventDayId
+      ? "Nenhum dia operacional ativo cobre o horário atual. Revise as janelas de `event_days` deste evento."
       : !selectedMealServiceData
-        ? "Nenhuma refeição ativa foi resolvida para o horário atual. Revise as janelas configuradas no modal de refeições."
-        : hasSelectedShift
-          ? sector
-            ? `Registro ativo para ${selectedMealServiceLabel}, turno e setor selecionados.`
-            : `Registro ativo para ${selectedMealServiceLabel} com turno selecionado.`
+        ? `Dia operacional automático: ${registrationOperationalContextLabel || "ativo"}. Nenhuma refeição ativa foi resolvida para o horário atual.`
+        : consultationDayDiffersFromRegistration
+          ? `Registro ativo para ${selectedMealServiceLabel}. A baixa será lançada automaticamente em ${registrationOperationalContextLabel}; o seletor de dia acima permanece apenas para consulta.`
           : sector
-            ? `Registro ativo para ${selectedMealServiceLabel} e setor selecionados. O turno permanece opcional.`
-            : `Registro ativo para ${selectedMealServiceLabel}. O turno permanece opcional.`;
+            ? `Registro ativo para ${selectedMealServiceLabel}. Baixa automática em ${registrationOperationalContextLabel} com o setor filtrado.`
+            : `Registro ativo para ${selectedMealServiceLabel}. Baixa automática em ${registrationOperationalContextLabel}.`;
   const mealHistoryMessage = showWorkforceFallback
     ? "O histórico HTTP de refeições fica disponível quando o evento operar com `event_days` reais."
     : !eventDayId
@@ -1971,15 +2545,16 @@ export default function MealsControl() {
         : "Últimas baixas do dia selecionado. Nenhuma refeição ativa foi resolvida para restringir o histórico por serviço.";
   const pendingOfflineMealsOutsideCurrentEventCount = Math.max(
     0,
-    pendingOfflineMeals.length - pendingOfflineMealsForCurrentEvent.length
+    (pendingOfflineMeals.length + failedOfflineMeals.length) -
+      (pendingOfflineMealsForCurrentEvent.length + failedOfflineMealsForCurrentEvent.length)
   );
   const pendingOfflineMealsMessage = !eventId
-    ? "A fila offline do Meals mostra tudo o que ainda está salvo localmente neste dispositivo."
+    ? "A fila offline do Meals mostra pendências e falhas locais ainda salvas neste dispositivo."
     : !eventDayId
-      ? "A fila offline já está filtrada pelo evento atual. Selecione um dia para afunilar o recorte operacional."
+      ? "A fila offline já está filtrada pelo evento atual. Selecione um dia para afunilar pendências e falhas do recorte operacional."
       : sector
-        ? "As pendências exibidas abaixo estão filtradas por evento, dia e setor."
-        : "As pendências exibidas abaixo estão filtradas por evento e dia operacionais.";
+        ? "As pendências e falhas exibidas abaixo estão filtradas por evento, dia e setor."
+        : "As pendências e falhas exibidas abaixo estão filtradas por evento e dia operacionais.";
 
   const handleRefresh = async () => {
     if (!eventId) return;
@@ -2004,6 +2579,7 @@ export default function MealsControl() {
           eventDayId: staticData.nextDay,
           eventShiftId: staticData.nextShift,
           mealServiceId,
+          sector,
         }),
       ]);
     }
@@ -2094,6 +2670,10 @@ export default function MealsControl() {
   const saveMealServices = async (e) => {
     e.preventDefault();
     if (!eventId) return;
+    if (mealServiceGridAnalysis.errors.length > 0) {
+      toast.error(mealServiceGridAnalysis.errors[0]);
+      return;
+    }
     setSavingMealCost(true);
     try {
       const res = await api.put("/meals/services", {
@@ -2103,6 +2683,11 @@ export default function MealsControl() {
       const saved = res.data?.data?.services || [];
       setMealServices(saved);
       setMealServiceDrafts(saved);
+      setMealServiceDraftTemplates(saved);
+      await saveCachedMealsContext(buildMealsContextKey(eventId), {
+        mealServices: saved,
+        mealServiceDraftTemplates: saved,
+      });
       setMealCostModalOpen(false);
       toast.success("Configuração de refeições salva.");
       await Promise.all([loadBalance(), loadMealHistory()]);
@@ -2171,7 +2756,8 @@ export default function MealsControl() {
         <button
           className="btn-secondary flex items-center gap-2"
           onClick={() => {
-            setMealServiceDrafts(mealServices.length > 0 ? mealServices : []);
+            const sourceDrafts = mealServiceDraftTemplates.length > 0 ? mealServiceDraftTemplates : mealServices;
+            setMealServiceDrafts(sourceDrafts.map((service) => ({ ...service })));
             setMealCostModalOpen(true);
           }}
           disabled={!eventId}
@@ -2242,8 +2828,8 @@ export default function MealsControl() {
                     ? `Automático: ${selectedMealServiceLabel}`
                     : "Automático pelo horário"}
           </option>
-          {mealServices.map((svc) => (
-            <option key={svc.id} value={svc.id} disabled={!svc.is_active}>
+          {mealServices.map((svc, idx) => (
+            <option key={getMealServiceDraftKey(svc, idx)} value={svc.id} disabled={!svc.is_active}>
               {svc.label}{!svc.is_active ? " (inativa)" : ""}
             </option>
           ))}
@@ -2276,6 +2862,11 @@ export default function MealsControl() {
           </button>
         </div>
         <p className="mt-3 text-xs text-gray-500">{registerMealMessage}</p>
+        {registrationOperationalContextLabel ? (
+          <p className="mt-2 text-xs text-blue-300">
+            Contexto automático de baixa: {registrationOperationalContextLabel}.
+          </p>
+        ) : null}
       </form>
 
       <div className="card p-4 space-y-4">
@@ -2290,6 +2881,9 @@ export default function MealsControl() {
             </span>
             <span className="badge badge-blue">
               {pendingOfflineMealsForCurrentEvent.length} pendente(s) {eventId ? "no evento" : "Meals"}
+            </span>
+            <span className="badge badge-red">
+              {failedOfflineMealsForCurrentEvent.length} falha(s) local(is) {eventId ? "no evento" : "Meals"}
             </span>
             {eventId && pendingOfflineMealsOutsideCurrentEventCount > 0 && (
               <span className="badge badge-gray">
@@ -2306,14 +2900,14 @@ export default function MealsControl() {
             <p className="mt-1 text-[11px] text-gray-500">Fila local total neste dispositivo.</p>
           </div>
           <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
-            <p className="text-xs text-gray-500">Neste evento</p>
-            <p className="text-lg font-bold text-white">{pendingOfflineMealsForCurrentEvent.length}</p>
-            <p className="mt-1 text-[11px] text-gray-500">Pendências ligadas ao evento selecionado.</p>
+            <p className="text-xs text-gray-500">Falhas locais</p>
+            <p className="text-lg font-bold text-white">{failedOfflineMeals.length}</p>
+            <p className="mt-1 text-[11px] text-gray-500">Itens rejeitados pelo backend e mantidos para reconciliação.</p>
           </div>
           <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
-            <p className="text-xs text-gray-500">Neste dia</p>
-            <p className="text-lg font-bold text-white">{pendingOfflineMealsForCurrentDay.length}</p>
-            <p className="mt-1 text-[11px] text-gray-500">Recorte atual do dia operacional.</p>
+            <p className="text-xs text-gray-500">Neste recorte</p>
+            <p className="text-lg font-bold text-white">{scopedPendingOfflineMeals.length + scopedFailedOfflineMeals.length}</p>
+            <p className="mt-1 text-[11px] text-gray-500">Pendências e falhas visíveis no recorte atual.</p>
           </div>
           <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
             <p className="text-xs text-gray-500">Sincronização</p>
@@ -2343,11 +2937,19 @@ export default function MealsControl() {
             <RefreshCw size={14} className={syncingOfflineMeals ? "animate-spin" : ""} />
             {syncingOfflineMeals ? "Sincronizando..." : "Sincronizar pendentes"}
           </button>
+          <button
+            type="button"
+            className="btn-secondary inline-flex items-center gap-2"
+            onClick={() => handleRetryOfflineMeals(visibleFailedOfflineMealIds)}
+            disabled={visibleFailedOfflineMealIds.length === 0}
+          >
+            <RefreshCw size={14} /> Reenfileirar falhas
+          </button>
         </div>
 
-        {visiblePendingOfflineMeals.length === 0 ? (
+        {visibleOfflineMeals.length === 0 ? (
           <p className="text-sm text-gray-400">
-            Nenhuma refeição offline pendente neste recorte.
+            Nenhuma refeição offline pendente ou falha neste recorte.
           </p>
         ) : (
           <div className="table-wrapper">
@@ -2362,7 +2964,7 @@ export default function MealsControl() {
                 </tr>
               </thead>
               <tbody>
-                {visiblePendingOfflineMeals.map((record) => {
+                {visibleOfflineMeals.map((record) => {
                   const payloadItem = record?.payload ?? {};
                   const qrToken = String(payloadItem?.qr_token || "").trim();
                   const participantName = participantNameByQrToken.get(qrToken) || "";
@@ -2370,11 +2972,12 @@ export default function MealsControl() {
                     (shift) => String(shift?.id || "") === String(payloadItem?.event_shift_id || "")
                   )?.name;
                   const sectorLabel = String(payloadItem?.sector || record?.sector || "").trim();
+                  const isFailedRecord = String(record?.status || "").trim() === "failed";
 
                   return (
                     <tr key={`offline-meal-${record.offline_id}`}>
                       <td className="text-sm text-gray-300">
-                        {formatDateTimeLabel(record.created_offline_at || payloadItem.consumed_at)}
+                        {formatDateTimeLabel(record.last_error_at || record.created_offline_at || payloadItem.consumed_at)}
                       </td>
                       <td>
                         <div className="space-y-1">
@@ -2393,7 +2996,25 @@ export default function MealsControl() {
                         {sectorLabel || "Sem setor"}{shiftName ? ` · ${shiftName}` : " · Sem turno"}
                       </td>
                       <td>
-                        <span className="badge badge-yellow">Pendente local</span>
+                        <div className="space-y-2">
+                          <span className={isFailedRecord ? "badge badge-red" : "badge badge-yellow"}>
+                            {isFailedRecord ? "Falha local" : "Pendente local"}
+                          </span>
+                          {isFailedRecord && record?.last_error ? (
+                            <p className="max-w-xs text-xs text-red-200">
+                              {record.last_error}
+                            </p>
+                          ) : null}
+                          {isFailedRecord ? (
+                            <button
+                              type="button"
+                              className="text-xs text-blue-300 hover:text-blue-200"
+                              onClick={() => handleRetryOfflineMeals([record.offline_id])}
+                            >
+                              Reenfileirar
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -2632,19 +3253,14 @@ export default function MealsControl() {
               Externos {externalTableRows.length}
             </span>
           )}
-          {!showWorkforceFallback && tableHighlights.exhaustedMembers > 0 && (
+          {!showWorkforceFallback && authoritativeTableHighlights.exhaustedMembers > 0 && (
             <span className="badge badge-red">
-              Sem saldo {tableHighlights.exhaustedMembers}
+              Sem saldo {authoritativeTableHighlights.exhaustedMembers}
             </span>
           )}
           {!showWorkforceFallback && tableHighlights.multiAssignmentMembers > 0 && (
             <span className="badge badge-gray">
               Multi-assignment {tableHighlights.multiAssignmentMembers}
-            </span>
-          )}
-          {tableHighlights.withoutUniqueShiftMembers > 0 && (
-            <span className="badge badge-yellow">
-              Sem turno único {tableHighlights.withoutUniqueShiftMembers}
             </span>
           )}
         </div>
@@ -2811,9 +3427,6 @@ export default function MealsControl() {
                         {!showWorkforceFallback && row.remainingDay !== null && row.remainingDay <= 0 && (
                           <span className="badge badge-red">Sem saldo</span>
                         )}
-                        {!row.shiftId && (
-                          <span className="badge badge-yellow">Sem turno</span>
-                        )}
                       </div>
                     </div>
                   </td>
@@ -2885,11 +3498,11 @@ export default function MealsControl() {
                             ? `Cota padrão: ${row.mealsPerDay ?? 4} refeições/dia`
                             : "Cota não resolvida"}
                       </p>
-                      {row.shiftId && (
-                        <p className="text-xs text-gray-400">
-                          Turno: {row.shiftName || `#${row.shiftId}`}
-                        </p>
-                      )}
+                        {row.shiftId ? (
+                          <p className="text-xs text-gray-400">
+                            Turno no Workforce: {row.shiftName || `#${row.shiftId}`}
+                          </p>
+                        ) : null}
                     </div>
                   </td>
                   <td className="align-top">
@@ -2928,11 +3541,31 @@ export default function MealsControl() {
 
             <form onSubmit={saveMealServices} className="p-5 space-y-4">
               {mealServiceDrafts.length === 0 ? (
-                <p className="text-sm text-gray-500">Nenhum serviço de refeição encontrado. Salve o evento para criar os serviços padrão.</p>
+                <p className="text-sm text-gray-500">Nenhum serviço de refeição disponível para configuração neste evento.</p>
               ) : (
                 <div className="space-y-3">
+                  {mealServiceGridAnalysis.errors.length > 0 && (
+                    <div className="rounded-xl border border-red-900/60 bg-red-950/30 p-3 text-sm text-red-100">
+                      <p className="font-semibold text-red-200">A grade precisa ser corrigida antes de salvar.</p>
+                      <ul className="mt-2 space-y-1 text-xs text-red-100">
+                        {mealServiceGridAnalysis.errors.map((message) => (
+                          <li key={`meal-grid-error-${message}`}>{message}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {mealServiceGridAnalysis.warnings.length > 0 && (
+                    <div className="rounded-xl border border-amber-900/60 bg-amber-950/30 p-3 text-sm text-amber-100">
+                      <p className="font-semibold text-amber-200">Avisos da grade operacional</p>
+                      <ul className="mt-2 space-y-1 text-xs text-amber-100">
+                        {mealServiceGridAnalysis.warnings.map((message) => (
+                          <li key={`meal-grid-warning-${message}`}>{message}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {mealServiceDrafts.map((svc, idx) => (
-                    <div key={svc.id} className="rounded-xl border border-gray-800 bg-gray-950/60 p-3 space-y-2">
+                    <div key={getMealServiceDraftKey(svc, idx)} className="rounded-xl border border-gray-800 bg-gray-950/60 p-3 space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-semibold text-white">{svc.label}</p>
                         <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
@@ -2994,7 +3627,7 @@ export default function MealsControl() {
                 </button>
                 <button
                   type="submit"
-                  disabled={savingMealCost || mealServiceDrafts.length === 0}
+                  disabled={savingMealCost || mealServiceDrafts.length === 0 || mealServiceGridAnalysis.errors.length > 0}
                   className="btn-primary flex items-center gap-2"
                 >
                   <Save size={16} /> Salvar
