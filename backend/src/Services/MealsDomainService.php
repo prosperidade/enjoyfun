@@ -2,6 +2,7 @@
 namespace EnjoyFun\Services;
 
 use DateTimeImmutable;
+use DateInterval;
 use DateTimeZone;
 use PDO;
 use Exception;
@@ -305,6 +306,84 @@ class MealsDomainService
         return $cache[$key];
     }
 
+    public static function assertOperationalWriteSchemaReady(PDO $db): void
+    {
+        $requiredTables = [
+            'event_meal_services',
+            'participant_meals',
+            'workforce_member_settings',
+            'events',
+        ];
+        foreach ($requiredTables as $table) {
+            if (!self::tableExists($db, $table)) {
+                throw new Exception(
+                    "Readiness de escrita de Meals inválida: tabela obrigatória '{$table}' ausente. Aplique as migrations estruturais antes de operar o módulo.",
+                    409
+                );
+            }
+        }
+
+        $requiredColumns = [
+            ['participant_meals', 'meal_service_id'],
+            ['participant_meals', 'unit_cost_applied'],
+            ['participant_meals', 'offline_request_id'],
+            ['workforce_member_settings', 'external_meal_allowed_days'],
+            ['workforce_member_settings', 'external_meal_valid_from'],
+            ['workforce_member_settings', 'external_meal_valid_until'],
+            ['events', 'event_timezone'],
+        ];
+        foreach ($requiredColumns as [$table, $column]) {
+            if (!self::columnExists($db, $table, $column)) {
+                throw new Exception(
+                    "Readiness de escrita de Meals inválida: coluna obrigatória '{$table}.{$column}' ausente. Aplique as migrations estruturais antes de operar o módulo.",
+                    409
+                );
+            }
+        }
+    }
+
+    public static function buildExternalMealValidityWindow(
+        PDO $db,
+        int $organizerId,
+        int $eventId,
+        int $validDays,
+        ?string $requestedOperationalTimezone = null
+    ): array {
+        if ($validDays < 1 || $validDays > 30) {
+            throw new InvalidArgumentException('valid_days deve ser entre 1 e 30.');
+        }
+
+        $resolvedOperationalTimezone = self::resolveOperationalTimezone(
+            $db,
+            $organizerId,
+            $eventId,
+            $requestedOperationalTimezone
+        );
+        if ($resolvedOperationalTimezone === null) {
+            throw new Exception(
+                'event_timezone obrigatória para calcular a validade operacional do QR externo. Atualize o cadastro do evento antes de emitir o QR.',
+                409
+            );
+        }
+
+        $timezone = self::createOperationalTimezone($resolvedOperationalTimezone);
+        if (!$timezone) {
+            throw new Exception('Não foi possível resolver a timezone operacional do evento.', 409);
+        }
+
+        $validFrom = (new DateTimeImmutable('now', $timezone))->format('Y-m-d');
+        $validUntil = (new DateTimeImmutable($validFrom . ' 00:00:00', $timezone))
+            ->add(new DateInterval('P' . max(0, $validDays - 1) . 'D'))
+            ->format('Y-m-d');
+
+        return [
+            'operational_timezone' => $resolvedOperationalTimezone,
+            'valid_from' => $validFrom,
+            'valid_until' => $validUntil,
+            'allowed_days' => $validDays,
+        ];
+    }
+
     public static function getLegacyMealUnitCost(PDO $db, int $organizerId): float
     {
         if (!self::columnExists($db, 'organizer_financial_settings', 'meal_unit_cost')) {
@@ -436,9 +515,7 @@ class MealsDomainService
         if ($eventId <= 0) {
             throw new InvalidArgumentException('event_id é obrigatório.');
         }
-        if (!self::tableExists($db, 'event_meal_services')) {
-            throw new Exception('Tabela event_meal_services indisponível nesta base.', 409);
-        }
+        self::assertOperationalWriteSchemaReady($db);
         if (!is_array($services) || empty($services)) {
             throw new InvalidArgumentException('services é obrigatório.');
         }
@@ -739,6 +816,7 @@ class MealsDomainService
         ?string $consumedAt = null,
         ?string $operationalTimezone = null
     ): array {
+        self::assertOperationalWriteSchemaReady($db);
         $offlineRequestId = trim((string)($offlineRequestId ?? ''));
         $context = self::resolveOperationalConsumptionContext(
             $db,
@@ -779,7 +857,7 @@ class MealsDomainService
         $selectedMealCost = round((float)($selectedMealService['unit_cost'] ?? 0), 2);
 
         self::acquireParticipantDayQuotaLock($db, $participantId, $eventDayId);
-        if ($offlineRequestId !== '' && self::columnExists($db, 'participant_meals', 'offline_request_id')) {
+        if ($offlineRequestId !== '') {
             $stmtExistingOffline = $db->prepare("
                 SELECT id
                 FROM participant_meals
@@ -796,6 +874,8 @@ class MealsDomainService
                 ];
             }
         }
+
+        self::assertExternalMealEligibilityWindow($db, $participantId, $resolvedConsumedAt);
 
         $cfg = self::resolveOperationalConfig(
             $db,
@@ -825,34 +905,17 @@ class MealsDomainService
         self::assertMealServiceAllowed($selectedMealService, $maxMealsPerDay);
         self::assertMealServiceNotConsumed($db, $participantId, $eventDayId, $selectedMealServiceId);
 
-        $hasMealServiceColumn = self::columnExists($db, 'participant_meals', 'meal_service_id');
-        $hasUnitCostApplied = self::columnExists($db, 'participant_meals', 'unit_cost_applied');
-        $hasOfflineRequestId = self::columnExists($db, 'participant_meals', 'offline_request_id');
-
-        $columns = ['participant_id', 'event_day_id', 'event_shift_id', 'consumed_at'];
-        $values = [':participant_id', ':event_day_id', ':event_shift_id', ':consumed_at'];
+        $columns = ['participant_id', 'event_day_id', 'event_shift_id', 'consumed_at', 'meal_service_id', 'unit_cost_applied', 'offline_request_id'];
+        $values = [':participant_id', ':event_day_id', ':event_shift_id', ':consumed_at', ':meal_service_id', ':unit_cost_applied', ':offline_request_id'];
         $params = [
             ':participant_id' => $participantId,
             ':event_day_id' => $eventDayId,
             ':event_shift_id' => $eventShiftId,
             ':consumed_at' => $resolvedConsumedAt,
+            ':meal_service_id' => $selectedMealServiceId,
+            ':unit_cost_applied' => $selectedMealCost,
+            ':offline_request_id' => $offlineRequestId !== '' ? $offlineRequestId : null,
         ];
-
-        if ($hasMealServiceColumn) {
-            $columns[] = 'meal_service_id';
-            $values[] = ':meal_service_id';
-            $params[':meal_service_id'] = $selectedMealServiceId;
-        }
-        if ($hasUnitCostApplied) {
-            $columns[] = 'unit_cost_applied';
-            $values[] = ':unit_cost_applied';
-            $params[':unit_cost_applied'] = $selectedMealCost;
-        }
-        if ($hasOfflineRequestId) {
-            $columns[] = 'offline_request_id';
-            $values[] = ':offline_request_id';
-            $params[':offline_request_id'] = $offlineRequestId !== '' ? $offlineRequestId : null;
-        }
 
         $stmt = $db->prepare(sprintf(
             'INSERT INTO participant_meals (%s) VALUES (%s) RETURNING id',
@@ -1479,6 +1542,50 @@ class MealsDomainService
         }
 
         return $eventTimezone ?? $requestedTimezone;
+    }
+
+    private static function assertExternalMealEligibilityWindow(PDO $db, int $participantId, string $resolvedConsumedAt): void
+    {
+        $stmt = $db->prepare("
+            SELECT
+                external_meal_allowed_days,
+                external_meal_valid_from,
+                external_meal_valid_until
+            FROM workforce_member_settings
+            WHERE participant_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$participantId]);
+        $window = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        if (!$window) {
+            return;
+        }
+
+        $allowedDays = isset($window['external_meal_allowed_days']) ? (int)$window['external_meal_allowed_days'] : 0;
+        $validFrom = $window['external_meal_valid_from'] !== null ? substr((string)$window['external_meal_valid_from'], 0, 10) : null;
+        $validUntil = $window['external_meal_valid_until'] !== null ? substr((string)$window['external_meal_valid_until'], 0, 10) : null;
+
+        if ($allowedDays <= 0 && $validFrom === null && $validUntil === null) {
+            return;
+        }
+        if ($validFrom === null || $validUntil === null) {
+            throw new Exception(
+                'Janela de validade do QR externo está incompleta para este participante. Reemita o QR externo antes de registrar refeições.',
+                409
+            );
+        }
+
+        $consumedDate = substr($resolvedConsumedAt, 0, 10);
+        if ($consumedDate < $validFrom || $consumedDate > $validUntil) {
+            throw new Exception(
+                sprintf(
+                    'QR externo fora da janela operacional autorizada (%s a %s).',
+                    $validFrom,
+                    $validUntil
+                ),
+                409
+            );
+        }
     }
 
     private static function createOperationalTimezone(?string $operationalTimezone): ?DateTimeZone

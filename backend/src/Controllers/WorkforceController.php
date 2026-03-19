@@ -1221,21 +1221,19 @@ function createAssignment(array $body): void
         $supportsPublicId = workforceAssignmentsHavePublicId($db);
         $supportsEventBindings = workforceAssignmentsHaveEventRoleColumns($db);
 
-        $existingAssignment = null;
-        if ($sector !== '') {
-            $existingSelect = ['id'];
-            if ($supportsPublicId) {
-                $existingSelect[] = 'public_id';
-            }
-            $stmtExisting = $db->prepare("
-                SELECT " . implode(', ', $existingSelect) . "
-                FROM workforce_assignments
-                WHERE participant_id = ? AND LOWER(COALESCE(sector, '')) = ?
-                LIMIT 1
-            ");
-            $stmtExisting->execute([$participantId, $sector]);
-            $existingAssignment = $stmtExisting->fetch(PDO::FETCH_ASSOC) ?: null;
+        $existingSelect = ['id'];
+        if ($supportsPublicId) {
+            $existingSelect[] = 'public_id';
         }
+        $existingAssignment = workforceFindExistingAssignment(
+            $db,
+            (int)$participantId,
+            $roleId,
+            $sector,
+            $eventShiftId ? (int)$eventShiftId : null,
+            $existingSelect,
+            $requestedAssignmentPublicId
+        );
 
         if ($supportsPublicId && $requestedAssignmentPublicId === '' && $existingAssignment) {
             $requestedAssignmentPublicId = (string)($existingAssignment['public_id'] ?? '');
@@ -1665,17 +1663,20 @@ function importWorkforce(array $body, ?int $forcedRoleId = null): void
                 $existingSelect[] = 'public_id';
             }
 
-            $stmtExistingAssignment = $db->prepare("
-                SELECT " . implode(', ', $existingSelect) . "
-                FROM workforce_assignments
-                WHERE participant_id = ?
-                  AND LOWER(COALESCE(sector, '')) = ?
-                LIMIT 1
-            ");
-            $stmtExistingAssignment->execute([$participantId, $targetSector]);
-            $existingAssignment = $stmtExistingAssignment->fetch(PDO::FETCH_ASSOC);
+            $assignmentPublicId = $supportsPublicId ? trim((string)($row['public_id'] ?? '')) : '';
+            $existingAssignment = workforceFindExistingAssignment(
+                $db,
+                (int)$participantId,
+                $defaultRoleId,
+                $targetSector,
+                null,
+                $existingSelect,
+                $assignmentPublicId
+            ) ?: [];
             $existingAssignmentId = (int)($existingAssignment['id'] ?? 0);
-            $assignmentPublicId = $supportsPublicId ? trim((string)($row['public_id'] ?? $existingAssignment['public_id'] ?? '')) : '';
+            if ($supportsPublicId && $assignmentPublicId === '') {
+                $assignmentPublicId = trim((string)($existingAssignment['public_id'] ?? ''));
+            }
 
             if (!$existingAssignmentId) {
                 $columns = ['participant_id', 'role_id', 'sector', 'event_shift_id', 'created_at'];
@@ -2347,6 +2348,65 @@ function tableExists(PDO $db, string $table): bool
     $stmt->execute([':table' => $table]);
     $cache[$table] = (bool)$stmt->fetchColumn();
     return $cache[$table];
+}
+
+function workforceNormalizeAssignmentIdentitySector(?string $sector): string
+{
+    return normalizeSector((string)($sector ?? ''));
+}
+
+function workforceFindExistingAssignment(
+    PDO $db,
+    int $participantId,
+    int $roleId,
+    string $sector,
+    ?int $eventShiftId,
+    array $selectColumns = ['id'],
+    string $assignmentPublicId = ''
+): ?array {
+    $columns = array_values(array_unique(array_merge(['id'], $selectColumns)));
+    $select = implode(', ', $columns);
+
+    if ($assignmentPublicId !== '' && workforceAssignmentsHavePublicId($db)) {
+        $stmtByPublicId = $db->prepare("
+            SELECT {$select}
+            FROM workforce_assignments
+            WHERE participant_id = :participant_id
+              AND public_id = :public_id
+            LIMIT 1
+        ");
+        $stmtByPublicId->execute([
+            ':participant_id' => $participantId,
+            ':public_id' => $assignmentPublicId,
+        ]);
+        $existingByPublicId = $stmtByPublicId->fetch(PDO::FETCH_ASSOC) ?: null;
+        if ($existingByPublicId) {
+            return $existingByPublicId;
+        }
+    }
+
+    $normalizedSector = workforceNormalizeAssignmentIdentitySector($sector);
+    $stmt = $db->prepare("
+        SELECT {$select}
+        FROM workforce_assignments
+        WHERE participant_id = :participant_id
+          AND role_id = :role_id
+          AND REGEXP_REPLACE(LOWER(COALESCE(NULLIF(BTRIM(sector), ''), '')), '\s+', '_', 'g') = :sector
+          AND (
+              (:event_shift_id_is_null = 1 AND event_shift_id IS NULL)
+              OR event_shift_id = :event_shift_id
+          )
+        LIMIT 1
+    ");
+    $stmt->execute([
+        ':participant_id' => $participantId,
+        ':role_id' => $roleId,
+        ':sector' => $normalizedSector,
+        ':event_shift_id_is_null' => $eventShiftId === null ? 1 : 0,
+        ':event_shift_id' => $eventShiftId,
+    ]);
+
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
 function ensureWorkforceRoleSettingsTable(PDO $db): void

@@ -321,6 +321,7 @@ Status desta etapa:
 - `php -l backend/src/Controllers/ParticipantCheckinController.php` passou
 - `php -l backend/src/Controllers/ScannerController.php` passou
 - `php -l backend/src/Controllers/EventController.php` passou
+- `php -l backend/src/Controllers/WorkforceController.php` passou
 - busca por `070998` em `backend/` nao retornou ocorrencias
 - teste local dos helpers de OTP confirmou hash de `64` caracteres e comparacao `match`
 - `npm --prefix frontend run build` passou
@@ -329,6 +330,12 @@ Limitacao local desta rodada:
 
 - a validacao de conexao real via PHP CLI ficou bloqueada porque este runtime nao possui `pdo_pgsql`
 - o proprio `audit_meals.php` confirmou o mesmo bloqueio de extensao
+- as migrations `021` a `024` foram aplicadas no banco real via `database/apply_migration.bat` e registradas em `database/migrations_applied.log`
+- a smoke SQL de fechamento confirmou:
+  - remocao de `uq_workforce_assignments_participant_sector`
+  - presenca dos indices `uq_workforce_assignments_identity_shifted`, `uq_workforce_assignments_identity_unshifted` e `uq_event_participants_qr_token`
+  - zero duplicidades atuais de `event_participants.qr_token`
+  - `10` linhas com janela externa materializada em `workforce_member_settings`
 
 ---
 
@@ -363,15 +370,21 @@ Limitacao local desta rodada:
 - indice dedicado para leitura da ultima acao de presenca por participante
 - timezone canonica de Meals ancorada em `events.event_timezone`
 - write-path de eventos passou a normalizar timestamps com offset para o calendario operacional do proprio evento
+- trilha de migrations de Meals linearizada com a renumeracao da antiga `012_event_meal_services_model.sql` para `021_event_meal_services_alignment.sql`
+- identidade de `workforce_assignments` endurecida para o eixo `participant + role + sector + shift`, encerrando a sobrescrita silenciosa por `participant + sector`
+- `event_participants.qr_token` endurecido com unicidade/index dedicado para lookup publico e scanner
+- `valid_days` do QR externo passou a gerar janela calendárica explicita em `workforce_member_settings`, sem depender apenas de `max_shifts_event`
+- write-path critico de `Meals` agora falha explicitamente quando o schema obrigatorio de servico/idempotencia/janela externa nao estiver materializado
 
-### Ainda aberto em P0
+### Pendencias postergadas
 
+- mensageria saiu da frente ativa nesta fase; o residual fica congelado como pendencia transversal ate reabertura explicita
 - backfill explicito dos segredos legados ja persistidos em claro fora do fluxo quente
 - assinatura/validacao forte de webhook por provider de mensageria
+- retry administrativo e replay de falhas de mensageria
 
 ### Proxima etapa recomendada
 
-- trilha de integracoes
-  - assinatura/validacao forte de webhook por provider de mensageria
-  - retry administrativo e replay de falhas de mensageria
-  - backfill e auditoria de segredos legados antigos ainda nao tocados pelo fluxo ativo
+- iniciar a nova rodada pelo dashboard
+  - revisar indicadores, consultas, alertas e telemetria a partir da superficie operacional principal
+  - seguir a partir dali corrigindo e melhorando os modulos encadeados pelo uso real

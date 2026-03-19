@@ -1,3 +1,7 @@
 16/03/2026 16:12:08,47 - APLICADA: database\011_participant_meals_hardening.sql 
 16/03/2026 19:04:15,49 - APLICADA: database\012_meal_services_redesign.sql 
 17/03/2026 16:30:00,00 - APLICADA: database\013_participants_workforce_integrity.sql 
+19/03/2026 20:11:26,58 - APLICADA: database\021_event_meal_services_alignment.sql 
+19/03/2026 20:11:41,25 - APLICADA: database\024_external_meal_validity_windows.sql 
+19/03/2026 20:11:50,61 - APLICADA: database\022_workforce_assignment_identity.sql 
+19/03/2026 20:12:05,24 - APLICADA: database\023_event_participants_qr_token_hardening.sql 

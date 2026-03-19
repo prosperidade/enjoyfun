@@ -817,6 +817,14 @@ function generateExternalMealQr(array $body): void
         jsonError('Evento não encontrado ou sem acesso.', 404);
     }
 
+    try {
+        MealsDomainService::assertOperationalWriteSchemaReady($db);
+        $validityWindow = MealsDomainService::buildExternalMealValidityWindow($db, $organizerId, $eventId, $validDays);
+    } catch (Throwable $e) {
+        $code = (int)$e->getCode();
+        jsonError($e->getMessage(), ($code >= 400 && $code < 600) ? $code : 500);
+    }
+
     $db->beginTransaction();
     try {
         // Buscar ou criar role de colaborador externo para este organizador
@@ -906,38 +914,45 @@ function generateExternalMealQr(array $body): void
             ':role_id' => $roleId,
         ]);
 
-        // Configurar meals_per_day e max_shifts_event no member_settings
-        $hasMemberSettings = mealTableExists($db, 'workforce_member_settings');
-        if ($hasMemberSettings) {
-            $hasMaxShifts = columnExists($db, 'workforce_member_settings', 'max_shifts_event');
-            
-            if ($hasMaxShifts) {
-                $stmtSettings = $db->prepare("
-                    INSERT INTO workforce_member_settings (participant_id, meals_per_day, max_shifts_event, created_at, updated_at)
-                    VALUES (:participant_id, :meals_per_day, :max_shifts_event, NOW(), NOW())
-                    ON CONFLICT (participant_id) DO UPDATE
-                        SET meals_per_day = EXCLUDED.meals_per_day, 
-                            max_shifts_event = EXCLUDED.max_shifts_event, 
-                            updated_at = NOW()
-                ");
-                $stmtSettings->execute([
-                    ':participant_id' => $participantId,
-                    ':meals_per_day' => $mealsPerDay,
-                    ':max_shifts_event' => $validDays,
-                ]);
-            } else {
-                $stmtSettings = $db->prepare("
-                    INSERT INTO workforce_member_settings (participant_id, meals_per_day, created_at, updated_at)
-                    VALUES (:participant_id, :meals_per_day, NOW(), NOW())
-                    ON CONFLICT (participant_id) DO UPDATE
-                        SET meals_per_day = EXCLUDED.meals_per_day, updated_at = NOW()
-                ");
-                $stmtSettings->execute([
-                    ':participant_id' => $participantId,
-                    ':meals_per_day' => $mealsPerDay,
-                ]);
-            }
-        }
+        // Mantém max_shifts_event por compatibilidade, mas a validade real do QR externo
+        // passa a ser a janela calendárica persistida em columns dedicadas.
+        $stmtSettings = $db->prepare("
+            INSERT INTO workforce_member_settings (
+                participant_id,
+                meals_per_day,
+                max_shifts_event,
+                external_meal_allowed_days,
+                external_meal_valid_from,
+                external_meal_valid_until,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                :participant_id,
+                :meals_per_day,
+                :max_shifts_event,
+                :external_meal_allowed_days,
+                :external_meal_valid_from,
+                :external_meal_valid_until,
+                NOW(),
+                NOW()
+            )
+            ON CONFLICT (participant_id) DO UPDATE
+                SET meals_per_day = EXCLUDED.meals_per_day,
+                    max_shifts_event = EXCLUDED.max_shifts_event,
+                    external_meal_allowed_days = EXCLUDED.external_meal_allowed_days,
+                    external_meal_valid_from = EXCLUDED.external_meal_valid_from,
+                    external_meal_valid_until = EXCLUDED.external_meal_valid_until,
+                    updated_at = NOW()
+        ");
+        $stmtSettings->execute([
+            ':participant_id' => $participantId,
+            ':meals_per_day' => $mealsPerDay,
+            ':max_shifts_event' => $validDays,
+            ':external_meal_allowed_days' => (int)$validityWindow['allowed_days'],
+            ':external_meal_valid_from' => $validityWindow['valid_from'],
+            ':external_meal_valid_until' => $validityWindow['valid_until'],
+        ]);
 
         $db->commit();
 
@@ -949,6 +964,9 @@ function generateExternalMealQr(array $body): void
             'email' => $email,
             'meals_per_day' => $mealsPerDay,
             'valid_days' => $validDays,
+            'valid_from' => $validityWindow['valid_from'],
+            'valid_until' => $validityWindow['valid_until'],
+            'operational_timezone' => $validityWindow['operational_timezone'],
             'qr_token' => $qrToken,
             'invite_path' => '/invite?token=' . rawurlencode($qrToken),
         ], 'QR de colaborador externo gerado com sucesso.', 201);

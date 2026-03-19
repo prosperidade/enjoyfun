@@ -17,7 +17,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
 function getInsight(array $body): void
 {
-    $operator = requireAuth(['admin', 'organizer', 'manager']);
+    $operator = requireAuth(['admin', 'organizer', 'manager', 'bartender', 'staff']);
 
     $context = $body['context'] ?? null;
     $question = trim($body['question'] ?? '');

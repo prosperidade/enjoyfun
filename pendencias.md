@@ -33,7 +33,8 @@
 | Módulo | Estado funcional | O que sobra |
 | --- | --- | --- |
 | Workforce / Participants Hub | Homologado e encerrado funcionalmente | governança de release e observabilidade |
-| Meals | Homologado funcionalmente no evento piloto | ainda segue em `docs/progresso7.md` até concluir os ajustes da auditoria |
+| Meals | Homologado e encerrado funcionalmente | residual não bloqueante consolidado neste arquivo |
+| Integrações transversais / Mensageria | Frente postergada fora do foco atual | segredos legados, webhook forte e retry/replay |
 
 ---
 
@@ -81,13 +82,14 @@
 
 ## 4. Ordem recomendada de ataque
 
-1. Workforce
-- testes de contrato
-- telemetria
-- playbook
+1. Dashboard
+- iniciar a nova rodada pela superfície principal de operação
+- revisar indicadores, consultas, alertas e telemetria
+- seguir dali para os módulos encadeados pelo uso real
 
-2. Meals
-- só migrar para este arquivo depois de concluir os ajustes da auditoria em `docs/progresso7.md`
+2. Pendências transversais postergadas
+- reabrir mensageria apenas com decisão explícita
+- tratar webhook forte, backfill de segredos e retry/replay como frente separada
 
 ---
 
@@ -95,6 +97,7 @@
 
 - `docs/progresso6.md`
 - `docs/progresso7.md`
+- `docs/progresso9.md`
 
 
 # Pendencias
@@ -126,12 +129,29 @@
 - Executar teste de carga do fluxo `Meals` com volume operacional mais proximo do evento real.
 - Revisar paginacao real do historico, hoje ainda limitada por `cap` fixo.
 - Evoluir a reconciliacao offline para um fluxo mais completo de DLQ/revisao/exportacao, se isso virar necessidade operacional.
-- Atualizar `docs/progresso7.md` com uma nota curta de fechamento para evitar diagnostico historico divergente.
+- Atualizar `docs/progresso9.md` quando houver novo fechamento residual para evitar diagnostico historico divergente.
 - Avaliar refactor futuro para reduzir duplicacao residual entre controller e service sem abrir risco de regressao agora.
 
-## Observacoes
+## Integracoes Transversais / Mensageria
 
-- Escopo acima reflete somente o que ficou pendente da auditoria de `Meals`.
+### P0
+
+- Nenhuma pendencia operacional critica ativa nesta frente porque a mensageria foi congelada fora do foco atual.
+
+### P1
+
+- Executar backfill explicito dos segredos legados ainda persistidos em claro fora do fluxo quente.
+- Implementar assinatura e validacao forte de webhook por provider de mensageria.
+- Criar retry administrativo e replay de falhas de mensageria sem depender de reprocessamento manual ad hoc.
+
+### Observacoes
+
+- Essas pendencias ficam postergadas ate reabertura explicita da frente de mensageria.
+- A proxima rodada priorizada do produto passa a comecar pelo dashboard, nao por integracoes de mensageria.
+
+## Observacoes Meals
+
+- Este bloco abaixo reflete somente o contexto residual especifico da auditoria de `Meals`.
 - `database/015_participant_meals_operational_day_reconciliation.sql` ja foi aplicada no banco local.
 - `database/016_participant_meals_outside_operational_day_review.sql` e somente leitura; antes da `017` ele evidenciou os `8` legados fora de janela e, apos a quarentena, passou a retornar `0` linhas.
 - `database/017_participant_meals_outside_operational_day_quarantine.sql` ja foi aplicada no banco local.

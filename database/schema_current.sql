@@ -1735,8 +1735,13 @@ CREATE TABLE public.workforce_member_settings (
     shift_hours numeric(5,2) DEFAULT 8.00 NOT NULL,
     meals_per_day integer DEFAULT 4 NOT NULL,
     payment_amount numeric(12,2) DEFAULT 0.00 NOT NULL,
+    external_meal_allowed_days integer,
+    external_meal_valid_from date,
+    external_meal_valid_until date,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_workforce_member_settings_external_meal_allowed_days CHECK (((external_meal_allowed_days IS NULL) OR ((external_meal_allowed_days >= 1) AND (external_meal_allowed_days <= 30)))),
+    CONSTRAINT chk_workforce_member_settings_external_meal_window CHECK (((external_meal_valid_from IS NULL) OR (external_meal_valid_until IS NULL) OR (external_meal_valid_until >= external_meal_valid_from)))
 );
 
 
@@ -2495,15 +2500,6 @@ ALTER TABLE ONLY public.participant_meals
     ADD CONSTRAINT uq_pm_participant_day_service UNIQUE (participant_id, event_day_id, meal_service_id) DEFERRABLE INITIALLY DEFERRED;
 
 
---
--- Name: workforce_assignments uq_workforce_assignments_participant_sector; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.workforce_assignments
-    ADD CONSTRAINT uq_workforce_assignments_participant_sector UNIQUE (participant_id, sector);
-
-
---
 -- Name: workforce_assignments uq_workforce_assignments_public_id; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2832,6 +2828,13 @@ CREATE INDEX idx_event_participants_person ON public.event_participants USING bt
 
 
 --
+-- Name: uq_event_participants_qr_token; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX uq_event_participants_qr_token ON public.event_participants USING btree (qr_token) WHERE ((qr_token IS NOT NULL) AND ((btrim((qr_token)::text) <> ''::text)));
+
+
+--
 -- Name: idx_participant_checkins_participant; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2857,6 +2860,20 @@ CREATE INDEX idx_workforce_assignments_event_role ON public.workforce_assignment
 --
 
 CREATE INDEX idx_workforce_assignments_manager_user ON public.workforce_assignments USING btree (manager_user_id);
+
+
+--
+-- Name: uq_workforce_assignments_identity_shifted; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX uq_workforce_assignments_identity_shifted ON public.workforce_assignments USING btree (participant_id, role_id, regexp_replace(lower((COALESCE(NULLIF(btrim((sector)::text), ''::text), ''::text))), '\s+'::text, '_'::text, 'g'::text), event_shift_id) WHERE (event_shift_id IS NOT NULL);
+
+
+--
+-- Name: uq_workforce_assignments_identity_unshifted; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX uq_workforce_assignments_identity_unshifted ON public.workforce_assignments USING btree (participant_id, role_id, regexp_replace(lower((COALESCE(NULLIF(btrim((sector)::text), ''::text), ''::text))), '\s+'::text, '_'::text, 'g'::text)) WHERE (event_shift_id IS NULL);
 
 
 --
@@ -2948,6 +2965,13 @@ CREATE INDEX idx_workforce_event_roles_root ON public.workforce_event_roles USIN
 --
 
 CREATE INDEX idx_workforce_member_settings_participant ON public.workforce_member_settings USING btree (participant_id);
+
+
+--
+-- Name: idx_workforce_member_settings_external_meal_window; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_workforce_member_settings_external_meal_window ON public.workforce_member_settings USING btree (external_meal_valid_from, external_meal_valid_until) WHERE ((external_meal_valid_from IS NOT NULL) OR (external_meal_valid_until IS NOT NULL));
 
 
 --

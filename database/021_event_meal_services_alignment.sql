@@ -1,10 +1,11 @@
 -- ============================================================================
--- Migration 012: meals por serviço de refeição
+-- Migration 021: reconciliacao do modelo de meals por serviço
 -- Criada em: 2026-03-22
 -- Proposito:
---   - introduzir catalogo de serviços de refeição por evento
---   - impedir repetição da mesma refeição no mesmo dia
---   - registrar custo aplicado e idempotência offline por baixa
+--   - renumerar a antiga migration duplicada `012_event_meal_services_model.sql`
+--     para restaurar trilha linear e oficial de migrations
+--   - reconciliar e validar endurecimentos adicionais do modelo `event_meal_services`
+--     e `participant_meals` apos a `012_meal_services_redesign.sql`
 -- ============================================================================
 
 BEGIN;

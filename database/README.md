@@ -17,6 +17,9 @@
 | `007_workforce_costs_meals_model.sql` | Refletida para `meal_unit_cost` e `workforce_role_settings`; o drift manual `leader_*` ficou separado na `009`. |
 | `008_tickets_commercial_model.sql` | Refletida em `schema_current.sql`. |
 | `009_manual_schema_sync.sql` | Reduzida ao escopo seguro: apenas `leader_name`, `leader_cpf` e `leader_phone` em `workforce_role_settings`. Não foi aplicada nesta rodada. |
+| `012_meal_services_redesign.sql` | Migration oficial da primeira fase de meal services. |
+| `021_event_meal_services_alignment.sql` | Renumeracao oficial da antiga `012_event_meal_services_model.sql`, preservando trilha linear a partir da auditoria final de `Meals + Workforce`. |
+| `022` a `024` | Fechamento estrutural da auditoria final: identidade de assignments, endurecimento de `event_participants.qr_token` e janela explicita do QR externo. |
 
 ## Logs operacionais
 
@@ -26,6 +29,8 @@
 | `migrations_applied.log` | Registro append-only das migrations aplicadas via operação manual ou `apply_migration.bat`. |
 
 Estes logs sao operacionais. Eles nao substituem `schema_current.sql` como baseline.
+
+Importante: a antiga migration `012_event_meal_services_model.sql` foi renumerada para `021_event_meal_services_alignment.sql` para eliminar a duplicidade historica de prefixo `012`. O `migrations_applied.log` continua sendo um registro operacional do que foi executado em cada ambiente, nao uma declaracao de baseline completo.
 
 ## Fluxo diario leve
 

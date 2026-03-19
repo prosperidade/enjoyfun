@@ -21,7 +21,7 @@
   - bugs silenciosos e gaps de observabilidade
 - Ja existiam no repositorio:
   - `database/011_participant_meals_hardening.sql`
-  - `database/012_event_meal_services_model.sql`
+  - `database/021_event_meal_services_alignment.sql` (antiga `012_event_meal_services_model.sql`, renumerada depois para restaurar a trilha linear)
 - Ja existe trabalho local em andamento nesta rodada:
   - endurecimento de `consumed_at`
   - suporte a janela `overnight`
