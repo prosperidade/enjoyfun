@@ -386,6 +386,9 @@ function deleteParticipant(int $id): void
     $stmtCheck->execute([$id, $organizerId]);
     $participant = $stmtCheck->fetch(PDO::FETCH_ASSOC);
     if (!$participant) jsonError('Participante não encontrado.', 404);
+    if (function_exists('setCurrentRequestEventId')) {
+        setCurrentRequestEventId((int)($participant['event_id'] ?? 0));
+    }
 
     if (!$canBypassSector && $userSector !== 'all') {
         $stmtSector = $db->prepare("

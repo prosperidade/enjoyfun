@@ -568,6 +568,7 @@ CREATE TABLE public.events (
     event_date date,
     location text,
     is_active boolean DEFAULT true,
+    event_timezone character varying(80),
     organizer_id integer
 );
 

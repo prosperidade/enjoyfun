@@ -34,6 +34,10 @@ function requireAuth(?array $allowedRoles = null): array
         'organizer_id' => $payload['organizer_id'] ?? null
     ];
 
+    if (function_exists('setCurrentRequestActor')) {
+        setCurrentRequestActor($user);
+    }
+
     if ($allowedRoles !== null && !in_array($user['role'], $allowedRoles)) {
         jsonError("Acesso negado", 403);
     }

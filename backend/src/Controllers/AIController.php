@@ -1,10 +1,11 @@
 <?php
 /**
  * AIController.php
- * Proxy para a API do Google Gemini (IA Assistente)
+ * Proxy para geração de insights com provider configurável.
  */
 
 require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
+require_once BASE_PATH . '/src/Services/AIBillingService.php';
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -16,7 +17,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
 function getInsight(array $body): void
 {
-    requireAuth(['admin', 'organizer', 'manager']);
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
 
     $context = $body['context'] ?? null;
     $question = trim($body['question'] ?? '');
@@ -25,13 +26,14 @@ function getInsight(array $body): void
         jsonError('Contexto analítico (context) e pergunta (question) são obrigatórios.', 422);
     }
 
-    $apiKey = getenv('OPENAI_API_KEY');
-    
-    if (!$apiKey) {
-        jsonError('API Key da OpenAI não configurada no servidor (.env).', 503);
+    $db = Database::getInstance();
+    $organizerId = aiResolveOrganizerId($operator, is_array($context) ? $context : []);
+    $aiConfig = aiLoadOrganizerConfig($db, $organizerId);
+
+    if (!$aiConfig['is_active']) {
+        jsonError('A IA operacional está desativada para este organizador.', 409);
     }
 
-    // Montando o prompt
     $prompt = sprintf(
         "SETOR EM ANÁLISE: %s\nPERÍODO: %s\nFATURAMENTO TOTAL: R$ %s\nITENS VENDIDOS: %s und\nTOP PRODUTOS (JSON): %s\nESTOQUE CRÍTICO (JSON): %s\n\nTAREFAS E RESTRIÇÕES:\n1. Avalie o ritmo de vendas e saúde do faturamento.\n2. Destaque os campeões de venda.\n3. Alerte sobre itens perto do limite do estoque.\n4. Sugira 2 ações práticas e imediatas aplicáveis **DENTRO** do evento em tempo real (ex: promoção relâmpago no bar, remanejamento de vendedores).\n5. **EXTREMAMENTE IMPORTANTE**: NÃO sugira campanhas de redes sociais, tráfego ou vendas fora do escopo do evento atual.\n\nPERGUNTA DO OPERADOR: %s",
         strtoupper((string)($context['sector'] ?? 'N/A')),
@@ -43,61 +45,220 @@ function getInsight(array $body): void
         $question
     );
 
-    $model = getenv('OPENAI_MODEL') ?: 'gpt-4o-mini';
+    $baseSystemPrompt = 'Você é a IA Consultora do EnjoyFun, especialista em eventos. Forneça insights executivos de vendas em português, usando emojis para estruturar.';
+    $systemPrompt = trim($baseSystemPrompt . ($aiConfig['system_prompt'] !== '' ? "\n\nINSTRUÇÕES DO ORGANIZADOR:\n" . $aiConfig['system_prompt'] : ''));
 
+    try {
+        $result = $aiConfig['provider'] === 'gemini'
+            ? aiRequestGeminiInsight($systemPrompt, $prompt)
+            : aiRequestOpenAiInsight($systemPrompt, $prompt);
+    } catch (RuntimeException $e) {
+        $statusCode = (int)$e->getCode();
+        jsonError($e->getMessage(), $statusCode >= 400 ? $statusCode : 502);
+    }
+
+    $eventId = isset($context['event_id']) ? (int)$context['event_id'] : null;
+    $sector = strtolower(trim((string)($context['sector'] ?? 'general')));
+    $agentName = preg_replace('/[^a-z0-9_]+/', '_', $sector) ?: 'general';
+    $usage = is_array($result['usage'] ?? null) ? $result['usage'] : [];
+
+    \EnjoyFun\Services\AIBillingService::logUsage([
+        'user_id' => isset($operator['id']) ? (int)$operator['id'] : null,
+        'event_id' => $eventId > 0 ? $eventId : null,
+        'organizer_id' => $organizerId > 0 ? $organizerId : null,
+        'agent_name' => "{$result['provider']}_sales_insight_{$agentName}",
+        'prompt_tokens' => (int)($usage['prompt_tokens'] ?? 0),
+        'completion_tokens' => (int)($usage['completion_tokens'] ?? 0),
+        'request_duration_ms' => (int)($result['request_duration_ms'] ?? 0),
+    ]);
+
+    jsonSuccess([
+        'insight' => $result['insight'],
+        'provider' => $result['provider'],
+        'model' => $result['model'],
+    ], 'Insight gerado com sucesso.');
+}
+
+function aiResolveOrganizerId(array $operator, array $context): int
+{
+    $fromOperator = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    if ($fromOperator > 0) {
+        return $fromOperator;
+    }
+
+    return (int)($context['organizer_id'] ?? 0);
+}
+
+function aiLoadOrganizerConfig(PDO $db, int $organizerId): array
+{
+    if ($organizerId <= 0) {
+        return [
+            'provider' => 'openai',
+            'system_prompt' => '',
+            'is_active' => true,
+        ];
+    }
+
+    $stmt = $db->prepare('
+        SELECT provider, system_prompt, is_active
+        FROM organizer_ai_config
+        WHERE organizer_id = ?
+        ORDER BY updated_at DESC NULLS LAST, id DESC
+        LIMIT 1
+    ');
+    $stmt->execute([$organizerId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    $provider = strtolower(trim((string)($row['provider'] ?? 'openai')));
+    if (!in_array($provider, ['openai', 'gemini'], true)) {
+        $provider = 'openai';
+    }
+
+    return [
+        'provider' => $provider,
+        'system_prompt' => trim((string)($row['system_prompt'] ?? '')),
+        'is_active' => isset($row['is_active']) ? filter_var($row['is_active'], FILTER_VALIDATE_BOOLEAN) : true,
+    ];
+}
+
+function aiRequestOpenAiInsight(string $systemPrompt, string $prompt): array
+{
+    $apiKey = trim((string)getenv('OPENAI_API_KEY'));
+    if ($apiKey === '') {
+        throw new RuntimeException('API Key da OpenAI não configurada no servidor (.env).', 503);
+    }
+
+    $model = trim((string)(getenv('OPENAI_MODEL') ?: 'gpt-4o-mini'));
     $payload = json_encode([
         'model' => $model,
         'messages' => [
-            [
-                'role' => 'system', 
-                'content' => 'Você é a IA Consultora do EnjoyFun, especialista em eventos. Forneça insights executivos de vendas em português, usando emojis para estruturar.'
-            ],
-            [
-                'role' => 'user', 
-                'content' => $prompt
-            ]
+            ['role' => 'system', 'content' => $systemPrompt],
+            ['role' => 'user', 'content' => $prompt],
         ],
-        'temperature' => 0.4
-    ]);
+        'temperature' => 0.4,
+    ], JSON_UNESCAPED_UNICODE);
 
-    $ch = curl_init("https://api.openai.com/v1/chat/completions");
+    $startMs = (int)round(microtime(true) * 1000);
+    $response = aiExecuteJsonRequest(
+        'https://api.openai.com/v1/chat/completions',
+        $payload,
+        [
+            'Content-Type: application/json',
+            "Authorization: Bearer {$apiKey}",
+        ],
+        'OpenAI'
+    );
+    $endMs = (int)round(microtime(true) * 1000);
+
+    $decoded = json_decode($response['body'], true);
+    $insight = $decoded['choices'][0]['message']['content'] ?? null;
+    if (!is_string($insight) || trim($insight) === '') {
+        throw new RuntimeException('A IA não retornou uma resposta válida para sua pergunta.', 502);
+    }
+
+    return [
+        'provider' => 'openai',
+        'model' => $model,
+        'insight' => trim($insight),
+        'usage' => [
+            'prompt_tokens' => (int)($decoded['usage']['prompt_tokens'] ?? 0),
+            'completion_tokens' => (int)($decoded['usage']['completion_tokens'] ?? 0),
+        ],
+        'request_duration_ms' => max(0, $endMs - $startMs),
+    ];
+}
+
+function aiRequestGeminiInsight(string $systemPrompt, string $prompt): array
+{
+    $apiKey = trim((string)getenv('GEMINI_API_KEY'));
+    if ($apiKey === '') {
+        throw new RuntimeException('API Key do Gemini não configurada no servidor (.env).', 503);
+    }
+
+    $model = trim((string)(getenv('GEMINI_MODEL') ?: 'gemini-2.5-flash'));
+    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($model) . ':generateContent?key=' . rawurlencode($apiKey);
+    $payload = json_encode([
+        'system_instruction' => [
+            'parts' => [['text' => $systemPrompt]],
+        ],
+        'contents' => [
+            ['role' => 'user', 'parts' => [['text' => $prompt]]],
+        ],
+        'generationConfig' => [
+            'temperature' => 0.4,
+            'response_mime_type' => 'text/plain',
+        ],
+    ], JSON_UNESCAPED_UNICODE);
+
+    $startMs = (int)round(microtime(true) * 1000);
+    $response = aiExecuteJsonRequest($url, $payload, ['Content-Type: application/json'], 'Gemini');
+    $endMs = (int)round(microtime(true) * 1000);
+
+    $decoded = json_decode($response['body'], true);
+    $insight = $decoded['candidates'][0]['content']['parts'][0]['text'] ?? null;
+    if (!is_string($insight) || trim($insight) === '') {
+        throw new RuntimeException('A IA não retornou uma resposta válida para sua pergunta.', 502);
+    }
+
+    $promptTokens = (int)($decoded['usageMetadata']['promptTokenCount'] ?? 0);
+    $completionTokens = (int)($decoded['usageMetadata']['candidatesTokenCount'] ?? 0);
+    if ($completionTokens <= 0) {
+        $totalTokens = (int)($decoded['usageMetadata']['totalTokenCount'] ?? 0);
+        $completionTokens = max(0, $totalTokens - $promptTokens);
+    }
+
+    return [
+        'provider' => 'gemini',
+        'model' => $model,
+        'insight' => trim($insight),
+        'usage' => [
+            'prompt_tokens' => $promptTokens,
+            'completion_tokens' => $completionTokens,
+        ],
+        'request_duration_ms' => max(0, $endMs - $startMs),
+    ];
+}
+
+function aiExecuteJsonRequest(string $url, string $payload, array $headers, string $providerLabel): array
+{
+    $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => $payload,
-        CURLOPT_HTTPHEADER     => [
-            'Content-Type: application/json',
-            "Authorization: Bearer {$apiKey}"
-        ],
-        CURLOPT_TIMEOUT        => 15,
-        CURLOPT_SSL_VERIFYPEER => false // Contorno para erro de certificado SSL local do PHP no Windows
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
     ]);
-    
-    $response = curl_exec($ch);
-    $status   = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err      = curl_error($ch);
+
+    $body = curl_exec($ch);
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
     curl_close($ch);
 
-    if ($err) {
-        jsonError("Erro de comunicação com OpenAI: {$err}", 502);
+    if ($error !== '') {
+        $normalizedErr = strtolower($error);
+        if (str_contains($normalizedErr, 'ssl') || str_contains($normalizedErr, 'certificate')) {
+            throw new RuntimeException('Falha de validação TLS com o provedor de IA. Revise os certificados do ambiente.', 502);
+        }
+        throw new RuntimeException("Erro de comunicação com {$providerLabel}: {$error}", 502);
     }
 
     if ($status === 429) {
-        jsonError("⏳ O limite de requisições ou créditos da OpenAI foi atingido. Verifique o uso na plataforma.", 429);
+        throw new RuntimeException("O limite de requisições ou créditos do provider {$providerLabel} foi atingido.", 429);
     }
 
-    if ($status !== 200) {
-        $decoded = json_decode($response, true);
-        $errMsg = $decoded['error']['message'] ?? "Erro interno da OpenAI (HTTP {$status})";
-        jsonError($errMsg, $status);
+    if ($status < 200 || $status >= 300) {
+        $decoded = json_decode((string)$body, true);
+        $message = $decoded['error']['message']
+            ?? $decoded['message']
+            ?? "Erro interno do provider {$providerLabel} (HTTP {$status})";
+        throw new RuntimeException($message, $status >= 400 ? $status : 502);
     }
 
-    $openAiData = json_decode($response, true);
-    $insight = $openAiData['choices'][0]['message']['content'] ?? null;
-
-    if (!$insight) {
-        jsonError("A IA não retornou uma resposta válida para sua pergunta.", 502);
-    }
-
-    jsonSuccess(['insight' => $insight], 'Insight gerado com sucesso.');
+    return [
+        'status' => $status,
+        'body' => (string)$body,
+    ];
 }

@@ -1,6 +1,8 @@
 <?php
 namespace EnjoyFun\Services;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use PDO;
 use Exception;
 use InvalidArgumentException;
@@ -137,9 +139,9 @@ class MealsDomainService
         int $eventId,
         ?int $eventDayId,
         ?int $eventShiftId,
-        ?string $consumedAt
+        ?string $consumedAt,
+        ?string $operationalTimezone = null
     ): array {
-        $resolvedConsumedAt = self::normalizeConsumedAt($consumedAt);
         $baseContext = self::resolveEventContext(
             $db,
             $organizerId,
@@ -151,6 +153,13 @@ class MealsDomainService
         if ($resolvedEventId <= 0) {
             throw new Exception('Evento operacional inválido para registro de refeição.', 400);
         }
+        $resolvedOperationalTimezone = self::resolveOperationalTimezone(
+            $db,
+            $organizerId,
+            $resolvedEventId,
+            $operationalTimezone
+        );
+        $resolvedConsumedAt = self::normalizeConsumedAt($consumedAt, $resolvedOperationalTimezone);
 
         $matchedEventDay = self::resolveEventDayByConsumedAt($db, $organizerId, $resolvedEventId, $resolvedConsumedAt);
         $resolvedEventDayId = isset($baseContext['event_day_id']) && $baseContext['event_day_id'] !== null
@@ -218,6 +227,7 @@ class MealsDomainService
             'event_day_id' => $resolvedEventDayId,
             'event_shift_id' => $resolvedEventShiftId,
             'consumed_at' => $resolvedConsumedAt,
+            'operational_timezone' => $resolvedOperationalTimezone,
         ];
     }
 
@@ -695,7 +705,8 @@ class MealsDomainService
         ?int $mealServiceId = null,
         ?string $mealServiceCode = null,
         ?string $offlineRequestId = null,
-        ?string $consumedAt = null
+        ?string $consumedAt = null,
+        ?string $operationalTimezone = null
     ): array {
         $participant = self::resolveParticipant($db, $organizerId, $participantId, $qrToken);
         return self::registerOperationalMeal(
@@ -709,7 +720,8 @@ class MealsDomainService
             $mealServiceId,
             $mealServiceCode,
             $offlineRequestId,
-            $consumedAt
+            $consumedAt,
+            $operationalTimezone
         );
     }
 
@@ -724,16 +736,25 @@ class MealsDomainService
         ?int $mealServiceId = null,
         ?string $mealServiceCode = null,
         ?string $offlineRequestId = null,
-        ?string $consumedAt = null
+        ?string $consumedAt = null,
+        ?string $operationalTimezone = null
     ): array {
         $offlineRequestId = trim((string)($offlineRequestId ?? ''));
-        $context = self::resolveOperationalConsumptionContext($db, $organizerId, $eventId, $eventDayId, $eventShiftId, $consumedAt);
+        $context = self::resolveOperationalConsumptionContext(
+            $db,
+            $organizerId,
+            $eventId,
+            $eventDayId,
+            $eventShiftId,
+            $consumedAt,
+            $operationalTimezone
+        );
         $eventId = (int)($context['event_id'] ?? 0);
         $eventDayId = (int)($context['event_day_id'] ?? 0);
         $eventShiftId = isset($context['event_shift_id']) && $context['event_shift_id'] !== null
             ? (int)$context['event_shift_id']
             : null;
-        $resolvedConsumedAt = (string)($context['consumed_at'] ?? self::normalizeConsumedAt($consumedAt));
+        $resolvedConsumedAt = (string)($context['consumed_at'] ?? self::normalizeConsumedAt($consumedAt, $operationalTimezone));
         $selectedMealService = self::resolveMealServiceSelection(
             $db,
             $organizerId,
@@ -1391,11 +1412,14 @@ class MealsDomainService
         }, self::DEFAULT_SERVICES);
     }
 
-    public static function normalizeConsumedAt(?string $value): string
+    public static function normalizeConsumedAt(?string $value, ?string $operationalTimezone = null): string
     {
         $trimmed = trim((string)($value ?? ''));
+        $timezone = self::createOperationalTimezone($operationalTimezone);
+
         if ($trimmed === '') {
-            return date('Y-m-d H:i:s');
+            $now = $timezone !== null ? new DateTimeImmutable('now', $timezone) : new DateTimeImmutable('now');
+            return $now->format('Y-m-d H:i:s');
         }
 
         if (preg_match('/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::(\d{2}))?(?:\.\d+)?$/', $trimmed, $matches)) {
@@ -1407,16 +1431,74 @@ class MealsDomainService
             );
         }
 
-        if (preg_match('/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2}))?(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$/i', $trimmed, $matches)) {
-            return sprintf(
-                '%s %s:%s',
-                $matches[1],
-                $matches[2],
-                $matches[3] ?? '00'
-            );
+        if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$/i', $trimmed)) {
+            if ($timezone === null) {
+                throw new Exception(
+                    'consumed_at com timezone/offset exige event_timezone no evento ou operational_timezone explícita para evitar deriva no dia ou turno operacional.',
+                    409
+                );
+            }
+
+            try {
+                return (new DateTimeImmutable($trimmed))
+                    ->setTimezone($timezone)
+                    ->format('Y-m-d H:i:s');
+            } catch (\Throwable) {
+                throw new Exception('consumed_at inválido. Use ISO 8601 ou YYYY-MM-DD HH:MM[:SS].', 400);
+            }
         }
 
         throw new Exception('consumed_at inválido. Use ISO 8601 ou YYYY-MM-DD HH:MM[:SS].', 400);
+    }
+
+    private static function resolveOperationalTimezone(
+        PDO $db,
+        int $organizerId,
+        int $eventId,
+        ?string $requestedOperationalTimezone = null
+    ): ?string {
+        $requestedTimezone = self::normalizeOperationalTimezoneName($requestedOperationalTimezone);
+        $eventTimezone = null;
+
+        if (self::columnExists($db, 'events', 'event_timezone')) {
+            $stmt = $db->prepare("
+                SELECT NULLIF(TRIM(COALESCE(event_timezone, '')), '')
+                FROM events
+                WHERE id = ? AND organizer_id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$eventId, $organizerId]);
+            $eventTimezone = self::normalizeOperationalTimezoneName($stmt->fetchColumn());
+        }
+
+        if ($eventTimezone !== null && $requestedTimezone !== null && $eventTimezone !== $requestedTimezone) {
+            throw new Exception(
+                'operational_timezone diverge da event_timezone configurada para este evento. Alinhe o payload ao cadastro do evento.',
+                409
+            );
+        }
+
+        return $eventTimezone ?? $requestedTimezone;
+    }
+
+    private static function createOperationalTimezone(?string $operationalTimezone): ?DateTimeZone
+    {
+        $timezoneName = self::normalizeOperationalTimezoneName($operationalTimezone);
+        if ($timezoneName === null) {
+            return null;
+        }
+
+        try {
+            return new DateTimeZone($timezoneName);
+        } catch (\Throwable) {
+            throw new Exception('operational_timezone inválida. Use um identificador IANA, por exemplo America/Sao_Paulo.', 400);
+        }
+    }
+
+    private static function normalizeOperationalTimezoneName(mixed $value): ?string
+    {
+        $timezoneName = trim((string)($value ?? ''));
+        return $timezoneName !== '' ? $timezoneName : null;
     }
 
     private static function serviceMatchesTimeReference(?string $startsAt, ?string $endsAt, string $timeReference): bool

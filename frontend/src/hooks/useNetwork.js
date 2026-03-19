@@ -77,6 +77,7 @@ export function useNetwork() {
       const { data } = await api.post('/sync', { items: payloadOut });
       
       if (data.success) {
+        const syncStatus = data?.data?.status ?? 'success';
         const processedIds = data?.data?.processed_ids ?? payloadOut.map(p => p.offline_id);
         const failedCount = Number(data?.data?.failed ?? 0);
 
@@ -99,7 +100,7 @@ export function useNetwork() {
           );
         }
 
-        if (failedCount > 0 || invalidPending.length > 0) {
+        if (syncStatus === 'partial_failure' || failedCount > 0 || invalidPending.length > 0) {
           toast.error(
             `${processedIds.length} registros sincronizados, ${failedCount} mantidos como falha local e ${invalidPending.length} bloqueados por evento invalido.`,
             { id: 'sync' },

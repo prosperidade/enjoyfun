@@ -1078,6 +1078,9 @@ function createAssignment(array $body): void
     $participantRow = $stmtPart->fetch(PDO::FETCH_ASSOC);
     if (!$participantRow) jsonError('Participante inválido ou não peretence ao tenant.', 403);
     $eventId = (int)($participantRow['event_id'] ?? 0);
+    if (function_exists('setCurrentRequestEventId')) {
+        setCurrentRequestEventId($eventId);
+    }
     if ($requestedEventId > 0 && $requestedEventId !== $eventId) {
         jsonError('O participante informado não pertence ao evento selecionado.', 422);
     }
@@ -1340,7 +1343,7 @@ function deleteAssignment(int $id): void
     $userSector = resolveUserSector($db, $user);
 
     $sql = "
-        SELECT wa.id FROM workforce_assignments wa
+        SELECT wa.id, ep.event_id FROM workforce_assignments wa
         JOIN event_participants ep ON ep.id = wa.participant_id
         JOIN events e ON e.id = ep.event_id
         WHERE wa.id = ? AND e.organizer_id = ?
@@ -1353,7 +1356,11 @@ function deleteAssignment(int $id): void
 
     $stmtCheck = $db->prepare($sql);
     $stmtCheck->execute($params);
-    if (!$stmtCheck->fetchColumn()) jsonError('Escala não encontrada.', 404);
+    $assignmentRow = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+    if (!$assignmentRow) jsonError('Escala não encontrada.', 404);
+    if (function_exists('setCurrentRequestEventId')) {
+        setCurrentRequestEventId((int)($assignmentRow['event_id'] ?? 0));
+    }
 
     $db->prepare("DELETE FROM workforce_assignments WHERE id = ?")->execute([$id]);
     jsonSuccess([], 'Escala removida com sucesso.');

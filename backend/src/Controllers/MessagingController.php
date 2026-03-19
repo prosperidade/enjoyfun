@@ -6,6 +6,8 @@
  */
 
 require_once BASE_PATH . '/src/Services/EmailService.php';
+require_once BASE_PATH . '/src/Services/MessagingDeliveryService.php';
+require_once BASE_PATH . '/src/Services/OrganizerMessagingConfigService.php';
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -17,8 +19,8 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         // WhatsApp send (legacy frontend path)
         $method === 'POST' && $id === 'send'    => sendWhatsAppMessage($body),
 
-        // Webhook placeholder (Evolution)
-        $method === 'POST' && $id === 'webhook' => jsonSuccess(null, 'webhook recebido'),
+        // Webhook inbound
+        $method === 'POST' && $id === 'webhook' => ingestMessagingWebhook($body, $query),
 
         // New messaging routes
         $method === 'POST' && $id === 'email'   => sendManualEmail($body),
@@ -45,9 +47,7 @@ function sendBulkWhatsApp(array $body): void
     $orgId = resolveOrgId($user);
 
     // Load WhatsApp Config
-    $stmt = $db->prepare('SELECT wa_api_url, wa_token, wa_instance FROM organizer_settings WHERE organizer_id = ? LIMIT 1');
-    $stmt->execute([$orgId]);
-    $cfg = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $cfg = \EnjoyFun\Services\OrganizerMessagingConfigService::load($db, $orgId);
 
     $waUrl      = rtrim($cfg['wa_api_url']  ?? '', '/');
     $waToken    = $cfg['wa_token']    ?? '';
@@ -76,11 +76,26 @@ function sendBulkWhatsApp(array $body): void
         $phoneClean = preg_replace('/\D/', '', $phone);
         if (!str_starts_with($phoneClean, '55')) $phoneClean = '55' . $phoneClean;
 
-        $payload = json_encode([
+        $requestPayload = [
             'number'      => $phoneClean . '@s.whatsapp.net',
             'options'     => ['delay' => 1200, 'presence' => 'composing'],
             'textMessage' => ['text' => $personalMessage],
+        ];
+        $deliveryId = \EnjoyFun\Services\MessagingDeliveryService::createDelivery($db, [
+            'organizer_id' => $orgId,
+            'event_id' => isset($recipient['event_id']) ? (int)$recipient['event_id'] : null,
+            'channel' => 'whatsapp',
+            'direction' => 'out',
+            'provider' => 'evolution',
+            'origin' => 'bulk_whatsapp',
+            'recipient_name' => $recipient['name'] ?? null,
+            'recipient_phone' => $phoneClean,
+            'content' => $personalMessage,
+            'status' => 'queued',
+            'request_payload' => $requestPayload,
         ]);
+
+        $payload = json_encode($requestPayload);
 
         $ch = curl_init("{$waUrl}/message/sendText/{$waInstance}");
         curl_setopt_array($ch, [
@@ -92,12 +107,22 @@ function sendBulkWhatsApp(array $body): void
         ]);
         $resp = curl_exec($ch);
         $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
         curl_close($ch);
 
         if ($status >= 200 && $status < 300) {
             $successCount++;
+            \EnjoyFun\Services\MessagingDeliveryService::markSent($db, $deliveryId, [
+                'status' => 'sent',
+                'provider_message_id' => \EnjoyFun\Services\MessagingDeliveryService::extractProviderMessageIdFromResponse((string)$resp),
+                'response_payload' => messagingDecodeProviderPayload((string)$resp, $status),
+            ]);
         } else {
-            $errors[] = "Falha para {$phone}: {$status}";
+            $errorLabel = $curlError !== '' ? $curlError : "HTTP {$status}";
+            $errors[] = "Falha para {$phone}: {$errorLabel}";
+            \EnjoyFun\Services\MessagingDeliveryService::markFailed($db, $deliveryId, "Falha ao enviar WhatsApp: {$errorLabel}", [
+                'response_payload' => messagingDecodeProviderPayload((string)$resp, $status),
+            ]);
         }
     }
 
@@ -113,26 +138,11 @@ function getMessagingConfig(): void
     $db   = Database::getInstance();
     $orgId = resolveOrgId($user);
 
-    $stmt = $db->prepare('
-        SELECT wa_api_url, wa_token, wa_instance, resend_api_key, email_sender
-        FROM organizer_settings WHERE organizer_id = ? LIMIT 1
-    ');
-    $stmt->execute([$orgId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-
-    $configured = !empty($row['wa_api_url']) && !empty($row['wa_token']);
-
-    jsonSuccess([
-        'configured'      => $configured,
-        'instance'        => $row['wa_instance']    ?? null,
-        'wa_api_url'      => $row['wa_api_url']     ?? null,
-        'wa_token'        => $row['wa_token']        ? '***redacted***' : null,
-        'wa_instance'     => $row['wa_instance']    ?? null,
-        'resend_api_key'  => $row['resend_api_key'] ? '***redacted***' : null,
-        'email_sender'    => $row['email_sender']   ?? null,
-        'wa_configured'   => $configured,
-        'email_configured'=> !empty($row['resend_api_key']),
-    ]);
+    $settings = \EnjoyFun\Services\OrganizerMessagingConfigService::load($db, $orgId);
+    $public = \EnjoyFun\Services\OrganizerMessagingConfigService::toPublicPayload($settings);
+    $public['configured'] = (bool)($public['wa_configured'] ?? false);
+    $public['instance'] = $public['wa_instance'] ?? null;
+    jsonSuccess($public);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -140,9 +150,13 @@ function getMessagingConfig(): void
 // ─────────────────────────────────────────────────────────────
 function getMessagingHistory(): void
 {
-    requireAuth(['admin', 'organizer']);
-    // Retorna array vazio por enquanto (tabela de log pode ser implementada futuramente)
-    jsonSuccess([], 'Histórico de mensagens.');
+    $user = requireAuth(['admin', 'organizer']);
+    $db = Database::getInstance();
+    $orgId = resolveOrgId($user);
+    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
+
+    $history = \EnjoyFun\Services\MessagingDeliveryService::listHistory($db, $orgId, $limit);
+    jsonSuccess($history, 'Histórico de mensagens.');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -161,9 +175,7 @@ function sendWhatsAppMessage(array $body): void
     $db    = Database::getInstance();
     $orgId = resolveOrgId($user);
 
-    $stmt = $db->prepare('SELECT wa_api_url, wa_token, wa_instance FROM organizer_settings WHERE organizer_id = ? LIMIT 1');
-    $stmt->execute([$orgId]);
-    $cfg = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $cfg = \EnjoyFun\Services\OrganizerMessagingConfigService::load($db, $orgId);
 
     $waUrl      = rtrim($cfg['wa_api_url']  ?? '', '/');
     $waToken    = $cfg['wa_token']    ?? '';
@@ -178,11 +190,25 @@ function sendWhatsAppMessage(array $body): void
         $phoneClean = '55' . $phoneClean;
     }
 
-    $payload = json_encode([
+    $requestPayload = [
         'number'      => $phoneClean . '@s.whatsapp.net',
         'options'     => ['delay' => 1200, 'presence' => 'composing'],
         'textMessage' => ['text' => $message],
+    ];
+    $deliveryId = \EnjoyFun\Services\MessagingDeliveryService::createDelivery($db, [
+        'organizer_id' => $orgId,
+        'event_id' => isset($body['event_id']) ? (int)$body['event_id'] : null,
+        'channel' => 'whatsapp',
+        'direction' => 'out',
+        'provider' => 'evolution',
+        'origin' => 'manual_whatsapp',
+        'recipient_phone' => $phoneClean,
+        'content' => $message,
+        'status' => 'queued',
+        'request_payload' => $requestPayload,
     ]);
+
+    $payload = json_encode($requestPayload);
 
     $ch = curl_init("{$waUrl}/message/sendText/{$waInstance}");
     curl_setopt_array($ch, [
@@ -194,11 +220,22 @@ function sendWhatsAppMessage(array $body): void
     ]);
     $resp   = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
     curl_close($ch);
 
     if ($status < 200 || $status >= 300) {
+        $errorLabel = $curlError !== '' ? $curlError : "HTTP {$status}";
+        \EnjoyFun\Services\MessagingDeliveryService::markFailed($db, $deliveryId, "Falha ao enviar WhatsApp: {$errorLabel}", [
+            'response_payload' => messagingDecodeProviderPayload((string)$resp, $status),
+        ]);
         jsonError("Falha ao enviar WhatsApp. Status: {$status}", 502);
     }
+
+    \EnjoyFun\Services\MessagingDeliveryService::markSent($db, $deliveryId, [
+        'status' => 'sent',
+        'provider_message_id' => \EnjoyFun\Services\MessagingDeliveryService::extractProviderMessageIdFromResponse((string)$resp),
+        'response_payload' => messagingDecodeProviderPayload((string)$resp, $status),
+    ]);
 
     jsonSuccess(['phone' => $phone], 'Mensagem WhatsApp enviada com sucesso!');
 }
@@ -223,9 +260,7 @@ function sendManualEmail(array $body): void
     $db    = Database::getInstance();
     $orgId = resolveOrgId($user);
 
-    $stmt = $db->prepare('SELECT resend_api_key, email_sender FROM organizer_settings WHERE organizer_id = ? LIMIT 1');
-    $stmt->execute([$orgId]);
-    $cfg = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $cfg = \EnjoyFun\Services\OrganizerMessagingConfigService::load($db, $orgId);
 
     $apiKey = $cfg['resend_api_key'] ?? getenv('RESEND_API_KEY') ?: '';
     $from   = $cfg['email_sender']   ?? getenv('EMAIL_SENDER')   ?: 'no-reply@enjoyfun.com.br';
@@ -234,14 +269,52 @@ function sendManualEmail(array $body): void
         jsonError('Resend API Key não configurada. Ajuste em Configurações do Organizador → Canais de Contato.', 503);
     }
 
-    $GLOBALS['year'] = date('Y');
+    $deliveryId = \EnjoyFun\Services\MessagingDeliveryService::createDelivery($db, [
+        'organizer_id' => $orgId,
+        'event_id' => isset($body['event_id']) ? (int)$body['event_id'] : null,
+        'channel' => 'email',
+        'direction' => 'out',
+        'provider' => 'resend',
+        'origin' => 'manual_email',
+        'recipient_email' => $to,
+        'subject' => $subject,
+        'content' => $message,
+        'status' => 'queued',
+        'request_payload' => [
+            'to' => $to,
+            'subject' => $subject,
+            'from' => $from,
+        ],
+    ]);
+
     try {
         \EnjoyFun\Services\EmailService::sendManualEmail($to, $subject, $message, $apiKey, $from);
     } catch (\RuntimeException $e) {
-        jsonError('Erro Real: ' . $e->getMessage(), 502);
+        \EnjoyFun\Services\MessagingDeliveryService::markFailed($db, $deliveryId, $e->getMessage());
+        jsonError('Falha ao enviar e-mail pelo provedor configurado.', 502);
     }
 
+    \EnjoyFun\Services\MessagingDeliveryService::markSent($db, $deliveryId, [
+        'status' => 'sent',
+        'response_payload' => ['provider' => 'resend'],
+    ]);
     jsonSuccess(['to' => $to], 'E-mail enviado com sucesso!');
+}
+
+function ingestMessagingWebhook(array $body, array $query): void
+{
+    $db = Database::getInstance();
+    $provider = trim((string)($query['provider'] ?? $body['provider'] ?? ''));
+    $organizerId = isset($query['organizer_id'])
+        ? (int)$query['organizer_id']
+        : (isset($body['organizer_id']) ? (int)$body['organizer_id'] : null);
+
+    $result = \EnjoyFun\Services\MessagingDeliveryService::captureWebhookEvent($db, $body, [
+        'provider' => $provider !== '' ? $provider : null,
+        'organizer_id' => $organizerId,
+    ]);
+
+    jsonSuccess($result, 'webhook recebido');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -253,4 +326,18 @@ function resolveOrgId(array $user): int
         return (int)($user['organizer_id'] ?? $user['id'] ?? 1);
     }
     return (int)($user['organizer_id'] ?? 0);
+}
+
+function messagingDecodeProviderPayload(string $response, int $status): array
+{
+    $decoded = json_decode($response, true);
+    if (is_array($decoded)) {
+        $decoded['http_status'] = $status;
+        return $decoded;
+    }
+
+    return [
+        'http_status' => $status,
+        'raw' => trim($response),
+    ];
 }

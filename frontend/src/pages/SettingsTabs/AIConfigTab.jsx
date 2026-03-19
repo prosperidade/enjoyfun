@@ -5,7 +5,7 @@ import api from '../../lib/api';
 
 export default function AIConfigTab() {
     const [config, setConfig] = useState({
-        provider: 'gemini',
+        provider: 'openai',
         system_prompt: '',
         is_active: true
     });
@@ -83,8 +83,8 @@ export default function AIConfigTab() {
                         name="provider" value={config.provider} onChange={handleChange} 
                         className="input"
                     >
-                        <option value="gemini">Google Gemini (Recomendado)</option>
-                        <option value="openai">OpenAI (GPT-4o)</option>
+                        <option value="openai">OpenAI (Padrão atual)</option>
+                        <option value="gemini">Google Gemini</option>
                     </select>
                 </div>
 

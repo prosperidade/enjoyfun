@@ -31,6 +31,7 @@ function listEvents(): void
         $hasAddress = eventColumnExists($db, 'events', 'address');
         $hasEndsAt = eventColumnExists($db, 'events', 'ends_at');
         $hasCapacity = eventColumnExists($db, 'events', 'capacity');
+        $hasEventTimezone = eventColumnExists($db, 'events', 'event_timezone');
         $stmt = $db->prepare("
             SELECT
                 id,
@@ -42,7 +43,8 @@ function listEvents(): void
                 starts_at,
                 " . ($hasEndsAt ? "ends_at" : "NULL::timestamp AS ends_at") . ",
                 status,
-                " . ($hasCapacity ? "capacity" : "0::integer AS capacity") . "
+                " . ($hasCapacity ? "capacity" : "0::integer AS capacity") . ",
+                " . ($hasEventTimezone ? "event_timezone" : "NULL::varchar AS event_timezone") . "
             FROM events
             WHERE organizer_id = ?
             ORDER BY starts_at ASC
@@ -66,7 +68,11 @@ function createEvent(array $body): void
     $user = requireAuth();
     $organizerId = (int)($user['organizer_id'] ?? 0);
 
-    $payload = normalizeEventPayload($body);
+    try {
+        $payload = normalizeEventPayload($body);
+    } catch (InvalidArgumentException $e) {
+        jsonError($e->getMessage(), 422);
+    }
     $commercialConfig = normalizeCommercialConfigPayload($body['commercial_config'] ?? null);
 
     if ($payload['name'] === '') jsonError("O nome do evento é obrigatório.");
@@ -82,6 +88,11 @@ function createEvent(array $body): void
         $hasAddress = eventColumnExists($db, 'events', 'address');
         $hasEndsAt = eventColumnExists($db, 'events', 'ends_at');
         $hasCapacity = eventColumnExists($db, 'events', 'capacity');
+        $hasEventTimezone = eventColumnExists($db, 'events', 'event_timezone');
+
+        if ($hasEventTimezone && $payload['event_timezone'] === null) {
+            jsonError('event_timezone é obrigatória. Use um identificador IANA, por exemplo America/Sao_Paulo.', 422);
+        }
 
         $columns = ['name', 'slug', 'description', 'starts_at', 'status', 'organizer_id'];
         $placeholders = ['?', '?', '?', '?', '?', '?'];
@@ -114,6 +125,11 @@ function createEvent(array $body): void
             $placeholders[] = '?';
             $values[] = $payload['capacity'];
         }
+        if ($hasEventTimezone) {
+            $columns[] = 'event_timezone';
+            $placeholders[] = '?';
+            $values[] = $payload['event_timezone'];
+        }
 
         $db->beginTransaction();
         $stmt = $db->prepare("
@@ -141,7 +157,11 @@ function updateEvent(int $id, array $body): void
 {
     $user = requireAuth(['admin', 'organizer']);
     $organizerId = (int)($user['organizer_id'] ?? 0);
-    $payload = normalizeEventPayload($body);
+    try {
+        $payload = normalizeEventPayload($body);
+    } catch (InvalidArgumentException $e) {
+        jsonError($e->getMessage(), 422);
+    }
     $commercialConfig = normalizeCommercialConfigPayload($body['commercial_config'] ?? null);
 
     if ($payload['name'] === '') jsonError("O nome do evento é obrigatório.");
@@ -161,6 +181,11 @@ function updateEvent(int $id, array $body): void
         $hasAddress = eventColumnExists($db, 'events', 'address');
         $hasEndsAt = eventColumnExists($db, 'events', 'ends_at');
         $hasCapacity = eventColumnExists($db, 'events', 'capacity');
+        $hasEventTimezone = eventColumnExists($db, 'events', 'event_timezone');
+
+        if ($hasEventTimezone && $payload['event_timezone'] === null) {
+            jsonError('event_timezone é obrigatória. Use um identificador IANA, por exemplo America/Sao_Paulo.', 422);
+        }
 
         $setParts = [
             'name = ?',
@@ -191,6 +216,10 @@ function updateEvent(int $id, array $body): void
         if ($hasCapacity) {
             $setParts[] = 'capacity = ?';
             $values[] = $payload['capacity'];
+        }
+        if ($hasEventTimezone) {
+            $setParts[] = 'event_timezone = ?';
+            $values[] = $payload['event_timezone'];
         }
 
         $values[] = $id;
@@ -235,6 +264,7 @@ function getEventDetails(int $id, bool $checkAuth = true): void
         $hasAddress = eventColumnExists($db, 'events', 'address');
         $hasEndsAt = eventColumnExists($db, 'events', 'ends_at');
         $hasCapacity = eventColumnExists($db, 'events', 'capacity');
+        $hasEventTimezone = eventColumnExists($db, 'events', 'event_timezone');
 
         $sql = "
             SELECT
@@ -248,6 +278,7 @@ function getEventDetails(int $id, bool $checkAuth = true): void
                 " . ($hasEndsAt ? "ends_at" : "NULL::timestamp AS ends_at") . ",
                 status,
                 " . ($hasCapacity ? "capacity" : "0::integer AS capacity") . ",
+                " . ($hasEventTimezone ? "event_timezone" : "NULL::varchar AS event_timezone") . ",
                 organizer_id
             FROM events
             WHERE id = ?
@@ -426,16 +457,77 @@ function normalizeEventPayload(array $body): array
         $status = 'draft';
     }
 
+    $eventTimezone = normalizeEventTimezoneValue($body['event_timezone'] ?? null);
+
     return [
         'name' => trim((string)($body['name'] ?? '')),
         'description' => trim((string)($body['description'] ?? '')),
         'venue_name' => trim((string)($body['venue_name'] ?? '')),
         'address' => trim((string)($body['address'] ?? '')),
-        'starts_at' => $body['starts_at'] ?? '',
-        'ends_at' => $body['ends_at'] ?? null,
+        'starts_at' => normalizeEventDateTimeValue($body['starts_at'] ?? '', $eventTimezone, 'starts_at') ?? '',
+        'ends_at' => normalizeEventDateTimeValue($body['ends_at'] ?? null, $eventTimezone, 'ends_at'),
         'status' => $status,
         'capacity' => array_key_exists('capacity', $body) && $body['capacity'] !== '' ? (int)$body['capacity'] : 0,
+        'event_timezone' => $eventTimezone,
     ];
+}
+
+function normalizeEventTimezoneValue(mixed $value): ?string
+{
+    $timezoneName = trim((string)($value ?? ''));
+    if ($timezoneName === '') {
+        return null;
+    }
+
+    try {
+        new DateTimeZone($timezoneName);
+    } catch (Throwable) {
+        throw new InvalidArgumentException('event_timezone inválida. Use um identificador IANA, por exemplo America/Sao_Paulo.');
+    }
+
+    return $timezoneName;
+}
+
+function normalizeEventDateTimeValue(mixed $value, ?string $eventTimezone, string $field): ?string
+{
+    $trimmed = trim((string)($value ?? ''));
+    if ($trimmed === '') {
+        return null;
+    }
+
+    if (preg_match('/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::(\d{2}))?(?:\.\d+)?$/', $trimmed, $matches)) {
+        return sprintf(
+            '%s %s:%s',
+            $matches[1],
+            $matches[2],
+            $matches[3] ?? '00'
+        );
+    }
+
+    if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$/i', $trimmed)) {
+        if ($eventTimezone === null) {
+            throw new InvalidArgumentException(sprintf(
+                '%s com timezone/offset exige event_timezone explícita para preservar o calendário operacional.',
+                $field
+            ));
+        }
+
+        try {
+            return (new DateTimeImmutable($trimmed))
+                ->setTimezone(new DateTimeZone($eventTimezone))
+                ->format('Y-m-d H:i:s');
+        } catch (Throwable) {
+            throw new InvalidArgumentException(sprintf(
+                '%s inválido. Use ISO 8601 ou YYYY-MM-DD HH:MM[:SS].',
+                $field
+            ));
+        }
+    }
+
+    throw new InvalidArgumentException(sprintf(
+        '%s inválido. Use ISO 8601 ou YYYY-MM-DD HH:MM[:SS].',
+        $field
+    ));
 }
 
 function syncEventOperationalCalendar(PDO $db, int $eventId, array $payload): void

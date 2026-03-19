@@ -1162,6 +1162,7 @@ export default function MealsControl() {
         return;
       }
 
+      const syncStatus = data?.data?.status ?? "success";
       const processedIds = data?.data?.processed_ids ?? validPending.map((item) => item.offline_id);
       const failedIds = data?.data?.failed_ids ?? [];
       const failedCount = Number(data?.data?.failed ?? 0);
@@ -1185,7 +1186,7 @@ export default function MealsControl() {
         await Promise.all([loadBalance(), loadMealHistory()]);
       }
 
-      if (failedCount > 0 || invalidPending.length > 0) {
+      if (syncStatus === "partial_failure" || failedCount > 0 || invalidPending.length > 0) {
         toast.error(
           `${processedIds.length} sincronizada(s), ${failedCount} mantida(s) como falha local e ${invalidPending.length} bloqueada(s) por evento inválido.`,
           { id: "meals-sync" }

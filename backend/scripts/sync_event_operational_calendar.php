@@ -35,11 +35,11 @@ try {
 
 function connectDatabase(): PDO
 {
-    $host = getenv('DB_HOST') ?: '127.0.0.1';
-    $port = getenv('DB_PORT') ?: '5432';
-    $name = getenv('DB_NAME') ?: 'enjoyfun';
-    $user = getenv('DB_USER') ?: 'postgres';
-    $pass = getenv('DB_PASS') ?: '070998';
+    $host = requiredEnv('DB_HOST');
+    $port = requiredEnv('DB_PORT');
+    $name = requiredEnv('DB_NAME');
+    $user = requiredEnv('DB_USER');
+    $pass = requiredEnv('DB_PASS');
 
     $dsn = "pgsql:host={$host};port={$port};dbname={$name}";
 
@@ -48,6 +48,21 @@ function connectDatabase(): PDO
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
+}
+
+function requiredEnv(string $name): string
+{
+    $value = getenv($name);
+    if ($value === false) {
+        $value = $_ENV[$name] ?? $_SERVER[$name] ?? '';
+    }
+
+    $value = trim((string)$value);
+    if ($value === '') {
+        throw new RuntimeException("Database configuration missing: {$name}");
+    }
+
+    return $value;
 }
 
 function loadEnv(string $envFile): void

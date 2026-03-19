@@ -30,6 +30,8 @@ class SalesReportService
         $timeFilter = self::normalizeTimeFilter($timeFilter);
 
         return [
+            'event_id' => $eventId,
+            'organizer_id' => $organizerId,
             'total_revenue' => self::fetchTotalRevenue($db, $eventId, $organizerId, $sector, $timeFilter),
             'total_items' => self::fetchTotalItems($db, $eventId, $organizerId, $sector, $timeFilter),
             'top_products' => self::fetchTopProducts($db, $eventId, $organizerId, $sector, $timeFilter),

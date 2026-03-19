@@ -587,13 +587,20 @@ class DashboardDomainService
                 SELECT COUNT(DISTINCT ep.id)
                 FROM event_participants ep
                 INNER JOIN events e ON e.id = ep.event_id
-                LEFT JOIN participant_checkins pc
-                    ON pc.participant_id = ep.id
-                   AND LOWER(COALESCE(pc.action, '')) = 'check-in'
+                LEFT JOIN LATERAL (
+                    SELECT LOWER(COALESCE(pc.action, '')) AS last_action
+                    FROM participant_checkins pc
+                    WHERE pc.participant_id = ep.id
+                    ORDER BY pc.recorded_at DESC, pc.id DESC
+                    LIMIT 1
+                ) latest_pc ON TRUE
                 WHERE e.organizer_id = :org_id
                   AND (
-                    LOWER(COALESCE(ep.status, '')) = 'present'
-                    OR pc.id IS NOT NULL
+                    COALESCE(latest_pc.last_action, '') = 'check-in'
+                    OR (
+                        latest_pc.last_action IS NULL
+                        AND LOWER(COALESCE(ep.status, '')) = 'present'
+                    )
                   )
             ";
             if ($eventId) {

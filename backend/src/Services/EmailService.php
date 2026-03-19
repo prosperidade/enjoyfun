@@ -67,6 +67,8 @@ class EmailService
     // ─────────────────────────────────────────────────────────────
     private static function buildOTPHtml(string $code): string
     {
+        $year = date('Y');
+
         return <<<HTML
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -107,7 +109,7 @@ class EmailService
         <!-- Footer -->
         <tr><td style="border-top:1px solid #1e293b;padding:20px 32px;text-align:center;">
           <p style="margin:0;color:#334155;font-size:11px;">
-            © {$GLOBALS['year']} EnjoyFun · Este é um e-mail automático, não responda.
+            © {$year} EnjoyFun · Este é um e-mail automático, não responda.
           </p>
         </td></tr>
 
@@ -141,7 +143,7 @@ HTML;
             return false;
         }
 
-        $year    = $GLOBALS['year'] ?? date('Y');
+        $year    = date('Y');
         $safeMsg = nl2br(htmlspecialchars($content, ENT_QUOTES, 'UTF-8'));
 
         $html = <<<HTML

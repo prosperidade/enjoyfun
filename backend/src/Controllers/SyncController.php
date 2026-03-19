@@ -110,27 +110,22 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
     }
 
     if (count($errors) > 0) {
-        // Some items failed, but others might have succeeded
-        http_response_code(207); // Multi-Status
-        echo json_encode([
-            'success' => true,
-                'message' => 'Parcialmente sincronizado.',
-                'data'    => [
-                    'processed' => $processedCount,
-                    'processed_new' => count($processedNewIds),
-                    'deduplicated' => count($deduplicatedIds),
-                    'failed' => count($errors),
-                    'processed_ids' => $processedIds,
-                    'processed_new_ids' => $processedNewIds,
-                    'deduplicated_ids' => $deduplicatedIds,
-                    'failed_ids' => $failedIds,
-                    'errors' => $errors
-                ]
-        ]);
-        exit;
+        jsonMultiStatus([
+            'status' => 'partial_failure',
+            'processed' => $processedCount,
+            'processed_new' => count($processedNewIds),
+            'deduplicated' => count($deduplicatedIds),
+            'failed' => count($errors),
+            'processed_ids' => $processedIds,
+            'processed_new_ids' => $processedNewIds,
+            'deduplicated_ids' => $deduplicatedIds,
+            'failed_ids' => $failedIds,
+            'errors' => $errors
+        ], 'Parcialmente sincronizado.');
     }
 
     jsonSuccess([
+        'status' => 'success',
         'processed' => $processedCount,
         'processed_new' => count($processedNewIds),
         'deduplicated' => count($deduplicatedIds),
@@ -227,7 +222,8 @@ function processMeal(PDO $db, array $operator, array $payload, string $offlineId
         isset($payload['meal_service_id']) && (int)$payload['meal_service_id'] > 0 ? (int)$payload['meal_service_id'] : null,
         $payload['meal_service_code'] ?? null,
         $offlineId,
-        $payload['consumed_at'] ?? null
+        $payload['consumed_at'] ?? null,
+        $payload['operational_timezone'] ?? null
     );
 }
 
@@ -247,6 +243,7 @@ function normalizeOfflineMealPayload(array $payload, array $item): array
         'meal_service_id' => isset($payload['meal_service_id']) ? (int)$payload['meal_service_id'] : null,
         'meal_service_code' => trim((string)($payload['meal_service_code'] ?? '')),
         'consumed_at' => $payload['consumed_at'] ?? null,
+        'operational_timezone' => trim((string)($payload['operational_timezone'] ?? '')),
     ];
 }
 

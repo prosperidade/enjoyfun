@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../Helpers/WorkforceEventRoleHelper.php';
+require_once __DIR__ . '/../Helpers/ParticipantPresenceHelper.php';
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -112,46 +113,49 @@ function processParticipantScan(PDO $db, array $participant, string $mode, array
         jsonError("Modo '{$mode}' não permitido para este QR de equipe ou setor não vinculado ao participante.", 422);
     }
 
-    if (isset($participant['max_shifts_event'])) {
-        $maxShifts = (int)$participant['max_shifts_event'];
-        if ($maxShifts > 0) {
-            $countStmt = $db->prepare("
-                SELECT COUNT(*)
-                FROM participant_checkins
-                WHERE participant_id = ?
-                  AND action = 'check-in'
-            ");
-            $countStmt->execute([$participantId]);
-            $count = (int)$countStmt->fetchColumn();
-            if ($count >= $maxShifts) {
-                scannerAuditFailure($operator, (string)$participant['qr_token'], $mode, 'participant_limit_reached', $participantId);
-                jsonError('Limite de turnos configurado para este membro foi atingido.', 409);
-            }
+    try {
+        $db->beginTransaction();
+
+        $lockedParticipant = participantPresenceLockParticipantById($db, $participantId);
+        if (!$lockedParticipant) {
+            throw new RuntimeException('Participante não encontrado ou restrito.', 404);
         }
+
+        $window = participantPresenceResolveOperationalWindow($db, $participantId);
+        $result = participantPresenceRegisterAction($db, $participantId, 'check-in', participantPresenceNormalizeGateId($mode), [
+            'current_status' => (string)($lockedParticipant['status'] ?? $participant['status'] ?? ''),
+            'max_shifts_event' => (int)($participant['max_shifts_event'] ?? 1),
+            'duplicate_checkin_message' => 'Participante já validado neste turno.',
+            'duplicate_checkout_message' => 'Saída já registrada neste turno.',
+            'limit_reached_message' => 'Limite de turnos configurado para este membro foi atingido.',
+            'event_day_id' => $window['event_day_id'] ?? null,
+            'event_shift_id' => $window['event_shift_id'] ?? null,
+            'source_channel' => 'scanner',
+            'operator_user_id' => isset($operator['id']) ? (int)$operator['id'] : null,
+        ]);
+
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+
+        $statusCode = (int)$e->getCode();
+        if ($statusCode >= 400 && $statusCode < 500) {
+            scannerAuditFailure(
+                $operator,
+                (string)$participant['qr_token'],
+                $mode,
+                scannerResolveParticipantPresenceFailureReason($statusCode, $e->getMessage()),
+                $participantId
+            );
+            jsonError($e->getMessage(), $statusCode);
+        }
+
+        error_log('[scanner_participant_presence] ' . $e->getMessage());
+        scannerAuditFailure($operator, (string)$participant['qr_token'], $mode, 'database_error', $participantId);
+        jsonError('Erro operacional ao processar scanner. Tente novamente.', 500);
     }
-
-    $lastActionStmt = $db->prepare("
-        SELECT action
-        FROM participant_checkins
-        WHERE participant_id = ?
-        ORDER BY recorded_at DESC, id DESC
-        LIMIT 1
-    ");
-    $lastActionStmt->execute([$participantId]);
-    $lastAction = strtolower((string)$lastActionStmt->fetchColumn());
-    if ($lastAction === 'check-in') {
-        scannerAuditFailure($operator, (string)$participant['qr_token'], $mode, 'participant_already_validated', $participantId);
-        jsonError('Participante já validado neste turno.', 409);
-    }
-
-    $insertCheckin = $db->prepare("
-        INSERT INTO participant_checkins (participant_id, gate_id, action, recorded_at)
-        VALUES (?, ?, 'check-in', NOW())
-    ");
-    $insertCheckin->execute([$participantId, $mode]);
-
-    $db->prepare("UPDATE event_participants SET status = 'present', updated_at = NOW() WHERE id = ?")
-        ->execute([$participantId]);
 
     $name = (string)($participant['participant_name'] ?? $participant['name'] ?? 'Participante');
     $category = (string)($participant['category_name'] ?? 'Equipe');
@@ -164,9 +168,25 @@ function processParticipantScan(PDO $db, array $participant, string $mode, array
     jsonSuccess([
         'source' => 'participant',
         'holder_name' => $name,
-        'checked_at' => date('c'),
+        'checked_at' => isset($result['recorded_at']) && $result['recorded_at']
+            ? date(DATE_ATOM, strtotime((string)$result['recorded_at']))
+            : date('c'),
         'info' => "{$category} validado",
     ], 'Check-in realizado com sucesso.');
+}
+
+function scannerResolveParticipantPresenceFailureReason(int $statusCode, string $message): string
+{
+    $normalized = strtolower(trim($message));
+
+    return match (true) {
+        $statusCode === 404 => 'participant_not_found',
+        str_contains($normalized, 'limite') => 'participant_limit_reached',
+        str_contains($normalized, 'não possui check-in ativo'),
+        str_contains($normalized, 'nao possui check-in ativo') => 'participant_not_present',
+        $statusCode === 409 => 'participant_already_validated',
+        default => 'participant_presence_error',
+    };
 }
 
 function findGuestByToken(PDO $db, int $organizerId, string $token): ?array

@@ -4,6 +4,8 @@
  * Routes handled (dispatched from public/index.php)
  */
 
+require_once BASE_PATH . '/src/Services/OrganizerMessagingConfigService.php';
+
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
@@ -194,6 +196,125 @@ function doLogout(array $body): void
     jsonSuccess(null, 'Logout realizado com sucesso.');
 }
 
+function resolveOtpSecret(): string
+{
+    $secret = trim((string)(
+        getenv('OTP_PEPPER')
+        ?: getenv('JWT_SECRET')
+        ?: getenv('APP_KEY')
+        ?: ''
+    ));
+
+    if ($secret === '') {
+        throw new RuntimeException('OTP secret is not configured.');
+    }
+
+    return $secret;
+}
+
+function hashOtpCode(string $identifier, string $code): string
+{
+    return hash_hmac('sha256', strtolower(trim($identifier)) . '|' . trim($code), resolveOtpSecret());
+}
+
+function isDevelopmentEnvironment(): bool
+{
+    return strtolower(trim((string)(getenv('APP_ENV') ?: $_ENV['APP_ENV'] ?? 'development'))) === 'development';
+}
+
+function deleteOtpById(PDO $db, ?int $otpId): void
+{
+    if (($otpId ?? 0) <= 0) {
+        return;
+    }
+
+    $db->prepare('DELETE FROM otp_codes WHERE id = ?')->execute([(int)$otpId]);
+}
+
+function deliverOtpCode(string $identifier, string $otp, array $cfg): array
+{
+    if (str_contains($identifier, '@')) {
+        $apiKey = $cfg['resend_api_key'] ?? getenv('RESEND_API_KEY') ?: '';
+        $fromEmail = $cfg['email_sender'] ?? getenv('EMAIL_SENDER') ?: 'no-reply@enjoyfun.com.br';
+
+        if ($apiKey) {
+            require_once BASE_PATH . '/src/Services/EmailService.php';
+            $sent = \EnjoyFun\Services\EmailService::sendOTP($identifier, $otp, $apiKey, $fromEmail);
+            if (!$sent) {
+                throw new RuntimeException('Falha ao enviar codigo por e-mail.');
+            }
+
+            return ['channel' => 'email', 'delivery_status' => 'sent'];
+        }
+
+        if (!isDevelopmentEnvironment()) {
+            throw new RuntimeException('Canal de e-mail indisponivel para envio de codigo.');
+        }
+
+        error_log("[OTP-EMAIL-MOCK] Para: {$identifier} | Código: {$otp}");
+        return ['channel' => 'email', 'delivery_status' => 'mocked'];
+    }
+
+    $waUrl = rtrim($cfg['wa_api_url'] ?? getenv('WA_API_URL') ?: '', '/');
+    $waToken = $cfg['wa_token'] ?? getenv('WA_TOKEN') ?: '';
+    $waInstance = $cfg['wa_instance'] ?? getenv('WA_INSTANCE') ?: '';
+
+    if ($waUrl && $waToken && $waInstance) {
+        $phoneClean = preg_replace('/\D/', '', $identifier);
+        if (!str_starts_with($phoneClean, '55')) {
+            $phoneClean = '55' . $phoneClean;
+        }
+
+        $waPayload = json_encode([
+            'number' => $phoneClean . '@s.whatsapp.net',
+            'options' => ['delay' => 1200, 'presence' => 'composing'],
+            'textMessage' => [
+                'text' => "🎟️ *EnjoyFun*\n\nSeu código de acesso é: *{$otp}*\n\nExpira em 10 minutos. Não compartilhe com ninguém.",
+            ],
+        ]);
+
+        $ch = curl_init("{$waUrl}/message/sendText/{$waInstance}");
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $waPayload,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                "apikey: {$waToken}",
+            ],
+            CURLOPT_TIMEOUT => 10,
+        ]);
+        $waResp = curl_exec($ch);
+        $waStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($waStatus < 200 || $waStatus >= 300) {
+            error_log("[OTP-WA] Falha HTTP {$waStatus}: {$waResp}");
+            throw new RuntimeException('Falha ao enviar codigo por WhatsApp.');
+        }
+
+        error_log("[OTP-WA] Enviado para {$identifier}");
+        return ['channel' => 'whatsapp', 'delivery_status' => 'sent'];
+    }
+
+    if (!isDevelopmentEnvironment()) {
+        throw new RuntimeException('Canal de WhatsApp indisponivel para envio de codigo.');
+    }
+
+    error_log("[OTP-WA-MOCK] Para: {$identifier} | Código: {$otp}");
+    return ['channel' => 'whatsapp', 'delivery_status' => 'mocked'];
+}
+
+function otpMatchesStoredCode(string $identifier, string $plainCode, string $storedCode): bool
+{
+    $candidateHash = hashOtpCode($identifier, $plainCode);
+    if (strlen($storedCode) === 64 && ctype_xdigit($storedCode)) {
+        return hash_equals(strtolower($storedCode), strtolower($candidateHash));
+    }
+
+    return hash_equals((string)$storedCode, trim($plainCode));
+}
+
 // ─────────────────────────────────────────────────────────────
 // REQUEST ACCESS CODE (Passwordless Step 1)
 // ─────────────────────────────────────────────────────────────
@@ -206,97 +327,38 @@ function requestAccessCode(array $body): void
         jsonError('Identificador e organizer_id são obrigatórios.', 422);
     }
 
-    // Gera OTP seguro de 6 dígitos
-    $otp       = (string) random_int(100000, 999999);
-    $expiresAt = date('Y-m-d H:i:s', time() + 600); // 10 minutos
+    $otp = (string) random_int(100000, 999999);
+    $otpHash = hashOtpCode($identifier, $otp);
+    $expiresAt = date('Y-m-d H:i:s', time() + 600);
+    $otpId = null;
 
     try {
         $db = Database::getInstance();
-
-        // Remove OTPs anteriores do mesmo identificador
         $db->prepare('DELETE FROM otp_codes WHERE identifier = ?')->execute([$identifier]);
 
-        $stmt = $db->prepare('INSERT INTO otp_codes (identifier, code, expires_at, created_at) VALUES (?, ?, ?, NOW())');
-        $stmt->execute([$identifier, $otp, $expiresAt]);
+        $stmt = $db->prepare('INSERT INTO otp_codes (identifier, code, expires_at, created_at) VALUES (?, ?, ?, NOW()) RETURNING id');
+        $stmt->execute([$identifier, $otpHash, $expiresAt]);
+        $otpId = (int)$stmt->fetchColumn();
 
-        // ── Busca configurações de mensageria do organizador ──────
-        $stmtCfg = $db->prepare('
-            SELECT resend_api_key, email_sender, wa_api_url, wa_token, wa_instance
-            FROM organizer_settings
-            WHERE organizer_id = ?
-            LIMIT 1
-        ');
-        $stmtCfg->execute([$organizerId]);
-        $cfg = $stmtCfg->fetch(PDO::FETCH_ASSOC) ?: [];
+        $cfg = \EnjoyFun\Services\OrganizerMessagingConfigService::load($db, $organizerId);
 
-        // ── Dispatch real ─────────────────────────────────────────
-        if (str_contains($identifier, '@')) {
-            // E-MAIL via Resend
-            $apiKey  = $cfg['resend_api_key'] ?? getenv('RESEND_API_KEY') ?: '';
-            $fromEmail = $cfg['email_sender']  ?? getenv('EMAIL_SENDER')   ?: 'no-reply@enjoyfun.com.br';
+        $delivery = deliverOtpCode($identifier, $otp, $cfg);
 
-            if ($apiKey) {
-                require_once BASE_PATH . '/src/Services/EmailService.php';
-                $GLOBALS['year'] = date('Y');
-                $sent = \EnjoyFun\Services\EmailService::sendOTP($identifier, $otp, $apiKey, $fromEmail);
-                if (!$sent) {
-                    error_log("[OTP-EMAIL] Falha ao enviar via Resend para {$identifier}");
-                }
-            } else {
-                // Fallback: log (sem chave configurada)
-                error_log("[OTP-EMAIL-MOCK] Para: {$identifier} | Código: {$otp}");
-            }
-        } else {
-            // WHATSAPP via Evolution API / Z-API
-            $waUrl      = rtrim($cfg['wa_api_url'] ?? getenv('WA_API_URL')   ?: '', '/');
-            $waToken    = $cfg['wa_token']    ?? getenv('WA_TOKEN')    ?: '';
-            $waInstance = $cfg['wa_instance'] ?? getenv('WA_INSTANCE') ?: '';
-
-            if ($waUrl && $waToken && $waInstance) {
-                $phoneClean = preg_replace('/\D/', '', $identifier);
-                // Garante formato internacional (55 + DDD + número)
-                if (!str_starts_with($phoneClean, '55')) {
-                    $phoneClean = '55' . $phoneClean;
-                }
-
-                $waPayload = json_encode([
-                    'number'  => $phoneClean . '@s.whatsapp.net',
-                    'options' => ['delay' => 1200, 'presence' => 'composing'],
-                    'textMessage' => [
-                        'text' => "🎟️ *EnjoyFun*\n\nSeu código de acesso é: *{$otp}*\n\nExpira em 10 minutos. Não compartilhe com ninguém.",
-                    ],
-                ]);
-
-                $ch = curl_init("{$waUrl}/message/sendText/{$waInstance}");
-                curl_setopt_array($ch, [
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_POST           => true,
-                    CURLOPT_POSTFIELDS     => $waPayload,
-                    CURLOPT_HTTPHEADER     => [
-                        'Content-Type: application/json',
-                        "apikey: {$waToken}",
-                    ],
-                    CURLOPT_TIMEOUT => 10,
-                ]);
-                $waResp   = curl_exec($ch);
-                $waStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                curl_close($ch);
-
-                if ($waStatus < 200 || $waStatus >= 300) {
-                    error_log("[OTP-WA] Falha HTTP {$waStatus}: {$waResp}");
-                } else {
-                    error_log("[OTP-WA] Enviado para {$identifier}");
-                }
-            } else {
-                // Fallback: log (sem credenciais)
-                error_log("[OTP-WA-MOCK] Para: {$identifier} | Código: {$otp}");
+        jsonSuccess([
+            'success' => true,
+            'delivery_status' => $delivery['delivery_status'] ?? 'sent',
+            'channel' => $delivery['channel'] ?? (str_contains($identifier, '@') ? 'email' : 'whatsapp'),
+        ], 'Código enviado com sucesso.');
+    } catch (Exception $e) {
+        if ($otpId !== null) {
+            try {
+                deleteOtpById($db ?? Database::getInstance(), $otpId);
+            } catch (Throwable $cleanupError) {
+                error_log('Falha ao limpar OTP apos erro de envio: ' . $cleanupError->getMessage());
             }
         }
-
-        jsonSuccess(['success' => true], 'Código enviado com sucesso.');
-    } catch (Exception $e) {
         error_log('Erro ao gerar OTP: ' . $e->getMessage());
-        jsonError('Erro interno ao enviar código.', 500);
+        jsonError('Nao foi possivel enviar o codigo agora. Tente novamente.', 503);
     }
 }
 
@@ -316,29 +378,32 @@ function verifyAccessCode(array $body): void
     try {
         $db = Database::getInstance();
 
-        // 1. Busca e valida o OTP (deve existir e não ter expirado)
-        $stmtOtp = $db->prepare('SELECT id FROM otp_codes WHERE identifier = ? AND code = ? AND expires_at > NOW() LIMIT 1');
-        $stmtOtp->execute([$identifier, $code]);
-        $otp = $stmtOtp->fetch(PDO::FETCH_ASSOC);
+        $stmtOtp = $db->prepare('SELECT id, code FROM otp_codes WHERE identifier = ? AND expires_at > NOW() ORDER BY created_at DESC LIMIT 5');
+        $stmtOtp->execute([$identifier]);
+        $otpRows = $stmtOtp->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $otp = null;
+        foreach ($otpRows as $row) {
+            if (otpMatchesStoredCode($identifier, $code, (string)($row['code'] ?? ''))) {
+                $otp = $row;
+                break;
+            }
+        }
 
         if (!$otp) {
             jsonError('Código inválido ou expirado.', 401);
         }
 
-        // 2. Invalida o OTP após uso (sem reuso possível)
-        $db->prepare('DELETE FROM otp_codes WHERE id = ?')->execute([$otp['id']]);
+        deleteOtpById($db, (int)($otp['id'] ?? 0));
 
-        // 3. Determina se é e-mail ou telefone para a busca
         $isEmail = str_contains($identifier, '@');
         $field   = $isEmail ? 'email' : 'phone';
 
-        // 4. Busca ou cria o usuário cliente
         $stmtUser = $db->prepare("SELECT * FROM users WHERE {$field} = ? AND organizer_id = ? LIMIT 1");
         $stmtUser->execute([$identifier, $organizerId]);
         $user = $stmtUser->fetch(PDO::FETCH_ASSOC);
 
         if (!$user) {
-            // Novo cliente: cria automaticamente
             $stmtInsert = $db->prepare("
                 INSERT INTO users (name, {$field}, role, organizer_id, is_active, created_at)
                 VALUES (?, ?, 'customer', ?, true, NOW())
@@ -349,7 +414,6 @@ function verifyAccessCode(array $body): void
             $user  = ['id' => $newId, 'name' => 'Cliente', $field => $identifier, 'role' => 'customer', 'organizer_id' => $organizerId];
         }
 
-        // 5. Gera tokens JWT
         $userData = buildUserPayload($db, $user);
         $tokens   = issueTokens($db, $userData);
 

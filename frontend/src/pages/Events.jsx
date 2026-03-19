@@ -30,16 +30,27 @@ const statusLabel = {
   cancelled: "Cancelado",
 };
 
-const EMPTY_EVENT_FORM = {
-  name: "",
-  description: "",
-  venue_name: "",
-  address: "",
-  starts_at: "",
-  ends_at: "",
-  status: "draft",
-  capacity: "",
-};
+function getBrowserTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return "";
+  }
+}
+
+function createEmptyEventForm() {
+  return {
+    name: "",
+    description: "",
+    venue_name: "",
+    address: "",
+    starts_at: "",
+    ends_at: "",
+    status: "draft",
+    capacity: "",
+    event_timezone: getBrowserTimeZone(),
+  };
+}
 
 const EMPTY_BATCH_FORM = {
   id: null,
@@ -90,6 +101,7 @@ function mapEventToForm(event) {
     ends_at: toDatetimeLocal(event?.ends_at),
     status: event?.status || "draft",
     capacity: event?.capacity ?? "",
+    event_timezone: event?.event_timezone || "",
   };
 }
 
@@ -192,7 +204,7 @@ export default function Events() {
   const [editingEventId, setEditingEventId] = useState(null);
   const [ticketTypeForm, setTicketTypeForm] = useState(EMPTY_TICKET_TYPE_FORM);
   const [ticketTypes, setTicketTypes] = useState([]);
-  const [form, setForm] = useState(EMPTY_EVENT_FORM);
+  const [form, setForm] = useState(() => createEmptyEventForm());
   const [batchForm, setBatchForm] = useState(EMPTY_BATCH_FORM);
   const [commissaryForm, setCommissaryForm] = useState(EMPTY_COMMISSARY_FORM);
   const [draftBatches, setDraftBatches] = useState([]);
@@ -225,7 +237,7 @@ export default function Events() {
     setEditingEventId(null);
     setTicketTypeForm(EMPTY_TICKET_TYPE_FORM);
     setTicketTypes([]);
-    setForm(EMPTY_EVENT_FORM);
+    setForm(createEmptyEventForm());
     setBatchForm(EMPTY_BATCH_FORM);
     setCommissaryForm(EMPTY_COMMISSARY_FORM);
     setDraftBatches([]);
@@ -493,6 +505,12 @@ export default function Events() {
     e.preventDefault();
     setSaving(true);
 
+    if (!form.event_timezone.trim()) {
+      toast.error("Informe a timezone operacional do evento em formato IANA.");
+      setSaving(false);
+      return;
+    }
+
     const ticketTypesForSave = mergePendingEdit(
       ticketTypes,
       Number.isInteger(ticketTypeForm.id)
@@ -530,7 +548,7 @@ export default function Events() {
       "id"
     );
 
-    const payload = {
+  const payload = {
       ...form,
       capacity: form.capacity === "" ? 0 : Number(form.capacity),
       commercial_config: {
@@ -679,6 +697,20 @@ export default function Events() {
                     onChange={set("ends_at")}
                     required
                   />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="input-label">Timezone Operacional *</label>
+                  <input
+                    name="event_timezone"
+                    className="input"
+                    value={form.event_timezone}
+                    onChange={set("event_timezone")}
+                    placeholder="Ex: America/Sao_Paulo"
+                    required
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Usada para resolver calendário operacional e converter payloads com offset no Meals.
+                  </p>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="input-label">Endereço</label>

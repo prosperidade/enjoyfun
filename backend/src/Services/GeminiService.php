@@ -9,7 +9,15 @@ class GeminiService
      * Gera um insight a partir dos dados brutisus de Vendas e Estoque
      * utilizando a API do Google Gemini (gemini-2.5-flash ou gemini-1.5-flash).
      */
-    public static function generateBarInsight(array $lastSales, array $currentStock, string $timeFilter = '24h', string $userQuestion = ''): string
+    public static function generateBarInsight(
+        array $lastSales,
+        array $currentStock,
+        string $timeFilter = '24h',
+        string $userQuestion = '',
+        ?int $eventId = null,
+        ?int $organizerId = null,
+        ?int $userId = null
+    ): string
     {
         $apiKey = getenv('GEMINI_API_KEY');
         if (!$apiKey) {
@@ -60,8 +68,9 @@ class GeminiService
             $compTokens = $json['usageMetadata']['candidatesTokenCount'] ?? 0;
             
             AIBillingService::logUsage([
-                'user_id' => null,
-                'event_id' => 1,
+                'user_id' => $userId,
+                'event_id' => $eventId,
+                'organizer_id' => $organizerId,
                 'agent_name' => 'bar_inventory_insight',
                 'prompt_tokens' => $promptTokens,
                 'completion_tokens' => $compTokens,

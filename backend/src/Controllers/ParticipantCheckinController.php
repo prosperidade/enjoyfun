@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../Helpers/WorkforceEventRoleHelper.php';
+require_once __DIR__ . '/../Helpers/ParticipantPresenceHelper.php';
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -19,71 +20,67 @@ function registerCheckin(array $body): void
     $user = requireAuth(['admin', 'organizer', 'staff', 'parking_staff']);
     $db = Database::getInstance();
     $organizerId = resolveOrganizerId($user);
+    if ($organizerId <= 0) {
+        jsonError('Organizador inválido no contexto autenticado.', 403);
+    }
 
-    $participantId = $body['participant_id'] ?? null;
+    $participantId = isset($body['participant_id']) ? (int)$body['participant_id'] : null;
     $qrToken = trim((string)($body['qr_token'] ?? ''));
-    $action = $body['action'] ?? 'check-in'; // check-in or check-out
-    $gateId = $body['gate_id'] ?? null; // Portão ou Zonal opcional
+    $action = participantPresenceNormalizeAction((string)($body['action'] ?? 'check-in'));
+    $gateId = participantPresenceNormalizeGateId($body['gate_id'] ?? null);
 
-    if (!$participantId && !$qrToken) {
+    if (!$participantId && $qrToken === '') {
         jsonError('participant_id ou qr_token é obrigatório.', 400);
     }
 
-    if (!in_array($action, ['check-in', 'check-out'])) {
+    if (!in_array($action, ['check-in', 'check-out'], true)) {
         jsonError('Ação inválida. Use check-in ou check-out.', 400);
     }
 
-    // Verify Participant belongs to the tenant
-    $stmtCheck = $db->prepare("
-        SELECT ep.id, ep.status FROM event_participants ep
-        JOIN events e ON e.id = ep.event_id
-        WHERE " . ($participantId ? "ep.id = :participant_id" : "ep.qr_token = :qr_token") . "
-          AND e.organizer_id = :organizer_id
-    ");
-    $params = [':organizer_id' => $organizerId];
-    if ($participantId) {
-        $params[':participant_id'] = $participantId;
-    } else {
-        $params[':qr_token'] = $qrToken;
-    }
-    $stmtCheck->execute($params);
-    $participant = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+    try {
+        $db->beginTransaction();
 
-    if (!$participant) {
-        jsonError('Participante não encontrado ou restrito.', 404);
-    }
-    $participantId = (int)$participant['id'];
-
-    // Validação por configuração: limite de turnos no evento
-    if ($action === 'check-in') {
-        $cfg = participantCheckinResolveOperationalConfig($db, $participantId);
-        $maxShifts = (int)($cfg['max_shifts_event'] ?? 1);
-
-        if ($maxShifts > 0) {
-            $stmtCount = $db->prepare("
-                SELECT COUNT(*)
-                FROM participant_checkins
-                WHERE participant_id = ?
-                  AND action = 'check-in'
-            ");
-            $stmtCount->execute([$participantId]);
-            $count = (int)$stmtCount->fetchColumn();
-            if ($count >= $maxShifts) {
-                jsonError('Limite de turnos configurado para este membro foi atingido.', 409);
-            }
+        $participant = participantPresenceLockParticipantForTenant(
+            $db,
+            $organizerId,
+            $participantId ?: null,
+            $qrToken
+        );
+        if (!$participant) {
+            throw new RuntimeException('Participante não encontrado ou restrito.', 404);
         }
+
+        $participantId = (int)$participant['id'];
+        $cfg = participantCheckinResolveOperationalConfig($db, $participantId);
+        $window = participantPresenceResolveOperationalWindow($db, $participantId);
+        $result = participantPresenceRegisterAction($db, $participantId, $action, $gateId, [
+            'current_status' => (string)($participant['status'] ?? ''),
+            'max_shifts_event' => (int)($cfg['max_shifts_event'] ?? 1),
+            'duplicate_checkin_message' => 'Participante já validado neste turno.',
+            'duplicate_checkout_message' => 'Saída já registrada neste turno.',
+            'checkout_without_active_message' => 'Participante não possui check-in ativo para registrar saída.',
+            'limit_reached_message' => 'Limite de turnos configurado para este membro foi atingido.',
+            'event_day_id' => $window['event_day_id'] ?? null,
+            'event_shift_id' => $window['event_shift_id'] ?? null,
+            'source_channel' => 'manual',
+            'operator_user_id' => isset($user['id']) ? (int)$user['id'] : null,
+            'idempotency_key' => trim((string)($body['idempotency_key'] ?? '')),
+        ]);
+
+        $db->commit();
+
+        jsonSuccess([
+            'id' => $result['id'],
+            'participant_id' => $participantId,
+            'action' => $result['action'],
+            'status' => $result['status'],
+            'recorded_at' => $result['recorded_at'],
+            'event_day_id' => $result['event_day_id'] ?? null,
+            'event_shift_id' => $result['event_shift_id'] ?? null,
+        ], "Ação de {$action} registrada com sucesso.", 201);
+    } catch (Throwable $e) {
+        participantPresenceHandleException($db, $e, 'Erro operacional ao registrar presença. Tente novamente.');
     }
-
-    // Insert record
-    $stmt = $db->prepare("INSERT INTO participant_checkins (participant_id, gate_id, action, recorded_at) VALUES (?, ?, ?, NOW()) RETURNING id");
-    $stmt->execute([$participantId, $gateId, $action]);
-
-    // Optional: Update status in participant table to 'Present' if check-in
-    if ($action === 'check-in') {
-        $db->prepare("UPDATE event_participants SET status = 'present' WHERE id = ?")->execute([$participantId]);
-    }
-
-    jsonSuccess(['id' => $stmt->fetchColumn()], "Ação de $action registrada com sucesso.", 201);
 }
 
 function resolveOrganizerId(array $user): int

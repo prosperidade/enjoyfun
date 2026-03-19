@@ -1,7 +1,9 @@
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import {
+  Activity,
   ArrowLeft,
   Briefcase,
+  Clock3,
   Copy,
   FileDown,
   Mail,
@@ -9,13 +11,16 @@ import {
   Pencil,
   Plus,
   QrCode,
+  RefreshCw,
   Search,
   Settings2,
+  ShieldAlert,
   Trash2,
   Users
 } from "lucide-react";
 import api from "../../lib/api";
 import toast from "react-hot-toast";
+import { useAuth } from "../../context/AuthContext";
 import AddWorkforceAssignmentModal from "./AddWorkforceAssignmentModal";
 import CsvImportModal from "./CsvImportModal";
 import BulkMessageModal from "./BulkMessageModal";
@@ -24,6 +29,7 @@ import WorkforceMemberSettingsModal from "./WorkforceMemberSettingsModal";
 import BulkWorkforceSettingsModal from "./BulkWorkforceSettingsModal";
 import WorkforceRoleSettingsModal from "./WorkforceRoleSettingsModal";
 import WorkforceSectorCostsModal from "./WorkforceSectorCostsModal";
+import { reportOperationalTelemetry } from "../../lib/operationalTelemetry";
 
 const normalizeSector = (value = "") =>
   String(value || "")
@@ -569,7 +575,93 @@ const findManagerRow = (rows = [], manager = null) => {
   );
 };
 
+const normalizeOperationalStatus = (value = "") => {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (["healthy", "warning", "degraded", "no_data"].includes(normalized)) {
+    return normalized;
+  }
+  return "no_data";
+};
+
+const operationalStatusMeta = (status = "") => {
+  switch (normalizeOperationalStatus(status)) {
+    case "healthy":
+      return {
+        label: "Estavel",
+        badgeClass: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+        cardClass: "border-emerald-500/20 bg-emerald-500/5"
+      };
+    case "warning":
+      return {
+        label: "Atencao",
+        badgeClass: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+        cardClass: "border-amber-500/20 bg-amber-500/5"
+      };
+    case "degraded":
+      return {
+        label: "Instavel",
+        badgeClass: "border-rose-500/30 bg-rose-500/10 text-rose-300",
+        cardClass: "border-rose-500/20 bg-rose-500/5"
+      };
+    default:
+      return {
+        label: "Sem dados",
+        badgeClass: "border-gray-700 bg-gray-900/70 text-gray-400",
+        cardClass: "border-gray-800 bg-gray-950/50"
+      };
+  }
+};
+
+const formatOperationalSourceLabel = (value = "") => {
+  switch (String(value || "").toLowerCase()) {
+    case "event_roles":
+      return "Estrutura do evento";
+    case "hybrid":
+      return "Estrutura em transicao";
+    default:
+      return "Cadastro antigo";
+  }
+};
+
+const formatOperationalEndpointLabel = (endpoint = "") => {
+  switch (String(endpoint || "")) {
+    case "GET /workforce/tree-status":
+      return "Leitura da estrutura";
+    case "GET /workforce/roles":
+      return "Cargos base";
+    case "GET /workforce/event-roles":
+      return "Cargos do evento";
+    case "GET /workforce/managers":
+      return "Lista de liderancas";
+    case "GET /workforce/assignments":
+      return "Lista da equipe";
+    case "POST /workforce/assignments":
+      return "Nova alocacao";
+    case "DELETE /workforce/assignments/:id":
+      return "Remocao de alocacao";
+    case "GET /participants":
+      return "Lista de participantes";
+    case "POST /participants":
+      return "Novo participante";
+    case "DELETE /participants/:id":
+      return "Exclusao de participante";
+    case "POST /participants/backfill-qrs":
+      return "Geracao de convites";
+    case "POST /participants/bulk-delete":
+      return "Exclusao em lote";
+    case "POST /workforce/tree-backfill":
+      return "Recomposicao de vinculos";
+    case "POST /workforce/tree-sanitize":
+      return "Correcao de estrutura";
+    case "POST /sync":
+      return "Sincronizacao offline";
+    default:
+      return endpoint || "Servico interno";
+  }
+};
+
 export default function WorkforceOpsTab({ eventId }) {
+  const { hasRole } = useAuth();
   const [managers, setManagers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -582,6 +674,10 @@ export default function WorkforceOpsTab({ eventId }) {
   const [loading, setLoading] = useState(true);
   const [loadedFromSnapshot, setLoadedFromSnapshot] = useState(false);
   const [snapshotWarning, setSnapshotWarning] = useState("");
+  const [operationalHealth, setOperationalHealth] = useState(null);
+  const [operationalHealthLoading, setOperationalHealthLoading] = useState(false);
+  const [treeMaintenanceLoading, setTreeMaintenanceLoading] = useState("");
+  const [overviewTab, setOverviewTab] = useState("operation");
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -614,17 +710,23 @@ export default function WorkforceOpsTab({ eventId }) {
 
   const fetchManagers = async () => {
     setLoading(true);
+    setOperationalHealthLoading(true);
     try {
-      const [mgrRes, roleRes, assignmentRes, treeRes] = await Promise.all([
+      const [mgrRes, roleRes, assignmentRes, treeRes, healthRes] = await Promise.all([
         api.get(`/workforce/managers?event_id=${eventId}`),
         api.get(`/workforce/roles?event_id=${eventId}`),
         api.get(`/workforce/assignments?event_id=${eventId}`),
-        api.get(`/workforce/tree-status?event_id=${eventId}`)
+        api.get(`/workforce/tree-status?event_id=${eventId}`),
+        api.get(`/health/workforce?event_id=${eventId}&window_minutes=60`).catch((error) => {
+          console.error(error);
+          return null;
+        })
       ]);
       const nextManagers = mgrRes.data.data || [];
       const nextRoles = roleRes.data.data || [];
       const nextAssignments = assignmentRes.data.data || [];
       const nextTreeStatus = treeRes.data?.data || null;
+      const nextOperationalHealth = healthRes?.data?.data || null;
       let nextEventRoles = [];
 
       if (nextTreeStatus?.migration_ready) {
@@ -642,6 +744,7 @@ export default function WorkforceOpsTab({ eventId }) {
       setAssignments(nextAssignments);
       setTreeStatus(nextTreeStatus);
       setEventRoles(nextEventRoles);
+      setOperationalHealth(nextOperationalHealth);
       setLoadedFromSnapshot(false);
 
       const snapshotWrite = writeWorkforceSnapshot(eventId, {
@@ -656,6 +759,14 @@ export default function WorkforceOpsTab({ eventId }) {
           ? ""
           : "Nao foi possivel atualizar o snapshot local deste dispositivo. A operacao offline pode ficar desatualizada."
       );
+      if (!snapshotWrite.ok) {
+        reportOperationalTelemetry("workforce.snapshot.write_failed", {
+          eventId,
+          details: {
+            message: snapshotWrite.error?.message || "snapshot_write_failed"
+          }
+        });
+      }
 
       return {
         managers: nextManagers,
@@ -673,13 +784,28 @@ export default function WorkforceOpsTab({ eventId }) {
           ? "O snapshot local deste evento esta indisponivel ou corrompido neste dispositivo."
           : ""
       );
+      if (snapshotResult.error) {
+        reportOperationalTelemetry("workforce.snapshot.read_failed", {
+          eventId,
+          details: {
+            message: snapshotResult.error?.message || "snapshot_read_failed"
+          }
+        });
+      }
       if (snapshot) {
         setManagers(snapshot.managers || []);
         setRoles(snapshot.roles || []);
         setAssignments(snapshot.assignments || []);
         setTreeStatus(snapshot.tree_status || null);
         setEventRoles(snapshot.event_roles || []);
+        setOperationalHealth(null);
         setLoadedFromSnapshot(true);
+        reportOperationalTelemetry("workforce.snapshot.fallback_used", {
+          eventId,
+          details: {
+            reason: "network_error"
+          }
+        });
         toast("Falha na rede. Workforce carregado do snapshot local.");
         return {
           managers: snapshot.managers || [],
@@ -693,9 +819,11 @@ export default function WorkforceOpsTab({ eventId }) {
       toast.error("Erro ao carregar gerentes e alocações.");
       setTreeStatus(null);
       setEventRoles([]);
+      setOperationalHealth(null);
       return { managers: [], roles: [], assignments: [], treeStatus: null, eventRoles: [] };
     } finally {
       setLoading(false);
+      setOperationalHealthLoading(false);
     }
   };
 
@@ -822,6 +950,7 @@ export default function WorkforceOpsTab({ eventId }) {
     setSelectedManager(null);
     setParticipants([]);
     setSelectedIds([]);
+    setOverviewTab("operation");
     syncManagersEffect();
   }, [eventId]);
 
@@ -952,6 +1081,28 @@ export default function WorkforceOpsTab({ eventId }) {
       ? 1
       : 0;
   const treeBlockers = Array.isArray(treeStatus?.activation_blockers) ? treeStatus.activation_blockers : [];
+  const canAccessAdvancedTab = hasRole?.("admin");
+  const canRunTreeMaintenance = hasRole?.("admin");
+  const activeOverviewTab = canAccessAdvancedTab ? overviewTab : "operation";
+  const operationalHealthStatus = operationalStatusMeta(operationalHealth?.status);
+  const endpointAlerts = useMemo(
+    () =>
+      Array.isArray(operationalHealth?.endpoints)
+        ? operationalHealth.endpoints.filter((row) => normalizeOperationalStatus(row?.status) === "warning" || normalizeOperationalStatus(row?.status) === "degraded")
+        : [],
+    [operationalHealth]
+  );
+  const syncHealth = useMemo(
+    () =>
+      (Array.isArray(operationalHealth?.endpoints)
+        ? operationalHealth.endpoints.find((row) => row.endpoint === "POST /sync")
+        : null) || null,
+    [operationalHealth]
+  );
+  const observedCriticalEndpoints = Number(operationalHealth?.summary?.critical_endpoints_observed || 0);
+  const snapshotInvalidCount = Number(operationalHealth?.summary?.snapshot_invalid_count || 0);
+  const snapshotFallbackUsed = Number(operationalHealth?.summary?.snapshot_fallback_used || 0);
+  const syncFailureRate = Number(operationalHealth?.summary?.sync_failure_rate_pct || 0);
 
   const handleEnterManager = (manager) => {
     setSelectedManager(manager);
@@ -986,6 +1137,83 @@ export default function WorkforceOpsTab({ eventId }) {
 
   const handleWorkforceImported = async () => {
     await refreshSelectedManagerView(selectedManager);
+  };
+
+  const handleRefreshOperationalOverview = async () => {
+    if (selectedManager) {
+      await refreshSelectedManagerView(selectedManager);
+      return;
+    }
+    await fetchManagers();
+  };
+
+  const handleCopyOperationalDiagnostic = async () => {
+    const payload = {
+      event_id: eventId,
+      generated_at: new Date().toISOString(),
+      loaded_from_snapshot: loadedFromSnapshot,
+      snapshot_warning: snapshotWarning || null,
+      tree_status: treeStatus,
+      health_summary: operationalHealth?.summary || null,
+      health_status: operationalHealth?.status || null,
+      blockers: treeBlockers,
+    };
+
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      toast.success("Diagnóstico do Workforce copiado.");
+    } catch {
+      toast.error("Falha ao copiar diagnóstico.");
+    }
+  };
+
+  const handleRunTreeMaintenance = async (mode) => {
+    if (!eventId) {
+      toast.error("Selecione um evento antes de executar manutenção.");
+      return;
+    }
+
+    if (!canRunTreeMaintenance) {
+      toast.error("Somente admin/organizer podem executar esta manutenção.");
+      return;
+    }
+
+    if (mode === "backfill" && !treeStatus?.assignment_bindings_ready) {
+      toast.error("O ambiente ainda não está pronto para backfill da árvore.");
+      return;
+    }
+
+    if (mode === "backfill" && !treeStatus?.migration_ready) {
+      toast.error("A migração estrutural do evento ainda não está pronta para backfill.");
+      return;
+    }
+
+    if (mode === "sanitize" && !treeStatus?.migration_ready) {
+      toast.error("A migração estrutural do evento ainda não está pronta para saneamento.");
+      return;
+    }
+
+    const actionLabel = mode === "backfill" ? "backfill da árvore" : "saneamento da árvore";
+    const blockersLabel = treeBlockers.length > 0 ? `\n\nBloqueios atuais: ${treeBlockers.join(", ")}` : "";
+    const confirmed = window.confirm(
+      `Executar ${actionLabel} no evento ${eventId}? Esta ação atua no Workforce estrutural e deve ser usada apenas em incidente ou saneamento controlado.${blockersLabel}`
+    );
+    if (!confirmed) return;
+
+    setTreeMaintenanceLoading(mode);
+    toast.loading(`Executando ${actionLabel}...`, { id: "workforce-maintenance" });
+    try {
+      const endpoint = mode === "backfill" ? "/workforce/tree-backfill" : "/workforce/tree-sanitize";
+      await api.post(endpoint, { event_id: eventId });
+      await handleRefreshOperationalOverview();
+      toast.success(`${actionLabel} executado com sucesso.`, { id: "workforce-maintenance" });
+    } catch (error) {
+      toast.error(error.response?.data?.message || `Erro ao executar ${actionLabel}.`, {
+        id: "workforce-maintenance",
+      });
+    } finally {
+      setTreeMaintenanceLoading("");
+    }
   };
 
   const handleDeleteMember = async (participant) => {
@@ -1276,77 +1504,343 @@ export default function WorkforceOpsTab({ eventId }) {
           </div>
         </div>
 
-        <div className="card p-4 border border-gray-800 bg-gray-900/40">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Situação da tabela</p>
-              <p className="mt-1 text-sm text-gray-400">
-                Esta tela usa primeiro os cargos configurados no evento. Se ainda faltar ajuste, ela completa com dados antigos do cadastro.
+        {canAccessAdvancedTab ? (
+          <div className="grid gap-8 xl:grid-cols-2 xl:items-stretch">
+            <button
+              type="button"
+              onClick={() => setOverviewTab("operation")}
+              className={`h-full rounded-2xl border px-4 py-4 text-left transition ${
+                activeOverviewTab === "operation"
+                  ? "border-brand/50 bg-brand/10 text-white"
+                  : "border-gray-800 bg-gray-950/50 text-gray-400 hover:bg-gray-900/60"
+              }`}
+            >
+              <p className="text-[10px] uppercase tracking-[0.18em]">Operacao</p>
+              <p className="mt-1 text-sm font-semibold">Montagem da equipe</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setOverviewTab("advanced")}
+              className={`h-full rounded-2xl border px-4 py-4 text-left transition ${
+                activeOverviewTab === "advanced"
+                  ? "border-brand/50 bg-brand/10 text-white"
+                  : "border-gray-800 bg-gray-950/50 text-gray-400 hover:bg-gray-900/60"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[10px] uppercase tracking-[0.18em]">Avancado</p>
+                <span className={`rounded-lg border px-2 py-1 text-[10px] uppercase tracking-wider ${operationalHealthStatus.badgeClass}`}>
+                  {operationalHealthStatus.label}
+                </span>
+              </div>
+              <p className="mt-1 text-sm font-semibold">Diagnostico e manutencao</p>
+            </button>
+          </div>
+        ) : null}
+
+        {activeOverviewTab === "operation" && (
+          <div className="card p-4 border border-gray-800 bg-gray-900/40">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Resumo da equipe</p>
+                <p className="mt-1 text-sm text-gray-400">
+                  Veja quantas liderancas e pessoas ja estao ligadas corretamente na estrutura deste evento.
+                </p>
+              </div>
+              {canAccessAdvancedTab && (
+                <span className="rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400">
+                  Diagnostico completo no card avancado
+                </span>
+              )}
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Liderancas cadastradas</p>
+                <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.manager_roots_count || 0).toLocaleString("pt-BR")}</p>
+              </div>
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Coordenacoes e supervisoes</p>
+                <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.managerial_child_roles_count || 0).toLocaleString("pt-BR")}</p>
+              </div>
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Pessoas ligadas a lideranca</p>
+                <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.assignments_with_root_manager || 0).toLocaleString("pt-BR")}</p>
+              </div>
+              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">Pessoas sem lideranca</p>
+                <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.assignments_missing_bindings || 0).toLocaleString("pt-BR")}</p>
+              </div>
+            </div>
+
+            {loadedFromSnapshot && (
+              <p className="mt-3 text-xs text-amber-400 uppercase tracking-wider">
+                Painel exibido com dados salvos neste dispositivo. Confirme a sincronizacao antes de fazer alteracoes.
               </p>
+            )}
+
+            {snapshotWarning && (
+              <p className="mt-3 text-xs text-rose-400">
+                {snapshotWarning}
+              </p>
+            )}
+
+            {Number(treeStatus?.assignments_missing_bindings || 0) > 0 && (
+              <p className="mt-3 text-xs text-amber-300">
+                Ainda existem pessoas sem lideranca definida. Revise os vinculos antes de fechar a montagem da equipe.
+              </p>
+            )}
+          </div>
+        )}
+
+        {activeOverviewTab === "advanced" && (
+          <div className="space-y-4">
+            <div className={`card p-4 border ${operationalHealthStatus.cardClass}`}>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Avancado</p>
+                  <p className="mt-1 text-sm text-gray-400">
+                    Diagnostico e manutencao do modulo. Use quando houver divergencia, falha de sincronizacao ou ajuste estrutural.
+                  </p>
+                </div>
+                <span className={`rounded-xl border px-3 py-2 text-[10px] uppercase tracking-wider ${operationalHealthStatus.badgeClass}`}>
+                  {operationalHealthStatus.label}
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Base usada na tela</p>
+                  <p className="mt-2 text-sm font-semibold text-white">{formatOperationalSourceLabel(treeStatus?.source_preference)}</p>
+                </div>
+                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Cadastros antigos ainda ativos</p>
+                  <p className="mt-2 text-lg font-black text-white">{Number(legacyManagersCount).toLocaleString("pt-BR")}</p>
+                </div>
+                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Estrutura pronta para uso</p>
+                  <p className="mt-2 text-sm font-semibold text-white">{treeStatus?.tree_ready ? "Sim" : "Parcial"}</p>
+                </div>
+                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Dados salvos neste dispositivo</p>
+                  <p className="mt-2 text-sm font-semibold text-white">{loadedFromSnapshot ? "Em uso" : "Atualizados"}</p>
+                </div>
+              </div>
+
+              {loadedFromSnapshot && (
+                <p className="mt-3 text-xs text-amber-400 uppercase tracking-wider">
+                  A tela esta usando dados salvos neste dispositivo. Confirme a sincronizacao antes de alterar a estrutura.
+                </p>
+              )}
+
+              {snapshotWarning && (
+                <p className="mt-3 text-xs text-rose-400">
+                  {snapshotWarning}
+                </p>
+              )}
+
+              {!treeStatus?.migration_ready && (
+                <p className="mt-3 text-xs text-amber-400">
+                  A transicao para a nova estrutura ainda nao terminou neste ambiente. Parte da leitura continua apoiada no cadastro antigo.
+                </p>
+              )}
+
+              {treeBlockers.length > 0 && (
+                <p className="mt-3 text-xs text-gray-400">
+                  Pendencias atuais: {treeBlockers.map((item) => item.replace(/_/g, " ")).join(", ")}.
+                </p>
+              )}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400">
-                Modo: {treeStatus?.source_preference === "event_roles" ? "Tabela do evento" : treeStatus?.source_preference === "hybrid" ? "Transição assistida" : "Cadastro antigo"}
-              </span>
+
+            <div className={`card p-4 border border-gray-800 bg-gray-900/40 ${operationalHealthStatus.cardClass}`}>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Situacao do sistema</p>
+                  <p className="mt-1 text-sm text-gray-400">
+                    Resumo interno da tabela, da sincronizacao offline e dos dados salvos neste dispositivo.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyOperationalDiagnostic}
+                    className="btn-secondary h-9 px-3 text-xs flex items-center gap-2"
+                    disabled={loading || operationalHealthLoading}
+                    title="Copiar o diagnostico atual da estrutura e da saude do modulo."
+                  >
+                    <Copy size={13} />
+                    Copiar diagnostico
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRefreshOperationalOverview}
+                    className="btn-secondary h-9 px-3 text-xs flex items-center gap-2"
+                    disabled={loading || operationalHealthLoading || Boolean(treeMaintenanceLoading)}
+                    title="Atualizar a leitura da estrutura e da saude do evento."
+                  >
+                    <RefreshCw size={13} className={loading || operationalHealthLoading ? "animate-spin" : ""} />
+                    Atualizar leitura
+                  </button>
+                  {canRunTreeMaintenance && (
+                    <button
+                      type="button"
+                      onClick={() => handleRunTreeMaintenance("backfill")}
+                      className="btn-secondary h-9 px-3 text-xs flex items-center gap-2 border-cyan-700/50 text-cyan-200 hover:bg-cyan-900/20"
+                      disabled={loading || operationalHealthLoading || Boolean(treeMaintenanceLoading) || !treeStatus?.migration_ready || !treeStatus?.assignment_bindings_ready}
+                      title={!treeStatus?.assignment_bindings_ready ? "O ambiente ainda nao permite recompor os vinculos estruturais." : "Recompor vinculos estruturais do evento."}
+                    >
+                      <RefreshCw size={13} className={treeMaintenanceLoading === "backfill" ? "animate-spin" : ""} />
+                      Recompor vinculos
+                    </button>
+                  )}
+                  {canRunTreeMaintenance && (
+                    <button
+                      type="button"
+                      onClick={() => handleRunTreeMaintenance("sanitize")}
+                      className="btn-secondary h-9 px-3 text-xs flex items-center gap-2 border-amber-700/50 text-amber-200 hover:bg-amber-900/20"
+                      disabled={loading || operationalHealthLoading || Boolean(treeMaintenanceLoading) || !treeStatus?.migration_ready}
+                      title="Corrigir inconsistencias de lideranca e estrutura do evento."
+                    >
+                      <ShieldAlert size={13} className={treeMaintenanceLoading === "sanitize" ? "animate-pulse" : ""} />
+                      Corrigir estrutura
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <Activity size={14} />
+                    <p className="text-[10px] uppercase tracking-wider">Servicos acompanhados</p>
+                  </div>
+                  <p className="mt-2 text-lg font-black text-white">
+                    {observedCriticalEndpoints.toLocaleString("pt-BR")}
+                    <span className="ml-2 text-xs font-medium text-gray-500">/ {Number(operationalHealth?.summary?.critical_endpoints_total || 0).toLocaleString("pt-BR")}</span>
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <ShieldAlert size={14} />
+                    <p className="text-[10px] uppercase tracking-wider">Envio offline</p>
+                  </div>
+                  <p className={`mt-2 text-lg font-black ${syncFailureRate > 0 ? "text-rose-300" : "text-white"}`}>
+                    {syncFailureRate.toLocaleString("pt-BR")}%
+                  </p>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    {Number(operationalHealth?.summary?.sync_failed_requests || 0).toLocaleString("pt-BR")} falha(s) em{" "}
+                    {Number(operationalHealth?.summary?.sync_requests_total || 0).toLocaleString("pt-BR")} envio(s)
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <Clock3 size={14} />
+                    <p className="text-[10px] uppercase tracking-wider">Falhas no cache local</p>
+                  </div>
+                  <p className={`mt-2 text-lg font-black ${snapshotInvalidCount > 0 ? "text-rose-300" : "text-white"}`}>
+                    {snapshotInvalidCount.toLocaleString("pt-BR")}
+                  </p>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Dados salvos usados {snapshotFallbackUsed.toLocaleString("pt-BR")} vez(es) no periodo.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Periodo analisado</p>
+                  <p className="mt-2 text-lg font-black text-white">
+                    {Number(operationalHealth?.window_minutes || 60).toLocaleString("pt-BR")} min
+                  </p>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Atualizado em {operationalHealth?.generated_at ? new Date(operationalHealth.generated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "--:--"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 xl:grid-cols-[1.15fr,0.85fr]">
+                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-gray-500">Servicos com alerta</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Aqui aparecem apenas leituras com alerta ou falha dentro do periodo analisado.
+                      </p>
+                    </div>
+                    <span className="rounded-lg border border-gray-800 bg-gray-900/70 px-2 py-1 text-[10px] uppercase tracking-wider text-gray-400">
+                      {endpointAlerts.length} alerta(s)
+                    </span>
+                  </div>
+
+                  {endpointAlerts.length === 0 ? (
+                    <p className="mt-4 text-sm text-emerald-300">
+                      Nenhum servico com alerta no periodo analisado.
+                    </p>
+                  ) : (
+                    <div className="mt-4 space-y-2">
+                      {endpointAlerts.slice(0, 5).map((row) => {
+                        const rowStatus = operationalStatusMeta(row.status);
+                        return (
+                          <div key={row.endpoint} className="rounded-xl border border-gray-800 bg-gray-900/60 p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="text-sm font-semibold text-white">{formatOperationalEndpointLabel(row.endpoint)}</p>
+                                <p className="mt-1 text-[11px] font-mono text-gray-500">{row.endpoint}</p>
+                              </div>
+                              <span className={`rounded-lg border px-2 py-1 text-[10px] uppercase tracking-wider ${rowStatus.badgeClass}`}>
+                                {rowStatus.label}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xs text-gray-400">
+                              Falhas: {Number(row.failure_rate_pct || 0).toLocaleString("pt-BR")}% • Lentidao p95:{" "}
+                              {Number(row.p95_latency_ms || 0).toLocaleString("pt-BR")}ms • Leituras:{" "}
+                              {Number(row.total_requests || 0).toLocaleString("pt-BR")}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Resumo rapido</p>
+                  <div className="mt-4 space-y-3 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-gray-400">Envio offline</span>
+                      <span className={syncFailureRate > 0 ? "font-semibold text-rose-300" : "font-semibold text-emerald-300"}>
+                        {syncHealth ? `${Number(syncHealth.failed_requests || 0).toLocaleString("pt-BR")} falha(s)` : "Sem leitura"}
+                      </span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-gray-400">Cache local com falha</span>
+                      <span className={snapshotInvalidCount > 0 ? "font-semibold text-rose-300" : "font-semibold text-emerald-300"}>
+                        {snapshotInvalidCount.toLocaleString("pt-BR")}
+                      </span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-gray-400">Uso de dados salvos</span>
+                      <span className={snapshotFallbackUsed > 0 ? "font-semibold text-amber-300" : "font-semibold text-emerald-300"}>
+                        {snapshotFallbackUsed.toLocaleString("pt-BR")}
+                      </span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-gray-400">Procedimento</span>
+                      <span className="font-mono text-xs text-white">docs/qa/workforce_incident_playbook.md</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+        )}
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-gray-500">Gerentes cadastrados</p>
-              <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.manager_roots_count || 0).toLocaleString("pt-BR")}</p>
-            </div>
-            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-gray-500">Coordenações e supervisões</p>
-              <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.managerial_child_roles_count || 0).toLocaleString("pt-BR")}</p>
-            </div>
-            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-gray-500">Gerentes do cadastro antigo</p>
-              <p className="mt-2 text-lg font-black text-white">{Number(legacyManagersCount).toLocaleString("pt-BR")}</p>
-            </div>
-            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-gray-500">Pessoas já ligadas a um gerente</p>
-              <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.assignments_with_root_manager || 0).toLocaleString("pt-BR")}</p>
-            </div>
-            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-gray-500">Pessoas ainda sem gerente</p>
-              <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.assignments_missing_bindings || 0).toLocaleString("pt-BR")}</p>
-            </div>
-          </div>
-
-          {loadedFromSnapshot && (
-            <p className="mt-3 text-xs text-amber-400 uppercase tracking-wider">
-              Painel exibido com dados salvos neste dispositivo. Confirme a sincronização antes de fazer alterações.
-            </p>
-          )}
-
-          {snapshotWarning && (
-            <p className="mt-3 text-xs text-rose-400">
-              {snapshotWarning}
-            </p>
-          )}
-
-          {!treeStatus?.migration_ready && (
-            <p className="mt-3 text-xs text-amber-400">
-              Esta atualização ainda não foi concluída neste ambiente. Parte da tela continua usando o cadastro antigo.
-            </p>
-          )}
-
-          {treeBlockers.length > 0 && (
-            <p className="mt-3 text-xs text-gray-500">
-              Ajustes ainda pendentes: {treeBlockers.map((item) => item.replace(/_/g, " ")).join(", ")}.
-            </p>
-          )}
-        </div>
-
-        <div className="card overflow-hidden p-0 border border-gray-800">
+        {activeOverviewTab === "operation" && (
+          <div className="card overflow-hidden p-0 border border-gray-800">
           <table className="w-full text-left text-sm text-gray-300">
             <thead className="bg-gray-900/80 text-gray-500 uppercase text-[10px] tracking-wider border-b border-gray-800">
               <tr>
-                <th className="px-5 py-4">Gerente / Líder</th>
+                <th className="px-5 py-4">Gerente / Lider</th>
                 <th className="px-5 py-4">Cargo / Setor</th>
                 <th className="px-5 py-4">Total do Setor</th>
-                <th className="px-5 py-4 text-right">Ações</th>
+                <th className="px-5 py-4 text-right">Acoes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/60">
@@ -1421,7 +1915,7 @@ export default function WorkforceOpsTab({ eventId }) {
                           className="btn-secondary h-9 px-3 text-xs flex items-center gap-2"
                           disabled={!Number(mgr.role_id || 0)}
                         >
-                          <Pencil size={13} /> Editar
+                          <Pencil size={13} /> Editar cargo
                         </button>
                         <button
                           type="button"
@@ -1436,7 +1930,7 @@ export default function WorkforceOpsTab({ eventId }) {
                           onClick={() => handleEnterManager(mgr)}
                           className="btn-secondary h-9 px-3 font-semibold border-brand/50 text-brand-light hover:bg-brand/10"
                         >
-                          Tabela do Gerente
+                          Abrir equipe
                         </button>
                         <button
                           type="button"
@@ -1458,7 +1952,8 @@ export default function WorkforceOpsTab({ eventId }) {
               )}
             </tbody>
           </table>
-        </div>
+          </div>
+        )}
 
         <WorkforceRoleSettingsModal
           isOpen={isRoleSettingsModalOpen}

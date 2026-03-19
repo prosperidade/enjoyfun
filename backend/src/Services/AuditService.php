@@ -18,6 +18,8 @@ class AuditService
     const USER_LOGOUT       = 'user.logout';
     const SYNC_PROCESSED    = 'sync.processed';
     const SYNC_CONFLICT     = 'sync.conflict';
+    const API_REQUEST       = 'api.request';
+    const CLIENT_TELEMETRY  = 'client.telemetry';
 
     public static function log(
         string $action,

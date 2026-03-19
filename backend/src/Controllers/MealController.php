@@ -627,6 +627,7 @@ function registerMeal(array $body): void
     $sector = mealResolveRequestedSectorScope($db, $user, (string)($body['sector'] ?? ''));
     $offlineRequestId = trim((string)($body['offline_request_id'] ?? ''));
     $consumedAt = trim((string)($body['consumed_at'] ?? ''));
+    $operationalTimezone = trim((string)($body['operational_timezone'] ?? ''));
 
     if (!$participantId && !$qrToken) {
         jsonError('participant_id ou qr_token é obrigatório.', 400);
@@ -645,7 +646,8 @@ function registerMeal(array $body): void
             $mealServiceId > 0 ? $mealServiceId : null,
             $mealServiceCode !== '' ? $mealServiceCode : null,
             $offlineRequestId !== '' ? $offlineRequestId : null,
-            $consumedAt !== '' ? $consumedAt : null
+            $consumedAt !== '' ? $consumedAt : null,
+            $operationalTimezone !== '' ? $operationalTimezone : null
         );
         $db->commit();
         $mealId = (int)($result['id'] ?? 0);

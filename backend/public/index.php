@@ -58,6 +58,216 @@ function generateCorrelationId(): string
     }
 }
 
+function resolveInitialRequestEventId(array $query, array $body): ?int
+{
+    $directCandidates = [
+        $query['event_id'] ?? null,
+        $body['event_id'] ?? null,
+        $body['eventId'] ?? null,
+    ];
+
+    foreach ($directCandidates as $candidate) {
+        $eventId = (int)$candidate;
+        if ($eventId > 0) {
+            return $eventId;
+        }
+    }
+
+    $items = [];
+    if (isset($body['items']) && is_array($body['items'])) {
+        $items = $body['items'];
+    } elseif (isset($body['records']) && is_array($body['records'])) {
+        $items = $body['records'];
+    }
+
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $payload = [];
+        if (isset($item['payload']) && is_array($item['payload'])) {
+            $payload = $item['payload'];
+        } elseif (isset($item['data']) && is_array($item['data'])) {
+            $payload = $item['data'];
+        }
+
+        $eventId = (int)($payload['event_id'] ?? 0);
+        if ($eventId > 0) {
+            return $eventId;
+        }
+    }
+
+    return null;
+}
+
+function initializeCurrentRequestContext(
+    string $method,
+    string $uri,
+    string $resource,
+    ?string $id,
+    ?string $sub,
+    ?string $subId,
+    array $query,
+    array $body
+): void {
+    $GLOBALS['ENJOYFUN_REQUEST_CONTEXT'] = [
+        'method' => strtoupper($method),
+        'uri' => $uri,
+        'resource' => $resource,
+        'id' => $id,
+        'sub' => $sub,
+        'sub_id' => $subId,
+        'started_at' => microtime(true),
+        'event_id' => resolveInitialRequestEventId($query, $body),
+        'synthetic' => trim((string)($_SERVER['HTTP_X_OPERATIONAL_TEST'] ?? '')) !== '',
+        'actor' => null,
+        'telemetry_logged' => false,
+    ];
+}
+
+function setCurrentRequestActor(array $user): void
+{
+    if (!isset($GLOBALS['ENJOYFUN_REQUEST_CONTEXT']) || !is_array($GLOBALS['ENJOYFUN_REQUEST_CONTEXT'])) {
+        return;
+    }
+
+    $GLOBALS['ENJOYFUN_REQUEST_CONTEXT']['actor'] = [
+        'id' => isset($user['id']) ? (int)$user['id'] : null,
+        'sub' => isset($user['sub']) ? (int)$user['sub'] : null,
+        'email' => (string)($user['email'] ?? ''),
+        'role' => (string)($user['role'] ?? ''),
+        'organizer_id' => isset($user['organizer_id']) ? (int)$user['organizer_id'] : null,
+        'sector' => (string)($user['sector'] ?? ''),
+    ];
+}
+
+function setCurrentRequestEventId(?int $eventId): void
+{
+    if ($eventId === null || $eventId <= 0) {
+        return;
+    }
+
+    if (!isset($GLOBALS['ENJOYFUN_REQUEST_CONTEXT']) || !is_array($GLOBALS['ENJOYFUN_REQUEST_CONTEXT'])) {
+        return;
+    }
+
+    $GLOBALS['ENJOYFUN_REQUEST_CONTEXT']['event_id'] = $eventId;
+}
+
+function resolveCriticalEndpointLabel(array $context): ?string
+{
+    $method = strtoupper((string)($context['method'] ?? 'GET'));
+    $resource = (string)($context['resource'] ?? '');
+    $id = $context['id'] ?? null;
+    $sub = $context['sub'] ?? null;
+
+    if ($resource === 'workforce' && $id === 'roles' && $method === 'GET') {
+        return 'GET /workforce/roles';
+    }
+    if ($resource === 'workforce' && $id === 'event-roles' && $method === 'GET' && $sub === null) {
+        return 'GET /workforce/event-roles';
+    }
+    if ($resource === 'workforce' && $id === 'tree-status' && $method === 'GET') {
+        return 'GET /workforce/tree-status';
+    }
+    if ($resource === 'workforce' && $id === 'tree-backfill' && $method === 'POST') {
+        return 'POST /workforce/tree-backfill';
+    }
+    if ($resource === 'workforce' && $id === 'tree-sanitize' && $method === 'POST') {
+        return 'POST /workforce/tree-sanitize';
+    }
+    if ($resource === 'workforce' && $id === 'managers' && $method === 'GET') {
+        return 'GET /workforce/managers';
+    }
+    if ($resource === 'workforce' && $id === 'assignments' && $method === 'GET') {
+        return 'GET /workforce/assignments';
+    }
+    if ($resource === 'workforce' && $id === 'assignments' && $method === 'POST') {
+        return 'POST /workforce/assignments';
+    }
+    if ($resource === 'workforce' && $id === 'assignments' && $sub !== null && $method === 'DELETE') {
+        return 'DELETE /workforce/assignments/:id';
+    }
+    if ($resource === 'participants' && $id === null && $method === 'GET') {
+        return 'GET /participants';
+    }
+    if ($resource === 'participants' && $id === null && $method === 'POST') {
+        return 'POST /participants';
+    }
+    if ($resource === 'participants' && $id === 'backfill-qrs' && $method === 'POST') {
+        return 'POST /participants/backfill-qrs';
+    }
+    if ($resource === 'participants' && $id === 'bulk-delete' && $method === 'POST') {
+        return 'POST /participants/bulk-delete';
+    }
+    if ($resource === 'participants' && $id !== null && ctype_digit((string)$id) && $method === 'DELETE') {
+        return 'DELETE /participants/:id';
+    }
+    if ($resource === 'sync' && $method === 'POST') {
+        return 'POST /sync';
+    }
+
+    return null;
+}
+
+function observeApiRequestTelemetry(bool $success, int $statusCode, string $message = '', array $extraMeta = []): void
+{
+    if (!class_exists('AuditService')) {
+        return;
+    }
+
+    if (!isset($GLOBALS['ENJOYFUN_REQUEST_CONTEXT']) || !is_array($GLOBALS['ENJOYFUN_REQUEST_CONTEXT'])) {
+        return;
+    }
+
+    $context = $GLOBALS['ENJOYFUN_REQUEST_CONTEXT'];
+    if (!empty($context['telemetry_logged'])) {
+        return;
+    }
+
+    $endpointLabel = resolveCriticalEndpointLabel($context);
+    $GLOBALS['ENJOYFUN_REQUEST_CONTEXT']['telemetry_logged'] = true;
+    if ($endpointLabel === null) {
+        return;
+    }
+
+    $latencyMs = (int)max(0, round((microtime(true) - (float)($context['started_at'] ?? microtime(true))) * 1000));
+    $actor = is_array($context['actor'] ?? null) ? $context['actor'] : null;
+    $organizerId = (int)($actor['organizer_id'] ?? 0);
+    $isFailure = $statusCode >= 400 || !$success || ($endpointLabel === 'POST /sync' && $statusCode === 207);
+    $metadata = array_merge([
+        'endpoint' => $endpointLabel,
+        'method' => (string)($context['method'] ?? ''),
+        'resource' => (string)($context['resource'] ?? ''),
+        'route_uri' => (string)($context['uri'] ?? ''),
+        'status_code' => $statusCode,
+        'latency_ms' => $latencyMs,
+        'synthetic' => !empty($context['synthetic']),
+    ], $extraMeta);
+
+    if ($message !== '') {
+        $metadata['message'] = substr($message, 0, 300);
+    }
+
+    AuditService::log(
+        defined('AuditService::API_REQUEST') ? AuditService::API_REQUEST : 'api.request',
+        'endpoint',
+        $endpointLabel,
+        null,
+        [
+            'status_code' => $statusCode,
+            'latency_ms' => $latencyMs,
+        ],
+        $actor,
+        $isFailure ? 'failure' : 'success',
+        [
+            'event_id' => isset($context['event_id']) ? (int)$context['event_id'] : null,
+            'metadata' => $metadata,
+        ]
+    );
+}
+
 // ── Env Loader ────────────────────────────────────────────────────────────────
 loadBackendEnv(BASE_PATH . '/.env');
 
@@ -94,6 +304,7 @@ if (file_exists($auditFile)) require_once $auditFile;
 // ── Funções Globais de Resposta ──────────────────────────────────────────────
 function jsonSuccess($data = null, $message = '', $code = 200): never {
     if (ob_get_length()) ob_clean();
+    observeApiRequestTelemetry(true, $code, $message);
     http_response_code($code);
     echo json_encode(['success' => true, 'data' => $data, 'message' => $message], JSON_UNESCAPED_UNICODE);
     exit;
@@ -101,12 +312,22 @@ function jsonSuccess($data = null, $message = '', $code = 200): never {
 
 function jsonError($message = '', $code = 400, array $meta = []): never {
     if (ob_get_length()) ob_clean();
+    observeApiRequestTelemetry(false, $code, $message, ['response_meta_keys' => array_keys($meta)]);
     http_response_code($code);
     $response = ['success' => false, 'message' => $message];
     if (!empty($meta)) {
         $response['meta'] = $meta;
     }
     echo json_encode($response, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+function jsonMultiStatus($data = null, $message = ''): never
+{
+    if (ob_get_length()) ob_clean();
+    observeApiRequestTelemetry(true, 207, $message, ['multi_status' => true]);
+    http_response_code(207);
+    echo json_encode(['success' => true, 'data' => $data, 'message' => $message], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -136,6 +357,8 @@ $raw  = file_get_contents('php://input');
 if ($raw && ($decoded = json_decode($raw, true)) !== null) {
     $body = $decoded;
 }
+
+initializeCurrentRequestContext($method, $uri, $resource, $id, $sub, $subId, $_GET, $body);
 
 // ── Roteador ──────────────────────────────────────────────────────────────────
     $controllers = [
