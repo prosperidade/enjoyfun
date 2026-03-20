@@ -19,8 +19,9 @@ function getInsight(array $body): void
 {
     $operator = requireAuth(['admin', 'organizer', 'manager', 'bartender', 'staff']);
 
-    $context = $body['context'] ?? null;
-    $question = trim($body['question'] ?? '');
+    $payload = aiNormalizeInsightPayload($body);
+    $context = $payload['context'] ?? null;
+    $question = trim((string)($payload['question'] ?? ''));
 
     if (!$context || !$question) {
         jsonError('Contexto analítico (context) e pergunta (question) são obrigatórios.', 422);
@@ -77,6 +78,29 @@ function getInsight(array $body): void
         'provider' => $result['provider'],
         'model' => $result['model'],
     ], 'Insight gerado com sucesso.');
+}
+
+function aiNormalizeInsightPayload(array $body): array
+{
+    $payload = $body;
+    if (empty($payload)) {
+        $raw = file_get_contents('php://input');
+        if (is_string($raw) && trim($raw) !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $payload = $decoded;
+            }
+        }
+    }
+
+    if (isset($payload['context']) && is_string($payload['context'])) {
+        $decodedContext = json_decode($payload['context'], true);
+        if (is_array($decodedContext)) {
+            $payload['context'] = $decodedContext;
+        }
+    }
+
+    return $payload;
 }
 
 function aiResolveOrganizerId(array $operator, array $context): int
@@ -222,7 +246,7 @@ function aiRequestGeminiInsight(string $systemPrompt, string $prompt): array
 function aiExecuteJsonRequest(string $url, string $payload, array $headers, string $providerLabel): array
 {
     $ch = curl_init($url);
-    curl_setopt_array($ch, [
+    $curlOptions = [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => $payload,
@@ -230,7 +254,14 @@ function aiExecuteJsonRequest(string $url, string $payload, array $headers, stri
         CURLOPT_TIMEOUT => 15,
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
-    ]);
+    ];
+
+    $caBundle = aiResolveCaBundlePath();
+    if ($caBundle !== null) {
+        $curlOptions[CURLOPT_CAINFO] = $caBundle;
+    }
+
+    curl_setopt_array($ch, $curlOptions);
 
     $body = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -240,7 +271,11 @@ function aiExecuteJsonRequest(string $url, string $payload, array $headers, stri
     if ($error !== '') {
         $normalizedErr = strtolower($error);
         if (str_contains($normalizedErr, 'ssl') || str_contains($normalizedErr, 'certificate')) {
-            throw new RuntimeException('Falha de validação TLS com o provedor de IA. Revise os certificados do ambiente.', 502);
+            $message = 'Falha de validação TLS com o provedor de IA. Revise os certificados e a data/hora do ambiente.';
+            if ($caBundle === null) {
+                $message .= ' Configure CURL_CA_BUNDLE, SSL_CERT_FILE ou um CA bundle compatível no servidor.';
+            }
+            throw new RuntimeException($message, 502);
         }
         throw new RuntimeException("Erro de comunicação com {$providerLabel}: {$error}", 502);
     }
@@ -261,4 +296,30 @@ function aiExecuteJsonRequest(string $url, string $payload, array $headers, stri
         'status' => $status,
         'body' => (string)$body,
     ];
+}
+
+function aiResolveCaBundlePath(): ?string
+{
+    $candidates = [
+        trim((string)(getenv('AI_CA_BUNDLE') ?: '')),
+        trim((string)(getenv('CURL_CA_BUNDLE') ?: '')),
+        trim((string)(getenv('SSL_CERT_FILE') ?: '')),
+        trim((string)(getenv('OPENSSL_CAFILE') ?: '')),
+        trim((string)ini_get('curl.cainfo')),
+        trim((string)ini_get('openssl.cafile')),
+        'C:\\Program Files\\Git\\mingw64\\etc\\ssl\\certs\\ca-bundle.crt',
+        'C:\\Program Files\\Git\\usr\\ssl\\certs\\ca-bundle.crt',
+        'C:\\Program Files\\Git\\mingw64\\etc\\pki\\ca-trust\\extracted\\pem\\tls-ca-bundle.pem',
+        '/etc/ssl/certs/ca-certificates.crt',
+        '/etc/pki/tls/certs/ca-bundle.crt',
+        '/etc/ssl/cert.pem',
+    ];
+
+    foreach ($candidates as $candidate) {
+        if ($candidate !== '' && is_file($candidate) && is_readable($candidate)) {
+            return $candidate;
+        }
+    }
+
+    return null;
 }

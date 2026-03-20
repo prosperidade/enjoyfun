@@ -15,7 +15,7 @@ class SalesDomainService
      * @param array $items Lista de itens comprados [['product_id' => 1, 'quantity' => 2]]
      * @param string $sector O setor onde a venda está sendo feita ('bar', 'food', 'shop')
      * @param float $expectedTotal O valor total que o frontend espera cobrar (opcional, para validação dupla)
-     * @param string|null $cardId O token ou ID da pulseira NFC / QR Code
+     * @param string|null $cardId O identificador canônico do cartão digital (UUID)
      * @return array Array com índices 'sale_id' e 'new_balance'
      * @throws Exception Caso haja fraude no cálculo, pulseira inválida ou sem saldo
      */
@@ -36,6 +36,14 @@ class SalesDomainService
 
         if (empty($items)) {
             throw new Exception("Carrinho vazio.", 422);
+        }
+
+        $cardId = $cardId !== null ? trim($cardId) : null;
+        if ($cardId === null || $cardId === '') {
+            throw new Exception("Checkout exige card_id canônico.", 422);
+        }
+        if (!\WalletSecurityService::isCanonicalCardId($cardId)) {
+            throw new Exception("Checkout exige card_id canônico.", 422);
         }
 
         try {
@@ -110,6 +118,7 @@ class SalesDomainService
 
             // 2. Fluxo Cashless: valida e debita a pulseira via WalletSecurityService
             $newBalance = null;
+            $cardTransactionId = null;
             if ($cardId) {
                 try {
                     $txResult = \WalletSecurityService::processTransaction(
@@ -118,8 +127,17 @@ class SalesDomainService
                         $calculatedTotal,
                         'debit',
                         $organizerId,
-                        ['sector' => $sector]
+                        [
+                            'description' => sprintf('Venda via Cashless (%s)', strtoupper($sector)),
+                            'event_id' => $eventId,
+                            'offline_id' => (string)($options['offline_id'] ?? ''),
+                            'is_offline' => !empty($options['is_offline']),
+                            'user_id' => (int)($operator['id'] ?? 0),
+                            'payment_method' => 'cashless',
+                            'sector' => $sector,
+                        ]
                     );
+                    $cardTransactionId = isset($txResult['transaction_id']) ? (int)$txResult['transaction_id'] : null;
                     $newBalance = $txResult['balance_after'];
                 } catch (Exception $e) {
                     \AuditService::logFailure(
@@ -169,6 +187,17 @@ class SalesDomainService
             $stmtSale = $db->prepare($sqlSale);
             $stmtSale->execute($saleValues);
             $saleId = (int)$stmtSale->fetchColumn();
+
+            if ($cardTransactionId !== null) {
+                \WalletSecurityService::attachTransactionContext($db, $cardTransactionId, [
+                    'sale_id' => $saleId,
+                    'event_id' => $eventId,
+                    'offline_id' => (string)($options['offline_id'] ?? ''),
+                    'is_offline' => !empty($options['is_offline']),
+                    'user_id' => (int)($operator['id'] ?? 0),
+                    'payment_method' => 'cashless',
+                ]);
+            }
 
             // 4. Inserção de Itens e baixa de estoque
             $stmtInsertItem = $db->prepare(

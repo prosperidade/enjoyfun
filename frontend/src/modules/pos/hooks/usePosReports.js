@@ -1,25 +1,75 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../../lib/api";
 
-export function usePosReports({ currentSector, eventId }) {
+const EMPTY_REPORT = {
+  total_revenue: 0,
+  total_items: 0,
+  sales_chart: [],
+  mix_chart: [],
+};
+
+function normalizeReportData(report) {
+  if (!report || typeof report !== "object") {
+    return { ...EMPTY_REPORT };
+  }
+
+  return {
+    total_revenue: Number(report.total_revenue || 0),
+    total_items: Number(report.total_items || 0),
+    sales_chart: Array.isArray(report.sales_chart) ? report.sales_chart : [],
+    mix_chart: Array.isArray(report.mix_chart) ? report.mix_chart : [],
+  };
+}
+
+function resolveReportPayload(data) {
+  if (Array.isArray(data)) {
+    return {
+      recentSales: data,
+      report: { ...EMPTY_REPORT },
+    };
+  }
+
+  return {
+    recentSales: Array.isArray(data?.recent_sales) ? data.recent_sales : [],
+    report: normalizeReportData(data?.report),
+  };
+}
+
+export function usePosReports({ currentSector, eventId, reportsActive }) {
   const [, setRecentSales] = useState([]);
   const [reportData, setReportData] = useState(null);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const [reportStale, setReportStale] = useState(false);
+  const [lastReportUpdatedAt, setLastReportUpdatedAt] = useState(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [timeFilter, setTimeFilter] = useState("24h");
   const [aiQuestion, setAiQuestion] = useState("");
   const latestSalesRequestRef = useRef(0);
+  const reportSnapshotRef = useRef(null);
+
+  useEffect(() => {
+    reportSnapshotRef.current = reportData;
+  }, [reportData]);
 
   const loadRecentSales = useCallback(async () => {
     const normalizedEventId = Number(eventId);
     if (normalizedEventId <= 0) {
       setRecentSales([]);
       setReportData(null);
+      setLoadingReports(false);
+      setReportError("");
+      setReportStale(false);
+      setLastReportUpdatedAt(null);
       return;
     }
 
     const requestId = latestSalesRequestRef.current + 1;
     latestSalesRequestRef.current = requestId;
+    setLoadingReports(true);
+    setReportError("");
+    setReportStale(reportSnapshotRef.current !== null);
 
     try {
       const res = await api.get(
@@ -30,32 +80,55 @@ export function usePosReports({ currentSector, eventId }) {
       }
 
       if (res.data?.data) {
-        if (res.data.data.recent_sales) {
-          setRecentSales(res.data.data.recent_sales);
-          if (res.data.data.report) {
-            setReportData(res.data.data.report);
-          }
-        } else {
-          setRecentSales(res.data.data);
-          if (res.data.data.report) {
-            setReportData(res.data.data.report);
-          }
-        }
+        const nextPayload = resolveReportPayload(res.data.data);
+        setRecentSales(nextPayload.recentSales);
+        setReportData(nextPayload.report);
+        setLastReportUpdatedAt(new Date().toISOString());
+      } else {
+        setRecentSales([]);
+        setReportData({ ...EMPTY_REPORT });
+        setLastReportUpdatedAt(new Date().toISOString());
       }
+
+      setLoadingReports(false);
+      setReportError("");
+      setReportStale(false);
     } catch (err) {
+      if (requestId !== latestSalesRequestRef.current) {
+        return;
+      }
+
       console.error("Erro ao carregar vendas", err);
+      setLoadingReports(false);
+      setReportError(
+        err.response?.data?.message ||
+          "Nao foi possivel atualizar os indicadores agora.",
+      );
+      setReportStale(reportSnapshotRef.current !== null);
     }
   }, [currentSector, eventId, timeFilter]);
 
   useEffect(() => {
+    if (!reportsActive) {
+      return undefined;
+    }
+
     loadRecentSales();
 
+    const normalizedEventId = Number(eventId);
+    if (normalizedEventId <= 0) {
+      return undefined;
+    }
+
     const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
       loadRecentSales();
-    }, 30000);
+    }, 45000);
 
     return () => window.clearInterval(intervalId);
-  }, [loadRecentSales]);
+  }, [eventId, loadRecentSales, reportsActive]);
 
   const requestInsight = useCallback(async () => {
     if (!aiQuestion.trim()) return;
@@ -115,9 +188,13 @@ export function usePosReports({ currentSector, eventId }) {
   return {
     aiQuestion,
     chatHistory,
+    lastReportUpdatedAt,
     loadingInsight,
+    loadingReports,
     loadRecentSales,
     reportData,
+    reportError,
+    reportStale,
     requestInsight,
     setAiQuestion,
     setTimeFilter,

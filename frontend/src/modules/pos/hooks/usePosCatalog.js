@@ -4,15 +4,39 @@ import { getProductIcon } from "../utils/getProductIcon";
 
 export function usePosCatalog({ currentSector }) {
   const [events, setEvents] = useState([]);
+  const [eventsError, setEventsError] = useState("");
   const [eventId, setEventId] = useState("");
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
+  const [catalogError, setCatalogError] = useState("");
 
   useEffect(() => {
+    let active = true;
+
     api
       .get("/events")
-      .then((response) => setEvents(response.data.data || []))
-      .catch(() => {});
+      .then((response) => {
+        if (!active) {
+          return;
+        }
+
+        setEvents(response.data.data || []);
+        setEventsError("");
+      })
+      .catch((err) => {
+        if (!active) {
+          return;
+        }
+
+        setEventsError(
+          err.response?.data?.message ||
+            "Nao foi possivel carregar a lista de eventos.",
+        );
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const loadProducts = useCallback(async () => {
@@ -20,10 +44,12 @@ export function usePosCatalog({ currentSector }) {
     if (normalizedEventId <= 0) {
       setProducts([]);
       setLoading(false);
+      setCatalogError("");
       return;
     }
 
     setLoading(true);
+    setCatalogError("");
 
     try {
       const res = await api.get(
@@ -41,6 +67,10 @@ export function usePosCatalog({ currentSector }) {
       }
     } catch (err) {
       console.error("Erro ao listar catálogo", err);
+      setCatalogError(
+        err.response?.data?.message ||
+          "Nao foi possivel atualizar o catalogo agora.",
+      );
     } finally {
       setLoading(false);
     }
@@ -51,8 +81,10 @@ export function usePosCatalog({ currentSector }) {
   }, [loadProducts]);
 
   return {
+    catalogError,
     eventId,
     events,
+    eventsError,
     loading,
     loadProducts,
     products,

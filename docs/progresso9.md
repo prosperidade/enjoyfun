@@ -388,3 +388,75 @@ Limitacao local desta rodada:
 - iniciar a nova rodada pelo dashboard
   - revisar indicadores, consultas, alertas e telemetria a partir da superficie operacional principal
   - seguir a partir dali corrigindo e melhorando os modulos encadeados pelo uso real
+
+---
+
+## 10. Rodada POS / Bar / Food / Shop / Cartao Digital
+
+### Escopo desta passada
+
+- base de confronto: `auditoriaPOS.md`
+- objetivo: endurecer o POS para volume alto de cartoes, reduzir falha silenciosa em relatorios/catalogo, estabilizar o fluxo offline e fechar a ambiguidade do checkout cashless
+
+### Fechado nesta passada
+
+- a camada de relatorios do POS deixou de resetar a experiencia visual a cada troca de aba:
+  - ultimo snapshot valido passou a ser mantido durante refresh
+  - estados `loading`, `error` e `stale` ficaram explicitos
+  - o polling ficou restrito a aba de relatorios e pagina visivel
+  - a aba de relatorios passou a permanecer montada apos a primeira abertura
+- erros operacionais de catalogo e contexto de evento deixaram de ficar invisiveis no frontend do POS
+- o contrato de checkout cashless foi canonizado para `card_id`:
+  - `bar`, `food` e `shop` deixaram de cobrar por aliases ambiguos no hot path
+  - o frontend resolve referencia escaneada para `card_id` antes do checkout online
+  - o offline novo aceita apenas `card_id` canonico ja resolvido
+- foi criado endpoint explicito de resolucao de cartao para compatibilidade controlada:
+  - `POST /cards/resolve` converte referencia legada para `card_id` canonico
+  - `Cards.jsx` passou a operar com `card_id` como identificador principal
+- a fila offline do POS foi endurecida:
+  - novos registros recebem metadados de versao e tipo de referencia do cartao
+  - a compatibilidade legada ficou isolada na migracao da fila antiga
+  - o reconcile backend continua convertendo referencias legadas antigas apenas no momento da sincronizacao
+- o motor de carteira foi reforcado para trilha e auditoria:
+  - debito e recarga passaram a compartilhar o mesmo servico transacional
+  - `card_transactions` passa a receber contexto util de auditoria quando o schema suporta isso (`event_id`, `sale_id`, `offline_id`, `user_id`, `payment_method`, `is_offline`)
+  - o checkout anexa a transacao cashless a venda criada, melhorando reconcile e investigacao posterior
+- cada terminal/browser passou a enviar `X-Device-ID` estavel, encerrando a trilha generica `browser_pos` no sync offline
+- a IA operacional do POS foi endurecida nesta frente:
+  - `/ai/insight` passou a aceitar o conjunto real de roles do POS
+  - o proxy ganhou resolucao de `CA bundle` e mensagem operacional mais clara para falha TLS por certificado/relogio do ambiente
+- foi criada a migration `database/025_cashless_offline_hardening.sql` e o baseline `database/schema_current.sql` foi alinhado com:
+  - constraints de saldo/transacao cashless
+  - constraints de status/tipo da `offline_queue`
+  - indices para `card_transactions`, `digital_cards`, `offline_queue` e `sales`
+
+### Validacoes executadas
+
+- `php -l backend/src/Controllers/AIController.php` passou
+- `php -l backend/src/Services/WalletSecurityService.php` passou
+- `php -l backend/src/Services/SalesDomainService.php` passou
+- `php -l backend/src/Controllers/CardController.php` passou
+- `php -l backend/src/Controllers/BarController.php` passou
+- `php -l backend/src/Controllers/FoodController.php` passou
+- `php -l backend/src/Controllers/ShopController.php` passou
+- `php -l backend/src/Controllers/SyncController.php` passou
+- `npm --prefix frontend run build` passou
+
+### O que falta para amanha fechar a frente do POS
+
+1. aplicar `database/025_cashless_offline_hardening.sql` no banco real e registrar em `database/migrations_applied.log`
+2. executar smoke operacional curta com backend reiniciado:
+   - `POST /cards/resolve`
+   - recarga
+   - checkout online
+   - venda offline
+   - `POST /sync` drenando a fila
+3. atualizar `auditoriaPOS.md` para marcar o que ja morreu e reduzir o residual real do modulo
+
+### Proxima etapa apos o fechamento do POS
+
+- voltar para o plano ja definido de iniciar a nova rodada pelo dashboard
+- deixar fora desta frente:
+  - IA multiagentes e governanca forte de custo por tenant
+  - consumidor real de outbox/mensageria
+  - dominio explicito de franquias

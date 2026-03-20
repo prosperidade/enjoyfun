@@ -8,10 +8,17 @@ import {
   YAxis,
 } from "recharts";
 
-export default function ProductMixChart({ reportData }) {
+export default function ProductMixChart({ loadingReports, reportData }) {
   return (
     <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
-      <h3 className="text-white font-bold mb-4">Mix de Produtos do Setor</h3>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h3 className="text-white font-bold">Mix de Produtos do Setor</h3>
+        {loadingReports ? (
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">
+            Atualizando
+          </span>
+        ) : null}
+      </div>
       {reportData?.mix_chart?.length ? (
         <ResponsiveContainer width="100%" height={320}>
           <BarChart
@@ -46,7 +53,7 @@ export default function ProductMixChart({ reportData }) {
         </ResponsiveContainer>
       ) : (
         <p className="text-center text-gray-600 text-sm py-20">
-          Sem dados do mix.
+          {loadingReports ? "Carregando mix..." : "Sem dados do mix."}
         </p>
       )}
     </div>

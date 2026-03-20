@@ -130,8 +130,7 @@ function checkout(array $body): void
     $eventId       = barRequireEventId($body['event_id'] ?? null);
     $items         = $body['items']                ?? [];
     $totalAmount   = (float)($body['total_amount'] ?? 0);
-    // POS.jsx envia como 'qr_token' — aceitar todos os aliases possíveis
-    $cardId = $body['qr_token'] ?? $body['card_id'] ?? $body['customer_id'] ?? $body['card_token'] ?? null;
+    $cardId = trim((string)($body['card_id'] ?? ''));
 
     try {
         $db = Database::getInstance();
@@ -142,7 +141,7 @@ function checkout(array $body): void
             $items,
             'bar',
             $totalAmount,
-            $cardId
+            $cardId !== '' ? $cardId : null
         );
         jsonSuccess($result, 'Venda realizada com sucesso!');
     } catch (Exception $e) {

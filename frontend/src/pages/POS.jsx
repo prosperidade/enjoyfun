@@ -25,21 +25,34 @@ import { usePosReports } from "../modules/pos/hooks/usePosReports";
 import { createProductForm } from "../modules/pos/utils/createProductForm";
 import { getSectorInfo } from "../modules/pos/utils/getSectorInfo";
 
+function isCanonicalCardId(value) {
+  return /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
+    String(value || "").trim(),
+  );
+}
+
 export default function POS({ fixedSector = "bar" }) {
   const navigate = useNavigate();
   const { syncOfflineData } = useNetwork();
   const [tab, setTab] = useState("pos");
   const currentSector = fixedSector;
   const sectorInfo = getSectorInfo(currentSector);
-  const [cardToken, setCardToken] = useState("");
+  const [cardReference, setCardReference] = useState("");
+  const [resolvedCardId, setResolvedCardId] = useState("");
+  const [resolvedCardMeta, setResolvedCardMeta] = useState(null);
+  const [cardResolveError, setCardResolveError] = useState("");
+  const [resolvingCard, setResolvingCard] = useState(false);
   const [processingSale, setProcessingSale] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
   const [prodForm, setProdForm] = useState(() => createProductForm(fixedSector));
+  const [hasOpenedReports, setHasOpenedReports] = useState(false);
 
   const {
+    catalogError,
     events,
     eventId,
+    eventsError,
     loading,
     loadProducts,
     products,
@@ -68,9 +81,13 @@ export default function POS({ fixedSector = "bar" }) {
   const {
     aiQuestion,
     chatHistory,
+    lastReportUpdatedAt,
     loadingInsight,
+    loadingReports,
     loadRecentSales,
     reportData,
+    reportError,
+    reportStale,
     requestInsight,
     setAiQuestion,
     setTimeFilter,
@@ -78,13 +95,132 @@ export default function POS({ fixedSector = "bar" }) {
   } = usePosReports({
     currentSector,
     eventId,
+    reportsActive: tab === "reports",
   });
 
   const hasValidEventContext = Number(eventId) > 0;
+  const trimmedCardReference = cardReference.trim();
 
   useEffect(() => {
     clearCart();
+    setCardReference("");
+    setResolvedCardId("");
+    setResolvedCardMeta(null);
+    setCardResolveError("");
   }, [clearCart, fixedSector]);
+
+  useEffect(() => {
+    if (tab === "reports") {
+      setHasOpenedReports(true);
+    }
+  }, [tab]);
+
+  const handleCardReferenceChange = (value) => {
+    const trimmedValue = value.trim();
+    setCardReference(value);
+    setCardResolveError("");
+
+    if (isCanonicalCardId(trimmedValue)) {
+      setResolvedCardId(trimmedValue);
+      setResolvedCardMeta({
+        card_id: trimmedValue,
+        reference: trimmedValue,
+        resolved_from: "card_id",
+      });
+      return;
+    }
+
+    setResolvedCardId("");
+    setResolvedCardMeta(null);
+  };
+
+  const resolveCheckoutCardId = async () => {
+    if (trimmedCardReference === "") {
+      throw new Error("Escaneie o cartão do cliente antes de finalizar.");
+    }
+
+    if (
+      resolvedCardId &&
+      resolvedCardMeta?.reference === trimmedCardReference &&
+      isCanonicalCardId(resolvedCardId)
+    ) {
+      return resolvedCardId;
+    }
+
+    if (isCanonicalCardId(trimmedCardReference)) {
+      setResolvedCardId(trimmedCardReference);
+      setResolvedCardMeta({
+        card_id: trimmedCardReference,
+        reference: trimmedCardReference,
+        resolved_from: "card_id",
+      });
+      return trimmedCardReference;
+    }
+
+    if (isOffline) {
+      throw new Error(
+        "Offline exige um card_id canônico já resolvido antes da venda.",
+      );
+    }
+
+    setResolvingCard(true);
+    setCardResolveError("");
+
+    try {
+      const { data } = await api.post("/cards/resolve", {
+        reference: trimmedCardReference,
+      });
+      const card = data?.data || {};
+      const nextCardId = String(card.card_id || "").trim();
+
+      if (!isCanonicalCardId(nextCardId)) {
+        throw new Error("A resolução do cartão não retornou um card_id válido.");
+      }
+
+      setResolvedCardId(nextCardId);
+      setResolvedCardMeta({
+        ...card,
+        reference: trimmedCardReference,
+      });
+      return nextCardId;
+    } catch (err) {
+      const message =
+        err.response?.data?.message ||
+        err.message ||
+        "Nao foi possivel resolver o cartão.";
+      setResolvedCardId("");
+      setResolvedCardMeta(null);
+      setCardResolveError(message);
+      throw new Error(message);
+    } finally {
+      setResolvingCard(false);
+    }
+  };
+
+  let cardHint = null;
+  let cardHintTone = "muted";
+  if (trimmedCardReference === "") {
+    cardHint = null;
+  } else if (cardResolveError) {
+    cardHint = cardResolveError;
+    cardHintTone = "danger";
+  } else if (resolvingCard) {
+    cardHint = "Validando o cartão para obter o card_id canônico...";
+  } else if (
+    resolvedCardId &&
+    resolvedCardMeta?.reference === trimmedCardReference
+  ) {
+    cardHint = `Cartão pronto para cobrança: ${resolvedCardId.slice(0, 8)}...`;
+    cardHintTone = "success";
+  } else if (isOffline && !isCanonicalCardId(trimmedCardReference)) {
+    cardHint = "Offline exige um card_id já resolvido antes da queda de rede.";
+    cardHintTone = "warning";
+  } else if (isCanonicalCardId(trimmedCardReference)) {
+    cardHint = "card_id canônico detectado.";
+    cardHintTone = "success";
+  } else {
+    cardHint = "A referência escaneada será convertida para card_id no checkout.";
+  }
 
   const handleCheckout = async () => {
     if (!hasValidEventContext) {
@@ -93,13 +229,22 @@ export default function POS({ fixedSector = "bar" }) {
       );
       return;
     }
-    if (cart.length === 0 || !cardToken) return;
+    if (cart.length === 0 || !trimmedCardReference) return;
+
+    let canonicalCardId = "";
+    try {
+      canonicalCardId = await resolveCheckoutCardId();
+    } catch (err) {
+      toast.error(err.message || "Nao foi possivel validar o cartão.");
+      return;
+    }
+
     setProcessingSale(true);
     const offlineId = uuidv4();
     const payload = {
       event_id: Number(eventId),
       total_amount: total,
-      card_id: cardToken,
+      card_id: canonicalCardId,
       sector: currentSector,
       items: cart.map((item) => ({
         product_id: item.id,
@@ -115,7 +260,9 @@ export default function POS({ fixedSector = "bar" }) {
         await enqueueOfflineSale(payload, offlineId);
         toast.success("Venda salva offline!");
         clearCart();
-        setCardToken("");
+        setCardReference("");
+        setResolvedCardId("");
+        setResolvedCardMeta(null);
         return;
       }
 
@@ -126,7 +273,9 @@ export default function POS({ fixedSector = "bar" }) {
         });
         toast.success("Venda Realizada!", { icon: "✅" });
         clearCart();
-        setCardToken("");
+        setCardReference("");
+        setResolvedCardId("");
+        setResolvedCardMeta(null);
         loadProducts();
         loadRecentSales();
       } catch (err) {
@@ -137,7 +286,9 @@ export default function POS({ fixedSector = "bar" }) {
           await enqueueOfflineSale(payload, offlineId);
           toast.success("Salvo Offline!", { icon: "💾" });
           clearCart();
-          setCardToken("");
+          setCardReference("");
+          setResolvedCardId("");
+          setResolvedCardMeta(null);
           syncOfflineData();
         } else {
           toast.error(err.response?.data?.message || "Erro na venda.");
@@ -221,6 +372,7 @@ export default function POS({ fixedSector = "bar" }) {
           <PosToolbar
             eventId={eventId}
             events={events}
+            eventsError={eventsError}
             sectorInfo={sectorInfo}
             setEventId={setEventId}
             setTab={setTab}
@@ -231,6 +383,7 @@ export default function POS({ fixedSector = "bar" }) {
           {tab === "pos" && (
             <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
               <ProductGrid
+                catalogError={catalogError}
                 currentSector={currentSector}
                 fallbackIcon={sectorInfo.fallbackIcon}
                 loading={loading}
@@ -244,11 +397,14 @@ export default function POS({ fixedSector = "bar" }) {
                 onUpdateQuantity={updateQuantity}
               >
                 <CheckoutPanel
-                  cardToken={cardToken}
+                  cardHint={cardHint}
+                  cardHintTone={cardHintTone}
+                  cardReference={cardReference}
                   canCheckout={
                     cart.length > 0 &&
-                    Boolean(cardToken) &&
-                    hasValidEventContext
+                    Boolean(trimmedCardReference) &&
+                    hasValidEventContext &&
+                    !resolvingCard
                   }
                   checkoutHint={
                     hasValidEventContext
@@ -256,9 +412,10 @@ export default function POS({ fixedSector = "bar" }) {
                       : "Selecione um evento valido para habilitar o checkout."
                   }
                   isOffline={isOffline}
-                  onCardTokenChange={setCardToken}
+                  onCardReferenceChange={handleCardReferenceChange}
                   onCheckout={handleCheckout}
                   processingSale={processingSale}
+                  resolvingCard={resolvingCard}
                   total={total}
                 />
               </CartPanel>
@@ -292,28 +449,45 @@ export default function POS({ fixedSector = "bar" }) {
           )}
 
           {/* ABA BI & IA */}
-          {tab === "reports" && (
-            <ReportsPanel>
+          {hasOpenedReports && (
+            <ReportsPanel isActive={tab === "reports"}>
               <ReportsControls
                 aiQuestion={aiQuestion}
+                hasValidEventContext={hasValidEventContext}
+                lastReportUpdatedAt={lastReportUpdatedAt}
                 loadingInsight={loadingInsight}
+                loadingReports={loadingReports}
                 onAiQuestionChange={setAiQuestion}
                 onInsightComposerKeyDown={(e) =>
                   e.key === "Enter" && requestInsight()
                 }
                 onRequestInsight={requestInsight}
                 onTimeFilterChange={setTimeFilter}
+                reportError={reportError}
+                reportStale={reportStale}
                 sectorTitle={sectorInfo.title}
                 timeFilter={timeFilter}
               />
 
-              <ReportSummaryCards reportData={reportData} />
+              <ReportSummaryCards
+                loadingReports={loadingReports}
+                reportData={reportData}
+                reportError={reportError}
+              />
 
               <InsightChat chatHistory={chatHistory} />
 
               <div className="flex flex-col gap-8 w-full">
-                <SalesTimelineChart reportData={reportData} />
-                <ProductMixChart reportData={reportData} />
+                <SalesTimelineChart
+                  loadingReports={loadingReports}
+                  reportData={reportData}
+                  reportError={reportError}
+                />
+                <ProductMixChart
+                  loadingReports={loadingReports}
+                  reportData={reportData}
+                  reportError={reportError}
+                />
               </div>
             </ReportsPanel>
           )}

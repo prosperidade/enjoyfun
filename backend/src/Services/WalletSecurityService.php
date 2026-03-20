@@ -15,6 +15,10 @@ class WalletSecurityService
             throw new RuntimeException('Identificador do cartão é obrigatório.', 400);
         }
 
+        if (!self::isCanonicalCardId($cardReference)) {
+            throw new RuntimeException('O checkout cashless exige card_id canônico.', 422);
+        }
+
         if ($amount <= 0) {
             throw new RuntimeException('Valor da transação inválido.', 400);
         }
@@ -31,7 +35,10 @@ class WalletSecurityService
                 $ownTransaction = true;
             }
 
-            $wallet = self::resolveWallet($db, $cardReference, $organizerId);
+            $wallet = self::resolveCardReference($db, $cardReference, $organizerId, [
+                'for_update' => true,
+                'include_presentation' => false,
+            ]);
 
             if (!$wallet) {
                 if ($ownTransaction) $db->rollBack();
@@ -49,24 +56,70 @@ class WalletSecurityService
                 throw new RuntimeException('Saldo insuficiente no cartão', 400);
             }
 
-            $updateStmt = $db->prepare('UPDATE digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?');
+            $updateStmt = $db->prepare('UPDATE digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?::uuid');
             $updateStmt->execute([$nextBalance, $cardId]);
 
             // Grava histórico da transação
-            $txStmt = $db->prepare('
-                INSERT INTO card_transactions (
-                    card_id, type, amount, balance_before, balance_after, description, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, NOW())
-                RETURNING id
-            ');
-            $txStmt->execute([
+            $txColumns = [
+                'card_id',
+                'type',
+                'amount',
+                'balance_before',
+                'balance_after',
+                'description',
+                'created_at',
+            ];
+            $txPlaceholders = ['?::uuid', '?', '?', '?', '?', '?', 'NOW()'];
+            $txValues = [
                 $cardId,
                 $type,
                 $amount,
                 $currentBalance,
                 $nextBalance,
                 ($metadata['description'] ?? 'Venda via Cashless'),
-            ]);
+            ];
+
+            if (!empty($metadata['event_id']) && self::columnExists($db, 'card_transactions', 'event_id')) {
+                $txColumns[] = 'event_id';
+                $txPlaceholders[] = '?';
+                $txValues[] = (int)$metadata['event_id'];
+            }
+            if (!empty($metadata['sale_id']) && self::columnExists($db, 'card_transactions', 'sale_id')) {
+                $txColumns[] = 'sale_id';
+                $txPlaceholders[] = '?';
+                $txValues[] = (int)$metadata['sale_id'];
+            }
+            if (!empty($metadata['offline_id']) && self::columnExists($db, 'card_transactions', 'offline_id')) {
+                $txColumns[] = 'offline_id';
+                $txPlaceholders[] = '?';
+                $txValues[] = (string)$metadata['offline_id'];
+            }
+            if (array_key_exists('is_offline', $metadata) && self::columnExists($db, 'card_transactions', 'is_offline')) {
+                $txColumns[] = 'is_offline';
+                $txPlaceholders[] = '?';
+                $txValues[] = !empty($metadata['is_offline']) ? 'true' : 'false';
+            }
+            if (!empty($metadata['user_id']) && self::columnExists($db, 'card_transactions', 'user_id')) {
+                $txColumns[] = 'user_id';
+                $txPlaceholders[] = '?';
+                $txValues[] = (int)$metadata['user_id'];
+            }
+            if (!empty($metadata['payment_method']) && self::columnExists($db, 'card_transactions', 'payment_method')) {
+                $txColumns[] = 'payment_method';
+                $txPlaceholders[] = '?';
+                $txValues[] = (string)$metadata['payment_method'];
+            }
+            if (self::columnExists($db, 'card_transactions', 'updated_at')) {
+                $txColumns[] = 'updated_at';
+                $txPlaceholders[] = 'NOW()';
+            }
+
+            $txStmt = $db->prepare(sprintf(
+                'INSERT INTO card_transactions (%s) VALUES (%s) RETURNING id',
+                implode(', ', $txColumns),
+                implode(', ', $txPlaceholders)
+            ));
+            $txStmt->execute($txValues);
 
             $transactionId = (int)$txStmt->fetchColumn();
 
@@ -90,63 +143,153 @@ class WalletSecurityService
         }
     }
 
+    public static function attachTransactionContext(PDO $db, int $transactionId, array $metadata = []): void
+    {
+        if ($transactionId <= 0) {
+            return;
+        }
+
+        $updates = [];
+        $values = [];
+
+        if (!empty($metadata['sale_id']) && self::columnExists($db, 'card_transactions', 'sale_id')) {
+            $updates[] = 'sale_id = COALESCE(sale_id, ?)';
+            $values[] = (int)$metadata['sale_id'];
+        }
+        if (!empty($metadata['event_id']) && self::columnExists($db, 'card_transactions', 'event_id')) {
+            $updates[] = 'event_id = COALESCE(event_id, ?)';
+            $values[] = (int)$metadata['event_id'];
+        }
+        if (!empty($metadata['offline_id']) && self::columnExists($db, 'card_transactions', 'offline_id')) {
+            $updates[] = 'offline_id = COALESCE(offline_id, ?)';
+            $values[] = (string)$metadata['offline_id'];
+        }
+        if (array_key_exists('is_offline', $metadata) && self::columnExists($db, 'card_transactions', 'is_offline')) {
+            $updates[] = 'is_offline = ?';
+            $values[] = !empty($metadata['is_offline']) ? 'true' : 'false';
+        }
+        if (!empty($metadata['user_id']) && self::columnExists($db, 'card_transactions', 'user_id')) {
+            $updates[] = 'user_id = COALESCE(user_id, ?)';
+            $values[] = (int)$metadata['user_id'];
+        }
+        if (!empty($metadata['payment_method']) && self::columnExists($db, 'card_transactions', 'payment_method')) {
+            $updates[] = 'payment_method = COALESCE(payment_method, ?)';
+            $values[] = (string)$metadata['payment_method'];
+        }
+        if (self::columnExists($db, 'card_transactions', 'updated_at')) {
+            $updates[] = 'updated_at = NOW()';
+        }
+
+        if (empty($updates)) {
+            return;
+        }
+
+        $values[] = $transactionId;
+        $stmt = $db->prepare(sprintf(
+            'UPDATE card_transactions SET %s WHERE id = ?',
+            implode(', ', $updates)
+        ));
+        $stmt->execute($values);
+    }
+
+    public static function resolveCardReference(PDO $db, string $cardReference, int $organizerId, array $options = []): ?array
+    {
+        $cardReference = trim($cardReference);
+        if ($cardReference === '' || $organizerId <= 0) {
+            return null;
+        }
+
+        $forUpdate = !empty($options['for_update']);
+        $allowLegacyToken = !empty($options['allow_legacy_token']);
+        $includePresentation = !empty($options['include_presentation']);
+
+        if (self::isCanonicalCardId($cardReference)) {
+            $wallet = self::findWalletById($db, $cardReference, $organizerId, $forUpdate, $includePresentation);
+            if ($wallet) {
+                return $wallet;
+            }
+        }
+
+        if ($allowLegacyToken && self::columnExists($db, 'digital_cards', 'card_token')) {
+            $wallet = self::findWalletByLegacyToken($db, $cardReference, $organizerId, $forUpdate, $includePresentation);
+            if ($wallet) {
+                return $wallet;
+            }
+        }
+
+        return null;
+    }
+
+    public static function isCanonicalCardId(string $value): bool
+    {
+        return preg_match(
+            '/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i',
+            trim($value)
+        ) === 1;
+    }
+
     /**
      * @param PDO $db
      * @param string $cardReference
      * @param int $organizerId
      * @return array|bool
      */
-    private static function resolveWallet(PDO $db, string $cardReference, int $organizerId): array|bool
+    private static function findWalletById(PDO $db, string $cardId, int $organizerId, bool $forUpdate, bool $includePresentation): array|bool
     {
+        $lockClause = $forUpdate ? ' FOR UPDATE' : '';
+        $selectFields = self::buildWalletSelectFields($db, $includePresentation);
+        $userJoin = $includePresentation ? 'LEFT JOIN users u ON u.id = c.user_id' : '';
+
         $stmtById = $db->prepare(
-            'SELECT id, balance
-             FROM digital_cards
-             WHERE id::text = ?
-               AND organizer_id = ?
-               AND is_active = true
-             FOR UPDATE'
+            "SELECT {$selectFields}
+             FROM digital_cards c
+             {$userJoin}
+             WHERE c.id = ?::uuid
+               AND c.organizer_id = ?
+               AND c.is_active = true
+             {$lockClause}"
         );
-        $stmtById->execute([$cardReference, $organizerId]);
+        $stmtById->execute([$cardId, $organizerId]);
         $wallet = $stmtById->fetch(PDO::FETCH_ASSOC);
-        if ($wallet) {
-            return $wallet;
+
+        return $wallet ?: false;
+    }
+
+    private static function findWalletByLegacyToken(PDO $db, string $cardToken, int $organizerId, bool $forUpdate, bool $includePresentation): array|bool
+    {
+        $lockClause = $forUpdate ? ' FOR UPDATE' : '';
+        $selectFields = self::buildWalletSelectFields($db, $includePresentation);
+        $userJoin = $includePresentation ? 'LEFT JOIN users u ON u.id = c.user_id' : '';
+        $stmtByToken = $db->prepare(
+            "SELECT {$selectFields}
+             FROM digital_cards c
+             {$userJoin}
+             WHERE c.card_token = ?
+               AND organizer_id = ?
+               AND c.is_active = true
+             {$lockClause}"
+        );
+        $stmtByToken->execute([$cardToken, $organizerId]);
+        $wallet = $stmtByToken->fetch(PDO::FETCH_ASSOC);
+
+        return $wallet ?: false;
+    }
+
+    private static function buildWalletSelectFields(PDO $db, bool $includePresentation): string
+    {
+        $fields = [
+            'c.id::text AS id',
+            'CAST(c.balance AS FLOAT) AS balance',
+        ];
+
+        if ($includePresentation) {
+            $fields[] = self::columnExists($db, 'digital_cards', 'card_token')
+                ? "COALESCE(NULLIF(TRIM(c.card_token), ''), c.id::text) AS card_token"
+                : 'c.id::text AS card_token';
+            $fields[] = "COALESCE(u.name, 'Cartão Avulso') AS user_name";
         }
 
-        if (self::columnExists($db, 'digital_cards', 'card_token')) {
-            $stmtByToken = $db->prepare(
-                'SELECT id, balance
-                 FROM digital_cards
-                 WHERE card_token = ?
-                   AND organizer_id = ?
-                   AND is_active = true
-                 FOR UPDATE'
-            );
-            $stmtByToken->execute([$cardReference, $organizerId]);
-            $wallet = $stmtByToken->fetch(PDO::FETCH_ASSOC);
-            if ($wallet) {
-                return $wallet;
-            }
-        }
-
-        if (ctype_digit($cardReference) && self::columnExists($db, 'digital_cards', 'user_id')) {
-            $stmtByUser = $db->prepare(
-                'SELECT id, balance
-                 FROM digital_cards
-                 WHERE user_id = ?
-                   AND organizer_id = ?
-                   AND is_active = true
-                 ORDER BY updated_at DESC NULLS LAST, created_at DESC
-                 LIMIT 1
-                 FOR UPDATE'
-            );
-            $stmtByUser->execute([(int)$cardReference, $organizerId]);
-            $wallet = $stmtByUser->fetch(PDO::FETCH_ASSOC);
-            if ($wallet) {
-                return $wallet;
-            }
-        }
-
-        return false;
+        return implode(",\n                    ", $fields);
     }
 
     private static function columnExists(PDO $db, string $table, string $column): bool

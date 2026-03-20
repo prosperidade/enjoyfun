@@ -9,10 +9,17 @@ import {
 } from "recharts";
 import CustomTooltip from "./CustomTooltip";
 
-export default function SalesTimelineChart({ reportData }) {
+export default function SalesTimelineChart({ loadingReports, reportData }) {
   return (
     <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
-      <h3 className="text-white font-bold mb-4">Timeline de Vendas do Setor</h3>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h3 className="text-white font-bold">Timeline de Vendas do Setor</h3>
+        {loadingReports ? (
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">
+            Atualizando
+          </span>
+        ) : null}
+      </div>
       {reportData?.sales_chart?.length ? (
         <ResponsiveContainer width="100%" height={320}>
           <AreaChart data={reportData.sales_chart}>
@@ -45,7 +52,7 @@ export default function SalesTimelineChart({ reportData }) {
         </ResponsiveContainer>
       ) : (
         <p className="text-center text-gray-600 text-sm py-20">
-          Sem dados históricos.
+          {loadingReports ? "Carregando historico..." : "Sem dados históricos."}
         </p>
       )}
     </div>

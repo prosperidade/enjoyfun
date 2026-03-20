@@ -7,6 +7,12 @@ function hasValidEventId(eventId) {
   return Number(eventId) > 0;
 }
 
+function isCanonicalCardId(value) {
+  return /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
+    String(value || "").trim(),
+  );
+}
+
 function createOfflineId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -57,9 +63,23 @@ export function usePosOfflineSync({ currentSector, syncOfflineData }) {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   const buildOfflineSaleItem = useCallback(
-    (payload, offlineId, createdOfflineAt = null) => {
+    (payload, offlineId, createdOfflineAt = null, options = {}) => {
       const normalizedEventId = Number(payload?.event_id);
       const normalizedOfflineId = offlineId || createOfflineId();
+      const cardReference =
+        payload.card_id ??
+        payload.qr_token ??
+        payload.card_token ??
+        payload.customer_id ??
+        null;
+      const normalizedCardId = String(cardReference || "").trim();
+      const allowLegacyCardReference = Boolean(options?.allowLegacyCardReference);
+
+      if (!allowLegacyCardReference && !isCanonicalCardId(normalizedCardId)) {
+        throw new Error(
+          "Venda offline exige card_id canônico resolvido antes de entrar na fila local.",
+        );
+      }
 
       return {
         offline_id: normalizedOfflineId,
@@ -68,12 +88,11 @@ export function usePosOfflineSync({ currentSector, syncOfflineData }) {
           ...payload,
           event_id: hasValidEventId(normalizedEventId) ? normalizedEventId : null,
           sector: payload.sector ?? currentSector,
-          card_id:
-            payload.card_id ??
-            payload.qr_token ??
-            payload.card_token ??
-            payload.customer_id ??
-            null,
+          card_id: normalizedCardId || null,
+          card_reference_kind: isCanonicalCardId(normalizedCardId)
+            ? "card_id"
+            : "legacy_reference",
+          client_schema_version: 2,
         },
         created_offline_at: createdOfflineAt ?? new Date().toISOString(),
         sector: payload.sector ?? currentSector,
@@ -110,15 +129,16 @@ export function usePosOfflineSync({ currentSector, syncOfflineData }) {
 
           return {
             ...buildOfflineSaleItem(
-              {
-                ...rawPayload,
-                sector: rawPayload?.sector ?? item?.sector ?? fallbackSector,
-              },
-              item?.offline_id ?? createOfflineId(),
-              item?.created_offline_at ?? item?.created_at ?? null,
-            ),
-            status: "pending",
-          };
+                {
+                  ...rawPayload,
+                  sector: rawPayload?.sector ?? item?.sector ?? fallbackSector,
+                },
+                item?.offline_id ?? createOfflineId(),
+                item?.created_offline_at ?? item?.created_at ?? null,
+                { allowLegacyCardReference: true },
+              ),
+              status: "pending",
+            };
         })
         .filter(Boolean);
 

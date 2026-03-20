@@ -258,7 +258,10 @@ CREATE TABLE public.card_transactions (
     description text,
     user_id integer,
     payment_method character varying(50),
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_card_transactions_amount_positive CHECK ((amount > (0)::numeric)),
+    CONSTRAINT chk_card_transactions_balance_non_negative CHECK (((balance_before >= (0)::numeric) AND (balance_after >= (0)::numeric))),
+    CONSTRAINT chk_card_transactions_type CHECK (((type)::text = ANY ((ARRAY['debit'::character varying, 'credit'::character varying])::text[])))
 );
 
 
@@ -382,7 +385,8 @@ CREATE TABLE public.digital_cards (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     is_active boolean DEFAULT true,
-    organizer_id integer
+    organizer_id integer,
+    CONSTRAINT chk_digital_cards_balance_non_negative CHECK ((balance >= (0)::numeric))
 );
 
 
@@ -655,7 +659,9 @@ CREATE TABLE public.offline_queue (
     status character varying(50) DEFAULT 'pending'::character varying,
     created_offline_at timestamp without time zone NOT NULL,
     processed_at timestamp without time zone,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_offline_queue_payload_type CHECK (((payload_type)::text = ANY ((ARRAY['sale'::character varying, 'meal'::character varying, 'topup'::character varying])::text[]))),
+    CONSTRAINT chk_offline_queue_status CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'failed'::character varying, 'synced'::character varying])::text[])))
 );
 
 
@@ -2674,6 +2680,27 @@ CREATE INDEX idx_guests_qr_token ON public.guests USING btree (qr_code_token);
 
 
 --
+-- Name: idx_card_transactions_card_created_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_card_transactions_card_created_at ON public.card_transactions USING btree (card_id, created_at DESC);
+
+
+--
+-- Name: idx_digital_cards_organizer_active; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_digital_cards_organizer_active ON public.digital_cards USING btree (organizer_id, is_active, updated_at DESC);
+
+
+--
+-- Name: idx_offline_queue_status_created_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_offline_queue_status_created_at ON public.offline_queue USING btree (status, created_at);
+
+
+--
 -- Name: idx_parking_event_id; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2755,6 +2782,13 @@ CREATE INDEX idx_refresh_expires ON public.refresh_tokens USING btree (user_id, 
 --
 
 CREATE INDEX idx_refresh_token ON public.refresh_tokens USING btree (token_hash);
+
+
+--
+-- Name: idx_sales_event_status_created_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_sales_event_status_created_at ON public.sales USING btree (event_id, status, created_at DESC);
 
 
 --

@@ -146,7 +146,7 @@ function processSale(PDO $db, array $operator, array $payload, string $offlineId
     $total = (float)($payload['total_amount'] ?? 0);
     $items = $payload['items'] ?? [];
     $sector = strtolower(trim((string)($payload['sector'] ?? 'bar')));
-    $cardId = $payload['card_id'] ?? null;
+    $cardId = trim((string)($payload['card_id'] ?? ''));
 
     if ($eventId <= 0) {
         throw new Exception('Evento inválido para sincronização offline.', 422);
@@ -156,6 +156,23 @@ function processSale(PDO $db, array $operator, array $payload, string $offlineId
     }
     if (!is_array($items) || empty($items)) {
         throw new Exception('Nenhum item encontrado para sincronização offline.', 422);
+    }
+    if ($cardId === '') {
+        throw new Exception('Registro offline sem card_id canônico.', 422);
+    }
+
+    if (!\WalletSecurityService::isCanonicalCardId($cardId)) {
+        $resolvedCard = \WalletSecurityService::resolveCardReference(
+            $db,
+            $cardId,
+            resolveSyncOrganizerId($operator),
+            ['allow_legacy_token' => true]
+        );
+        if (!$resolvedCard || empty($resolvedCard['id'])) {
+            throw new Exception('Cartão digital não encontrado para sincronização offline.', 404);
+        }
+
+        $cardId = (string)$resolvedCard['id'];
     }
 
     \EnjoyFun\Services\SalesDomainService::processCheckout(

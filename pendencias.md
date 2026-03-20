@@ -34,6 +34,7 @@
 | --- | --- | --- |
 | Workforce / Participants Hub | Homologado e encerrado funcionalmente | governança de release e observabilidade |
 | Meals | Homologado e encerrado funcionalmente | residual não bloqueante consolidado neste arquivo |
+| POS / Bar / Food / Shop / Cartão Digital | Frente em fechamento com núcleo funcional endurecido | rollout final de banco, smoke operacional e fechamento documental |
 | Integrações transversais / Mensageria | Frente postergada fora do foco atual | segredos legados, webhook forte e retry/replay |
 
 ---
@@ -80,6 +81,44 @@
 
 ---
 
+## 3.2 POS / Bar / Food / Shop / Cartao Digital
+
+### Estado
+
+- Frente quase encerrada.
+- Relatorios, catalogo, IA operacional, contrato canonico de `card_id`, fluxo offline novo e trilha de auditoria cashless ja foram endurecidos no codigo e registrados em `docs/progresso9.md`.
+
+### Pedencias remanescentes
+
+1. Rollout final de banco para cashless/offline
+- Risco: o codigo ja opera de forma mais rigida, mas o banco ainda pode aceitar estados indevidos sem as constraints/indices finais.
+- Consequencia: inconsistencias silenciosas de saldo, fila offline ou trilha de auditoria sob carga.
+- Mitigacao:
+  - aplicar `database/025_cashless_offline_hardening.sql`
+  - registrar a execucao em `database/migrations_applied.log`
+- Criterio de aceite: constraints e indices novos presentes no banco real.
+
+2. Smoke operacional ponta a ponta do POS
+- Risco: regressao localizada no runtime real mesmo com sintaxe e build ok.
+- Consequencia: falha de recarga, checkout ou reconcile offline so no uso real do operador.
+- Mitigacao:
+  - reiniciar o backend local/ambiente para evitar runtime stale
+  - validar `POST /cards/resolve`
+  - validar recarga de cartao
+  - validar checkout online
+  - validar venda offline seguida de `POST /sync`
+- Criterio de aceite: fluxo cashless e offline concluido sem erro funcional e sem residuos indevidos na fila.
+
+3. Fechamento documental da auditoria do POS
+- Risco: backlog historico continuar acusando achados ja mortos e reabrir frente desnecessariamente.
+- Consequencia: nova rodada gastar tempo em problema que ja foi corrigido.
+- Mitigacao:
+  - atualizar `auditoriaPOS.md`
+  - reduzir o residual do POS ao que realmente nao foi executado ainda
+- Criterio de aceite: auditoria do POS coerente com o codigo e com `docs/progresso9.md`.
+
+---
+
 ## 4. Ordem recomendada de ataque
 
 1. Dashboard
@@ -87,7 +126,12 @@
 - revisar indicadores, consultas, alertas e telemetria
 - seguir dali para os módulos encadeados pelo uso real
 
-2. Pendências transversais postergadas
+2. Fechar o POS
+- aplicar a `025`
+- executar a smoke curta de cashless/offline
+- encerrar a auditoria documental do modulo
+
+3. Pendências transversais postergadas
 - reabrir mensageria apenas com decisão explícita
 - tratar webhook forte, backfill de segredos e retry/replay como frente separada
 

@@ -11,6 +11,37 @@ const api = axios.create({
 });
 
 let refreshRequest = null;
+let cachedDeviceId = null;
+
+function createDeviceId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getDeviceId() {
+  if (cachedDeviceId) {
+    return cachedDeviceId;
+  }
+
+  if (typeof window === 'undefined') {
+    cachedDeviceId = 'server-side';
+    return cachedDeviceId;
+  }
+
+  const storageKey = 'enjoyfun_device_id';
+  const existing = window.localStorage?.getItem(storageKey);
+  if (existing) {
+    cachedDeviceId = existing;
+    return cachedDeviceId;
+  }
+
+  cachedDeviceId = createDeviceId();
+  window.localStorage?.setItem(storageKey, cachedDeviceId);
+  return cachedDeviceId;
+}
 
 function redirectToLogin() {
   const path = window.location.pathname || '';
@@ -28,6 +59,7 @@ function redirectToLogin() {
 api.interceptors.request.use((config) => {
   const token = getAccessToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  config.headers['X-Device-ID'] = getDeviceId();
   return config;
 });
 

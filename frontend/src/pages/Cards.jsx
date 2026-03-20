@@ -33,9 +33,15 @@ export default function Cards() {
   useEffect(() => { loadCards(); }, [eventId]);
 
   const viewCard = (card) => {
+    const cardId = card.card_id || card.card_token;
+    if (!cardId) {
+      toast.error('Cartão sem identificador canônico.');
+      return;
+    }
+
     setSelected(card);
     setTxLoading(true);
-    api.get(`/cards/${card.card_token}/transactions`)
+    api.get(`/cards/${cardId}/transactions`)
        .then(r => setTransactions(r.data.data || []))
        .catch(() => {})
        .finally(() => setTxLoading(false));
@@ -70,7 +76,8 @@ export default function Cards() {
     if (!topupAmt || !selected) return;
     setTopping(true);
     try {
-      const { data } = await api.post(`/cards/${selected.card_token}/topup`, { amount: parseFloat(topupAmt), payment_method: 'manual' });
+      const cardId = selected.card_id || selected.card_token;
+      const { data } = await api.post(`/cards/${cardId}/topup`, { amount: parseFloat(topupAmt), payment_method: 'manual' });
       toast.success(`R$ ${topupAmt} adicionado com sucesso!`);
       setSelected(s => ({ ...s, balance: data.data.balance }));
       setTopupAmt('');
@@ -83,7 +90,10 @@ export default function Cards() {
   };
 
   const filtered = cards.filter(c =>
-    !search || c.card_token.includes(search) || (c.user_name || '').toLowerCase().includes(search.toLowerCase())
+    !search ||
+    (c.card_id || '').includes(search) ||
+    (c.card_token || '').includes(search) ||
+    (c.user_name || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -106,7 +116,7 @@ export default function Cards() {
 
       <div className="relative">
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
-        <input className="input pl-10" placeholder="Buscar por token ou titular..." value={search} onChange={e => setSearch(e.target.value)} />
+        <input className="input pl-10" placeholder="Buscar por card_id, token ou titular..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
@@ -129,7 +139,7 @@ export default function Cards() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-white">{card.user_name || 'Cartão Anônimo'}</p>
-                    <p className="text-xs text-gray-500 font-mono truncate">{card.card_token.slice(0, 16)}...</p>
+                    <p className="text-xs text-gray-500 font-mono truncate">{(card.card_id || card.card_token || '').slice(0, 16)}...</p>
                     <p className="text-xs text-gray-400">{card.event_name}</p>
                   </div>
                   <div className="text-right">
@@ -154,7 +164,7 @@ export default function Cards() {
                 <span className={selected.status === 'active' ? 'badge-green' : 'badge-red'}>{selected.status}</span>
               </div>
               <div className="text-3xl font-bold text-white mb-1">R$ {parseFloat(selected.balance).toFixed(2)}</div>
-              <p className="text-xs text-gray-500 font-mono">{selected.card_token}</p>
+              <p className="text-xs text-gray-500 font-mono">{selected.card_id || selected.card_token}</p>
             </div>
 
             {/* Top-up form */}

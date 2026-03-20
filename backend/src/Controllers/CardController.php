@@ -3,7 +3,10 @@
  * Card Controller — EnjoyFun 2.0 (Multi-tenant)
  */
 
-function generateUuidV4(): string {
+require_once BASE_PATH . '/src/Services/WalletSecurityService.php';
+
+function generateUuidV4(): string
+{
     $data = random_bytes(16);
     $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
     $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
@@ -13,6 +16,7 @@ function generateUuidV4(): string {
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
+        $method === 'POST' && $id === 'resolve' => resolveCardReferenceEndpoint($body),
         $method === 'POST' && $id === null => createCard($body),
         $method === 'GET' && $id === null => listCards($query),
         $method === 'GET' && $id !== null && $sub === 'transactions' => listTransactions($id),
@@ -23,22 +27,27 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
 function listCards(array $query): void
 {
-    // 1. Pega os dados do crachá do organizador
     $operator = requireAuth();
-    $organizerId = $operator['organizer_id'];
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido', 403);
+    }
 
     try {
         $db = Database::getInstance();
-        
-        // 2. O CADEADO: Traz apenas os cartões deste organizador
+        $cardTokenSelect = cardControllerColumnExists($db, 'digital_cards', 'card_token')
+            ? "COALESCE(NULLIF(TRIM(c.card_token), ''), c.id::text)"
+            : 'c.id::text';
+
         $stmt = $db->prepare("
-            SELECT 
-                c.id::text as id, 
-                c.id::text as card_token, 
-                CAST(c.balance AS FLOAT) as balance, 
-                COALESCE(u.name, 'Cartão Avulso') as user_name, 
-                'active' as status, 
-                'Evento Geral' as event_name
+            SELECT
+                c.id::text AS id,
+                c.id::text AS card_id,
+                {$cardTokenSelect} AS card_token,
+                CAST(c.balance AS FLOAT) AS balance,
+                COALESCE(u.name, 'Cartão Avulso') AS user_name,
+                'active' AS status,
+                'Evento Geral' AS event_name
             FROM public.digital_cards c
             LEFT JOIN public.users u ON c.user_id = u.id
             WHERE c.organizer_id = ?
@@ -53,17 +62,57 @@ function listCards(array $query): void
     }
 }
 
-function listTransactions(string $cardId): void
+function resolveCardReferenceEndpoint(array $body): void
 {
     $operator = requireAuth();
-    $organizerId = $operator['organizer_id'];
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido', 403);
+    }
+
+    $reference = trim((string)($body['reference'] ?? $body['card_reference'] ?? $body['card_id'] ?? ''));
+    if ($reference === '') {
+        jsonError('reference é obrigatório para resolver o cartão.', 422);
+    }
 
     try {
         $db = Database::getInstance();
-        
-        // 2. O CADEADO: Garante que as transações são de um cartão pertencente a este organizador
+        $card = \WalletSecurityService::resolveCardReference($db, $reference, $organizerId, [
+            'allow_legacy_token' => true,
+            'include_presentation' => true,
+        ]);
+
+        if (!$card) {
+            jsonError('Cartão digital não encontrado ou inativo.', 404);
+        }
+
+        jsonSuccess([
+            'card_id' => (string)($card['id'] ?? ''),
+            'card_token' => (string)($card['card_token'] ?? $card['id'] ?? ''),
+            'user_name' => (string)($card['user_name'] ?? 'Cartão Avulso'),
+            'balance' => (float)($card['balance'] ?? 0),
+            'status' => 'active',
+            'resolved_from' => \WalletSecurityService::isCanonicalCardId($reference) ? 'card_id' : 'legacy_token',
+        ]);
+    } catch (Exception $e) {
+        jsonError("Falha ao resolver cartão: " . $e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 500);
+    }
+}
+
+function listTransactions(string $cardReference): void
+{
+    $operator = requireAuth();
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido', 403);
+    }
+
+    try {
+        $db = Database::getInstance();
+        $cardId = resolveCardIdForOrganizer($db, $cardReference, $organizerId);
+
         $stmt = $db->prepare("
-            SELECT t.id, t.type, CAST(t.amount AS FLOAT) as amount, t.created_at, t.description
+            SELECT t.id, t.type, CAST(t.amount AS FLOAT) AS amount, t.created_at, t.description
             FROM public.card_transactions t
             JOIN public.digital_cards c ON t.card_id = c.id
             WHERE t.card_id = ?::uuid AND c.organizer_id = ?
@@ -100,7 +149,7 @@ function createCard(array $body): void
         jsonSuccess([
             'card_id' => $uuid,
             'balance' => 0,
-            'is_active' => true
+            'is_active' => true,
         ], 'Cartão Cashless gerado com sucesso.', 201);
     } catch (Exception $e) {
         error_log("Erro ao criar cartão: " . $e->getMessage());
@@ -108,75 +157,114 @@ function createCard(array $body): void
     }
 }
 
-function addCredit(string $cardId, array $body): void
+function addCredit(string $cardReference, array $body): void
 {
     $userPayload = requireAuth();
-    $organizerId = $userPayload['organizer_id'];
+    $organizerId = (int)($userPayload['organizer_id'] ?? 0);
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido', 403);
+    }
 
     $amount = (float)($body['amount'] ?? 0);
     if ($amount <= 0) {
         jsonError("Valor de recarga inválido");
     }
 
-    $db = null;
-    try {
-        $db = Database::getInstance();
-        $db->beginTransaction();
+        $resolvedCardId = null;
+        $paymentMethod = trim((string)($body['payment_method'] ?? 'manual'));
+        if ($paymentMethod === '') {
+            $paymentMethod = 'manual';
+        }
 
-        // 2. O CADEADO: Trava a linha (FOR UPDATE) apenas se o cartão pertencer ao organizador
-        $stmt = $db->prepare("SELECT balance FROM public.digital_cards WHERE id = ?::uuid AND organizer_id = ? FOR UPDATE");
-        $stmt->execute([$cardId, $organizerId]);
-        $card = $stmt->fetch(PDO::FETCH_ASSOC);
+        try {
+            $db = Database::getInstance();
+            $resolvedCardId = resolveCardIdForOrganizer($db, $cardReference, $organizerId);
+            $txResult = \WalletSecurityService::processTransaction(
+                $db,
+                $resolvedCardId,
+                $amount,
+                'credit',
+                $organizerId,
+                [
+                    'description' => 'Recarga de Saldo',
+                    'user_id' => (int)($userPayload['id'] ?? 0),
+                    'payment_method' => $paymentMethod,
+                ]
+            );
 
-        if (!$card) {
-            $db->rollBack();
+            AuditService::log(
+                AuditService::CARD_RECHARGE,
+                'card',
+                $resolvedCardId,
+                ['balance' => $txResult['balance_before']],
+                [
+                    'balance' => $txResult['balance_after'],
+                    'recharge_amount' => $amount,
+                    'transaction_id' => $txResult['transaction_id'] ?? null,
+                    'payment_method' => $paymentMethod,
+                ],
+                $userPayload,
+                'success'
+            );
+
+            jsonSuccess([
+                'card_id' => $resolvedCardId,
+                'balance' => $txResult['balance_after'],
+                'transaction_id' => $txResult['transaction_id'] ?? null,
+            ], "Recarga de R$ {$amount} efetuada com sucesso!");
+        } catch (Exception $e) {
             AuditService::logFailure(
                 AuditService::CARD_RECHARGE,
                 'card',
-                $cardId,
-                'Cartão não encontrado ou pertence a outro organizador',
+                $resolvedCardId ?? $cardReference,
+                $e->getMessage(),
                 $userPayload
             );
-            jsonError("Cartão não encontrado ou acesso negado.", 404);
+            jsonError(
+                "Falha na recarga: " . $e->getMessage(),
+                $e->getCode() >= 400 ? $e->getCode() : 500
+            );
         }
-
-        $previousBalance = (float)$card['balance'];
-        $newBalance      = $previousBalance + $amount;
-
-        $stmtUp = $db->prepare("UPDATE public.digital_cards SET balance = ?, updated_at = NOW() WHERE id = ?::uuid");
-        $stmtUp->execute([$newBalance, $cardId]);
-
-        // Registra a transação
-        $stmtTx = $db->prepare("
-            INSERT INTO public.card_transactions (card_id, amount, type, description)
-            VALUES (?::uuid, ?, 'credit', 'Recarga de Saldo')
-        ");
-        $stmtTx->execute([$cardId, $amount]);
-
-        $db->commit();
-
-        AuditService::log(
-            AuditService::CARD_RECHARGE,
-            'card',
-            $cardId,
-            ['balance' => $previousBalance],
-            ['balance' => $newBalance, 'recharge_amount' => $amount],
-            $userPayload,
-            'success'
-        );
-
-        jsonSuccess(['balance' => $newBalance], "Recarga de R$ {$amount} efetuada com sucesso!");
-    } catch (Exception $e) {
-        if ($db && $db->inTransaction()) {
-            $db->rollBack();
-        }
-        AuditService::logFailure(
-            AuditService::CARD_RECHARGE,
-            'card',
-            $cardId,
-            $e->getMessage(),
-            $userPayload
-        );
-        jsonError("Falha na recarga: " . $e->getMessage(), 500);
     }
+
+function resolveCardIdForOrganizer(PDO $db, string $reference, int $organizerId): string
+{
+    $reference = trim($reference);
+    if ($reference === '') {
+        jsonError('Referência do cartão é obrigatória.', 422);
+    }
+
+    $card = \WalletSecurityService::resolveCardReference($db, $reference, $organizerId, [
+        'allow_legacy_token' => true,
+    ]);
+    if (!$card || empty($card['id'])) {
+        jsonError('Cartão não encontrado ou acesso negado.', 404);
+    }
+
+    return (string)$card['id'];
+}
+
+function cardControllerColumnExists(PDO $db, string $table, string $column): bool
+{
+    static $cache = [];
+    $key = $table . '.' . $column;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = :table
+          AND column_name = :column
+        LIMIT 1
+    ");
+    $stmt->execute([
+        ':table' => $table,
+        ':column' => $column,
+    ]);
+
+    $cache[$key] = (bool)$stmt->fetchColumn();
+    return $cache[$key];
 }

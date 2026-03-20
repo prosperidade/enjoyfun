@@ -3,6 +3,7 @@ import PosTabs from "./PosTabs";
 export default function PosToolbar({
   eventId,
   events,
+  eventsError,
   sectorInfo,
   setEventId,
   setTab,
@@ -15,6 +16,9 @@ export default function PosToolbar({
           {sectorInfo.icon} POS EnjoyFun{" "}
           <span className="text-gray-500 font-medium">| {sectorInfo.title}</span>
         </h1>
+        {eventsError ? (
+          <p className="mt-2 text-sm text-red-300">{eventsError}</p>
+        ) : null}
       </div>
 
       <div className="flex flex-col sm:flex-row items-center gap-4">
