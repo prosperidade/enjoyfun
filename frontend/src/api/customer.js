@@ -3,13 +3,27 @@
  * Funções de consumo de dados do Portal do Cliente Final (Cashless / OTP)
  */
 import api from '../lib/api';
+import publicApi from '../lib/publicApi';
 
 /**
- * Returns hybrid balance split: { global_balance, event_balance, total_balance }
- * @param {number} organizerId  - current event's organizer (pass MOCK_ORGANIZER_ID from app)
+ * Resolve public event context from slug or event_id.
  */
-export async function getCustomerBalanceApi(organizerId = 0) {
-  const { data } = await api.get('/customer/balance', { params: { organizer_id: organizerId } });
+export async function getCustomerEventContextApi({ eventId = null, slug = '' } = {}) {
+  const params = {};
+  if (Number(eventId) > 0) params.event_id = Number(eventId);
+  if (String(slug || '').trim()) params.slug = String(slug).trim();
+  const { data } = await publicApi.get('/customer/context', { params });
+  return data.data;
+}
+
+/**
+ * Returns event-scoped balance split: { global_balance, event_balance, total_balance }
+ */
+export async function getCustomerBalanceApi({ eventId = null, eventSlug = '' } = {}) {
+  const params = {};
+  if (Number(eventId) > 0) params.event_id = Number(eventId);
+  if (String(eventSlug || '').trim()) params.event_slug = String(eventSlug).trim();
+  const { data } = await api.get('/customer/balance', { params });
   return data.data;
 }
 
@@ -17,12 +31,18 @@ export async function getCustomerBalanceApi(organizerId = 0) {
  * Retorna o extrato de transações do cliente logado.
  * @returns {Promise<Array>}
  */
-export async function getCustomerTransactionsApi() {
-  const { data } = await api.get('/customer/transactions');
+export async function getCustomerTransactionsApi({ eventId = null, eventSlug = '' } = {}) {
+  const params = {};
+  if (Number(eventId) > 0) params.event_id = Number(eventId);
+  if (String(eventSlug || '').trim()) params.event_slug = String(eventSlug).trim();
+  const { data } = await api.get('/customer/transactions', { params });
   return data.data;
 }
 
-export async function getMyTicketsApi() {
-  const { data } = await api.get('/customer/tickets');
+export async function getMyTicketsApi({ eventId = null, eventSlug = '' } = {}) {
+  const params = {};
+  if (Number(eventId) > 0) params.event_id = Number(eventId);
+  if (String(eventSlug || '').trim()) params.event_slug = String(eventSlug).trim();
+  const { data } = await api.get('/customer/tickets', { params });
   return data.data ?? [];
 }

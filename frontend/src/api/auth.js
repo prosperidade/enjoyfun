@@ -34,21 +34,21 @@ export async function registerApi({ name, email, password, phone = '', cpf = '' 
 // ── Passwordless OTP ───────────────────────────────────────────────────────
 /**
  * @param {string} identifier  - e-mail ou número WhatsApp
- * @param {number} organizer_id
+ * @param {object} scope
  */
-export async function requestCodeApi(identifier, organizer_id) {
-  const { data } = await api.post('/auth/request-code', { identifier, organizer_id });
+export async function requestCodeApi(identifier, scope = {}) {
+  const { data } = await api.post('/auth/request-code', { identifier, ...scope });
   return data;
 }
 
 /**
  * @param {string} identifier
  * @param {string} code        - 6-digit OTP
- * @param {number} organizer_id
+ * @param {object} scope
  * @returns {Promise<{user, access_token, refresh_token, expires_in}>}
  */
-export async function verifyCodeApi(identifier, code, organizer_id) {
-  const { data } = await api.post('/auth/verify-code', { identifier, code, organizer_id });
+export async function verifyCodeApi(identifier, code, scope = {}) {
+  const { data } = await api.post('/auth/verify-code', { identifier, code, ...scope });
   return data.data;
 }
 

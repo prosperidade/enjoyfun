@@ -131,6 +131,7 @@ function checkout(array $body): void
     $items         = $body['items']                ?? [];
     $totalAmount   = (float)($body['total_amount'] ?? 0);
     $cardId = trim((string)($body['card_id'] ?? ''));
+    $offlineId = trim((string)($body['offline_id'] ?? ''));
 
     try {
         $db = Database::getInstance();
@@ -141,46 +142,13 @@ function checkout(array $body): void
             $items,
             'bar',
             $totalAmount,
-            $cardId !== '' ? $cardId : null
+            $cardId !== '' ? $cardId : null,
+            $offlineId !== '' ? ['offline_id' => $offlineId] : []
         );
         jsonSuccess($result, 'Venda realizada com sucesso!');
     } catch (Exception $e) {
         jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 400);
     }
-}
-
-/**
- * @param PDO $db
- * @param string $token
- * @return array|bool
- */
-function findBarDigitalCardForCheckout(PDO $db, string $token): array|bool
-{
-    $token = trim($token);
-
-    $stmtById = $db->prepare('SELECT id, balance FROM public.digital_cards WHERE id::text = ? FOR UPDATE');
-    $stmtById->execute([$token]);
-    $card = $stmtById->fetch(PDO::FETCH_ASSOC);
-    if ($card) {
-        return $card;
-    }
-
-    $stmtHasCardToken = $db->query("SELECT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'digital_cards' AND column_name = 'card_token'
-    )");
-
-    if ((bool)$stmtHasCardToken->fetchColumn()) {
-        $stmtByToken = $db->prepare('SELECT id, balance FROM public.digital_cards WHERE card_token = ? FOR UPDATE');
-        $stmtByToken->execute([$token]);
-        $card = $stmtByToken->fetch(PDO::FETCH_ASSOC);
-        if ($card) {
-            return $card;
-        }
-    }
-
-    return false;
 }
 
 function requestGeminiInsight(array $body): void

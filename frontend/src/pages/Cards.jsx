@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import api from '../lib/api';
-import { CreditCard, Plus, Search, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
+import { CreditCard, Lock, Plus, RefreshCw, Search, Trash2, TrendingDown, TrendingUp, Unlock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Cards() {
@@ -13,6 +13,7 @@ export default function Cards() {
   const [transactions, setTransactions] = useState([]);
   const [topupAmt, setTopupAmt] = useState('');
   const [topping, setTopping] = useState(false);
+  const [cardActionLoading, setCardActionLoading] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [newUserCpf, setNewUserCpf] = useState('');
@@ -21,49 +22,84 @@ export default function Cards() {
 
   useEffect(() => { api.get('/events').then(r => setEvents(r.data.data || [])).catch(() => {}); }, []);
 
-  const loadCards = () => {
-    setLoading(true);
-    const params = eventId ? { event_id: eventId } : {};
-    api.get('/cards', { params })
-       .then(r => setCards(r.data.data || []))
-       .catch(() => toast.error('Erro ao carregar cartões.'))
-       .finally(() => setLoading(false));
-  };
+  useEffect(() => {
+    setSelected(null);
+    setTransactions([]);
+    setTopupAmt('');
+  }, [eventId]);
 
-  useEffect(() => { loadCards(); }, [eventId]);
+  const getCardId = (card) => String(card?.card_id || '').trim();
+
+  const matchesScopedEvent = (card, scopedEventId = Number(eventId || 0)) =>
+    scopedEventId <= 0 || Number(card?.event_id || 0) === scopedEventId;
+
+  const loadTransactions = useCallback(async (cardId, scopedEventId) => {
+    setTxLoading(true);
+    try {
+      const params = scopedEventId > 0 ? { event_id: scopedEventId } : {};
+      const { data } = await api.get(`/cards/${cardId}/transactions`, { params });
+      setTransactions(data.data || []);
+    } catch {
+      setTransactions([]);
+    } finally {
+      setTxLoading(false);
+    }
+  }, []);
+
+  const loadCards = useCallback(async () => {
+    setLoading(true);
+    const scopedEventId = Number(eventId || 0);
+    const params = scopedEventId > 0 ? { event_id: scopedEventId } : {};
+    try {
+      const { data } = await api.get('/cards', { params });
+      const nextCards = (data.data || []).filter(
+        card => scopedEventId <= 0 || Number(card?.event_id || 0) === scopedEventId
+      );
+      setCards(nextCards);
+      setSelected(current => {
+        if (!current) return null;
+        return nextCards.find(card => card.id === current.id) || null;
+      });
+    } catch {
+      toast.error('Erro ao carregar cartões.');
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId]);
+
+  useEffect(() => { void loadCards(); }, [loadCards]);
 
   const viewCard = (card) => {
-    const cardId = card.card_id || card.card_token;
+    const cardId = getCardId(card);
     if (!cardId) {
       toast.error('Cartão sem identificador canônico.');
       return;
     }
 
     setSelected(card);
-    setTxLoading(true);
-    api.get(`/cards/${cardId}/transactions`)
-       .then(r => setTransactions(r.data.data || []))
-       .catch(() => {})
-       .finally(() => setTxLoading(false));
+    const scopedEventId = Number(card.event_id || eventId || 0);
+    void loadTransactions(cardId, scopedEventId);
   };
 
   const handleCreateCard = async (e) => {
     e.preventDefault();
+    if (!eventId) {
+      toast.error('Selecione um evento antes de emitir o cartão.');
+      return;
+    }
     setCreating(true);
     try {
-      // O backend createCard atualmente aceita user_id, mas para visitantes 
-      // avulsos podemos enviar como user_name/cpf solto ou futuramente integrá-los.
       const payload = {
         user_name: newUserName,
         cpf: newUserCpf,
-        event_id: eventId
+        event_id: Number(eventId)
       };
       const { data } = await api.post('/cards', payload);
       toast.success(data.message || 'Cartão gerado e vinculado!');
       setShowAddModal(false);
       setNewUserName('');
       setNewUserCpf('');
-      loadCards();
+      await loadCards();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erro ao criar cartão');
     } finally {
@@ -74,14 +110,33 @@ export default function Cards() {
   const handleTopup = async (e) => {
     e.preventDefault();
     if (!topupAmt || !selected) return;
+    const scopedEventId = Number(selected.event_id || eventId || 0);
+    if (scopedEventId <= 0) {
+      toast.error('Selecione um cartão vinculado a um evento válido.');
+      return;
+    }
     setTopping(true);
     try {
-      const cardId = selected.card_id || selected.card_token;
-      const { data } = await api.post(`/cards/${cardId}/topup`, { amount: parseFloat(topupAmt), payment_method: 'manual' });
+      const cardId = getCardId(selected);
+      const amount = parseFloat(topupAmt);
+      if (!cardId || !Number.isFinite(amount) || amount <= 0) {
+        toast.error('Selecione um cartão válido e informe um valor de recarga maior que zero.');
+        return;
+      }
+      const { data } = await api.post(`/cards/${cardId}/topup`, {
+        amount,
+        payment_method: 'manual',
+        event_id: scopedEventId,
+      });
       toast.success(`R$ ${topupAmt} adicionado com sucesso!`);
-      setSelected(s => ({ ...s, balance: data.data.balance }));
+      const nextBalance = Number(data?.data?.balance || 0);
+      setCards(current =>
+        current.map(card => (card.id === selected.id ? { ...card, balance: nextBalance } : card))
+      );
+      setSelected(current => (current ? { ...current, balance: nextBalance } : current));
       setTopupAmt('');
-      viewCard(selected);
+      await loadTransactions(cardId, scopedEventId);
+      await loadCards();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erro na recarga.');
     } finally {
@@ -89,12 +144,86 @@ export default function Cards() {
     }
   };
 
+  const handleCardStateChange = async (activate) => {
+    if (!selected) return;
+    const cardId = getCardId(selected);
+    const scopedEventId = Number(selected.event_id || eventId || 0);
+    if (!cardId || scopedEventId <= 0) {
+      toast.error('Selecione um cartão válido do evento atual.');
+      return;
+    }
+
+    const nextAction = activate ? 'activate' : 'block';
+    const confirmMessage = activate
+      ? 'Reativar este cartão para voltar a permitir recarga e checkout?'
+      : 'Bloquear este cartão agora? Ele deixará de aceitar recarga e checkout até ser reativado.';
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setCardActionLoading(nextAction);
+    try {
+      const { data } = await api.post(`/cards/${cardId}/${activate ? 'activate' : 'block'}`, {
+        event_id: scopedEventId,
+      });
+      toast.success(data.message || (activate ? 'Cartão reativado.' : 'Cartão bloqueado.'));
+      await loadCards();
+      setSelected(current =>
+        current
+          ? {
+              ...current,
+              status: data?.data?.status || (activate ? 'active' : 'inactive'),
+            }
+          : current
+      );
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erro ao atualizar o status do cartão.');
+    } finally {
+      setCardActionLoading('');
+    }
+  };
+
+  const handleDeleteCard = async () => {
+    if (!selected) return;
+    const cardId = getCardId(selected);
+    const scopedEventId = Number(selected.event_id || eventId || 0);
+    if (!cardId || scopedEventId <= 0) {
+      toast.error('Selecione um cartão válido do evento atual.');
+      return;
+    }
+
+    const confirmMessage =
+      'Excluir este cartão? A exclusão só é permitida para cartões sem saldo e sem histórico.';
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setCardActionLoading('delete');
+    try {
+      const { data } = await api.delete(`/cards/${cardId}`, {
+        data: { event_id: scopedEventId },
+      });
+      toast.success(data.message || 'Cartão excluído.');
+      setSelected(null);
+      setTransactions([]);
+      setTopupAmt('');
+      await loadCards();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erro ao excluir o cartão.');
+    } finally {
+      setCardActionLoading('');
+    }
+  };
+
   const filtered = cards.filter(c =>
+    matchesScopedEvent(c) && (
     !search ||
     (c.card_id || '').includes(search) ||
-    (c.card_token || '').includes(search) ||
     (c.user_name || '').toLowerCase().includes(search.toLowerCase())
-  );
+  ));
+  const selectedIsActive = selected?.status === 'active';
+  const cardActionBusy = cardActionLoading !== '';
 
   return (
     <div className="space-y-6 relative">
@@ -108,7 +237,11 @@ export default function Cards() {
             <option value="">Todos os eventos</option>
             {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
           </select>
-          <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2">
+          <button
+            onClick={() => setShowAddModal(true)}
+            disabled={!eventId}
+            className="btn-primary flex items-center gap-2 disabled:opacity-50"
+          >
             <Plus size={18} /> Novo Cartão
           </button>
         </div>
@@ -116,7 +249,7 @@ export default function Cards() {
 
       <div className="relative">
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
-        <input className="input pl-10" placeholder="Buscar por card_id, token ou titular..." value={search} onChange={e => setSearch(e.target.value)} />
+        <input className="input pl-10" placeholder="Buscar por card_id ou titular..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
@@ -139,7 +272,7 @@ export default function Cards() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-white">{card.user_name || 'Cartão Anônimo'}</p>
-                    <p className="text-xs text-gray-500 font-mono truncate">{(card.card_id || card.card_token || '').slice(0, 16)}...</p>
+                    <p className="text-xs text-gray-500 font-mono truncate">{(card.card_id || '').slice(0, 16)}...</p>
                     <p className="text-xs text-gray-400">{card.event_name}</p>
                   </div>
                   <div className="text-right">
@@ -164,18 +297,56 @@ export default function Cards() {
                 <span className={selected.status === 'active' ? 'badge-green' : 'badge-red'}>{selected.status}</span>
               </div>
               <div className="text-3xl font-bold text-white mb-1">R$ {parseFloat(selected.balance).toFixed(2)}</div>
-              <p className="text-xs text-gray-500 font-mono">{selected.card_id || selected.card_token}</p>
+              <p className="text-xs text-gray-500 font-mono">{selected.card_id}</p>
+            </div>
+
+            <div className="card">
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">Ações do Organizador</h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => void handleCardStateChange(!selectedIsActive)}
+                  disabled={cardActionBusy}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:border-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {cardActionLoading === (selectedIsActive ? 'block' : 'activate') ? (
+                    <span className="spinner w-4 h-4" />
+                  ) : selectedIsActive ? (
+                    <Lock size={16} />
+                  ) : (
+                    <Unlock size={16} />
+                  )}
+                  {selectedIsActive ? 'Bloquear cartão' : 'Reativar cartão'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteCard()}
+                  disabled={cardActionBusy}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-900/70 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:border-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {cardActionLoading === 'delete' ? <span className="spinner w-4 h-4" /> : <Trash2 size={16} />}
+                  Excluir cartão
+                </button>
+              </div>
+              <p className="mt-3 text-xs text-gray-500">
+                Bloqueio é reversível. Exclusão só passa para cartão sem saldo e sem histórico.
+              </p>
             </div>
 
             {/* Top-up form */}
             <div className="card">
               <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2"><Plus size={14} /> Adicionar Créditos</h3>
               <form onSubmit={handleTopup} className="flex gap-2">
-                <input className="input flex-1" type="number" step="0.01" min="0.01" placeholder="Valor (R$)" value={topupAmt} onChange={e => setTopupAmt(e.target.value)} />
-                <button type="submit" disabled={topping} className="btn-primary">
+                <input className="input flex-1" type="number" step="0.01" min="0.01" placeholder="Valor (R$)" value={topupAmt} onChange={e => setTopupAmt(e.target.value)} disabled={!selectedIsActive || topping || cardActionBusy} />
+                <button type="submit" disabled={topping || !selectedIsActive || cardActionBusy} className="btn-primary disabled:opacity-50">
                   {topping ? <span className="spinner w-4 h-4" /> : 'Recarregar'}
                 </button>
               </form>
+              {!selectedIsActive && (
+                <p className="mt-2 text-xs text-amber-300">
+                  Cartão bloqueado: recarga e checkout ficam indisponíveis até a reativação.
+                </p>
+              )}
             </div>
 
             {/* Transactions */}

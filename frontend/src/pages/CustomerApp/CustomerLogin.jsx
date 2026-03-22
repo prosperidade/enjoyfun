@@ -6,10 +6,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { requestCodeApi, verifyCodeApi } from '../../api/auth';
+import { useCustomerEventContext } from '../../hooks/useCustomerEventContext';
 import { persistSession } from '../../lib/session';
-
-// TODO: Em produção, buscar o organizer_id real via slug no backend
-const MOCK_ORGANIZER_ID = 1;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const isEmail = (v) => v.includes('@');
@@ -30,6 +28,7 @@ const rawPhone = (v) => v.replace(/\D/g, '');
 export default function CustomerLogin() {
   const { slug }   = useParams();
   const navigate   = useNavigate();
+  const { eventContext, eventError, eventLoading } = useCustomerEventContext(slug);
 
   const [step, setStep]             = useState(1);
   const [identifier, setIdentifier] = useState('');   // display value
@@ -55,10 +54,11 @@ export default function CustomerLogin() {
   const handleRequestCode = async (e) => {
     e.preventDefault();
     if (!apiIdentifier) return toast.error('Informe seu e-mail ou WhatsApp.');
+    if (!eventContext?.id) return toast.error(eventError || 'Evento inválido.');
 
     setLoading(true);
     try {
-      await requestCodeApi(apiIdentifier, MOCK_ORGANIZER_ID);
+      await requestCodeApi(apiIdentifier, { event_id: Number(eventContext.id) });
       const channel = inputIsEmail ? 'e-mail' : 'WhatsApp/SMS';
       toast.success(`Código enviado via ${channel}!`);
       setStep(2);
@@ -73,10 +73,11 @@ export default function CustomerLogin() {
   const handleVerifyOTP = async (e) => {
     e.preventDefault();
     if (otp.length !== 6) return toast.error('O código deve ter 6 dígitos.');
+    if (!eventContext?.id) return toast.error(eventError || 'Evento inválido.');
 
     setLoading(true);
     try {
-      const result = await verifyCodeApi(apiIdentifier, otp.trim(), MOCK_ORGANIZER_ID);
+      const result = await verifyCodeApi(apiIdentifier, otp.trim(), { event_id: Number(eventContext.id) });
 
       persistSession(result);
 
@@ -116,9 +117,9 @@ export default function CustomerLogin() {
             <Zap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-extrabold text-white tracking-tight">EnjoyFun</h1>
-          {slug && (
+          {(eventContext?.name || slug) && (
             <span className="mt-1 text-xs text-purple-400 font-medium bg-purple-500/10 border border-purple-500/20 px-3 py-0.5 rounded-full capitalize">
-              {slug.replace(/-/g, ' ')}
+              {eventContext?.name || slug.replace(/-/g, ' ')}
             </span>
           )}
         </div>
@@ -148,6 +149,11 @@ export default function CustomerLogin() {
                 : step2Instruction
               }
             </p>
+            {eventLoading ? (
+              <p className="text-xs text-gray-600 mt-2 pl-1">Validando evento...</p>
+            ) : eventError ? (
+              <p className="text-xs text-red-400 mt-2 pl-1">{eventError}</p>
+            ) : null}
           </div>
 
           {/* Form body */}
@@ -180,14 +186,14 @@ export default function CustomerLogin() {
                       placeholder="seu@email.com  ou  (11) 99999-9999"
                       value={identifier}
                       onChange={handleIdentifierChange}
-                      disabled={loading}
+                      disabled={loading || eventLoading || Boolean(eventError)}
                     />
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={loading || !apiIdentifier}
+                  disabled={loading || !apiIdentifier || eventLoading || Boolean(eventError)}
                   className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-60"
                   style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)', boxShadow: '0 8px 24px rgba(124,58,237,0.4)' }}
                 >
@@ -212,13 +218,13 @@ export default function CustomerLogin() {
                     placeholder="000000"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    disabled={loading}
+                    disabled={loading || eventLoading || Boolean(eventError)}
                   />
                 </div>
 
                 <button
                   type="submit"
-                  disabled={loading || otp.length !== 6}
+                  disabled={loading || otp.length !== 6 || eventLoading || Boolean(eventError)}
                   className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-60"
                   style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)', boxShadow: '0 8px 24px rgba(124,58,237,0.4)' }}
                 >

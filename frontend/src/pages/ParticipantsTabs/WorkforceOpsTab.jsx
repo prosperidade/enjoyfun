@@ -5,6 +5,7 @@ import {
   Briefcase,
   Clock3,
   Copy,
+  CreditCard,
   FileDown,
   Mail,
   MessageCircle,
@@ -27,6 +28,7 @@ import BulkMessageModal from "./BulkMessageModal";
 import EditParticipantModal from "./EditParticipantModal";
 import WorkforceMemberSettingsModal from "./WorkforceMemberSettingsModal";
 import BulkWorkforceSettingsModal from "./BulkWorkforceSettingsModal";
+import WorkforceCardIssuanceModal from "./WorkforceCardIssuanceModal";
 import WorkforceRoleSettingsModal from "./WorkforceRoleSettingsModal";
 import WorkforceSectorCostsModal from "./WorkforceSectorCostsModal";
 import { reportOperationalTelemetry } from "../../lib/operationalTelemetry";
@@ -156,6 +158,7 @@ const calculateOperationalShiftSlots = (shifts = [], shiftHours = 8) => {
 };
 
 const WORKFORCE_SNAPSHOT_PREFIX = "enjoyfun_workforce_snapshot_v2";
+const WORKFORCE_BULK_CARD_FLAG_VALUES = new Set(["1", "true", "yes", "on", "enabled"]);
 
 const getWorkforceSnapshotKey = (eventId) => `${WORKFORCE_SNAPSHOT_PREFIX}_${eventId}`;
 
@@ -639,6 +642,10 @@ const formatOperationalEndpointLabel = (endpoint = "") => {
       return "Nova alocacao";
     case "DELETE /workforce/assignments/:id":
       return "Remocao de alocacao";
+    case "POST /workforce/card-issuance/preview":
+      return "Preview de emissao";
+    case "POST /workforce/card-issuance/issue":
+      return "Emissao de cartoes";
     case "GET /participants":
       return "Lista de participantes";
     case "POST /participants":
@@ -684,6 +691,13 @@ export default function WorkforceOpsTab({ eventId }) {
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isBulkSettingsModalOpen, setIsBulkSettingsModalOpen] = useState(false);
+  const [isCardIssuanceModalOpen, setIsCardIssuanceModalOpen] = useState(false);
+  const [cardIssuanceSelection, setCardIssuanceSelection] = useState([]);
+  const [cardIssuanceContext, setCardIssuanceContext] = useState({
+    managerEventRoleId: null,
+    managerSector: "",
+    label: "",
+  });
   const [bulkType, setBulkType] = useState("whatsapp");
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [editingParticipant, setEditingParticipant] = useState(null);
@@ -950,6 +964,9 @@ export default function WorkforceOpsTab({ eventId }) {
     setSelectedManager(null);
     setParticipants([]);
     setSelectedIds([]);
+    setIsCardIssuanceModalOpen(false);
+    setCardIssuanceSelection([]);
+    setCardIssuanceContext({ managerEventRoleId: null, managerSector: "", label: "" });
     setOverviewTab("operation");
     syncManagersEffect();
   }, [eventId]);
@@ -1070,11 +1087,17 @@ export default function WorkforceOpsTab({ eventId }) {
   const selectedManagerSector = normalizeSector(selectedManager?.sector || selectedManagerRole?.sector || "");
   const hasDirectManagerBinding = Boolean(selectedManager?.user_id);
   const canOperateSelectedManager = Boolean(selectedManagerRole?.id || selectedManagerSector);
+  const canIssueSelectedParticipants = Number(eventId || 0) > 0 && selectedParticipants.length > 0;
   const selectedManagerPlannedTeamSize = Number(selectedManager?.planned_team_size || selectedManager?.team_size || teamMembers.length || 0);
   const selectedManagerFilledTeamSize = Number(selectedManager?.filled_team_size || teamMembers.length || 0);
   const selectedManagerLeadershipTotal = Number(selectedManager?.leadership_positions_total || 0);
   const selectedManagerLeadershipFilledTotal = Number(selectedManager?.leadership_filled_total || 0);
   const selectedManagerOperationalTotal = Number(selectedManager?.operational_members_total || teamMembers.length || 0);
+  const workforceBulkCardIssuanceEnabled = WORKFORCE_BULK_CARD_FLAG_VALUES.has(
+    String(import.meta.env.VITE_FEATURE_WORKFORCE_BULK_CARD_ISSUANCE || "").trim().toLowerCase()
+  );
+  const canIssueWorkforceCards =
+    workforceBulkCardIssuanceEnabled && (hasRole?.("admin") || hasRole?.("organizer"));
   const managerRoleMembersCount =
     Number(selectedManager?.event_role_id || 0) > 0 ||
     Number(selectedManager?.leadership_filled_total || 0) > 0
@@ -1108,8 +1131,71 @@ export default function WorkforceOpsTab({ eventId }) {
     setSelectedManager(manager);
     setSearchTerm("");
     setSelectedIds([]);
+    setIsCardIssuanceModalOpen(false);
+    setCardIssuanceSelection([]);
+    setCardIssuanceContext({ managerEventRoleId: null, managerSector: "", label: "" });
     setIsCreatingRoleInline(false);
     setNewRoleName("");
+  };
+
+  const openCardIssuanceModal = ({
+    participants = [],
+    managerEventRoleId = null,
+    managerSector = "",
+    label = "",
+  } = {}) => {
+    const normalizedParticipants = Array.from(
+      new Map(
+        (Array.isArray(participants) ? participants : [])
+          .map((participant) => {
+            const participantId = Number(participant?.participant_id || participant?.leader_participant_id || 0);
+            if (participantId <= 0) {
+              return null;
+            }
+
+            return [
+              participantId,
+              {
+                ...participant,
+                participant_id: participantId,
+                name:
+                  participant?.name ||
+                  participant?.person_name ||
+                  participant?.leader_participant_name ||
+                  participant?.leader_name ||
+                  participant?.linked_leader_name ||
+                  participant?.role_name ||
+                  "",
+                person_name:
+                  participant?.person_name ||
+                  participant?.name ||
+                  participant?.leader_participant_name ||
+                  participant?.leader_name ||
+                  participant?.linked_leader_name ||
+                  participant?.role_name ||
+                  "",
+                sector: participant?.sector || managerSector || "",
+                event_role_id:
+                  Number(participant?.event_role_id || participant?.manager_event_role_id || managerEventRoleId || 0) || null,
+              },
+            ];
+          })
+          .filter(Boolean)
+      ).values()
+    );
+
+    if (normalizedParticipants.length === 0) {
+      toast.error("Vincule um participante ao cargo antes de emitir cartoes.");
+      return;
+    }
+
+    setCardIssuanceSelection(normalizedParticipants);
+    setCardIssuanceContext({
+      managerEventRoleId: Number(managerEventRoleId || 0) || null,
+      managerSector: managerSector || "",
+      label: String(label || "").trim(),
+    });
+    setIsCardIssuanceModalOpen(true);
   };
 
   const openRoleSettingsForRow = (row) => {
@@ -2281,6 +2367,28 @@ export default function WorkforceOpsTab({ eventId }) {
                   )}
 
                   <div className="mt-4 flex items-center gap-2">
+                    {canIssueWorkforceCards && row.cost_bucket === "managerial" && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openCardIssuanceModal({
+                            participants: [row],
+                            managerEventRoleId: row.event_role_id || selectedManager?.event_role_id || null,
+                            managerSector: row.sector || selectedManagerSector,
+                            label: `Cargo diretivo: ${row.role_name || "lideranca"}`,
+                          })
+                        }
+                        disabled={Number(row?.leader_participant_id || row?.participant_id || 0) <= 0}
+                        className="btn-secondary h-9 px-3 text-xs flex items-center gap-2 border-brand/40 text-brand-light hover:bg-brand/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        title={
+                          Number(row?.leader_participant_id || row?.participant_id || 0) > 0
+                            ? "Emitir cartao para este cargo diretivo"
+                            : "Vincule um participante ao cargo para emitir o cartao."
+                        }
+                      >
+                        <CreditCard size={13} /> Cartao
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => openRoleSettingsForRow(row)}
@@ -2310,6 +2418,27 @@ export default function WorkforceOpsTab({ eventId }) {
         <div className="bg-brand/10 border border-brand/20 p-4 rounded-2xl flex items-center justify-between">
           <span className="text-brand font-semibold">{selectedIds.length} selecionados</span>
           <div className="flex gap-2">
+            {canIssueWorkforceCards && (
+              <button
+                onClick={() =>
+                  openCardIssuanceModal({
+                    participants: selectedParticipants,
+                    managerEventRoleId: selectedManager?.event_role_id || null,
+                    managerSector: selectedManagerSector,
+                    label: `Equipe operacional do setor ${(selectedManagerSector || "geral").replace(/_/g, " ")}`,
+                  })
+                }
+                disabled={!canIssueSelectedParticipants}
+                className="btn-secondary h-9 px-3 text-xs flex items-center gap-2 border-brand/40 text-brand-light hover:bg-brand/10 disabled:cursor-not-allowed disabled:opacity-50"
+                title={
+                  canIssueSelectedParticipants
+                    ? "Emitir cartoes para os participantes selecionados"
+                    : "Selecione ao menos um participante do evento para emitir cartoes."
+                }
+              >
+                <CreditCard size={14} /> Emitir cartoes
+              </button>
+            )}
             <button onClick={() => setIsBulkSettingsModalOpen(true)} className="btn-secondary h-9 px-3 text-xs flex items-center gap-2">
               <Settings2 size={14} /> Configurar
             </button>
@@ -2525,6 +2654,24 @@ export default function WorkforceOpsTab({ eventId }) {
         participants={selectedParticipants}
         onSaved={async () => {
           await refreshSelectedManagerView(selectedManager);
+        }}
+      />
+
+      <WorkforceCardIssuanceModal
+        isOpen={isCardIssuanceModalOpen}
+        onClose={() => {
+          setIsCardIssuanceModalOpen(false);
+          setCardIssuanceSelection([]);
+          setCardIssuanceContext({ managerEventRoleId: null, managerSector: "", label: "" });
+        }}
+        eventId={eventId}
+        selectedParticipants={cardIssuanceSelection}
+        managerEventRoleId={cardIssuanceContext.managerEventRoleId}
+        managerSector={cardIssuanceContext.managerSector}
+        contextLabel={cardIssuanceContext.label}
+        onIssued={async () => {
+          await refreshSelectedManagerView(selectedManager);
+          setSelectedIds([]);
         }}
       />
 

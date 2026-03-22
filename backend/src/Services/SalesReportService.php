@@ -3,6 +3,7 @@
 namespace EnjoyFun\Services;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use InvalidArgumentException;
 use PDO;
 
@@ -206,7 +207,10 @@ class SalesReportService
         $endExclusive = $endAt->modify('+1 hour');
 
         $stmt = $db->prepare("
-            SELECT TO_CHAR(DATE_TRUNC('hour', s.created_at), 'YYYY-MM-DD HH24:00:00') as bucket_at, SUM(si.subtotal) as revenue
+            SELECT
+                TO_CHAR(DATE_TRUNC('hour', s.created_at), 'YYYY-MM-DD HH24:00:00') as bucket_at,
+                SUM(si.subtotal) as revenue,
+                MAX(s.created_at) as last_sale_at
             FROM sale_items si
             JOIN sales s ON si.sale_id = s.id
             LEFT JOIN products p ON p.id = si.product_id
@@ -231,17 +235,47 @@ class SalesReportService
 
         $indexedRows = [];
         foreach ($rows as $row) {
-            $indexedRows[$row['bucket_at']] = (float)$row['revenue'];
+            $indexedRows[$row['bucket_at']] = [
+                'revenue' => (float)$row['revenue'],
+                'last_sale_at' => !empty($row['last_sale_at']) ? (string)$row['last_sale_at'] : null,
+            ];
         }
 
         $series = [];
+        $seriesEndAt = $endAt;
+        if ($timeFilter !== 'total' && !empty($rows)) {
+            $latestBucketAt = self::parseDatabaseTimestamp(
+                (string)$rows[count($rows) - 1]['bucket_at'],
+                $endAt->getTimezone(),
+            );
+            if ($latestBucketAt < $seriesEndAt) {
+                $seriesEndAt = $latestBucketAt;
+            }
+        }
+
         $useDateInLabel = $timeFilter === 'total' && $startAt->format('Y-m-d') !== $endAt->format('Y-m-d');
-        for ($cursor = $startAt; $cursor <= $endAt; $cursor = $cursor->modify('+1 hour')) {
+        for ($cursor = $startAt; $cursor <= $seriesEndAt; $cursor = $cursor->modify('+1 hour')) {
             $bucketAt = $cursor->format('Y-m-d H:00:00');
+            $bucketPayload = $indexedRows[$bucketAt] ?? null;
+            $isLastVisibleBucket = $cursor == $seriesEndAt;
+            $label = $useDateInLabel ? $cursor->format('d/m H:00') : $cursor->format('H:00');
+
+            if (
+                !$useDateInLabel
+                && $isLastVisibleBucket
+                && !empty($bucketPayload['last_sale_at'])
+            ) {
+                $label = self::parseDatabaseTimestamp(
+                    (string)$bucketPayload['last_sale_at'],
+                    $cursor->getTimezone(),
+                )->format('H:i');
+            }
+
             $series[] = [
-                'time' => $useDateInLabel ? $cursor->format('d/m H:00') : $cursor->format('H:00'),
+                'time' => $label,
                 'bucket_at' => $bucketAt,
-                'revenue' => (float)($indexedRows[$bucketAt] ?? 0),
+                'revenue' => (float)($bucketPayload['revenue'] ?? 0),
+                'last_sale_at' => $bucketPayload['last_sale_at'] ?? null,
             ];
         }
 
@@ -295,6 +329,21 @@ class SalesReportService
         }
 
         return new DateTimeImmutable((string)$value);
+    }
+
+    private static function parseDatabaseTimestamp(string $value, DateTimeZone $timezone): DateTimeImmutable
+    {
+        $value = trim($value);
+        $formats = ['Y-m-d H:i:s.u', 'Y-m-d H:i:s'];
+
+        foreach ($formats as $format) {
+            $parsed = DateTimeImmutable::createFromFormat($format, $value, $timezone);
+            if ($parsed instanceof DateTimeImmutable) {
+                return $parsed;
+            }
+        }
+
+        return new DateTimeImmutable($value, $timezone);
     }
 
     private static function buildWhereTimeClause(string $salesAlias, string $timeFilter): string

@@ -1,17 +1,42 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useReducer } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PlusCircle, QrCode, History, LogOut, Wallet, Ticket, MapPin, CalendarDays, Globe, Building2, X, Sun } from 'lucide-react';
+import { PlusCircle, QrCode, History, LogOut, Wallet, Ticket, MapPin, CalendarDays, Building2, X, Sun } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
-import { getCustomerBalanceApi, getMyTicketsApi } from '../../api/customer';
+import { getCustomerBalanceApi, getCustomerTransactionsApi, getMyTicketsApi } from '../../api/customer';
+import { useCustomerEventContext } from '../../hooks/useCustomerEventContext';
 import { logoutApi } from '../../api/auth';
 import { clearSession, getRefreshToken, getStoredUser } from '../../lib/session';
 
-const MOCK_ORGANIZER_ID = 1; // TODO: resolver via slug
+const EMPTY_BALANCE = { global_balance: 0, event_balance: 0, total_balance: 0, event_name: '' };
+const EMPTY_LIST = [];
+
+function asyncResourceReducer(state, action) {
+  switch (action.type) {
+    case 'idle':
+      return {
+        data: action.payload,
+        loading: action.loading ?? false,
+      };
+    case 'loading':
+      return {
+        data: action.payload ?? state.data,
+        loading: true,
+      };
+    case 'success':
+      return {
+        data: action.payload,
+        loading: false,
+      };
+    default:
+      return state;
+  }
+}
 
 export default function CustomerDashboard() {
   const { slug }   = useParams();
   const navigate   = useNavigate();
+  const { eventContext, eventError, eventLoading } = useCustomerEventContext(slug);
 
   const user = getStoredUser() || {};
 
@@ -22,31 +47,85 @@ export default function CustomerDashboard() {
     navigate(`/app/${slug}`, { replace: true });
   };
 
-  const [balanceData, setBalanceData]       = useState({ global_balance: 0, event_balance: 0, total_balance: 0 });
-  const [balanceLoading, setBalanceLoading] = useState(true);
+  const [balanceState, dispatchBalance] = useReducer(asyncResourceReducer, {
+    data: EMPTY_BALANCE,
+    loading: true,
+  });
+  const [ticketsState, dispatchTickets] = useReducer(asyncResourceReducer, {
+    data: EMPTY_LIST,
+    loading: true,
+  });
+  const [transactionsState, dispatchTransactions] = useReducer(asyncResourceReducer, {
+    data: EMPTY_LIST,
+    loading: true,
+  });
 
   useEffect(() => {
-    getCustomerBalanceApi(MOCK_ORGANIZER_ID)
-      .then(res  => setBalanceData(res || { global_balance: 0, event_balance: 0, total_balance: 0 }))
-      .catch(()  => {})
-      .finally(() => setBalanceLoading(false));
-  }, []);
+    if (!eventContext?.id) {
+      dispatchBalance({ type: 'idle', payload: EMPTY_BALANCE, loading: eventLoading });
+      return;
+    }
 
-  const [tickets, setTickets]               = useState([]);
-  const [ticketsLoading, setTicketsLoading] = useState(true);
+    dispatchBalance({ type: 'loading', payload: EMPTY_BALANCE });
+    getCustomerBalanceApi({ eventId: Number(eventContext.id) })
+      .then((res) => dispatchBalance({ type: 'success', payload: res || EMPTY_BALANCE }))
+      .catch(() => dispatchBalance({ type: 'success', payload: EMPTY_BALANCE }));
+  }, [eventContext?.id, eventLoading]);
+
   const [selectedTicket, setSelectedTicket] = useState(null);
 
   useEffect(() => {
-    getMyTicketsApi()
-      .then(data => setTickets(data || []))
-      .catch(() => setTickets([]))
-      .finally(() => setTicketsLoading(false));
-  }, []);
+    if (!eventContext?.id) {
+      dispatchTickets({ type: 'idle', payload: EMPTY_LIST, loading: eventLoading });
+      return;
+    }
+
+    dispatchTickets({ type: 'loading', payload: EMPTY_LIST });
+    getMyTicketsApi({ eventId: Number(eventContext.id) })
+      .then((data) => dispatchTickets({ type: 'success', payload: data || EMPTY_LIST }))
+      .catch(() => dispatchTickets({ type: 'success', payload: EMPTY_LIST }));
+  }, [eventContext?.id, eventLoading]);
+
+  useEffect(() => {
+    if (!eventContext?.id) {
+      dispatchTransactions({ type: 'idle', payload: EMPTY_LIST, loading: eventLoading });
+      return;
+    }
+
+    dispatchTransactions({ type: 'loading', payload: EMPTY_LIST });
+    getCustomerTransactionsApi({ eventId: Number(eventContext.id) })
+      .then((data) => dispatchTransactions({ type: 'success', payload: data || EMPTY_LIST }))
+      .catch(() => dispatchTransactions({ type: 'success', payload: EMPTY_LIST }));
+  }, [eventContext?.id, eventLoading]);
+
+  const balanceData = balanceState.data;
+  const balanceLoading = balanceState.loading;
+  const tickets = ticketsState.data;
+  const ticketsLoading = ticketsState.loading;
+  const transactions = transactionsState.data;
+  const transactionsLoading = transactionsState.loading;
+
+  const formatCurrency = (value) =>
+    Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  const formatDateTime = (value) => {
+    if (!value) return '';
+    return new Date(value).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const scrollToTransactions = () => {
+    document.getElementById('customer-transactions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const actions = [
     { label: 'Carregar Saldo', icon: PlusCircle, color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20',  onClick: () => navigate(`/app/${slug}/recharge`) },
     { label: 'Meu QR Code',   icon: QrCode,      color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', onClick: () => toast('Em breve: QR Code 📱') },
-    { label: 'Extrato',       icon: History,     color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20',    onClick: () => toast('Em breve: Extrato 📋') },
+    { label: 'Extrato',       icon: History,     color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20',    onClick: scrollToTransactions },
   ];
 
   return (
@@ -61,7 +140,7 @@ export default function CustomerDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-widest">Evento</p>
-            <h1 className="text-lg font-bold text-white capitalize">{slug?.replace(/-/g, ' ')}</h1>
+            <h1 className="text-lg font-bold text-white capitalize">{eventContext?.name || slug?.replace(/-/g, ' ')}</h1>
           </div>
           <button
             onClick={handleLogout}
@@ -75,6 +154,12 @@ export default function CustomerDashboard() {
         <p className="text-gray-400 text-sm">
           Olá, <span className="text-white font-semibold">{user.name || 'Cliente'}</span> 👋
         </p>
+
+        {eventError ? (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
+            <p className="text-red-300 text-sm font-medium">{eventError}</p>
+          </div>
+        ) : null}
 
         {/* Saldo Card */}
         <div
@@ -91,35 +176,25 @@ export default function CustomerDashboard() {
           <div className="relative">
             <div className="flex items-center gap-2 mb-2">
               <Wallet size={16} className="text-white/70" />
-              <p className="text-xs text-white/70 font-medium uppercase tracking-wider">Saldo Total</p>
+              <p className="text-xs text-white/70 font-medium uppercase tracking-wider">Saldo do Evento</p>
             </div>
 
             {balanceLoading ? (
               <div className="h-10 w-36 mt-1 bg-white/20 rounded-lg animate-pulse" />
             ) : (
               <p className="text-4xl font-extrabold tracking-tight">
-                {balanceData.total_balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                {formatCurrency(balanceData.total_balance)}
               </p>
             )}
 
-            {/* Split de saldo: Global + Evento */}
             {!balanceLoading && (
               <div className="flex gap-3 mt-3">
                 <div className="flex items-center gap-1.5 bg-white/10 rounded-xl px-2.5 py-1.5">
-                  <Globe size={12} className="text-white/60" />
-                  <div>
-                    <p className="text-[9px] text-white/50 uppercase tracking-wider">EnjoyFun</p>
-                    <p className="text-xs font-bold text-white">
-                      {balanceData.global_balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 bg-white/10 rounded-xl px-2.5 py-1.5">
                   <Building2 size={12} className="text-white/60" />
                   <div>
-                    <p className="text-[9px] text-white/50 uppercase tracking-wider">Este Evento</p>
+                    <p className="text-[9px] text-white/50 uppercase tracking-wider">{balanceData.event_name || 'Este Evento'}</p>
                     <p className="text-xs font-bold text-white">
-                      {balanceData.event_balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      {formatCurrency(balanceData.event_balance)}
                     </p>
                   </div>
                 </div>
@@ -214,13 +289,53 @@ export default function CustomerDashboard() {
           )}
         </div>
 
-        {/* Recent activity placeholder */}
-        <div className="flex-1 bg-gray-900/50 border border-gray-800 rounded-2xl p-5">
+        <div id="customer-transactions" className="flex-1 bg-gray-900/50 border border-gray-800 rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-widest mb-4">Últimas transações</p>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <History size={28} className="text-gray-700 mb-2" />
-            <p className="text-gray-600 text-sm">Nenhuma transação ainda</p>
-          </div>
+          {transactionsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((item) => (
+                <div key={item} className="h-14 bg-gray-800/60 rounded-2xl animate-pulse" />
+              ))}
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <History size={28} className="text-gray-700 mb-2" />
+              <p className="text-gray-600 text-sm">Nenhuma transação neste evento</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {transactions.map((tx) => {
+                const isCredit = tx.type === 'credit';
+                const amountClass = isCredit ? 'text-emerald-400' : 'text-red-400';
+                const badgeClass = isCredit
+                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                  : 'bg-red-500/10 text-red-300 border-red-500/20';
+
+                return (
+                  <div
+                    key={tx.id}
+                    className="rounded-2xl border border-gray-800 bg-gray-950/60 px-4 py-3 flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider border rounded-full px-2 py-0.5 ${badgeClass}`}>
+                          {isCredit ? 'Crédito' : 'Débito'}
+                        </span>
+                        <span className="text-[11px] text-gray-500">{formatDateTime(tx.created_at)}</span>
+                      </div>
+                      <p className="text-sm text-white font-medium truncate">
+                        {tx.description || (isCredit ? 'Recarga' : 'Consumo')}
+                      </p>
+                    </div>
+                    <p className={`text-sm font-bold whitespace-nowrap ${amountClass}`}>
+                      {isCredit ? '+' : '-'}
+                      {formatCurrency(Math.abs(Number(tx.amount || 0)))}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
-import { ArrowLeft, Zap, CheckCircle, Copy, Loader2, Globe, Building2 } from 'lucide-react';
+import { ArrowLeft, Zap, CheckCircle, Copy, Loader2, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
+import { useCustomerEventContext } from '../../hooks/useCustomerEventContext';
 
 const PRESET_VALUES = [10, 25, 50, 100];
-const MOCK_ORGANIZER_ID = 1; // TODO: resolver via slug
 
 export default function CustomerRecharge() {
   const { slug }   = useParams();
   const navigate   = useNavigate();
+  const { eventContext, eventError, eventLoading } = useCustomerEventContext(slug);
 
   const [amount, setAmount]         = useState('');
-  const [rechargeType, setRechargeType] = useState('global'); // 'global' | 'event'
   const [loading, setLoading]       = useState(false);
   const [pixResult, setPixResult]   = useState(null);
   const [copied, setCopied]         = useState(false);
@@ -22,13 +22,13 @@ export default function CustomerRecharge() {
     e.preventDefault();
     const value = parseFloat(amount);
     if (!value || value < 1) return toast.error('Informe um valor mínimo de R$ 1,00.');
+    if (!eventContext?.id) return toast.error(eventError || 'Evento inválido.');
 
     setLoading(true);
     try {
       const payload = {
         amount: value,
-        recharge_type: rechargeType,
-        organizer_id: rechargeType === 'event' ? MOCK_ORGANIZER_ID : 0,
+        event_id: Number(eventContext.id),
       };
       const { data } = await api.post('/customer/recharge', payload);
       setPixResult(data.data);
@@ -69,39 +69,27 @@ export default function CustomerRecharge() {
           </button>
           <div>
             <h1 className="text-lg font-bold text-white">Carregar Saldo</h1>
-            <p className="text-xs text-gray-500">Recarga via Pix — crédito imediato</p>
+            <p className="text-xs text-gray-500">{eventContext?.name || 'Recarga via Pix'} — crédito imediato</p>
           </div>
         </div>
+
+        {eventError ? (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
+            <p className="text-red-300 text-sm font-medium">{eventError}</p>
+          </div>
+        ) : null}
 
         {!pixResult ? (
           /* ── Step 1: Formulário de valor ─────────────────────── */
           <form onSubmit={handleGeneratePix} className="space-y-5">
 
-            {/* Recharge type toggle */}
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Carregar para</p>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: 'global', label: 'Carteira EnjoyFun', icon: Globe, desc: 'Saldo global da plataforma' },
-                  { id: 'event',  label: 'Cartão do Evento',  icon: Building2, desc: 'Saldo neste evento' },
-                ].map(({ id, label, icon: Icon, desc }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setRechargeType(id)}
-                    className={`flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all ${
-                      rechargeType === id
-                        ? 'bg-purple-600/20 border-purple-500/60 text-white'
-                        : 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-600'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <Icon size={14} className={rechargeType === id ? 'text-purple-400' : 'text-gray-500'} />
-                      <span className="text-xs font-semibold">{label}</span>
-                    </div>
-                    <span className="text-[10px] text-gray-500 leading-tight">{desc}</span>
-                  </button>
-                ))}
+            <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
+                <Building2 size={18} className="text-purple-400" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-widest">Carteira do evento</p>
+                <p className="text-sm text-white font-semibold">{eventContext?.name || slug?.replace(/-/g, ' ')}</p>
               </div>
             </div>
 
@@ -110,10 +98,10 @@ export default function CustomerRecharge() {
               <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Valores rápidos</p>
               <div className="grid grid-cols-4 gap-2">
                 {PRESET_VALUES.map(v => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setAmount(String(v))}
+              <button
+                key={v}
+                type="button"
+                onClick={() => setAmount(String(v))}
                     className={`py-2.5 rounded-xl text-sm font-semibold border transition-all active:scale-95 ${
                       parseFloat(amount) === v
                         ? 'bg-purple-600 border-purple-500 text-white'
@@ -159,7 +147,7 @@ export default function CustomerRecharge() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading || !parseFloat(amount)}
+              disabled={loading || !parseFloat(amount) || eventLoading || Boolean(eventError)}
               className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-white text-base transition-all active:scale-[0.98] disabled:opacity-60"
               style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)', boxShadow: '0 12px 32px rgba(124,58,237,0.4)' }}
             >
@@ -178,7 +166,7 @@ export default function CustomerRecharge() {
               <div>
                 <p className="text-green-400 font-semibold text-sm">Pix gerado com sucesso!</p>
                 <p className="text-green-400/70 text-xs">
-                  {pixResult?.recharge_type === 'global' ? '🌐 Carteira EnjoyFun' : '🏛️ Cartão do Evento'} — Escaneie ou copie o código.
+                  {pixResult?.event_name || eventContext?.name || 'Cartão do Evento'} — Escaneie ou copie o código.
                 </p>
               </div>
             </div>

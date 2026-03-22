@@ -9,6 +9,9 @@ class AuditService
     // Ações padronizadas
     const CARD_RECHARGE     = 'card.recharge';
     const CARD_DEBIT        = 'card.debit';
+    const CARD_BLOCK        = 'card.block';
+    const CARD_UNBLOCK      = 'card.unblock';
+    const CARD_DELETE       = 'card.delete';
     const SALE_CHECKOUT     = 'sale.checkout';
     const SALE_CANCEL       = 'sale.cancel';
     const TICKET_VALIDATE   = 'ticket.validate';
@@ -20,6 +23,9 @@ class AuditService
     const SYNC_CONFLICT     = 'sync.conflict';
     const API_REQUEST       = 'api.request';
     const CLIENT_TELEMETRY  = 'client.telemetry';
+    const WORKFORCE_CARD_ISSUANCE_PREVIEW = 'workforce.card_issuance.preview';
+    const WORKFORCE_CARD_ISSUANCE_BATCH   = 'workforce.card_issuance.batch';
+    const WORKFORCE_CARD_ISSUANCE_ITEM    = 'workforce.card_issuance.item';
 
     public static function log(
         string $action,

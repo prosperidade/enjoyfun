@@ -189,6 +189,12 @@ function resolveCriticalEndpointLabel(array $context): ?string
     if ($resource === 'workforce' && $id === 'assignments' && $sub !== null && $method === 'DELETE') {
         return 'DELETE /workforce/assignments/:id';
     }
+    if ($resource === 'workforce' && $id === 'card-issuance' && $sub === 'preview' && $method === 'POST') {
+        return 'POST /workforce/card-issuance/preview';
+    }
+    if ($resource === 'workforce' && $id === 'card-issuance' && $sub === 'issue' && $method === 'POST') {
+        return 'POST /workforce/card-issuance/issue';
+    }
     if ($resource === 'participants' && $id === null && $method === 'GET') {
         return 'GET /participants';
     }
@@ -279,7 +285,7 @@ if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
     header("Access-Control-Allow-Origin: $origin");
 }
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Device-ID, X-Operational-Test');
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Max-Age: 86400');
 header('Content-Type: application/json; charset=utf-8');
@@ -367,6 +373,7 @@ initializeCurrentRequestContext($method, $uri, $resource, $id, $sub, $subId, $_G
         'analytics'=> BASE_PATH . '/src/Controllers/AnalyticsController.php',
         'cards'    => BASE_PATH . '/src/Controllers/CardController.php',
         'events'   => BASE_PATH . '/src/Controllers/EventController.php',
+        'customer' => BASE_PATH . '/src/Controllers/CustomerController.php',
         'tickets'  => BASE_PATH . '/src/Controllers/TicketController.php',
         'bar'      => BASE_PATH . '/src/Controllers/BarController.php',
         'food'     => BASE_PATH . '/src/Controllers/FoodController.php',

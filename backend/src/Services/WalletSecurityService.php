@@ -1,5 +1,7 @@
 <?php
 
+require_once BASE_PATH . '/src/Services/CardAssignmentService.php';
+
 class WalletSecurityService
 {
     /**
@@ -10,6 +12,7 @@ class WalletSecurityService
     public static function processTransaction(PDO $db, string $cardReference, float $amount, string $type, int $organizerId, array $metadata = []): array
     {
         $cardReference = trim($cardReference);
+        $eventId = isset($metadata['event_id']) ? (int)$metadata['event_id'] : 0;
 
         if ($cardReference === '') {
             throw new RuntimeException('Identificador do cartão é obrigatório.', 400);
@@ -38,6 +41,8 @@ class WalletSecurityService
             $wallet = self::resolveCardReference($db, $cardReference, $organizerId, [
                 'for_update' => true,
                 'include_presentation' => false,
+                'event_id' => $eventId > 0 ? $eventId : null,
+                'require_event_match' => $eventId > 0,
             ]);
 
             if (!$wallet) {
@@ -202,16 +207,34 @@ class WalletSecurityService
         $forUpdate = !empty($options['for_update']);
         $allowLegacyToken = !empty($options['allow_legacy_token']);
         $includePresentation = !empty($options['include_presentation']);
+        $eventId = isset($options['event_id']) ? (int)$options['event_id'] : 0;
+        $requireEventMatch = !empty($options['require_event_match']);
 
         if (self::isCanonicalCardId($cardReference)) {
-            $wallet = self::findWalletById($db, $cardReference, $organizerId, $forUpdate, $includePresentation);
+            $wallet = self::findWalletById(
+                $db,
+                $cardReference,
+                $organizerId,
+                $forUpdate,
+                $includePresentation,
+                $eventId,
+                $requireEventMatch
+            );
             if ($wallet) {
                 return $wallet;
             }
         }
 
         if ($allowLegacyToken && self::columnExists($db, 'digital_cards', 'card_token')) {
-            $wallet = self::findWalletByLegacyToken($db, $cardReference, $organizerId, $forUpdate, $includePresentation);
+            $wallet = self::findWalletByLegacyToken(
+                $db,
+                $cardReference,
+                $organizerId,
+                $forUpdate,
+                $includePresentation,
+                $eventId,
+                $requireEventMatch
+            );
             if ($wallet) {
                 return $wallet;
             }
@@ -234,48 +257,68 @@ class WalletSecurityService
      * @param int $organizerId
      * @return array|bool
      */
-    private static function findWalletById(PDO $db, string $cardId, int $organizerId, bool $forUpdate, bool $includePresentation): array|bool
+    private static function findWalletById(
+        PDO $db,
+        string $cardId,
+        int $organizerId,
+        bool $forUpdate,
+        bool $includePresentation,
+        int $eventId = 0,
+        bool $requireEventMatch = false
+    ): array|bool
     {
         $lockClause = $forUpdate ? ' FOR UPDATE' : '';
-        $selectFields = self::buildWalletSelectFields($db, $includePresentation);
+        $assignmentScope = self::buildAssignmentScope($db, $eventId, $requireEventMatch, $includePresentation);
+        $selectFields = self::buildWalletSelectFields($db, $includePresentation, $assignmentScope['assignments_enabled']);
         $userJoin = $includePresentation ? 'LEFT JOIN users u ON u.id = c.user_id' : '';
 
         $stmtById = $db->prepare(
             "SELECT {$selectFields}
              FROM digital_cards c
              {$userJoin}
+             {$assignmentScope['joins']}
              WHERE c.id = ?::uuid
                AND c.organizer_id = ?
                AND c.is_active = true
              {$lockClause}"
         );
-        $stmtById->execute([$cardId, $organizerId]);
+        $stmtById->execute(array_merge($assignmentScope['params'], [$cardId, $organizerId]));
         $wallet = $stmtById->fetch(PDO::FETCH_ASSOC);
 
         return $wallet ?: false;
     }
 
-    private static function findWalletByLegacyToken(PDO $db, string $cardToken, int $organizerId, bool $forUpdate, bool $includePresentation): array|bool
+    private static function findWalletByLegacyToken(
+        PDO $db,
+        string $cardToken,
+        int $organizerId,
+        bool $forUpdate,
+        bool $includePresentation,
+        int $eventId = 0,
+        bool $requireEventMatch = false
+    ): array|bool
     {
         $lockClause = $forUpdate ? ' FOR UPDATE' : '';
-        $selectFields = self::buildWalletSelectFields($db, $includePresentation);
+        $assignmentScope = self::buildAssignmentScope($db, $eventId, $requireEventMatch, $includePresentation);
+        $selectFields = self::buildWalletSelectFields($db, $includePresentation, $assignmentScope['assignments_enabled']);
         $userJoin = $includePresentation ? 'LEFT JOIN users u ON u.id = c.user_id' : '';
         $stmtByToken = $db->prepare(
             "SELECT {$selectFields}
              FROM digital_cards c
              {$userJoin}
+             {$assignmentScope['joins']}
              WHERE c.card_token = ?
-               AND organizer_id = ?
+               AND c.organizer_id = ?
                AND c.is_active = true
              {$lockClause}"
         );
-        $stmtByToken->execute([$cardToken, $organizerId]);
+        $stmtByToken->execute(array_merge($assignmentScope['params'], [$cardToken, $organizerId]));
         $wallet = $stmtByToken->fetch(PDO::FETCH_ASSOC);
 
         return $wallet ?: false;
     }
 
-    private static function buildWalletSelectFields(PDO $db, bool $includePresentation): string
+    private static function buildWalletSelectFields(PDO $db, bool $includePresentation, bool $assignmentsEnabled): string
     {
         $fields = [
             'c.id::text AS id',
@@ -283,13 +326,50 @@ class WalletSecurityService
         ];
 
         if ($includePresentation) {
-            $fields[] = self::columnExists($db, 'digital_cards', 'card_token')
-                ? "COALESCE(NULLIF(TRIM(c.card_token), ''), c.id::text) AS card_token"
-                : 'c.id::text AS card_token';
-            $fields[] = "COALESCE(u.name, 'Cartão Avulso') AS user_name";
+            if ($assignmentsEnabled) {
+                $fields[] = "COALESCE(NULLIF(TRIM(a.holder_name_snapshot), ''), COALESCE(u.name, 'Cartão Avulso')) AS user_name";
+                $fields[] = 'a.event_id AS event_id';
+                $fields[] = "COALESCE(e.name, 'Sem evento') AS event_name";
+            } else {
+                $fields[] = "COALESCE(u.name, 'Cartão Avulso') AS user_name";
+            }
         }
 
         return implode(",\n                    ", $fields);
+    }
+
+    private static function buildAssignmentScope(PDO $db, int $eventId, bool $requireEventMatch, bool $includePresentation): array
+    {
+        if (!CardAssignmentService::tableExists($db)) {
+            if ($requireEventMatch && $eventId > 0) {
+                CardAssignmentService::ensureTableExists($db);
+            }
+
+            return [
+                'joins' => '',
+                'params' => [],
+                'assignments_enabled' => false,
+            ];
+        }
+
+        if ($requireEventMatch && $eventId <= 0) {
+            throw new RuntimeException('event_id é obrigatório para validar o cartão no evento selecionado.', 422);
+        }
+
+        $joinType = $requireEventMatch ? 'INNER JOIN' : 'LEFT JOIN';
+        $eventClause = $requireEventMatch ? ' AND a.event_id = ?' : '';
+        $eventJoin = $includePresentation ? "\n             LEFT JOIN public.events e ON e.id = a.event_id" : '';
+
+        return [
+            'joins' => sprintf(
+                "%s public.event_card_assignments a\n               ON a.card_id = c.id\n              AND a.organizer_id = c.organizer_id\n              AND a.status = 'active'%s%s",
+                $joinType,
+                $eventClause,
+                $eventJoin
+            ),
+            'params' => $requireEventMatch ? [$eventId] : [],
+            'assignments_enabled' => true,
+        ];
     }
 
     private static function columnExists(PDO $db, string $table, string $column): bool

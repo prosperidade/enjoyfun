@@ -136,6 +136,7 @@ function checkout(array $body): void
     $items   = $body['items'] ?? [];
     $totalAmount   = (float)($body['total_amount'] ?? 0);
     $cardId  = trim((string)($body['card_id'] ?? ''));
+    $offlineId = trim((string)($body['offline_id'] ?? ''));
 
     try {
         $db = Database::getInstance();
@@ -146,7 +147,8 @@ function checkout(array $body): void
             $items,
             'shop',
             $totalAmount,
-            $cardId !== '' ? $cardId : null
+            $cardId !== '' ? $cardId : null,
+            $offlineId !== '' ? ['offline_id' => $offlineId] : []
         );
 
         jsonSuccess($result, "Venda realizada com sucesso!");

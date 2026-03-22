@@ -5,3 +5,7 @@
 19/03/2026 20:11:41,25 - APLICADA: database\024_external_meal_validity_windows.sql 
 19/03/2026 20:11:50,61 - APLICADA: database\022_workforce_assignment_identity.sql 
 19/03/2026 20:12:05,24 - APLICADA: database\023_event_participants_qr_token_hardening.sql 
+20/03/2026 12:01:13,72 - APLICADA: database\025_cashless_offline_hardening.sql 
+20/03/2026 14:07:56,09 - APLICADA: database\026_event_scoped_card_assignments.sql 
+20/03/2026 16:09:14,29 - APLICADA: database\027_expand_otp_code_storage.sql 
+20/03/2026 21:11:02,57 - APLICADA: database\028_workforce_bulk_card_issuance_foundation.sql 

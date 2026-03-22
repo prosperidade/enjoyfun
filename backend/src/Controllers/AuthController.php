@@ -5,6 +5,7 @@
  */
 
 require_once BASE_PATH . '/src/Services/OrganizerMessagingConfigService.php';
+require_once BASE_PATH . '/src/Services/EventLookupService.php';
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -315,16 +316,63 @@ function otpMatchesStoredCode(string $identifier, string $plainCode, string $sto
     return hash_equals((string)$storedCode, trim($plainCode));
 }
 
+function resolveCustomerAuthScope(PDO $db, array $body): array
+{
+    $organizerId = (int)($body['organizer_id'] ?? 0);
+    $eventId = (int)($body['event_id'] ?? 0);
+    $eventSlug = trim((string)($body['event_slug'] ?? $body['slug'] ?? ''));
+
+    if ($eventId > 0 || $eventSlug !== '') {
+        $event = EventLookupService::resolvePublicEvent(
+            $db,
+            $eventId > 0 ? $eventId : null,
+            $eventSlug !== '' ? $eventSlug : null
+        );
+        if (!$event) {
+            throw new RuntimeException('Evento inválido para autenticação do cliente.', 404);
+        }
+
+        return [
+            'organizer_id' => (int)($event['organizer_id'] ?? 0),
+            'event_id' => (int)($event['id'] ?? 0),
+            'event_slug' => (string)($event['slug'] ?? ''),
+        ];
+    }
+
+    if ($organizerId <= 0) {
+        throw new RuntimeException('Identificador e organizer_id/evento são obrigatórios.', 422);
+    }
+
+    return [
+        'organizer_id' => $organizerId,
+        'event_id' => null,
+        'event_slug' => null,
+    ];
+}
+
+function buildOtpCustomerPlaceholderEmail(string $identifier, int $organizerId): string
+{
+    $normalized = preg_replace('/\D+/', '', $identifier) ?? '';
+    if ($normalized === '') {
+        $normalized = substr(sha1(strtolower(trim($identifier))), 0, 16);
+    }
+
+    return sprintf('customer-org%d-%s@otp.enjoyfun.local', $organizerId, $normalized);
+}
+
+function buildOtpCustomerPasswordHash(): string
+{
+    return password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+}
+
 // ─────────────────────────────────────────────────────────────
 // REQUEST ACCESS CODE (Passwordless Step 1)
 // ─────────────────────────────────────────────────────────────
 function requestAccessCode(array $body): void
 {
     $identifier  = trim($body['identifier']   ?? '');
-    $organizerId = (int)($body['organizer_id'] ?? 0);
-
-    if (!$identifier || $organizerId <= 0) {
-        jsonError('Identificador e organizer_id são obrigatórios.', 422);
+    if (!$identifier) {
+        jsonError('Identificador é obrigatório.', 422);
     }
 
     $otp = (string) random_int(100000, 999999);
@@ -334,6 +382,14 @@ function requestAccessCode(array $body): void
 
     try {
         $db = Database::getInstance();
+        $scope = resolveCustomerAuthScope($db, $body);
+        $organizerId = (int)($scope['organizer_id'] ?? 0);
+        if ($organizerId <= 0) {
+            jsonError('Organizer inválido para autenticação do cliente.', 422);
+        }
+        if (!empty($scope['event_id']) && function_exists('setCurrentRequestEventId')) {
+            setCurrentRequestEventId((int)$scope['event_id']);
+        }
         $db->prepare('DELETE FROM otp_codes WHERE identifier = ?')->execute([$identifier]);
 
         $stmt = $db->prepare('INSERT INTO otp_codes (identifier, code, expires_at, created_at) VALUES (?, ?, ?, NOW()) RETURNING id');
@@ -358,6 +414,10 @@ function requestAccessCode(array $body): void
             }
         }
         error_log('Erro ao gerar OTP: ' . $e->getMessage());
+        $status = (int)$e->getCode();
+        if ($status >= 400 && $status < 600) {
+            jsonError($e->getMessage(), $status);
+        }
         jsonError('Nao foi possivel enviar o codigo agora. Tente novamente.', 503);
     }
 }
@@ -369,14 +429,20 @@ function verifyAccessCode(array $body): void
 {
     $identifier  = trim($body['identifier']   ?? '');
     $code        = trim($body['code']         ?? '');
-    $organizerId = (int)($body['organizer_id'] ?? 0);
-
-    if (!$identifier || !$code || $organizerId <= 0) {
-        jsonError('Identificador, código e organizer_id são obrigatórios.', 422);
+    if (!$identifier || !$code) {
+        jsonError('Identificador e código são obrigatórios.', 422);
     }
 
     try {
         $db = Database::getInstance();
+        $scope = resolveCustomerAuthScope($db, $body);
+        $organizerId = (int)($scope['organizer_id'] ?? 0);
+        if ($organizerId <= 0) {
+            jsonError('Organizer inválido para autenticação do cliente.', 422);
+        }
+        if (!empty($scope['event_id']) && function_exists('setCurrentRequestEventId')) {
+            setCurrentRequestEventId((int)$scope['event_id']);
+        }
 
         $stmtOtp = $db->prepare('SELECT id, code FROM otp_codes WHERE identifier = ? AND expires_at > NOW() ORDER BY created_at DESC LIMIT 5');
         $stmtOtp->execute([$identifier]);
@@ -404,14 +470,24 @@ function verifyAccessCode(array $body): void
         $user = $stmtUser->fetch(PDO::FETCH_ASSOC);
 
         if (!$user) {
+            $email = $isEmail ? $identifier : buildOtpCustomerPlaceholderEmail($identifier, $organizerId);
+            $phone = $isEmail ? null : $identifier;
+            $passwordHash = buildOtpCustomerPasswordHash();
             $stmtInsert = $db->prepare("
-                INSERT INTO users (name, {$field}, role, organizer_id, is_active, created_at)
-                VALUES (?, ?, 'customer', ?, true, NOW())
+                INSERT INTO users (name, email, password, phone, role, organizer_id, is_active, created_at)
+                VALUES (?, ?, ?, ?, 'customer', ?, true, NOW())
                 RETURNING id
             ");
-            $stmtInsert->execute(['Cliente', $identifier, $organizerId]);
+            $stmtInsert->execute(['Cliente', $email, $passwordHash, $phone, $organizerId]);
             $newId = (int) $stmtInsert->fetchColumn();
-            $user  = ['id' => $newId, 'name' => 'Cliente', $field => $identifier, 'role' => 'customer', 'organizer_id' => $organizerId];
+            $user  = [
+                'id' => $newId,
+                'name' => 'Cliente',
+                'email' => $email,
+                'phone' => $phone,
+                'role' => 'customer',
+                'organizer_id' => $organizerId,
+            ];
         }
 
         $userData = buildUserPayload($db, $user);
@@ -426,6 +502,10 @@ function verifyAccessCode(array $body): void
 
     } catch (Exception $e) {
         error_log('Erro ao verificar OTP: ' . $e->getMessage());
+        $status = (int)$e->getCode();
+        if ($status >= 400 && $status < 600) {
+            jsonError($e->getMessage(), $status);
+        }
         jsonError('Erro interno ao verificar código.', 500);
     }
 }

@@ -10,6 +10,7 @@ final class OrganizerMessagingConfigService
     private const SECRET_SCOPE = 'organizer_messaging';
     private const SECRET_FIELDS = ['resend_api_key', 'wa_api_url', 'wa_token', 'wa_instance'];
     private const ALL_FIELDS = ['resend_api_key', 'email_sender', 'wa_api_url', 'wa_token', 'wa_instance'];
+    private const PLACEHOLDER_VALUES = ['***redacted***', '(Configurado)'];
 
     public static function load(PDO $db, int $organizerId): array
     {
@@ -122,6 +123,9 @@ final class OrganizerMessagingConfigService
     {
         foreach (self::SECRET_FIELDS as $field) {
             $value = trim((string)($row[$field] ?? ''));
+            if (self::isPlaceholderSecret($value)) {
+                continue;
+            }
             if ($value !== '' && !SecretCryptoService::isEncrypted($value)) {
                 return true;
             }
@@ -152,11 +156,20 @@ final class OrganizerMessagingConfigService
             return '';
         }
 
+        if (in_array($field, self::SECRET_FIELDS, true) && self::isPlaceholderSecret($value)) {
+            return '';
+        }
+
         if (in_array($field, self::SECRET_FIELDS, true)) {
             $value = self::decryptSecret($value);
         }
 
         return $field === 'wa_api_url' ? rtrim($value, '/') : $value;
+    }
+
+    private static function isPlaceholderSecret(string $value): bool
+    {
+        return in_array(trim($value), self::PLACEHOLDER_VALUES, true);
     }
 
     private static function encryptSecret(string $value): string

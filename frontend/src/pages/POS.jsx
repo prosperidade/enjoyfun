@@ -100,6 +100,11 @@ export default function POS({ fixedSector = "bar" }) {
 
   const hasValidEventContext = Number(eventId) > 0;
   const trimmedCardReference = cardReference.trim();
+  const hasScopedResolvedCard =
+    Boolean(resolvedCardId) &&
+    resolvedCardMeta?.reference === trimmedCardReference &&
+    Number(resolvedCardMeta?.event_id || 0) === Number(eventId || 0) &&
+    isCanonicalCardId(resolvedCardId);
 
   useEffect(() => {
     clearCart();
@@ -108,6 +113,13 @@ export default function POS({ fixedSector = "bar" }) {
     setResolvedCardMeta(null);
     setCardResolveError("");
   }, [clearCart, fixedSector]);
+
+  useEffect(() => {
+    setCardReference("");
+    setResolvedCardId("");
+    setResolvedCardMeta(null);
+    setCardResolveError("");
+  }, [eventId]);
 
   useEffect(() => {
     if (tab === "reports") {
@@ -120,13 +132,18 @@ export default function POS({ fixedSector = "bar" }) {
     setCardReference(value);
     setCardResolveError("");
 
-    if (isCanonicalCardId(trimmedValue)) {
-      setResolvedCardId(trimmedValue);
-      setResolvedCardMeta({
-        card_id: trimmedValue,
-        reference: trimmedValue,
-        resolved_from: "card_id",
-      });
+    if (trimmedValue === "") {
+      setResolvedCardId("");
+      setResolvedCardMeta(null);
+      return;
+    }
+
+    if (
+      resolvedCardMeta?.reference === trimmedValue &&
+      Number(resolvedCardMeta?.event_id || 0) === Number(eventId || 0) &&
+      isCanonicalCardId(String(resolvedCardMeta?.card_id || resolvedCardId || ""))
+    ) {
+      setResolvedCardId(String(resolvedCardMeta.card_id || resolvedCardId || ""));
       return;
     }
 
@@ -135,31 +152,21 @@ export default function POS({ fixedSector = "bar" }) {
   };
 
   const resolveCheckoutCardId = async () => {
+    const scopedEventId = Number(eventId || 0);
     if (trimmedCardReference === "") {
       throw new Error("Escaneie o cartão do cliente antes de finalizar.");
     }
-
-    if (
-      resolvedCardId &&
-      resolvedCardMeta?.reference === trimmedCardReference &&
-      isCanonicalCardId(resolvedCardId)
-    ) {
-      return resolvedCardId;
+    if (scopedEventId <= 0) {
+      throw new Error("Selecione um evento válido antes de validar o cartão.");
     }
 
-    if (isCanonicalCardId(trimmedCardReference)) {
-      setResolvedCardId(trimmedCardReference);
-      setResolvedCardMeta({
-        card_id: trimmedCardReference,
-        reference: trimmedCardReference,
-        resolved_from: "card_id",
-      });
-      return trimmedCardReference;
+    if (hasScopedResolvedCard) {
+      return resolvedCardId;
     }
 
     if (isOffline) {
       throw new Error(
-        "Offline exige um card_id canônico já resolvido antes da venda.",
+        "Offline exige um cartão validado online para este evento antes da venda.",
       );
     }
 
@@ -169,6 +176,7 @@ export default function POS({ fixedSector = "bar" }) {
     try {
       const { data } = await api.post("/cards/resolve", {
         reference: trimmedCardReference,
+        event_id: scopedEventId,
       });
       const card = data?.data || {};
       const nextCardId = String(card.card_id || "").trim();
@@ -181,6 +189,7 @@ export default function POS({ fixedSector = "bar" }) {
       setResolvedCardMeta({
         ...card,
         reference: trimmedCardReference,
+        event_id: scopedEventId,
       });
       return nextCardId;
     } catch (err) {
@@ -204,20 +213,19 @@ export default function POS({ fixedSector = "bar" }) {
   } else if (cardResolveError) {
     cardHint = cardResolveError;
     cardHintTone = "danger";
+  } else if (!hasValidEventContext) {
+    cardHint = "Selecione um evento antes de validar o cartão.";
+    cardHintTone = "warning";
   } else if (resolvingCard) {
     cardHint = "Validando o cartão para obter o card_id canônico...";
-  } else if (
-    resolvedCardId &&
-    resolvedCardMeta?.reference === trimmedCardReference
-  ) {
+  } else if (hasScopedResolvedCard) {
     cardHint = `Cartão pronto para cobrança: ${resolvedCardId.slice(0, 8)}...`;
     cardHintTone = "success";
-  } else if (isOffline && !isCanonicalCardId(trimmedCardReference)) {
-    cardHint = "Offline exige um card_id já resolvido antes da queda de rede.";
+  } else if (isOffline) {
+    cardHint = "Offline exige o cartão já validado online para este evento.";
     cardHintTone = "warning";
   } else if (isCanonicalCardId(trimmedCardReference)) {
-    cardHint = "card_id canônico detectado.";
-    cardHintTone = "success";
+    cardHint = "card_id canônico detectado; a validação do evento ocorrerá no checkout.";
   } else {
     cardHint = "A referência escaneada será convertida para card_id no checkout.";
   }
@@ -404,12 +412,15 @@ export default function POS({ fixedSector = "bar" }) {
                     cart.length > 0 &&
                     Boolean(trimmedCardReference) &&
                     hasValidEventContext &&
-                    !resolvingCard
+                    !resolvingCard &&
+                    (!isOffline || hasScopedResolvedCard)
                   }
                   checkoutHint={
-                    hasValidEventContext
-                      ? null
-                      : "Selecione um evento valido para habilitar o checkout."
+                    !hasValidEventContext
+                      ? "Selecione um evento valido para habilitar o checkout."
+                      : isOffline && !hasScopedResolvedCard
+                        ? "Offline exige o cartão validado online para o evento atual."
+                        : null
                   }
                   isOffline={isOffline}
                   onCardReferenceChange={handleCardReferenceChange}

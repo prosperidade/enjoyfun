@@ -442,16 +442,52 @@ Limitacao local desta rodada:
 - `php -l backend/src/Controllers/SyncController.php` passou
 - `npm --prefix frontend run build` passou
 
-### O que falta para amanha fechar a frente do POS
+### Fechamento executado em 2026-03-20 para encerrar a frente do POS
 
-1. aplicar `database/025_cashless_offline_hardening.sql` no banco real e registrar em `database/migrations_applied.log`
-2. executar smoke operacional curta com backend reiniciado:
-   - `POST /cards/resolve`
-   - recarga
-   - checkout online
-   - venda offline
-   - `POST /sync` drenando a fila
-3. atualizar `auditoriaPOS.md` para marcar o que ja morreu e reduzir o residual real do modulo
+1. `database/025_cashless_offline_hardening.sql` foi aplicada no banco real via `database/apply_migration.bat` e registrada em `database/migrations_applied.log`
+2. foi executado smoke operacional com backend reiniciado em `http://localhost:8080/api`:
+   - `POST /cards/resolve` `200`
+   - recarga `200`
+   - checkout online `200` com venda `245`
+   - venda offline sincronizada por `POST /sync` `200` com venda `246`
+   - trilha confirmada em `offline_queue` (`21071`) e `card_transactions` (`130`, `131`, `132`)
+   - saldo conferido ponta a ponta: `3308.00 -> 3309.00 -> 3297.00 -> 3292.00`
+3. `auditoriaPOS.md` foi atualizada para remover riscos que ja morreram e deixar apenas o residual real
+4. o backend recebeu ajuste de CORS para aceitar `X-Device-ID` e `X-Operational-Test`, destravando o login/browser local em `localhost:3001`
+
+### Fechamento complementar em 2026-03-20 para cartao por evento
+
+- foi criada e aplicada a migration `database/026_event_scoped_card_assignments.sql`
+- o backend passou a vincular emissao manual, listagem, extrato, recarga e resolucao de cartao ao `event_id`
+- `WalletSecurityService` passou a rejeitar validacao e transacao cashless quando o cartao ativo nao pertence ao evento selecionado
+- o POS passou a enviar `event_id` na resolucao do cartao e a exigir validacao online previa para offline no evento atual
+- `Cards.jsx` passou a emitir e recarregar apenas com evento explicito
+- smoke da API local confirmou o isolamento:
+  - cartao emitido no evento `7` apareceu em `GET /cards?event_id=7`
+  - o mesmo cartao nao apareceu em `GET /cards?event_id=1`
+  - `POST /cards/resolve` no evento `7` retornou `200`
+  - `POST /cards/resolve` no evento `1` retornou `404`
+  - recarga no evento `7` retornou `200`
+  - recarga no evento `1` retornou `404`
+
+### Fechamento complementar em 2026-03-20 para cashless do cliente por evento
+
+- foi criada e aplicada a migration `database/027_expand_otp_code_storage.sql` para ampliar `otp_codes.code` de `varchar(10)` para `varchar(128)` e destravar o OTP com hash
+- `OrganizerMessagingConfigService` passou a ignorar placeholders como `***redacted***` e `(Configurado)` para nao tratar segredo mascarado como credencial real
+- `AuthController` passou a aceitar autenticacao do cliente por `event_id` ou `event_slug`, resolvendo o `organizer_id` a partir do evento
+- `CustomerController` foi refeito para expor contexto publico do evento e limitar `balance`, `transactions`, `tickets` e `recharge` ao `event_id`
+- a UI do cliente (`/app/:slug`, dashboard e recarga) passou a resolver o evento pelo slug e enviar `event_id` explicitamente em toda chamada cashless
+- smoke local validado com o mesmo cliente (`phone=11999992727`, `user_id=41`) em dois eventos do organizador `2`:
+  - `POST /auth/request-code` no evento `1` retornou `200` com envio `mocked`
+  - `POST /auth/verify-code` no evento `1` criou o cliente `41`
+  - `GET /customer/balance?event_id=1` retornou `card_id=null` antes da recarga
+  - `POST /customer/recharge` no evento `1` criou a carteira `ab4f963b-b868-470d-b100-5cd0131cbebf`
+  - `GET /customer/transactions?event_id=1` retornou apenas a recarga pendente `id=140`
+  - `GET /customer/balance?event_id=7` retornou `card_id=null` e `transactions=[]` antes da recarga do segundo evento
+  - `POST /auth/request-code` e `POST /auth/verify-code` no evento `7` retornaram `200` reutilizando o mesmo cliente `41`
+  - `POST /customer/recharge` no evento `7` criou a carteira `5e9d5b81-538e-4630-b8b6-dd03b94d2159`
+  - `GET /customer/transactions?event_id=7` retornou apenas a recarga pendente `id=141`
+  - `event_card_assignments` confirmou dois vinculos ativos para o mesmo cliente, um em `event_id=1` e outro em `event_id=7`, com `card_id` distintos
 
 ### Proxima etapa apos o fechamento do POS
 
@@ -460,3 +496,8 @@ Limitacao local desta rodada:
   - IA multiagentes e governanca forte de custo por tenant
   - consumidor real de outbox/mensageria
   - dominio explicito de franquias
+
+### Registro separado — cartoes em massa no Workforce
+
+- o desenho, o plano faseado de implementacao e o registro operacional desta frente foram desacoplados para `docs/cardsemassa.md`
+- a primeira passada tecnica ficou ancorada na migration `database/028_workforce_bulk_card_issuance_foundation.sql`, preparando `event_card_assignments`, `card_issue_batches` e `card_issue_batch_items` sem alterar os contratos atuais de `/cards`, POS e customer cashless

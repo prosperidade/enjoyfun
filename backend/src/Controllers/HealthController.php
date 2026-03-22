@@ -56,6 +56,8 @@ function recordClientOperationalTelemetry(array $body): void
         'workforce.snapshot.read_failed' => 'failure',
         'workforce.snapshot.write_failed' => 'failure',
         'workforce.snapshot.fallback_used' => 'success',
+        'workforce.card_issuance.preview_failed' => 'failure',
+        'workforce.card_issuance.issue_failed' => 'failure',
     ];
 
     if (!isset($allowedEvents[$eventType])) {
@@ -157,6 +159,8 @@ function buildWorkforceHealthPayload(int $windowMinutes, int $eventId, array $en
     $snapshotReadFailures = (int)($clientCounts['workforce.snapshot.read_failed']['count'] ?? 0);
     $snapshotWriteFailures = (int)($clientCounts['workforce.snapshot.write_failed']['count'] ?? 0);
     $snapshotFallbackUsed = (int)($clientCounts['workforce.snapshot.fallback_used']['count'] ?? 0);
+    $cardIssuancePreviewFailures = (int)($clientCounts['workforce.card_issuance.preview_failed']['count'] ?? 0);
+    $cardIssuanceIssueFailures = (int)($clientCounts['workforce.card_issuance.issue_failed']['count'] ?? 0);
     $snapshotInvalidCount = $snapshotReadFailures + $snapshotWriteFailures;
 
     $syncRow = null;
@@ -171,7 +175,13 @@ function buildWorkforceHealthPayload(int $windowMinutes, int $eventId, array $en
     $overallStatus = 'healthy';
     if ($snapshotInvalidCount > 0 || $syncFailureRate >= 5.0) {
         $overallStatus = 'degraded';
-    } elseif ($endpointsWithFailures > 0 || $syncFailureRate > 0 || $snapshotFallbackUsed > 0) {
+    } elseif (
+        $endpointsWithFailures > 0 ||
+        $syncFailureRate > 0 ||
+        $snapshotFallbackUsed > 0 ||
+        $cardIssuancePreviewFailures > 0 ||
+        $cardIssuanceIssueFailures > 0
+    ) {
         $overallStatus = 'warning';
     }
 
@@ -199,6 +209,8 @@ function buildWorkforceHealthPayload(int $windowMinutes, int $eventId, array $en
             'snapshot_read_failures' => $snapshotReadFailures,
             'snapshot_write_failures' => $snapshotWriteFailures,
             'snapshot_fallback_used' => $snapshotFallbackUsed,
+            'card_issuance_preview_failures' => $cardIssuancePreviewFailures,
+            'card_issuance_issue_failures' => $cardIssuanceIssueFailures,
         ],
         'endpoints' => $endpoints,
         'client_signals' => [
@@ -213,6 +225,14 @@ function buildWorkforceHealthPayload(int $windowMinutes, int $eventId, array $en
             'snapshot_fallback_used' => [
                 'count' => $snapshotFallbackUsed,
                 'last_seen_at' => $clientCounts['workforce.snapshot.fallback_used']['last_seen_at'] ?? null,
+            ],
+            'card_issuance_preview_failed' => [
+                'count' => $cardIssuancePreviewFailures,
+                'last_seen_at' => $clientCounts['workforce.card_issuance.preview_failed']['last_seen_at'] ?? null,
+            ],
+            'card_issuance_issue_failed' => [
+                'count' => $cardIssuanceIssueFailures,
+                'last_seen_at' => $clientCounts['workforce.card_issuance.issue_failed']['last_seen_at'] ?? null,
             ],
         ],
     ];
@@ -314,6 +334,8 @@ function workforceCriticalEndpointCatalog(): array
         ['label' => 'GET /workforce/assignments', 'slo_target' => 'erro < 1% | p95 < 1500ms'],
         ['label' => 'POST /workforce/assignments', 'slo_target' => 'erro < 1% | p95 < 1500ms'],
         ['label' => 'DELETE /workforce/assignments/:id', 'slo_target' => 'erro < 1% | p95 < 1500ms'],
+        ['label' => 'POST /workforce/card-issuance/preview', 'slo_target' => 'erro < 1% | p95 < 1500ms'],
+        ['label' => 'POST /workforce/card-issuance/issue', 'slo_target' => 'erro < 1% | p95 < 2000ms'],
         ['label' => 'GET /participants', 'slo_target' => 'erro < 1% | p95 < 1500ms'],
         ['label' => 'POST /participants', 'slo_target' => 'erro < 1% | p95 < 1500ms'],
         ['label' => 'DELETE /participants/:id', 'slo_target' => 'erro < 1% | p95 < 1500ms'],
