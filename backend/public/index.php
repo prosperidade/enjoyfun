@@ -360,6 +360,7 @@ $subId    = $segments[3] ?? null;
 // ── JSON Body ─────────────────────────────────────────────────────────────────
 $body = [];
 $raw  = file_get_contents('php://input');
+$GLOBALS['ENJOYFUN_RAW_BODY'] = $raw !== false ? $raw : '';
 if ($raw && ($decoded = json_decode($raw, true)) !== null) {
     $body = $decoded;
 }

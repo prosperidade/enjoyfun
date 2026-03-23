@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { clearSession, getAccessToken, getRefreshToken, persistSession } from './session';
+import { clearSession, getAccessToken, getSessionSnapshot, persistSession } from './session';
 
 // Reads VITE_API_URL from frontend/.env
 // Falls back to /api (Vite proxy) when running `npm run dev` without .env
@@ -8,6 +8,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 });
 
 let refreshRequest = null;
@@ -73,22 +74,32 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !original?._retry && !isRefreshRequest) {
       original._retry = true;
 
-      const refresh = getRefreshToken();
-      if (!refresh) {
+      const { refreshToken, refreshTransport } = getSessionSnapshot();
+      if (!refreshToken && refreshTransport !== 'cookie') {
         clearSession();
         redirectToLogin();
         return Promise.reject(error);
       }
 
       refreshRequest ||= axios
-        .post(`${BASE_URL}/auth/refresh`, { refresh_token: refresh })
+        .post(
+          `${BASE_URL}/auth/refresh`,
+          refreshToken ? { refresh_token: refreshToken } : {},
+          {
+            withCredentials: true,
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Device-ID': getDeviceId(),
+            },
+          }
+        )
         .then(({ data }) => {
           const result = data?.data;
-          if (!result?.access_token) {
+          if (!result || (!result.access_token && result.access_transport !== 'cookie')) {
             throw new Error('Refresh inválido.');
           }
           persistSession(result);
-          return result.access_token;
+          return result.access_transport === 'cookie' ? '' : result.access_token;
         })
         .finally(() => {
           refreshRequest = null;
@@ -96,7 +107,11 @@ api.interceptors.response.use(
 
       try {
         const nextAccessToken = await refreshRequest;
-        original.headers.Authorization = `Bearer ${nextAccessToken}`;
+        if (nextAccessToken) {
+          original.headers.Authorization = `Bearer ${nextAccessToken}`;
+        } else if (original.headers?.Authorization) {
+          delete original.headers.Authorization;
+        }
         return api(original);
       } catch (refreshError) {
         clearSession();

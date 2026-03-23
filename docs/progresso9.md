@@ -501,3 +501,484 @@ Limitacao local desta rodada:
 
 - o desenho, o plano faseado de implementacao e o registro operacional desta frente foram desacoplados para `docs/cardsemassa.md`
 - a primeira passada tecnica ficou ancorada na migration `database/028_workforce_bulk_card_issuance_foundation.sql`, preparando `event_card_assignments`, `card_issue_batches` e `card_issue_batch_items` sem alterar os contratos atuais de `/cards`, POS e customer cashless
+
+---
+
+## 11. Leitura consolidada da analise de 2026-03-22
+
+### Documento-base usado nesta consolidacao
+
+- `analise_enjoyfun_2026_03_22.md`
+- `README.md`
+- `CLAUDE.md`
+- `docs/auditoriaPOS.md`
+
+### O que continua valido no diagnostico
+
+- o risco de sessao em `sessionStorage` continua real e a migracao para cookie `HttpOnly` permanece como frente de hardening
+- `WorkforceController.php` continua grande demais e segue como principal debito arquitetural do dominio operacional
+- a telemetria HTTP ja existe, mas a cobertura ainda nao e ampla o bastante para PDV, tickets, cards, meals e parking em toda a superficie
+- listagens grandes continuam pedindo paginação real para evitar custo alto em eventos com massa maior
+- smoke E2E operacional ainda segue como criterio obrigatorio para:
+  - cashless + sync offline
+  - emissao em massa de cartoes
+
+### O que ja ficou superado pelo estado atual do repositorio
+
+- `README.md` e `CLAUDE.md` ja nao estao mais no estado antigo citado pela analise; ambos foram atualizados em `2026-03-22`
+- a estrategia oficial de `Auth` ja esta consolidada em `HS256`; a leitura antiga de `RS256` como estado atual ficou obsoleta
+- `docs/progresso9.md` ja cobre as migrations `026`, `027` e `028`, e o residual de cartoes em massa foi desacoplado para `docs/cardsemassa.md`
+- o alerta sobre `.env` versionado nao se sustenta mais como leitura do Git atual:
+  - `backend/.env` pode existir localmente
+  - mas esta ignorado por `.gitignore`
+  - portanto o risco atual e de gestao local de segredo, nao de versionamento no repositório
+- `database/README.md` deixou de ser a referencia de governanca; o contrato atual passou a morar no `README.md` da raiz
+
+### Plano executivo curto a partir desta leitura
+
+#### P0 — validar operacao real antes de abrir frente nova
+
+- fechar smoke operacional de `cashless + sync offline`
+- fechar smoke operacional de emissao em massa de cartoes
+- registrar ambos em `docs/qa/` com criterio reproduzivel
+- resumir os resultados no proprio `docs/progresso9.md`
+
+#### P1 — fechar debito operacional/documental de alto valor
+
+- criar `docs/runbook_local.md`
+- fechar `docs/auditoriaPOS.md` contra o estado ja consolidado no POS
+- revisar `pendencias.md` para retirar itens ja mortos e destacar apenas o residual vivo
+- revisar listagens criticas e definir contrato padrao de paginação
+
+#### P2 — endurecimento tecnico de banco e observabilidade
+
+- separar a proxima rodada de banco em migrations pequenas e dedicadas
+- ampliar a telemetria de endpoints criticos sem misturar isso com refactor estrutural
+- mapear quais endpoints de listagem entram primeiro em paginação obrigatoria
+
+#### P3 — refactor arquitetural controlado
+
+- iniciar extracao progressiva de `WorkforceController.php`
+- evitar reescrita ampla; priorizar servicos pequenos em volta dos fluxos mais criticos
+- deixar frentes V4 fora do caminho enquanto ainda houver smoke e hardening operacional pendentes
+
+### Outline tecnico recomendado para as proximas migrations
+
+#### Migration `029_payment_gateways_hardening.sql`
+
+Objetivo:
+
+- fechar o residual conhecido da migration `006_financial_hardening.sql` sem misturar com outras frentes
+
+Escopo sugerido:
+
+- adicionar `organizer_payment_gateways.is_primary`
+- adicionar `organizer_payment_gateways.environment`
+- criar backfill minimo e seguro para os registros existentes
+- adicionar guardas para impedir mais de um gateway principal por organizador, se o schema atual ainda nao sustentar isso
+
+Criterio de aceite:
+
+- `schema_current.sql` passa a refletir o contrato financeiro que o backend ja documenta
+- leitura/escrita de gateways deixa de depender de ambiguidade documental sobre esses campos
+
+#### Migration `030_operational_indexes.sql`
+
+Objetivo:
+
+- atacar performance/observabilidade de forma isolada, sem misturar regra de negocio nova
+
+Escopo sugerido:
+
+- revisar `offline_queue` para indice composto orientado ao reconcile operacional
+- revisar `audit_log` para leitura por tempo/organizer em paineis e auditoria
+- revisar `participant_meals` para consultas quentes do dominio operacional
+- validar por leitura real do `schema_current.sql` quais indices ja existem antes de criar qualquer duplicata
+
+Criterio de aceite:
+
+- migration idempotente
+- nenhum indice duplicado do baseline atual
+- ganho direto em consultas quentes e trilhas operacionais mais frequentes
+
+### Ordem recomendada de execucao
+
+1. smoke `cashless + sync offline`
+2. smoke `cartoes em massa`
+3. `docs/runbook_local.md`
+4. `029_payment_gateways_hardening.sql`
+5. `030_operational_indexes.sql`
+6. extracao progressiva de `WorkforceController.php`
+
+---
+
+## 12. Consolidacao da auditoriaCodex e plano de ataque unificado
+
+### Documento-base adicional desta rodada
+
+- `auditoriaCodex.md`
+
+### Achados da auditoriaCodex validados no codigo atual
+
+- o webhook de mensageria ainda aceita `provider` e `organizer_id` vindos de `query/body`, sem assinatura forte nem autenticacao criptografica
+- `MessagingDeliveryService` ainda cria schema em runtime com `CREATE TABLE IF NOT EXISTS`, o que confirma governanca incompleta da frente
+- o login ainda grava detalhes excessivos no log tecnico e remove todos os `refresh_tokens` do usuario a cada novo login
+- `parking_records.organizer_id` existe no schema, mas o fluxo de `registerEntry()` nao popula a coluna
+- `offline_queue` continua sem `organizer_id` denormalizado, embora o escopo operacional atual seja protegido via `event_id`
+
+### Leitura consolidada do risco real agora
+
+#### Criticos de integridade e operacao
+
+- webhook de mensageria sem autenticacao forte
+- drift entre schema baseline, migrations e bootstrap DDL em runtime
+- logging de autenticacao com detalhe sensivel acima do necessario
+
+#### Altos de sustentacao
+
+- `WorkforceController.php` continua como maior debito estrutural do backend
+- sessao em `sessionStorage` segue como hardening incompleto
+- listagens sem paginação formal ainda podem degradar eventos maiores
+- telemetria existe, mas ainda nao cobre a superficie operacional critica inteira
+
+#### Medios de governanca e release
+
+- teste de gateway ainda e validacao local, nao conectividade real
+- lint/tooling do frontend ainda nao e sinal de release confiavel
+- bundle web segue pesado e pede code splitting real por modulo
+- falta suite consistente de smoke/contrato para segurar refactor de backend
+
+### Frentes definidas do ataque
+
+#### Frente 1 — integridade de mensageria
+
+Objetivo:
+
+- impedir webhook forjado e encerrar a dependencia de DDL em runtime na frente de mensageria
+
+Escopo:
+
+- exigir assinatura HMAC por provider/canal
+- parar de aceitar `organizer_id` vindo do cliente
+- resolver tenant apenas por instancia/credencial registrada
+- persistir evento bruto, mas so aplicar mudanca em delivery apos validacao
+- mover schema da mensageria para trilha formal de migration/baseline
+- remover bootstrap DDL do `MessagingDeliveryService`
+
+Criterio de aceite:
+
+- webhook sem assinatura valida retorna `401/403`
+- `organizer_id` nao e mais aceito de `query/body`
+- ambiente sobe sem criar tabela via chamada HTTP
+
+#### Frente 2 — hardening de auth e sessao
+
+Objetivo:
+
+- reduzir superficie de vazamento operacional e preparar modelo de sessao mais saudavel
+
+Escopo:
+
+- remover logs detalhados demais do login
+- trocar logging de auth para motivo generico + correlation id
+- desenhar refresh token por sessao/dispositivo
+- manter cookie `HttpOnly` como destino da trilha de sessao
+
+Criterio de aceite:
+
+- login nao expõe metadados sensiveis em log
+- modelo de refresh passa a suportar mais de uma sessao sem derrubar tudo
+- plano de migracao para cookie fica documentado antes de implementacao
+
+#### Frente 3 — governanca de banco e migrations
+
+Objetivo:
+
+- tirar o banco do modo semi-manual e fechar os drifts conhecidos primeiro
+
+Escopo:
+
+- `029_payment_gateways_hardening.sql`
+- `030_operational_indexes.sql`
+- formalizar a frente de mensageria no baseline em vez de runtime DDL
+- decidir destino de `parking_records.organizer_id`
+- decidir se `offline_queue` recebe `organizer_id` e `user_id` denormalizados
+- desenhar introducao futura de `schema_migrations`
+
+Criterio de aceite:
+
+- nenhum comportamento critico depende de coluna “talvez exista”
+- baseline e migrations refletem o contrato vivo da aplicacao
+- tabela criada em runtime deixa de existir como mecanismo operacional
+
+#### Frente 4 — QA, smoke e contratos
+
+Objetivo:
+
+- travar comportamento atual antes de mexer pesado no backend
+
+Escopo:
+
+- smoke autenticado de `cashless + sync offline`
+- smoke autenticado de `cartoes em massa`
+- smoke basico de mensageria
+- smoke multi-tenant minimo para tickets, parking, cards e participants
+- primeiro pacote de testes de contrato dos endpoints mais criticos
+
+Criterio de aceite:
+
+- cada frente critica tem roteiro reproduzivel em `docs/qa/`
+- refactor estrutural nao anda sem smoke minimo verde
+
+#### Frente 5 — modularizacao segura do `WorkforceController.php`
+
+Objetivo:
+
+- reduzir o risco do arquivo sem quebrar contratos HTTP nem reescrever o dominio
+
+Estrategia obrigatoria:
+
+- modularizacao incremental
+- sem “big bang refactor”
+- sem troca de rotas na primeira passada
+- sem misturar refactor com mudanca de regra de negocio
+
+Fases:
+
+1. congelar contrato atual com smoke minimo por familia de endpoint
+2. extrair helpers puros de schema/setor/identidade
+3. extrair `card issuance`
+4. extrair `role/member settings`
+5. extrair `assignments/managers`
+6. extrair `roles/event-roles`
+7. extrair `importWorkforce`
+8. extrair `tree-status/backfill/sanitize` por ultimo
+
+Servicos alvo:
+
+- `WorkforceSchemaSupport`
+- `WorkforceSectorSupport`
+- `WorkforceIdentitySupport`
+- `WorkforceSettingsService`
+- `WorkforceAssignmentService`
+- `WorkforceManagerService`
+- `WorkforceRoleService`
+- `WorkforceEventRoleService`
+- `WorkforceImportService`
+- `WorkforceTreeService`
+
+Criterio de aceite:
+
+- `dispatch()` permanece estavel
+- payloads/respostas nao mudam na primeira rodada
+- controller cai progressivamente para uma borda HTTP fina
+
+#### Frente 6 — telemetria, paginação e observabilidade
+
+Objetivo:
+
+- melhorar leitura operacional sem abrir uma reescrita de arquitetura
+
+Escopo:
+
+- ampliar `resolveCriticalEndpointLabel` para PDV, tickets, cards, meals e parking
+- padronizar correlation id nos fluxos criticos
+- definir paginação obrigatoria nas listagens grandes
+- priorizar `tickets`, `participants`, `guests`, `workforce/assignments`
+
+Criterio de aceite:
+
+- endpoints quentes entram na telemetria
+- listagens grandes deixam de depender de retorno “traga tudo”
+
+#### Frente 7 — release safety do frontend
+
+Objetivo:
+
+- tirar a frente web do modo “build passa, mas release ainda e frágil”
+
+Escopo:
+
+- corrigir lint/tooling quebrado
+- iniciar code splitting real por modulo
+- medir bundle por rota critica
+- separar dashboard, participants, POS, messaging e IA em chunks dedicados
+
+Criterio de aceite:
+
+- lint roda sem erro espurio de tooling
+- build continua verde
+- bundle principal cai e deixa de concentrar toda a aplicacao
+
+### Frentes fora do ataque imediato
+
+- `Agents Hub`
+- `Embedded Support Bot`
+- `RS256 pleno`
+- `franquias`
+- `logistica de artistas`
+- `controle de custos do evento`
+- `WAF`, `Vault` e demais itens V4
+
+Regra:
+
+- essas frentes nao entram antes de fechar integridade, baseline, smoke e modularizacao minima do operacional atual
+
+### Ordem unica de execucao recomendada
+
+#### Onda 0 — travar o estado atual
+
+1. registrar smoke que falta em `docs/qa/`
+2. fechar `runbook_local`
+3. limpar documentacao residual que ainda conflita com o estado real
+
+#### Onda 1 — risco critico primeiro
+
+4. webhook de mensageria
+5. remocao de DDL runtime da mensageria
+6. logging de auth
+
+#### Onda 2 — banco e governanca
+
+7. `029_payment_gateways_hardening.sql`
+8. `030_operational_indexes.sql`
+9. decisao sobre `parking_records.organizer_id`
+10. decisao sobre enriquecimento de `offline_queue`
+
+#### Onda 3 — contratos e observabilidade
+
+11. telemetria expandida
+12. paginação das listagens quentes
+13. smoke multi-tenant + contratos minimos
+
+#### Onda 4 — refactor estrutural controlado
+
+14. `WorkforceController.php` por extracao incremental
+15. backend bootstrap/roteamento como frente posterior, nao misturada com Workforce
+
+#### Onda 5 — release safety e expansao
+
+16. lint/tooling do frontend
+17. code splitting
+18. so depois disso reabrir frentes de produto novo
+
+### Decisao pratica desta rodada
+
+- o ataque principal nao sera por novas features
+- o ataque principal sera por:
+  - integridade de mensageria
+  - governanca de banco
+  - smoke/contrato
+  - modularizacao segura do `WorkforceController.php`
+
+### Proxima acao recomendada apos este registro
+
+1. fechar `docs/runbook_local.md`
+2. abrir implementacao da Frente 1 — webhook de mensageria
+3. em paralelo, preparar a `029_payment_gateways_hardening.sql`
+
+---
+
+## 13. Onda 0 — organizacao documental executada
+
+### O que foi materializado
+
+- criado `docs/runbook_local.md` como runbook minimo de bootstrap e smoke local
+- criado `docs/auditorias.md` como indice unico das auditorias e da politica de retencao
+- `README.md` foi atualizado para apontar para `docs/runbook_local.md` e `docs/auditorias.md`
+- `CLAUDE.md` foi atualizado para tratar `docs/auditorias.md` como entrada unica das auditorias
+
+### Decisao de organizacao adotada
+
+- o estado vivo da operacao passa a ser lido de:
+  - `docs/progresso9.md`
+  - `README.md`
+  - `CLAUDE.md`
+  - `docs/auditorias.md`
+- auditorias detalhadas passam a ser tratadas como snapshot historico
+- a limpeza de arquivos deve priorizar primeiro duplicatas e docs substituidos, sem apagar snapshot tecnico antes da rodada de arquivamento
+
+### Lista de exclusao segura mapeada nesta onda
+
+#### Excluir agora
+
+- `auditoriaPOS.md`
+- `auditoriafinalworkforcemeals.md`
+- `auditoriamelas.md`
+- `auditoriaworkforce.md`
+- `database/README.md`
+- `frontend/README.md`
+
+#### Excluir depois de conferencia final
+
+- `analise_enjoyfun_2026_03_22.md`
+- `auditoriaCodex.md`
+
+### O que fica preservado por enquanto
+
+- `docs/auditoriaPOS.md`
+- `docs/auditoriaworkforce.md`
+- `docs/auditoriamelas.md`
+- `docs/auditoriafinalworkforcemeals.md`
+
+Motivo:
+
+- ainda servem como trilha historica detalhada
+- o indice consolidado agora esta em `docs/auditorias.md`, mas a rodada de arquivamento formal ainda nao aconteceu
+
+### Proxima acao apos a Onda 0
+
+1. revisar `pendencias.md`
+2. abrir a Frente 1 — webhook de mensageria
+3. preparar `029_payment_gateways_hardening.sql`
+
+---
+
+## 14. Triagem final de docs e handoff para `progresso10`
+
+### Decisao consolidada desta limpeza
+
+- todos os `docs/progresso*.md` permanecem no repo como trilha de pesquisa
+- `docs/diagnostico.md` fica como diagnostico tecnico unico mantido no repositorio
+- auditorias antigas detalhadas deixam de ser referencia operacional primaria
+- os arquivos antigos marcados na triagem seguem vivos apenas no arquivo externo do projeto
+
+### Lista aprovada para mover ao arquivo externo
+
+- `docs/auditoriaPOS.md`
+- `docs/auditoriaworkforce.md`
+- `docs/auditoriamelas.md`
+- `docs/auditoriafinalworkforcemeals.md`
+- `docs/diagnostico_sistema.md`
+- `docs/security_audit_enjoyfun_v2.md`
+- `docs/EnjoyFun_Blueprint_V5.md`
+- `docs/enjoyfun_blueprint_dashboard_v_1.md`
+- `docs/enjoyfun_backlog_oficial_v_1.md`
+- `docs/enjoyfun_arquitetura_modulos_servicos_v_1.md`
+- `docs/enjoyfun_kpis_formulas_oficiais_v_1.md`
+- `docs/enjoyfun_modelagem_oficial_banco_v_1.md`
+- `docs/enjoyfun_mvps_oficiais_v_1.md`
+- `docs/enjoyfun_orientacao_operacional_a_partir_de_hoje.md`
+- `docs/enjoyfun_plano_execucao_fase_1_v_1.md`
+- `docs/enjoyfun_prompts_oficiais_codex_v_1.md`
+- `docs/enjoyfun_roadmap_implementacao_v_1.md`
+- `docs/enjoyfun_sprint_1_v_1.md`
+- `docs/enjoyfun_tenant_settings_hub_v_1.md`
+
+### Estrutura documental que fica viva no repo
+
+- `README.md`
+- `CLAUDE.md`
+- `docs/auditorias.md`
+- `docs/runbook_local.md`
+- `docs/diagnostico.md`
+- `docs/cardsemassa.md`
+- `docs/progresso*.md`
+- `docs/adr_*.md`
+- `docs/qa/`
+- specs/documentos de dominio ainda uteis
+
+### Handoff oficial
+
+- `docs/progresso9.md` fica encerrado como fechamento da rodada anterior
+- a continuidade das mudancas passa a ser registrada em `docs/progresso10.md`

@@ -163,13 +163,21 @@ function registerEntry(array $body): void
 
         $qrToken = 'PRK-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
 
-        // Removido organizer_id do insert, pois já está implícito no event_id
-        $stmt = $db->prepare("
-            INSERT INTO parking_records (event_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
-            VALUES (?, ?, ?, NULL, 'pending', ?, NOW())
-            RETURNING id, license_plate, qr_token, status
-        ");
-        $stmt->execute([(int)$eventId, $licensePlate, $vehicleType, $qrToken]);
+        if (parkingRecordHasOrganizerColumn($db)) {
+            $stmt = $db->prepare("
+                INSERT INTO parking_records (event_id, organizer_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
+                VALUES (?, ?, ?, ?, NULL, 'pending', ?, NOW())
+                RETURNING id, license_plate, qr_token, status
+            ");
+            $stmt->execute([(int)$eventId, $organizerId, $licensePlate, $vehicleType, $qrToken]);
+        } else {
+            $stmt = $db->prepare("
+                INSERT INTO parking_records (event_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
+                VALUES (?, ?, ?, NULL, 'pending', ?, NOW())
+                RETURNING id, license_plate, qr_token, status
+            ");
+            $stmt->execute([(int)$eventId, $licensePlate, $vehicleType, $qrToken]);
+        }
         $record = $stmt->fetch(PDO::FETCH_ASSOC);
 
         jsonSuccess($record, "Venda Portaria: Veículo $licensePlate registrado.", 201);
@@ -215,4 +223,25 @@ function registerExit(int $recordId): void
     } catch (Exception $e) {
         jsonError("Erro ao processar saída: " . $e->getMessage(), 500);
     }
+}
+
+function parkingRecordHasOrganizerColumn(PDO $db): bool
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'parking_records'
+          AND column_name = 'organizer_id'
+        LIMIT 1
+    ");
+    $stmt->execute();
+    $cache = (bool)$stmt->fetchColumn();
+
+    return $cache;
 }

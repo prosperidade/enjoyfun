@@ -3,7 +3,6 @@
 namespace EnjoyFun\Services;
 
 use PDO;
-use Throwable;
 
 require_once __DIR__ . '/OrganizerMessagingConfigService.php';
 
@@ -18,67 +17,64 @@ class MessagingDeliveryService
             return self::$schemaReady;
         }
 
-        try {
-            $db->exec("
-                CREATE TABLE IF NOT EXISTS public.message_deliveries (
-                    id SERIAL PRIMARY KEY,
-                    organizer_id integer NOT NULL,
-                    event_id integer NULL,
-                    channel character varying(20) NOT NULL,
-                    direction character varying(10) NOT NULL DEFAULT 'out',
-                    provider character varying(50),
-                    origin character varying(50) NOT NULL DEFAULT 'manual',
-                    correlation_id character varying(80) NOT NULL,
-                    recipient_name character varying(160),
-                    recipient_phone character varying(50),
-                    recipient_email character varying(255),
-                    subject character varying(255),
-                    content_preview text,
-                    status character varying(40) NOT NULL DEFAULT 'queued',
-                    provider_message_id character varying(190),
-                    error_message text,
-                    request_payload jsonb,
-                    response_payload jsonb,
-                    sent_at timestamp without time zone NULL,
-                    delivered_at timestamp without time zone NULL,
-                    failed_at timestamp without time zone NULL,
-                    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-                    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-                );
-            ");
-
-            $db->exec("
-                CREATE TABLE IF NOT EXISTS public.messaging_webhook_events (
-                    id SERIAL PRIMARY KEY,
-                    organizer_id integer NULL,
-                    provider character varying(50) NOT NULL,
-                    event_type character varying(100),
-                    provider_message_id character varying(190),
-                    instance_name character varying(120),
-                    recipient_phone character varying(50),
-                    payload jsonb,
-                    received_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-                    processed_at timestamp without time zone NULL,
-                    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-                );
-            ");
-
-            $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS ux_message_deliveries_correlation_id ON public.message_deliveries (correlation_id);");
-            $db->exec("CREATE INDEX IF NOT EXISTS idx_message_deliveries_organizer_created_at ON public.message_deliveries (organizer_id, created_at DESC);");
-            $db->exec("CREATE INDEX IF NOT EXISTS idx_message_deliveries_provider_message_id ON public.message_deliveries (provider_message_id);");
-            $db->exec("CREATE INDEX IF NOT EXISTS idx_message_deliveries_status ON public.message_deliveries (status);");
-            $db->exec("CREATE INDEX IF NOT EXISTS idx_messaging_webhook_events_organizer_created_at ON public.messaging_webhook_events (organizer_id, created_at DESC);");
-            $db->exec("CREATE INDEX IF NOT EXISTS idx_messaging_webhook_events_provider_message_id ON public.messaging_webhook_events (provider_message_id);");
-
-            self::$tableCache['message_deliveries'] = true;
-            self::$tableCache['messaging_webhook_events'] = true;
-            self::$schemaReady = true;
-        } catch (Throwable $e) {
-            error_log('[MessagingDeliveryService] Schema bootstrap failed: ' . $e->getMessage());
-            self::$schemaReady = false;
+        $missingTables = [];
+        foreach (['message_deliveries', 'messaging_webhook_events'] as $tableName) {
+            if (!self::tableExists($db, $tableName)) {
+                $missingTables[] = $tableName;
+            }
         }
 
-        return self::$schemaReady;
+        if ($missingTables !== []) {
+            error_log('[MessagingDeliveryService] Missing required messaging tables: ' . implode(', ', $missingTables));
+            self::$schemaReady = false;
+            return false;
+        }
+
+        self::$schemaReady = true;
+        return true;
+    }
+
+    public static function assertReady(PDO $db): void
+    {
+        if (self::ensureSchema($db)) {
+            return;
+        }
+
+        throw new \RuntimeException(
+            'Readiness de ambiente inválida: tabelas de mensageria ausentes. ' .
+            'Aplique a migration `018_messaging_outbox_and_history.sql` antes de usar este módulo.'
+        );
+    }
+
+    public static function resolveWebhookContext(PDO $db, array $payload, array $context = []): array
+    {
+        $provider = self::resolveProvider($context['provider'] ?? $payload['provider'] ?? null);
+        $instanceName = self::extractInstanceName($payload);
+
+        return [
+            'provider' => $provider,
+            'instance_name' => $instanceName,
+            'organizer_id' => self::resolveOrganizerIdByInstance($db, $instanceName),
+        ];
+    }
+
+    private static function tableExists(PDO $db, string $tableName): bool
+    {
+        if (array_key_exists($tableName, self::$tableCache)) {
+            return self::$tableCache[$tableName];
+        }
+
+        $stmt = $db->prepare("
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+              AND table_name = :table
+            LIMIT 1
+        ");
+        $stmt->execute([':table' => $tableName]);
+        self::$tableCache[$tableName] = (bool)$stmt->fetchColumn();
+
+        return self::$tableCache[$tableName];
     }
 
     public static function createDelivery(PDO $db, array $payload): ?int
@@ -129,18 +125,19 @@ class MessagingDeliveryService
         $status = self::normalizeDeliveryStatus((string)($payload['status'] ?? 'sent'));
         $stmt = $db->prepare("
             UPDATE public.message_deliveries
-            SET status = :status,
+            SET status = :status_set,
                 provider_message_id = COALESCE(:provider_message_id, provider_message_id),
                 response_payload = COALESCE(:response_payload, response_payload),
                 sent_at = COALESCE(sent_at, NOW()),
-                delivered_at = CASE WHEN :status = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
+                delivered_at = CASE WHEN :status_event = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
                 updated_at = NOW()
             WHERE id = :id
         ");
 
         $stmt->execute([
             ':id' => $deliveryId,
-            ':status' => $status,
+            ':status_set' => $status,
+            ':status_event' => $status,
             ':provider_message_id' => self::nullableString($payload['provider_message_id'] ?? null),
             ':response_payload' => self::encodeJson(self::sanitizePayload($payload['response_payload'] ?? [])),
         ]);
@@ -210,9 +207,10 @@ class MessagingDeliveryService
             return ['event_id' => null, 'updated_deliveries' => 0, 'organizer_id' => null];
         }
 
-        $provider = self::resolveProvider($context['provider'] ?? $payload['provider'] ?? null);
-        $instanceName = self::extractInstanceName($payload);
-        $organizerId = self::nullableInt($context['organizer_id'] ?? null) ?? self::resolveOrganizerIdByInstance($db, $instanceName);
+        $resolvedContext = self::resolveWebhookContext($db, $payload, $context);
+        $provider = $resolvedContext['provider'];
+        $instanceName = $resolvedContext['instance_name'];
+        $organizerId = self::nullableInt($resolvedContext['organizer_id'] ?? null);
         $providerMessageId = self::extractProviderMessageId($payload);
         $recipientPhone = self::normalizePhone(self::extractWebhookPhone($payload));
         $eventType = self::extractWebhookEventType($payload);
@@ -302,45 +300,106 @@ class MessagingDeliveryService
         $provider = self::resolveProvider($context['provider'] ?? null);
         $providerMessageId = self::nullableString($context['provider_message_id'] ?? null);
         $recipientPhone = self::normalizePhone($context['recipient_phone'] ?? null);
-
-        $where = [];
-        $params = [];
-
-        if ($organizerId !== null) {
-            $where[] = 'organizer_id = :organizer_id';
-            $params[':organizer_id'] = $organizerId;
+        if ($organizerId === null) {
+            return 0;
         }
+
+        if ($providerMessageId !== null) {
+            $where = ['organizer_id = :organizer_id', 'provider_message_id = :provider_message_id'];
+            $params = [
+                ':organizer_id' => $organizerId,
+                ':provider_message_id' => $providerMessageId,
+            ];
+            if ($provider !== 'unknown') {
+                $where[] = 'provider = :provider';
+                $params[':provider'] = $provider;
+            }
+
+            $stmt = $db->prepare("
+                UPDATE public.message_deliveries
+                SET status = :status_set,
+                    response_payload = COALESCE(:response_payload, response_payload),
+                    delivered_at = CASE WHEN :status_delivery IN ('delivered', 'read') THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
+                    failed_at = CASE WHEN :status_failed = 'failed' THEN COALESCE(failed_at, NOW()) ELSE failed_at END,
+                    updated_at = NOW()
+                WHERE " . implode(' AND ', $where) . "
+            ");
+
+            $params[':status'] = $status;
+            $params[':status_set'] = $status;
+            $params[':status_delivery'] = $status;
+            $params[':status_failed'] = $status;
+            $params[':response_payload'] = self::encodeJson(self::sanitizePayload($context['payload'] ?? []));
+            unset($params[':status']);
+            $stmt->execute($params);
+
+            return $stmt->rowCount();
+        }
+
+        if ($recipientPhone === null) {
+            return 0;
+        }
+
+        $deliveryId = self::resolveLatestPendingDeliveryId($db, $organizerId, $provider, $recipientPhone);
+        if ($deliveryId === null) {
+            return 0;
+        }
+
+        $stmt = $db->prepare("
+            UPDATE public.message_deliveries
+            SET status = :status_set,
+                response_payload = COALESCE(:response_payload, response_payload),
+                delivered_at = CASE WHEN :status_delivery IN ('delivered', 'read') THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
+                failed_at = CASE WHEN :status_failed = 'failed' THEN COALESCE(failed_at, NOW()) ELSE failed_at END,
+                updated_at = NOW()
+            WHERE id = :id
+        ");
+        $stmt->execute([
+            ':id' => $deliveryId,
+            ':status_set' => $status,
+            ':status_delivery' => $status,
+            ':status_failed' => $status,
+            ':response_payload' => self::encodeJson(self::sanitizePayload($context['payload'] ?? [])),
+        ]);
+
+        return $stmt->rowCount();
+    }
+
+    private static function resolveLatestPendingDeliveryId(PDO $db, int $organizerId, string $provider, string $recipientPhone): ?int
+    {
+        $where = [
+            'organizer_id = :organizer_id',
+            "channel = 'whatsapp'",
+            "direction = 'out'",
+            'recipient_phone = :recipient_phone',
+            "status IN ('queued', 'processing', 'sent')",
+        ];
+        $params = [
+            ':organizer_id' => $organizerId,
+            ':recipient_phone' => $recipientPhone,
+        ];
 
         if ($provider !== 'unknown') {
             $where[] = 'provider = :provider';
             $params[':provider'] = $provider;
         }
 
-        if ($providerMessageId !== null) {
-            $where[] = 'provider_message_id = :provider_message_id';
-            $params[':provider_message_id'] = $providerMessageId;
-        } elseif ($recipientPhone !== null && $organizerId !== null) {
-            $where[] = 'recipient_phone = :recipient_phone';
-            $params[':recipient_phone'] = $recipientPhone;
-        } else {
-            return 0;
-        }
-
         $stmt = $db->prepare("
-            UPDATE public.message_deliveries
-            SET status = :status,
-                response_payload = COALESCE(:response_payload, response_payload),
-                delivered_at = CASE WHEN :status IN ('delivered', 'read') THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
-                failed_at = CASE WHEN :status = 'failed' THEN COALESCE(failed_at, NOW()) ELSE failed_at END,
-                updated_at = NOW()
+            SELECT id
+            FROM public.message_deliveries
             WHERE " . implode(' AND ', $where) . "
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
         ");
-
-        $params[':status'] = $status;
-        $params[':response_payload'] = self::encodeJson(self::sanitizePayload($context['payload'] ?? []));
         $stmt->execute($params);
 
-        return $stmt->rowCount();
+        $deliveryId = $stmt->fetchColumn();
+        if ($deliveryId === false) {
+            return null;
+        }
+
+        $resolved = (int)$deliveryId;
+        return $resolved > 0 ? $resolved : null;
     }
 
     private static function resolveProvider($value): string

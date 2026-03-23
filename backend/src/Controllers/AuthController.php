@@ -28,6 +28,7 @@ function login(array $body): void
 {
     $email    = strtolower(trim($body['email'] ?? ''));
     $password =      $body['password'] ?? '';
+    $correlationId = authCorrelationId();
 
     if (!$email || !$password) {
         jsonError('Email e senha são obrigatórios.', 422);
@@ -38,37 +39,22 @@ function login(array $body): void
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // ── Diagnóstico detalhado no log do PHP ──────────────────────
-    if (!$user) {
-        error_log("[LOGIN FAIL] Usuário NÃO encontrado no banco para e-mail: {$email}");
-    } else {
-        error_log("[LOGIN] Usuário encontrado: id={$user['id']} role={$user['role']} is_active={$user['is_active']}");
-        $hashOk = password_verify($password, $user['password'] ?? '');
-        error_log("[LOGIN] password_verify resultado: " . ($hashOk ? 'OK' : 'FALHOU') . " | hash_len=" . strlen($user['password'] ?? ''));
-    }
-
     $passwordOk = $user && password_verify($password, $user['password'] ?? '');
 
     if (!$user || !$passwordOk) {
+        error_log("[AUTH][{$correlationId}] Falha de login.");
         AuditService::logFailure(
             AuditService::USER_LOGIN_FAILED,
             'user',
             null,
             'Credenciais inválidas',
             null,
-            ['metadata' => ['email_tentado' => $email, 'usuario_encontrado' => (bool)$user]]
+            ['metadata' => ['correlation_id' => $correlationId]]
         );
         jsonError('Credenciais inválidas.', 401);
     }
 
     $userData = buildUserPayload($db, $user);
-
-    // ── Limpa refresh tokens antigos para evitar conflito ────────
-    try {
-        $db->prepare('DELETE FROM refresh_tokens WHERE user_id = ?')->execute([$userData['id']]);
-    } catch (\Throwable $e) {
-        error_log("[LOGIN] Aviso ao limpar refresh tokens: " . $e->getMessage());
-    }
 
     $tokens = issueTokens($db, $userData);
 
@@ -77,17 +63,12 @@ function login(array $body): void
         'user',
         $userData['id'],
         null,
-        ['email' => $userData['email'], 'role' => $userData['role']],
+        ['email' => $userData['email'], 'role' => $userData['role'], 'correlation_id' => $correlationId],
         ['sub' => $userData['id'], 'email' => $userData['email']],
         'success'
     );
 
-    jsonSuccess([
-        'user'          => $userData,
-        'access_token'  => $tokens['access'],
-        'refresh_token' => $tokens['refresh'],
-        'expires_in'    => (int)(getenv('JWT_EXPIRY') ?: 3600),
-    ], 'Login realizado com sucesso.');
+    authRespondWithTokens($userData, $tokens, 'Login realizado com sucesso.');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -130,12 +111,7 @@ function register(array $body): void
     $userData = buildUserPayload($db, ['id' => $userId, 'name' => $name, 'email' => $email, 'role' => 'organizer']);
     $tokens   = issueTokens($db, $userData);
 
-    jsonSuccess([
-        'user'          => $userData,
-        'access_token'  => $tokens['access'],
-        'refresh_token' => $tokens['refresh'],
-        'expires_in'    => (int)(getenv('JWT_EXPIRY') ?: 3600),
-    ], 'Registro realizado com sucesso.', 201);
+    authRespondWithTokens($userData, $tokens, 'Registro realizado com sucesso.', 201);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -143,27 +119,37 @@ function register(array $body): void
 // ─────────────────────────────────────────────────────────────
 function refresh(array $body): void
 {
-    $raw = $body['refresh_token'] ?? '';
+    $raw = trim((string)($body['refresh_token'] ?? authRefreshTokenFromCookie()));
+    $correlationId = authCorrelationId();
     if (!$raw) jsonError('refresh_token é obrigatório.', 422);
 
     $hash = hash('sha256', $raw);
     $db   = Database::getInstance();
-    $stmt = $db->prepare('SELECT * FROM refresh_tokens WHERE token_hash = ? AND expires_at > NOW() LIMIT 1');
+    $schema = authRefreshTokenSchema($db);
+    $query = 'SELECT * FROM refresh_tokens WHERE token_hash = ? AND expires_at > NOW()';
+    if (!empty($schema['tracking'])) {
+        $query .= ' AND revoked_at IS NULL';
+    }
+    $query .= ' ORDER BY id DESC LIMIT 1';
+    $stmt = $db->prepare($query);
     $stmt->execute([$hash]);
     $stored = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$stored) {
+        error_log("[AUTH][{$correlationId}] Refresh token inválido.");
         AuditService::logFailure(
             AuditService::USER_LOGIN_FAILED,
             'refresh_token',
             null,
             'Refresh token inválido ou expirado',
             null
+            ,
+            ['metadata' => ['correlation_id' => $correlationId]]
         );
         jsonError('Token de atualização inválido ou expirado.', 401);
     }
 
-    $db->prepare('DELETE FROM refresh_tokens WHERE id = ?')->execute([$stored['id']]);
+    authRevokeRefreshToken($db, (int)$stored['id']);
 
     $userData = buildUserPayload($db, ['id' => $stored['user_id']]);
     if (!$userData || empty($userData['id'])) {
@@ -174,14 +160,14 @@ function refresh(array $body): void
         jsonError('Usuário inativo.', 403);
     }
 
-    $tokens   = issueTokens($db, $userData);
+    $tokens   = issueTokens($db, $userData, authRefreshContext([
+        'session_id' => $stored['session_id'] ?? null,
+        'device_id' => $stored['device_id'] ?? null,
+        'user_agent' => $stored['user_agent'] ?? null,
+        'ip_address' => $stored['ip_address'] ?? null,
+    ]));
 
-    jsonSuccess([
-        'user'          => $userData,
-        'access_token'  => $tokens['access'],
-        'refresh_token' => $tokens['refresh'],
-        'expires_in'    => (int)(getenv('JWT_EXPIRY') ?: 3600),
-    ]);
+    authRespondWithTokens($userData, $tokens);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -189,11 +175,24 @@ function refresh(array $body): void
 // ─────────────────────────────────────────────────────────────
 function doLogout(array $body): void
 {
-    $raw = $body['refresh_token'] ?? '';
+    $raw = trim((string)($body['refresh_token'] ?? authRefreshTokenFromCookie()));
     if ($raw) {
         $hash = hash('sha256', $raw);
-        Database::getInstance()->prepare('DELETE FROM refresh_tokens WHERE token_hash = ?')->execute([$hash]);
+        $db = Database::getInstance();
+        $schema = authRefreshTokenSchema($db);
+        if (!empty($schema['tracking'])) {
+            $db->prepare('
+                UPDATE refresh_tokens
+                SET revoked_at = COALESCE(revoked_at, NOW()),
+                    last_used_at = CASE WHEN last_used_at IS NULL THEN NOW() ELSE last_used_at END
+                WHERE token_hash = ? AND revoked_at IS NULL
+            ')->execute([$hash]);
+        } else {
+            $db->prepare('DELETE FROM refresh_tokens WHERE token_hash = ?')->execute([$hash]);
+        }
     }
+    authClearAccessCookie();
+    authClearRefreshCookie();
     jsonSuccess(null, 'Logout realizado com sucesso.');
 }
 
@@ -221,6 +220,37 @@ function hashOtpCode(string $identifier, string $code): string
 function isDevelopmentEnvironment(): bool
 {
     return strtolower(trim((string)(getenv('APP_ENV') ?: $_ENV['APP_ENV'] ?? 'development'))) === 'development';
+}
+
+function authShouldLogOtpMockCode(): bool
+{
+    $raw = strtolower(trim((string)(getenv('AUTH_LOG_OTP_MOCK_CODE') ?: '0')));
+    return in_array($raw, ['1', 'true', 'on', 'yes'], true);
+}
+
+function maskOtpDestination(string $identifier): string
+{
+    $value = trim($identifier);
+    if ($value === '') {
+        return '';
+    }
+
+    if (str_contains($value, '@')) {
+        [$local, $domain] = array_pad(explode('@', $value, 2), 2, '');
+        $local = strlen($local) <= 2 ? str_repeat('*', strlen($local)) : substr($local, 0, 2) . str_repeat('*', max(strlen($local) - 2, 0));
+        return $local . ($domain !== '' ? '@' . $domain : '');
+    }
+
+    $digits = preg_replace('/\D+/', '', $value) ?? '';
+    if ($digits === '') {
+        return '***';
+    }
+
+    if (strlen($digits) <= 4) {
+        return str_repeat('*', strlen($digits));
+    }
+
+    return str_repeat('*', max(strlen($digits) - 4, 0)) . substr($digits, -4);
 }
 
 function deleteOtpById(PDO $db, ?int $otpId): void
@@ -252,7 +282,9 @@ function deliverOtpCode(string $identifier, string $otp, array $cfg): array
             throw new RuntimeException('Canal de e-mail indisponivel para envio de codigo.');
         }
 
-        error_log("[OTP-EMAIL-MOCK] Para: {$identifier} | Código: {$otp}");
+        $masked = maskOtpDestination($identifier);
+        $suffix = authShouldLogOtpMockCode() ? " | Código: {$otp}" : '';
+        error_log("[OTP-EMAIL-MOCK] Destino: {$masked}{$suffix}");
         return ['channel' => 'email', 'delivery_status' => 'mocked'];
     }
 
@@ -302,7 +334,9 @@ function deliverOtpCode(string $identifier, string $otp, array $cfg): array
         throw new RuntimeException('Canal de WhatsApp indisponivel para envio de codigo.');
     }
 
-    error_log("[OTP-WA-MOCK] Para: {$identifier} | Código: {$otp}");
+    $masked = maskOtpDestination($identifier);
+    $suffix = authShouldLogOtpMockCode() ? " | Código: {$otp}" : '';
+    error_log("[OTP-WA-MOCK] Destino: {$masked}{$suffix}");
     return ['channel' => 'whatsapp', 'delivery_status' => 'mocked'];
 }
 
@@ -493,12 +527,7 @@ function verifyAccessCode(array $body): void
         $userData = buildUserPayload($db, $user);
         $tokens   = issueTokens($db, $userData);
 
-        jsonSuccess([
-            'user'          => $userData,
-            'access_token'  => $tokens['access'],
-            'refresh_token' => $tokens['refresh'],
-            'expires_in'    => (int)(getenv('JWT_EXPIRY') ?: 3600),
-        ], 'Acesso concedido.');
+        authRespondWithTokens($userData, $tokens, 'Acesso concedido.');
 
     } catch (Exception $e) {
         error_log('Erro ao verificar OTP: ' . $e->getMessage());
@@ -553,7 +582,7 @@ function buildUserPayload(PDO $db, array $user): array
     return $user;
 }
 
-function issueTokens(PDO $db, array $user): array
+function issueTokens(PDO $db, array $user, array $context = []): array
 {
     $expiry  = (int)(getenv('JWT_EXPIRY')  ?: 3600);
     $refresh = (int)(getenv('JWT_REFRESH') ?: 2592000);
@@ -572,9 +601,283 @@ function issueTokens(PDO $db, array $user): array
     $rawRefresh  = bin2hex(random_bytes(32));
     $hashRefresh = hash('sha256', $rawRefresh);
     $expiresAt   = date('Y-m-d H:i:s', time() + $refresh);
+    $refreshContext = authRefreshContext($context);
+    $schema = authRefreshTokenSchema($db);
 
-    $db->prepare('INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)')
-       ->execute([$user['id'], $hashRefresh, $expiresAt]);
+    if (!empty($schema['tracking'])) {
+        $db->prepare('
+            INSERT INTO refresh_tokens (
+                user_id, token_hash, expires_at, session_id, device_id, user_agent, ip_address, last_used_at, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ')->execute([
+            $user['id'],
+            $hashRefresh,
+            $expiresAt,
+            $refreshContext['session_id'],
+            $refreshContext['device_id'],
+            $refreshContext['user_agent'] !== '' ? $refreshContext['user_agent'] : null,
+            $refreshContext['ip_address'] !== '' ? $refreshContext['ip_address'] : null,
+        ]);
+    } else {
+        $db->prepare('INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)')
+           ->execute([$user['id'], $hashRefresh, $expiresAt]);
+    }
 
     return ['access' => $access, 'refresh' => $rawRefresh];
+}
+
+function authCorrelationId(): string
+{
+    if (function_exists('generateCorrelationId')) {
+        return (string)generateCorrelationId();
+    }
+
+    try {
+        return bin2hex(random_bytes(8));
+    } catch (\Throwable $e) {
+        return substr(md5((string)microtime(true)), 0, 16);
+    }
+}
+
+function authRespondWithTokens(array $userData, array $tokens, string $message = '', int $code = 200): never
+{
+    if (authShouldUseAccessCookie()) {
+        authSetAccessCookie((string)($tokens['access'] ?? ''));
+    }
+
+    if (authShouldUseRefreshCookie()) {
+        authSetRefreshCookie((string)($tokens['refresh'] ?? ''));
+    }
+
+    jsonSuccess([
+        'user' => $userData,
+        'access_token' => authShouldUseAccessCookie() ? '' : $tokens['access'],
+        'access_transport' => authShouldUseAccessCookie() ? 'cookie' : 'body',
+        'refresh_token' => authShouldUseRefreshCookie() ? '' : $tokens['refresh'],
+        'refresh_transport' => authShouldUseRefreshCookie() ? 'cookie' : 'body',
+        'expires_in' => (int)(getenv('JWT_EXPIRY') ?: 3600),
+    ], $message, $code);
+}
+
+function authRefreshContext(array $overrides = []): array
+{
+    $deviceId = trim((string)($overrides['device_id'] ?? ($_SERVER['HTTP_X_DEVICE_ID'] ?? 'browser')));
+    if ($deviceId === '') {
+        $deviceId = 'browser';
+    }
+
+    $sessionId = trim((string)($overrides['session_id'] ?? ''));
+    if ($sessionId === '') {
+        try {
+            $sessionId = 'sess_' . bin2hex(random_bytes(12));
+        } catch (\Throwable $e) {
+            $sessionId = 'sess_' . substr(md5((string)microtime(true)), 0, 24);
+        }
+    }
+
+    return [
+        'session_id' => $sessionId,
+        'device_id' => $deviceId,
+        'user_agent' => trim((string)($overrides['user_agent'] ?? ($_SERVER['HTTP_USER_AGENT'] ?? ''))),
+        'ip_address' => trim((string)($overrides['ip_address'] ?? authClientIp())),
+    ];
+}
+
+function authRefreshTokenSchema(PDO $db): array
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+
+    $cache = [
+        'session_id' => authRefreshTokenColumnExists($db, 'session_id'),
+        'device_id' => authRefreshTokenColumnExists($db, 'device_id'),
+        'user_agent' => authRefreshTokenColumnExists($db, 'user_agent'),
+        'ip_address' => authRefreshTokenColumnExists($db, 'ip_address'),
+        'last_used_at' => authRefreshTokenColumnExists($db, 'last_used_at'),
+        'revoked_at' => authRefreshTokenColumnExists($db, 'revoked_at'),
+    ];
+    $cache['tracking'] = $cache['session_id']
+        && $cache['device_id']
+        && $cache['user_agent']
+        && $cache['ip_address']
+        && $cache['last_used_at']
+        && $cache['revoked_at'];
+
+    return $cache;
+}
+
+function authRefreshTokenColumnExists(PDO $db, string $column): bool
+{
+    static $cache = [];
+    if (array_key_exists($column, $cache)) {
+        return $cache[$column];
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'refresh_tokens'
+          AND column_name = :column
+        LIMIT 1
+    ");
+    $stmt->execute([':column' => $column]);
+    $cache[$column] = (bool)$stmt->fetchColumn();
+
+    return $cache[$column];
+}
+
+function authRevokeRefreshToken(PDO $db, int $refreshTokenId): void
+{
+    if ($refreshTokenId <= 0) {
+        return;
+    }
+
+    $schema = authRefreshTokenSchema($db);
+    if (!empty($schema['tracking'])) {
+        $db->prepare('
+            UPDATE refresh_tokens
+            SET revoked_at = COALESCE(revoked_at, NOW()),
+                last_used_at = CASE WHEN last_used_at IS NULL THEN NOW() ELSE last_used_at END
+            WHERE id = ?
+        ')->execute([$refreshTokenId]);
+        return;
+    }
+
+    $db->prepare('DELETE FROM refresh_tokens WHERE id = ?')->execute([$refreshTokenId]);
+}
+
+function authClientIp(): string
+{
+    foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $key) {
+        $value = trim((string)($_SERVER[$key] ?? ''));
+        if ($value !== '') {
+            return trim(explode(',', $value)[0]);
+        }
+    }
+
+    return '';
+}
+
+function authShouldUseRefreshCookie(): bool
+{
+    $raw = strtolower(trim((string)(getenv('AUTH_REFRESH_COOKIE_MODE') ?: '1')));
+    return !in_array($raw, ['0', 'false', 'off', 'no'], true);
+}
+
+function authShouldUseAccessCookie(): bool
+{
+    $raw = strtolower(trim((string)(getenv('AUTH_ACCESS_COOKIE_MODE') ?: '0')));
+    return !in_array($raw, ['0', 'false', 'off', 'no'], true);
+}
+
+function authAccessCookieName(): string
+{
+    $name = trim((string)(getenv('AUTH_ACCESS_COOKIE_NAME') ?: 'enjoyfun_access_token'));
+    return $name !== '' ? $name : 'enjoyfun_access_token';
+}
+
+function authRefreshCookieName(): string
+{
+    $name = trim((string)(getenv('AUTH_REFRESH_COOKIE_NAME') ?: 'enjoyfun_refresh_token'));
+    return $name !== '' ? $name : 'enjoyfun_refresh_token';
+}
+
+function authAccessTokenFromCookie(): string
+{
+    if (!authShouldUseAccessCookie()) {
+        return '';
+    }
+
+    return trim((string)($_COOKIE[authAccessCookieName()] ?? ''));
+}
+
+function authRefreshCookieFromGlobals(): string
+{
+    return trim((string)($_COOKIE[authRefreshCookieName()] ?? ''));
+}
+
+function authRefreshTokenFromCookie(): string
+{
+    if (!authShouldUseRefreshCookie()) {
+        return '';
+    }
+
+    return authRefreshCookieFromGlobals();
+}
+
+function authRefreshCookieSameSite(): string
+{
+    $sameSite = trim((string)(getenv('AUTH_COOKIE_SAMESITE') ?: 'Lax'));
+    $sameSite = ucfirst(strtolower($sameSite));
+    return in_array($sameSite, ['Lax', 'Strict', 'None'], true) ? $sameSite : 'Lax';
+}
+
+function authCookieIsSecure(): bool
+{
+    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== '' && $_SERVER['HTTPS'] !== 'off') {
+        return true;
+    }
+
+    return strtolower(trim((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))) === 'https';
+}
+
+function authRefreshCookieOptions(int $expiresAt): array
+{
+    $options = [
+        'expires' => $expiresAt,
+        'path' => '/',
+        'secure' => authCookieIsSecure() || authRefreshCookieSameSite() === 'None',
+        'httponly' => true,
+        'samesite' => authRefreshCookieSameSite(),
+    ];
+
+    $domain = trim((string)(getenv('AUTH_COOKIE_DOMAIN') ?: ''));
+    if ($domain !== '') {
+        $options['domain'] = $domain;
+    }
+
+    return $options;
+}
+
+function authSetRefreshCookie(string $refreshToken): void
+{
+    if (!authShouldUseRefreshCookie() || $refreshToken === '') {
+        return;
+    }
+
+    setcookie(
+        authRefreshCookieName(),
+        $refreshToken,
+        authRefreshCookieOptions(time() + (int)(getenv('JWT_REFRESH') ?: 2592000))
+    );
+    $_COOKIE[authRefreshCookieName()] = $refreshToken;
+}
+
+function authSetAccessCookie(string $accessToken): void
+{
+    if (!authShouldUseAccessCookie() || $accessToken === '') {
+        return;
+    }
+
+    setcookie(
+        authAccessCookieName(),
+        $accessToken,
+        authRefreshCookieOptions(time() + (int)(getenv('JWT_EXPIRY') ?: 3600))
+    );
+    $_COOKIE[authAccessCookieName()] = $accessToken;
+}
+
+function authClearAccessCookie(): void
+{
+    setcookie(authAccessCookieName(), '', authRefreshCookieOptions(time() - 3600));
+    unset($_COOKIE[authAccessCookieName()]);
+}
+
+function authClearRefreshCookie(): void
+{
+    setcookie(authRefreshCookieName(), '', authRefreshCookieOptions(time() - 3600));
+    unset($_COOKIE[authRefreshCookieName()]);
 }

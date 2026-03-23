@@ -7,8 +7,8 @@ Padronizar a validação manual (reproduzível no Git) dos fluxos endurecidos de
 - Coleção Postman: `docs/qa/enjoyfun_auth_finance_aceite.postman_collection.json`
 
 ## Referência de estratégia Auth/JWT (estado real do repositório)
-- `docs/adr_auth_jwt_strategy_v1.md`: **não existe**.
-- `docs/auth_strategy.md`: **não existe**.
+- `docs/adr_auth_jwt_strategy_v1.md`: ADR oficial da estratégia atual de Auth/JWT.
+- `docs/auth_strategy.md`: resumo operacional da estratégia vigente.
 - Nesta frente, a validação de Auth está ancorada no contrato dos endpoints implementados (`/auth/login`, `/auth/refresh`, `/auth/me`).
 
 ## Escopo de gateways desta frente
@@ -77,6 +77,6 @@ A coleção envia `credentials.access_token` e `credentials.api_key` no create/e
 ---
 
 ## Lacunas pendentes (sem mascarar)
-1. Não há arquivo ADR/strategy de Auth versionado em `docs/` neste momento.
+1. Os documentos de Auth existem, mas precisam permanecer alinhados ao código operacional em HS256.
 2. A execução real depende de credenciais válidas do tenant para cada provider.
 3. Este aceite valida configuração e conectividade mockada; não cobre checkout/transação financeira real.

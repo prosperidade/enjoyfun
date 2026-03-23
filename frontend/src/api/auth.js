@@ -14,17 +14,17 @@ import api from '../lib/api';
 /**
  * @param {string} email
  * @param {string} password
- * @returns {Promise<{user, access_token, refresh_token, expires_in}>}
+ * @returns {Promise<{user, access_token, access_transport, refresh_token, refresh_transport, expires_in}>}
  */
 export async function loginApi(email, password) {
   const response = await api.post('/auth/login', { email, password });
-  return response.data?.data;  // { user, access_token, refresh_token, expires_in }
+  return response.data?.data;
 }
 
 // ── Register ───────────────────────────────────────────────────────────────
 /**
  * @param {{ name, email, password, phone, cpf }} payload
- * @returns {Promise<{user, access_token, refresh_token, expires_in}>}
+ * @returns {Promise<{user, access_token, access_transport, refresh_token, refresh_transport, expires_in}>}
  */
 export async function registerApi({ name, email, password, phone = '', cpf = '' }) {
   const { data } = await api.post('/auth/register', { name, email, password, phone, cpf, account_type: 'organizer' });
@@ -45,7 +45,7 @@ export async function requestCodeApi(identifier, scope = {}) {
  * @param {string} identifier
  * @param {string} code        - 6-digit OTP
  * @param {object} scope
- * @returns {Promise<{user, access_token, refresh_token, expires_in}>}
+ * @returns {Promise<{user, access_token, access_transport, refresh_token, refresh_transport, expires_in}>}
  */
 export async function verifyCodeApi(identifier, code, scope = {}) {
   const { data } = await api.post('/auth/verify-code', { identifier, code, ...scope });
@@ -55,10 +55,11 @@ export async function verifyCodeApi(identifier, code, scope = {}) {
 // ── Refresh token ──────────────────────────────────────────────────────────
 /**
  * @param {string} refreshToken
- * @returns {Promise<{user, access_token, refresh_token, expires_in}>}
+ * @returns {Promise<{user, access_token, access_transport, refresh_token, refresh_transport, expires_in}>}
  */
-export async function refreshApi(refreshToken) {
-  const { data } = await api.post('/auth/refresh', { refresh_token: refreshToken });
+export async function refreshApi(refreshToken = '') {
+  const payload = refreshToken ? { refresh_token: refreshToken } : {};
+  const { data } = await api.post('/auth/refresh', payload);
   return data.data;
 }
 
@@ -67,12 +68,13 @@ export async function refreshApi(refreshToken) {
  * @param {string} refreshToken  – pass so the server can invalidate it
  */
 export async function logoutApi(refreshToken) {
-  await api.post('/auth/logout', { refresh_token: refreshToken }).catch(() => {});
+  const payload = refreshToken ? { refresh_token: refreshToken } : {};
+  await api.post('/auth/logout', payload).catch(() => {});
 }
 
 // ── Current user ───────────────────────────────────────────────────────────
 /**
- * @returns {Promise<User>}  – requires a valid Bearer token in the current session
+ * @returns {Promise<User>}  – requires a valid Bearer token or access cookie in the current session
  */
 export async function meApi() {
   const { data } = await api.get('/auth/me');

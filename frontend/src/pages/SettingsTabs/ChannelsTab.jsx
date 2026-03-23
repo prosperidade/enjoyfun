@@ -5,6 +5,7 @@ import api from '../../lib/api';
 
 const PLACEHOLDER_EMAIL_KEY = '(Configurada)';
 const PLACEHOLDER_WA_TOKEN = '(Configurado)';
+const PLACEHOLDER_WEBHOOK_SECRET = '(Configurado)';
 
 export default function ChannelsTab() {
     const [settings, setSettings] = useState({
@@ -12,7 +13,8 @@ export default function ChannelsTab() {
         email_sender: '',
         wa_api_url: '',
         wa_token: '',
-        wa_instance: ''
+        wa_instance: '',
+        wa_webhook_secret: ''
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -27,7 +29,8 @@ export default function ChannelsTab() {
                     email_sender: data.email_sender || '',
                     wa_api_url: data.wa_api_url || '',
                     wa_token: data.wa_configured ? PLACEHOLDER_WA_TOKEN : '',
-                    wa_instance: data.wa_instance || ''
+                    wa_instance: data.wa_instance || '',
+                    wa_webhook_secret: data.webhook_configured ? PLACEHOLDER_WEBHOOK_SECRET : ''
                 });
             }
         } catch {
@@ -51,6 +54,7 @@ export default function ChannelsTab() {
             const payload = { ...settings };
             if (payload.resend_api_key === PLACEHOLDER_EMAIL_KEY) delete payload.resend_api_key;
             if (payload.wa_token === PLACEHOLDER_WA_TOKEN) delete payload.wa_token;
+            if (payload.wa_webhook_secret === PLACEHOLDER_WEBHOOK_SECRET) delete payload.wa_webhook_secret;
 
             const res = await api.post('/organizer-messaging-settings', payload);
             if (res.data.success) {
@@ -128,6 +132,16 @@ export default function ChannelsTab() {
                                 type="text" name="wa_instance" value={settings.wa_instance} onChange={handleChange}
                                 placeholder="Instancia_EnjoyFun" className="input"
                             />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="input-label">Segredo do Webhook</label>
+                            <input
+                                type="password" name="wa_webhook_secret" value={settings.wa_webhook_secret} onChange={handleChange}
+                                placeholder="segredo-compartilhado-do-webhook" className="input"
+                            />
+                            <p className="mt-2 text-xs text-gray-500">
+                                Use este segredo para validar callbacks do provedor. Enquanto ele não existir, o backend ainda aceita o token do WhatsApp por compatibilidade.
+                            </p>
                         </div>
                     </div>
                 </div>

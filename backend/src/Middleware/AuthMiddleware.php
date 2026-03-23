@@ -6,14 +6,10 @@
 
 function requireAuth(?array $allowedRoles = null): array
 {
-    $headers = getallheaders();
-    $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
-
-    if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
+    $token = accessTokenFromRequest();
+    if ($token === '') {
         jsonError("Token não fornecido", 401);
     }
-
-    $token = str_replace('Bearer ', '', $authHeader);
     
     // Forçamos o cast para (array) para garantir que possamos ler as chaves com []
     $payload = (array) JWT::decode($token);
@@ -47,7 +43,7 @@ function requireAuth(?array $allowedRoles = null): array
 
 function optionalAuth(): ?array
 {
-    $token = JWT::fromHeader();
+    $token = accessTokenFromRequest();
     if (!$token) return null;
 
     return (array) JWT::decode($token);
@@ -65,4 +61,31 @@ function requireRole(array $allowedRoles): array
     }
 
     return $payload;
+}
+
+function accessTokenFromRequest(): string
+{
+    $headers = getallheaders();
+    $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+    if ($authHeader && str_starts_with($authHeader, 'Bearer ')) {
+        return trim(substr($authHeader, 7));
+    }
+
+    if (!shouldUseAccessCookie()) {
+        return '';
+    }
+
+    return trim((string)($_COOKIE[accessCookieName()] ?? ''));
+}
+
+function shouldUseAccessCookie(): bool
+{
+    $raw = strtolower(trim((string)(getenv('AUTH_ACCESS_COOKIE_MODE') ?: '0')));
+    return !in_array($raw, ['0', 'false', 'off', 'no'], true);
+}
+
+function accessCookieName(): string
+{
+    $name = trim((string)(getenv('AUTH_ACCESS_COOKIE_NAME') ?: 'enjoyfun_access_token'));
+    return $name !== '' ? $name : 'enjoyfun_access_token';
 }

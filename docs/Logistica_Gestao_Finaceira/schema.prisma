@@ -1,0 +1,914 @@
+// =============================================================================
+// schema.prisma — EnjoyFun
+// Módulo 1: Logística Operacional de Artistas
+// Módulo 2: Gestão Financeira Operacional do Evento
+//
+// Para rodar:
+//   npx prisma migrate dev --name init_logistics_financial
+//   npx prisma generate
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS COMPARTILHADOS
+// =============================================================================
+
+enum DocumentType {
+  cpf
+  cnpj
+  passport
+}
+
+enum Currency {
+  BRL
+  USD
+  EUR
+}
+
+enum ImportStatus {
+  pending
+  processing
+  done
+  failed
+}
+
+enum ImportRowStatus {
+  pending
+  success
+  failed
+  skipped
+}
+
+// =============================================================================
+// MÓDULO 1 — LOGÍSTICA OPERACIONAL DE ARTISTAS
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// ENUMS — Módulo 1
+// -----------------------------------------------------------------------------
+
+enum ArtistEventStatus {
+  confirmed
+  pending
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  partial
+  paid
+  cancelled
+}
+
+enum ArrivalMode {
+  airplane
+  bus
+  car
+  helicopter
+  other
+}
+
+enum CommitmentType {
+  event
+  hotel
+  airport
+  home
+  other
+}
+
+enum TransferRouteType {
+  airport_to_hotel
+  airport_to_venue
+  hotel_to_venue
+  venue_to_airport
+  venue_to_next_event
+  hotel_to_next_event
+  custom
+}
+
+enum TransportMode {
+  car
+  van
+  helicopter
+  motorcycle
+  other
+}
+
+enum AlertType {
+  tight_arrival
+  tight_departure
+  soundcheck_conflict
+  stage_conflict
+  transfer_risk
+  insufficient_data
+}
+
+enum AlertSeverity {
+  low
+  medium
+  high
+  critical
+}
+
+enum AlertColor {
+  green
+  yellow
+  orange
+  red
+  gray
+}
+
+enum LogisticsType {
+  airfare
+  bus
+  hotel
+  transfer
+  local_transport
+  dressing_room
+  hospitality
+  rider
+  other
+}
+
+enum LogisticsItemStatus {
+  pending
+  paid
+  cancelled
+}
+
+enum BenefitType {
+  consumption_card
+  meal_credit
+  backstage_credit
+  guest_list
+  parking
+  other
+}
+
+enum CardType {
+  consumacao
+  refeicao
+  backstage
+}
+
+enum CardStatus {
+  active
+  blocked
+  cancelled
+  expired
+}
+
+enum CardTransactionType {
+  issue
+  consume
+  adjust
+  cancel
+}
+
+enum ArtistFileType {
+  contract
+  rider
+  rooming_list
+  ticket
+  voucher
+  invoice
+  photo_id
+  other
+}
+
+enum ArtistImportType {
+  artists
+  logistics
+  timeline
+  cards
+  team
+}
+
+// -----------------------------------------------------------------------------
+// TABELAS — Módulo 1
+// -----------------------------------------------------------------------------
+
+model Artist {
+  id              String       @id @default(uuid())
+  organizer_id    String
+  stage_name      String       @db.VarChar(200)
+  legal_name      String       @db.VarChar(200)
+  document_type   DocumentType
+  document_number String       @db.VarChar(30)
+  phone           String?      @db.VarChar(30)
+  email           String?      @db.VarChar(200)
+  manager_name    String?      @db.VarChar(200)
+  manager_phone   String?      @db.VarChar(30)
+  manager_email   String?      @db.VarChar(200)
+  nationality     String?      @db.VarChar(5)   // ISO 3166-1 alpha-2
+  genre           String?      @db.VarChar(100)
+  is_active       Boolean      @default(true)
+  notes           String?      @db.Text
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @updatedAt
+
+  // Relações
+  event_artists   EventArtist[]
+  files           ArtistFile[]
+
+  @@unique([organizer_id, document_number])
+  @@index([organizer_id])
+  @@index([organizer_id, stage_name])
+  @@map("artists")
+}
+
+model EventArtist {
+  id                          String            @id @default(uuid())
+  organizer_id                String
+  event_id                    String
+  artist_id                   String
+  performance_date            DateTime          @db.Date
+  performance_time            String            @db.VarChar(5)  // "HH:MM"
+  performance_duration_min    Int?
+  performance_start_datetime  DateTime?
+  performance_end_datetime    DateTime?
+  soundcheck_time             String?           @db.VarChar(5)
+  dressing_room_ready_time    String?           @db.VarChar(5)
+  stage                       String?           @db.VarChar(100)
+  status                      ArtistEventStatus @default(pending)
+  cache_amount                Decimal?          @db.Decimal(12, 2)
+  currency                    Currency          @default(BRL)
+  payment_status              PaymentStatus     @default(pending)
+  contract_number             String?           @db.VarChar(100)
+  notes                       String?           @db.Text
+  created_at                  DateTime          @default(now())
+  updated_at                  DateTime          @updatedAt
+
+  // Relações
+  artist                      Artist            @relation(fields: [artist_id], references: [id])
+  logistics                   ArtistLogistics?
+  timeline                    ArtistOperationalTimeline?
+  transfers                   ArtistTransferEstimation[]
+  alerts                      ArtistOperationalAlert[]
+  team_members                ArtistTeamMember[]
+  benefits                    ArtistBenefit[]
+  cards                       ArtistCard[]
+  logistics_items             ArtistLogisticsItem[]
+
+  @@unique([event_id, artist_id])
+  @@index([organizer_id])
+  @@index([organizer_id, event_id])
+  @@index([organizer_id, event_id, status])
+  @@map("event_artists")
+}
+
+model ArtistLogistics {
+  id                      String      @id @default(uuid())
+  organizer_id            String
+  event_id                String
+  event_artist_id         String      @unique
+  artist_id               String
+  arrival_date            DateTime?   @db.Date
+  arrival_time            String?     @db.VarChar(5)
+  departure_date          DateTime?   @db.Date
+  departure_time          String?     @db.VarChar(5)
+  hotel_name              String?     @db.VarChar(200)
+  hotel_address           String?     @db.VarChar(300)
+  hotel_checkin           DateTime?
+  hotel_checkout          DateTime?
+  rooming_notes           String?     @db.Text
+  dressing_room_notes     String?     @db.Text
+  hospitality_notes       String?     @db.Text
+  local_transport_notes   String?     @db.Text
+  airport_transfer_notes  String?     @db.Text
+  created_at              DateTime    @default(now())
+  updated_at              DateTime    @updatedAt
+
+  // Relações
+  event_artist            EventArtist @relation(fields: [event_artist_id], references: [id], onDelete: Cascade)
+
+  @@index([organizer_id, event_id])
+  @@index([organizer_id, artist_id])
+  @@map("artist_logistics")
+}
+
+model ArtistLogisticsItem {
+  id               String              @id @default(uuid())
+  organizer_id     String
+  event_id         String
+  event_artist_id  String
+  artist_id        String
+  logistics_type   LogisticsType
+  supplier_id      String?
+  description      String              @db.VarChar(300)
+  quantity         Int                 @default(1)
+  unit_amount      Decimal             @db.Decimal(12, 2)
+  total_amount     Decimal             @db.Decimal(12, 2)  // calculado: quantity * unit_amount
+  due_date         DateTime?           @db.Date
+  paid_at          DateTime?
+  status           LogisticsItemStatus @default(pending)
+  notes            String?             @db.Text
+  created_at       DateTime            @default(now())
+  updated_at       DateTime            @updatedAt
+
+  // Relações
+  event_artist     EventArtist         @relation(fields: [event_artist_id], references: [id], onDelete: Cascade)
+
+  @@index([organizer_id, event_id])
+  @@index([organizer_id, event_artist_id])
+  @@index([organizer_id, event_id, status])
+  @@map("artist_logistics_items")
+}
+
+model ArtistOperationalTimeline {
+  id                          String          @id @default(uuid())
+  organizer_id                String
+  event_id                    String
+  event_artist_id             String          @unique
+  artist_id                   String
+  previous_commitment_type    CommitmentType?
+  previous_commitment_label   String?         @db.VarChar(200)
+  previous_city               String?         @db.VarChar(100)
+  arrival_mode                ArrivalMode?
+  arrival_airport             String?         @db.VarChar(10)  // IATA code
+  arrival_datetime            DateTime?
+  hotel_checkin_datetime      DateTime?
+  venue_arrival_datetime      DateTime?
+  soundcheck_datetime         DateTime?
+  dressing_room_ready_datetime DateTime?
+  performance_start_datetime  DateTime?
+  performance_end_datetime    DateTime?
+  venue_departure_datetime    DateTime?
+  next_commitment_type        CommitmentType?
+  next_commitment_label       String?         @db.VarChar(200)
+  next_city                   String?         @db.VarChar(100)
+  next_destination            String?         @db.VarChar(200)
+  next_departure_deadline     DateTime?
+  notes                       String?         @db.Text
+  created_at                  DateTime        @default(now())
+  updated_at                  DateTime        @updatedAt
+
+  // Relações
+  event_artist                EventArtist     @relation(fields: [event_artist_id], references: [id], onDelete: Cascade)
+
+  @@index([organizer_id, event_id])
+  @@map("artist_operational_timelines")
+}
+
+model ArtistTransferEstimation {
+  id                      String            @id @default(uuid())
+  organizer_id            String
+  event_id                String
+  event_artist_id         String
+  artist_id               String
+  route_type              TransferRouteType
+  origin_label            String            @db.VarChar(200)
+  destination_label       String            @db.VarChar(200)
+  distance_km             Decimal?          @db.Decimal(8, 2)
+  eta_minutes_base        Int
+  eta_minutes_peak        Int?
+  safety_buffer_minutes   Int               @default(15)
+  planned_eta_minutes     Int               // calculado: eta_peak + buffer
+  transport_mode          TransportMode     @default(car)
+  notes                   String?           @db.Text
+  created_at              DateTime          @default(now())
+  updated_at              DateTime          @updatedAt
+
+  // Relações
+  event_artist            EventArtist       @relation(fields: [event_artist_id], references: [id], onDelete: Cascade)
+
+  @@index([organizer_id, event_id])
+  @@index([organizer_id, event_artist_id])
+  @@map("artist_transfer_estimations")
+}
+
+model ArtistOperationalAlert {
+  id                  String        @id @default(uuid())
+  organizer_id        String
+  event_id            String
+  event_artist_id     String
+  artist_id           String
+  alert_type          AlertType
+  severity            AlertSeverity
+  color_status        AlertColor
+  message             String        @db.Text
+  recommended_action  String?       @db.Text
+  is_resolved         Boolean       @default(false)
+  resolution_notes    String?       @db.Text
+  resolved_by         String?
+  resolved_at         DateTime?
+  created_at          DateTime      @default(now())
+
+  // Relações
+  event_artist        EventArtist   @relation(fields: [event_artist_id], references: [id], onDelete: Cascade)
+
+  @@index([organizer_id, event_id])
+  @@index([organizer_id, event_id, is_resolved])
+  @@index([organizer_id, event_id, severity])
+  @@map("artist_operational_alerts")
+}
+
+model ArtistTeamMember {
+  id               String      @id @default(uuid())
+  organizer_id     String
+  event_id         String
+  event_artist_id  String
+  artist_id        String
+  name             String      @db.VarChar(200)
+  role             String      @db.VarChar(100)
+  document_number  String?     @db.VarChar(30)
+  phone            String?     @db.VarChar(30)
+  needs_hotel      Boolean     @default(false)
+  needs_transfer   Boolean     @default(false)
+  notes            String?     @db.Text
+  created_at       DateTime    @default(now())
+  updated_at       DateTime    @updatedAt
+
+  // Relações
+  event_artist     EventArtist @relation(fields: [event_artist_id], references: [id], onDelete: Cascade)
+  cards            ArtistCard[]
+
+  @@index([organizer_id, event_id])
+  @@index([organizer_id, event_artist_id])
+  @@map("artist_team_members")
+}
+
+model ArtistBenefit {
+  id               String      @id @default(uuid())
+  organizer_id     String
+  event_id         String
+  event_artist_id  String
+  artist_id        String
+  benefit_type     BenefitType
+  amount           Decimal?    @db.Decimal(12, 2)
+  quantity         Int?        @default(1)
+  notes            String?     @db.Text
+  created_at       DateTime    @default(now())
+  updated_at       DateTime    @updatedAt
+
+  // Relações
+  event_artist     EventArtist @relation(fields: [event_artist_id], references: [id], onDelete: Cascade)
+
+  @@index([organizer_id, event_id])
+  @@map("artist_benefits")
+}
+
+model ArtistCard {
+  id                String      @id @default(uuid())
+  organizer_id      String
+  event_id          String
+  event_artist_id   String
+  artist_id         String
+  team_member_id    String?
+  beneficiary_name  String      @db.VarChar(200)
+  beneficiary_role  String?     @db.VarChar(100)
+  card_type         CardType
+  card_number       String      @unique @db.VarChar(50)
+  qr_token          String      @unique @db.VarChar(100)
+  credit_amount     Decimal     @db.Decimal(12, 2)
+  consumed_amount   Decimal     @default(0) @db.Decimal(12, 2)
+  status            CardStatus  @default(active)
+  issued_at         DateTime    @default(now())
+  expires_at        DateTime?
+  notes             String?     @db.Text
+  created_at        DateTime    @default(now())
+  updated_at        DateTime    @updatedAt
+
+  // Relações
+  event_artist      EventArtist       @relation(fields: [event_artist_id], references: [id], onDelete: Cascade)
+  team_member       ArtistTeamMember? @relation(fields: [team_member_id], references: [id])
+  transactions      ArtistCardTransaction[]
+
+  @@index([organizer_id, event_id])
+  @@index([organizer_id, event_artist_id])
+  @@index([organizer_id, event_id, status])
+  @@map("artist_cards")
+}
+
+model ArtistCardTransaction {
+  id               String              @id @default(uuid())
+  organizer_id     String
+  event_id         String
+  artist_card_id   String
+  transaction_type CardTransactionType
+  amount           Decimal             @db.Decimal(12, 2)
+  reference        String?             @db.VarChar(200)
+  notes            String?             @db.Text
+  created_at       DateTime            @default(now())
+
+  // Relações
+  card             ArtistCard          @relation(fields: [artist_card_id], references: [id], onDelete: Cascade)
+
+  @@index([organizer_id, event_id])
+  @@index([artist_card_id])
+  @@map("artist_card_transactions")
+}
+
+model ArtistFile {
+  id           String         @id @default(uuid())
+  organizer_id String
+  event_id     String
+  artist_id    String
+  file_type    ArtistFileType
+  file_name    String         @db.VarChar(300)
+  file_url     String         @db.VarChar(1000)
+  mime_type    String         @db.VarChar(100)
+  size_bytes   Int
+  uploaded_by  String
+  notes        String?        @db.Text
+  created_at   DateTime       @default(now())
+
+  // Relações
+  artist       Artist         @relation(fields: [artist_id], references: [id], onDelete: Cascade)
+
+  @@index([organizer_id, event_id])
+  @@index([organizer_id, artist_id])
+  @@map("artist_files")
+}
+
+model ArtistImportBatch {
+  id           String           @id @default(uuid())
+  organizer_id String
+  event_id     String
+  file_name    String           @db.VarChar(300)
+  import_type  ArtistImportType
+  status       ImportStatus     @default(pending)
+  total_rows   Int              @default(0)
+  success_rows Int              @default(0)
+  failed_rows  Int              @default(0)
+  created_by   String
+  created_at   DateTime         @default(now())
+
+  // Relações
+  rows         ArtistImportRow[]
+
+  @@index([organizer_id, event_id])
+  @@map("artist_import_batches")
+}
+
+model ArtistImportRow {
+  id                  String          @id @default(uuid())
+  batch_id            String
+  row_number          Int
+  raw_payload_json    Json
+  resolved_entity_id  String?
+  status              ImportRowStatus @default(pending)
+  error_message       String?         @db.Text
+  created_at          DateTime        @default(now())
+
+  // Relações
+  batch               ArtistImportBatch @relation(fields: [batch_id], references: [id], onDelete: Cascade)
+
+  @@index([batch_id])
+  @@index([batch_id, status])
+  @@map("artist_import_rows")
+}
+
+// =============================================================================
+// MÓDULO 2 — GESTÃO FINANCEIRA OPERACIONAL DO EVENTO
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// ENUMS — Módulo 2
+// -----------------------------------------------------------------------------
+
+enum PayableStatus {
+  pending
+  partial
+  paid
+  overdue
+  cancelled
+}
+
+enum PayableSourceType {
+  supplier
+  artist
+  logistics
+  internal
+}
+
+enum PaymentMethod {
+  pix
+  ted
+  boleto
+  cash
+  credit_card
+  other
+}
+
+enum SupplierDocumentType {
+  cpf
+  cnpj
+}
+
+enum BankAccountType {
+  checking
+  savings
+}
+
+enum PixKeyType {
+  cpf
+  cnpj
+  email
+  phone
+  random
+}
+
+enum ContractStatus {
+  draft
+  signed
+  active
+  completed
+  cancelled
+}
+
+enum PaymentAttachmentType {
+  receipt
+  invoice
+  nf
+  contract
+  other
+}
+
+enum FinancialImportType {
+  payables
+  payments
+  suppliers
+  budget_lines
+}
+
+// -----------------------------------------------------------------------------
+// TABELAS — Módulo 2
+// -----------------------------------------------------------------------------
+
+model EventCostCategory {
+  id           String   @id @default(uuid())
+  organizer_id String
+  name         String   @db.VarChar(100)
+  code         String   @db.VarChar(20)
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  // Relações
+  payables     EventPayable[]
+  budget_lines EventBudgetLine[]
+
+  @@unique([organizer_id, code])
+  @@index([organizer_id])
+  @@index([organizer_id, is_active])
+  @@map("event_cost_categories")
+}
+
+model EventCostCenter {
+  id           String   @id @default(uuid())
+  organizer_id String
+  event_id     String
+  name         String   @db.VarChar(100)
+  code         String   @db.VarChar(20)
+  budget_limit Decimal? @db.Decimal(14, 2)
+  notes        String?  @db.Text
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  // Relações
+  payables     EventPayable[]
+  budget_lines EventBudgetLine[]
+
+  @@unique([event_id, code])
+  @@index([organizer_id, event_id])
+  @@map("event_cost_centers")
+}
+
+model Supplier {
+  id                String               @id @default(uuid())
+  organizer_id      String
+  legal_name        String               @db.VarChar(200)
+  trade_name        String?              @db.VarChar(200)
+  document_type     SupplierDocumentType
+  document_number   String               @db.VarChar(20)
+  contact_name      String?              @db.VarChar(200)
+  phone             String?              @db.VarChar(30)
+  email             String?              @db.VarChar(200)
+  pix_key           String?              @db.VarChar(200)
+  pix_key_type      PixKeyType?
+  bank_name         String?              @db.VarChar(100)
+  bank_branch       String?              @db.VarChar(20)
+  bank_account      String?              @db.VarChar(30)
+  bank_account_type BankAccountType?
+  category          String?              @db.VarChar(100)
+  is_active         Boolean              @default(true)
+  notes             String?              @db.Text
+  created_at        DateTime             @default(now())
+  updated_at        DateTime             @updatedAt
+
+  // Relações
+  contracts         SupplierContract[]
+  payables          EventPayable[]
+
+  @@unique([organizer_id, document_number])
+  @@index([organizer_id])
+  @@index([organizer_id, is_active])
+  @@map("suppliers")
+}
+
+model SupplierContract {
+  id           String         @id @default(uuid())
+  organizer_id String
+  event_id     String
+  supplier_id  String
+  contract_number String      @db.VarChar(100)
+  description  String         @db.VarChar(300)
+  total_amount Decimal        @db.Decimal(14, 2)
+  signed_at    DateTime?      @db.Date
+  valid_until  DateTime?      @db.Date
+  status       ContractStatus @default(draft)
+  file_url     String?        @db.VarChar(1000)
+  notes        String?        @db.Text
+  created_at   DateTime       @default(now())
+  updated_at   DateTime       @updatedAt
+
+  // Relações
+  supplier     Supplier       @relation(fields: [supplier_id], references: [id])
+  payables     EventPayable[]
+
+  @@index([organizer_id, event_id])
+  @@index([organizer_id, supplier_id])
+  @@map("supplier_contracts")
+}
+
+model EventBudget {
+  id                String   @id @default(uuid())
+  organizer_id      String
+  event_id          String   @unique
+  total_budget      Decimal  @db.Decimal(14, 2)
+  artistic_budget   Decimal? @db.Decimal(14, 2)
+  logistics_budget  Decimal? @db.Decimal(14, 2)
+  structure_budget  Decimal? @db.Decimal(14, 2)
+  marketing_budget  Decimal? @db.Decimal(14, 2)
+  contingency_budget Decimal? @db.Decimal(14, 2)
+  notes             String?  @db.Text
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  // Relações
+  budget_lines      EventBudgetLine[]
+
+  @@index([organizer_id])
+  @@map("event_budgets")
+}
+
+model EventBudgetLine {
+  id              String            @id @default(uuid())
+  organizer_id    String
+  event_id        String
+  budget_id       String
+  category_id     String
+  cost_center_id  String
+  description     String            @db.VarChar(300)
+  budgeted_amount Decimal           @db.Decimal(14, 2)
+  notes           String?           @db.Text
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @updatedAt
+
+  // Relações
+  budget          EventBudget       @relation(fields: [budget_id], references: [id], onDelete: Cascade)
+  category        EventCostCategory @relation(fields: [category_id], references: [id])
+  cost_center     EventCostCenter   @relation(fields: [cost_center_id], references: [id])
+
+  @@index([organizer_id, event_id])
+  @@index([organizer_id, event_id, category_id])
+  @@map("event_budget_lines")
+}
+
+model EventPayable {
+  id               String             @id @default(uuid())
+  organizer_id     String
+  event_id         String
+  supplier_id      String?
+  artist_id        String?
+  contract_id      String?
+  category_id      String
+  cost_center_id   String
+  source_type      PayableSourceType
+  source_id        String?
+  description      String             @db.VarChar(300)
+  amount           Decimal            @db.Decimal(14, 2)
+  paid_amount      Decimal            @default(0) @db.Decimal(14, 2)
+  remaining_amount Decimal            @db.Decimal(14, 2) // calculado: amount - paid_amount
+  due_date         DateTime           @db.Date
+  paid_at          DateTime?
+  payment_method   PaymentMethod?
+  status           PayableStatus      @default(pending)
+  is_recurrent     Boolean            @default(false)
+  cancelled_at     DateTime?
+  cancellation_reason String?         @db.Text
+  notes            String?            @db.Text
+  created_at       DateTime           @default(now())
+  updated_at       DateTime           @updatedAt
+
+  // Relações
+  supplier         Supplier?          @relation(fields: [supplier_id], references: [id])
+  contract         SupplierContract?  @relation(fields: [contract_id], references: [id])
+  category         EventCostCategory  @relation(fields: [category_id], references: [id])
+  cost_center      EventCostCenter    @relation(fields: [cost_center_id], references: [id])
+  payments         EventPayment[]
+  attachments      PaymentAttachment[]
+
+  @@index([organizer_id, event_id])
+  @@index([organizer_id, event_id, status])
+  @@index([organizer_id, event_id, supplier_id])
+  @@index([organizer_id, event_id, artist_id])
+  @@index([organizer_id, event_id, category_id])
+  @@index([organizer_id, event_id, cost_center_id])
+  @@index([organizer_id, event_id, due_date])
+  @@map("event_payables")
+}
+
+model EventPayment {
+  id               String        @id @default(uuid())
+  organizer_id     String
+  event_id         String
+  payable_id       String
+  payment_date     DateTime      @db.Date
+  amount           Decimal       @db.Decimal(14, 2)
+  payment_method   PaymentMethod
+  reference_number String?       @db.VarChar(200)
+  receipt_url      String?       @db.VarChar(1000)
+  paid_by          String?       // user_id
+  notes            String?       @db.Text
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
+
+  // Relações
+  payable          EventPayable  @relation(fields: [payable_id], references: [id], onDelete: Restrict)
+  attachments      PaymentAttachment[]
+
+  @@index([organizer_id, event_id])
+  @@index([organizer_id, event_id, payable_id])
+  @@index([organizer_id, event_id, payment_date])
+  @@map("event_payments")
+}
+
+model PaymentAttachment {
+  id           String                @id @default(uuid())
+  organizer_id String
+  payable_id   String
+  payment_id   String?
+  file_type    PaymentAttachmentType
+  file_name    String                @db.VarChar(300)
+  file_url     String                @db.VarChar(1000)
+  mime_type    String                @db.VarChar(100)
+  size_bytes   Int
+  uploaded_by  String
+  notes        String?               @db.Text
+  created_at   DateTime              @default(now())
+
+  // Relações
+  payable      EventPayable          @relation(fields: [payable_id], references: [id], onDelete: Cascade)
+  payment      EventPayment?         @relation(fields: [payment_id], references: [id])
+
+  @@index([organizer_id, payable_id])
+  @@map("payment_attachments")
+}
+
+model FinancialImportBatch {
+  id           String              @id @default(uuid())
+  organizer_id String
+  event_id     String
+  file_name    String              @db.VarChar(300)
+  import_type  FinancialImportType
+  status       ImportStatus        @default(pending)
+  total_rows   Int                 @default(0)
+  success_rows Int                 @default(0)
+  failed_rows  Int                 @default(0)
+  created_by   String
+  created_at   DateTime            @default(now())
+
+  // Relações
+  rows         FinancialImportRow[]
+
+  @@index([organizer_id, event_id])
+  @@map("financial_import_batches")
+}
+
+model FinancialImportRow {
+  id                  String              @id @default(uuid())
+  batch_id            String
+  row_number          Int
+  raw_payload_json    Json
+  resolved_entity_id  String?
+  status              ImportRowStatus     @default(pending)
+  error_message       String?             @db.Text
+  created_at          DateTime            @default(now())
+
+  // Relações
+  batch               FinancialImportBatch @relation(fields: [batch_id], references: [id], onDelete: Cascade)
+
+  @@index([batch_id])
+  @@index([batch_id, status])
+  @@map("financial_import_rows")
+}

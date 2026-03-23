@@ -1,11 +1,15 @@
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 const USER_KEY = "enjoyfun_user";
+const ACCESS_TRANSPORT_KEY = "enjoyfun_access_transport";
+const REFRESH_TRANSPORT_KEY = "enjoyfun_refresh_transport";
 
 const sessionState = {
   hydrated: false,
   accessToken: "",
+  accessTransport: "body",
   refreshToken: "",
+  refreshTransport: "body",
   user: null,
 };
 
@@ -84,13 +88,17 @@ function hydrateSessionState() {
   const legacyStorage = getStorage("localStorage");
 
   const sessionAccessToken = sessionStorageRef?.getItem(ACCESS_TOKEN_KEY) || "";
+  const sessionAccessTransport = sessionStorageRef?.getItem(ACCESS_TRANSPORT_KEY) || "";
   const sessionRefreshToken = sessionStorageRef?.getItem(REFRESH_TOKEN_KEY) || "";
+  const sessionRefreshTransport = sessionStorageRef?.getItem(REFRESH_TRANSPORT_KEY) || "";
   const sessionUser = readJson(sessionStorageRef, USER_KEY);
 
-  if (sessionAccessToken || sessionRefreshToken || sessionUser) {
+  if (sessionAccessToken || sessionRefreshToken || sessionUser || sessionRefreshTransport || sessionAccessTransport) {
     sessionState.hydrated = true;
     sessionState.accessToken = sessionAccessToken;
+    sessionState.accessTransport = sessionAccessTransport || "body";
     sessionState.refreshToken = sessionRefreshToken;
+    sessionState.refreshTransport = sessionRefreshTransport || "body";
     sessionState.user = sessionUser;
     removeLegacySession();
     return;
@@ -102,12 +110,16 @@ function hydrateSessionState() {
 
   sessionState.hydrated = true;
   sessionState.accessToken = legacyAccessToken;
+  sessionState.accessTransport = legacyAccessToken ? "body" : "body";
   sessionState.refreshToken = legacyRefreshToken;
+  sessionState.refreshTransport = legacyRefreshToken ? "body" : "body";
   sessionState.user = legacyUser;
 
   if (legacyAccessToken || legacyRefreshToken || legacyUser) {
     writeString(sessionStorageRef, ACCESS_TOKEN_KEY, legacyAccessToken);
+    writeString(sessionStorageRef, ACCESS_TRANSPORT_KEY, legacyAccessToken ? "body" : "");
     writeString(sessionStorageRef, REFRESH_TOKEN_KEY, legacyRefreshToken);
+    writeString(sessionStorageRef, REFRESH_TRANSPORT_KEY, legacyRefreshToken ? "body" : "");
     writeJson(sessionStorageRef, USER_KEY, legacyUser);
     removeLegacySession();
   }
@@ -131,17 +143,26 @@ export function getStoredUser() {
 export function persistSession(result) {
   hydrateSessionState();
 
-  if (!result?.access_token) {
+  const accessTransport = result?.access_transport === "cookie" ? "cookie" : "body";
+  const refreshTransport = result?.refresh_transport === "cookie" ? "cookie" : "body";
+  const nextAccessToken = accessTransport === "cookie" ? "" : (result?.access_token || "");
+  const nextRefreshToken = refreshTransport === "cookie" ? "" : (result?.refresh_token || "");
+
+  if (!result || (!nextAccessToken && accessTransport !== "cookie")) {
     return;
   }
 
   const sessionStorageRef = getStorage("sessionStorage");
-  sessionState.accessToken = result.access_token;
-  sessionState.refreshToken = result.refresh_token || "";
+  sessionState.accessToken = nextAccessToken;
+  sessionState.accessTransport = accessTransport;
+  sessionState.refreshTransport = refreshTransport;
+  sessionState.refreshToken = nextRefreshToken;
   sessionState.user = result.user ?? null;
 
   writeString(sessionStorageRef, ACCESS_TOKEN_KEY, sessionState.accessToken);
+  writeString(sessionStorageRef, ACCESS_TRANSPORT_KEY, sessionState.accessTransport);
   writeString(sessionStorageRef, REFRESH_TOKEN_KEY, sessionState.refreshToken);
+  writeString(sessionStorageRef, REFRESH_TRANSPORT_KEY, sessionState.refreshTransport);
   writeJson(sessionStorageRef, USER_KEY, sessionState.user);
   removeLegacySession();
 }
@@ -160,11 +181,15 @@ export function clearSession() {
 
   const sessionStorageRef = getStorage("sessionStorage");
   sessionState.accessToken = "";
+  sessionState.accessTransport = "body";
   sessionState.refreshToken = "";
+  sessionState.refreshTransport = "body";
   sessionState.user = null;
 
   writeString(sessionStorageRef, ACCESS_TOKEN_KEY, "");
+  writeString(sessionStorageRef, ACCESS_TRANSPORT_KEY, "");
   writeString(sessionStorageRef, REFRESH_TOKEN_KEY, "");
+  writeString(sessionStorageRef, REFRESH_TRANSPORT_KEY, "");
   writeJson(sessionStorageRef, USER_KEY, null);
   removeLegacySession();
 }
@@ -174,7 +199,9 @@ export function getSessionSnapshot() {
 
   return {
     accessToken: sessionState.accessToken,
+    accessTransport: sessionState.accessTransport,
     refreshToken: sessionState.refreshToken,
+    refreshTransport: sessionState.refreshTransport,
     user: sessionState.user,
   };
 }

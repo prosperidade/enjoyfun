@@ -4,24 +4,31 @@
  * White-label settings por organizer (nome do app, cores e logo).
  */
 
-function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
+function organizerSettingsDispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
-        $method === 'GET'  && $id === null        => getSettings(),
-        $method === 'PUT'  && $id === null        => updateSettings($body),
-        $method === 'POST' && $id === 'logo'      => uploadLogo(),
+        $method === 'GET'  && $id === null        => organizerSettingsGet(),
+        $method === 'PUT'  && $id === null        => organizerSettingsUpdate($body),
+        $method === 'POST' && $id === 'logo'      => organizerSettingsUploadLogo(),
         default => jsonError('Organizer settings endpoint não encontrado.', 404),
     };
 }
 
-function getSettings(): void
+if (!function_exists('dispatch')) {
+    function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
+    {
+        organizerSettingsDispatch($method, $id, $sub, $subId, $body, $query);
+    }
+}
+
+function organizerSettingsGet(): void
 {
     $user = requireAuth(['admin', 'organizer']);
     $db = Database::getInstance();
 
-    ensureOrganizerSettingsTable($db);
+    organizerSettingsEnsureOrganizerSettingsTable($db);
 
-    $organizerId = resolveOrganizerId($user);
+    $organizerId = organizerSettingsResolveOrganizerId($user);
 
     $stmt = $db->prepare('
         SELECT organizer_id, app_name, primary_color, secondary_color, logo_url, updated_at
@@ -46,17 +53,17 @@ function getSettings(): void
     jsonSuccess($row);
 }
 
-function updateSettings(array $body): void
+function organizerSettingsUpdate(array $body): void
 {
     $user = requireAuth(['admin', 'organizer']);
     $db = Database::getInstance();
 
-    ensureOrganizerSettingsTable($db);
+    organizerSettingsEnsureOrganizerSettingsTable($db);
 
-    $organizerId = resolveOrganizerId($user);
+    $organizerId = organizerSettingsResolveOrganizerId($user);
     $appName = trim((string)($body['app_name'] ?? 'EnjoyFun'));
-    $primaryColor = normalizeHexColor((string)($body['primary_color'] ?? '#7c3aed'));
-    $secondaryColor = normalizeHexColor((string)($body['secondary_color'] ?? '#db2777'));
+    $primaryColor = organizerSettingsNormalizeHexColor((string)($body['primary_color'] ?? '#7c3aed'));
+    $secondaryColor = organizerSettingsNormalizeHexColor((string)($body['secondary_color'] ?? '#db2777'));
 
     if (!$appName) {
         jsonError('app_name é obrigatório.', 422);
@@ -81,12 +88,12 @@ function updateSettings(array $body): void
     ], 'Configurações visuais salvas com sucesso.');
 }
 
-function uploadLogo(): void
+function organizerSettingsUploadLogo(): void
 {
     $user = requireAuth(['admin', 'organizer']);
     $db = Database::getInstance();
 
-    ensureOrganizerSettingsTable($db);
+    organizerSettingsEnsureOrganizerSettingsTable($db);
 
     if (empty($_FILES['logo'])) {
         jsonError('Arquivo de logo não enviado.', 422);
@@ -109,7 +116,7 @@ function uploadLogo(): void
         jsonError('Formato inválido. Use PNG, JPG, WEBP ou SVG.', 422);
     }
 
-    $organizerId = resolveOrganizerId($user);
+    $organizerId = organizerSettingsResolveOrganizerId($user);
     $ext = $allowed[$mime];
 
     $publicDir = BASE_PATH . '/public';
@@ -127,7 +134,7 @@ function uploadLogo(): void
     }
 
     $logoPath = '/uploads/logos/' . $filename;
-    $logoUrl = buildPublicAssetUrl($logoPath);
+    $logoUrl = organizerSettingsBuildPublicAssetUrl($logoPath);
 
     $stmt = $db->prepare(
         "INSERT INTO organizer_settings (organizer_id, logo_url, updated_at)
@@ -143,7 +150,7 @@ function uploadLogo(): void
 
 // Função saveMessagingSettings foi movida para OrganizerMessagingSettingsController.php
 
-function resolveOrganizerId(array $user): int
+function organizerSettingsResolveOrganizerId(array $user): int
 {
     if (($user['role'] ?? '') === 'admin') {
         // fallback para admin operar no próprio id caso não tenha organizer_id
@@ -153,7 +160,7 @@ function resolveOrganizerId(array $user): int
     return (int)($user['organizer_id'] ?? 0);
 }
 
-function normalizeHexColor(string $color): string
+function organizerSettingsNormalizeHexColor(string $color): string
 {
     $color = trim($color);
     if (!preg_match('/^#([A-Fa-f0-9]{6})$/', $color)) {
@@ -163,7 +170,7 @@ function normalizeHexColor(string $color): string
     return strtoupper($color);
 }
 
-function buildPublicAssetUrl(string $path): string
+function organizerSettingsBuildPublicAssetUrl(string $path): string
 {
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
@@ -174,7 +181,7 @@ function buildPublicAssetUrl(string $path): string
     return $scheme . '://' . $host . $path;
 }
 
-function ensureOrganizerSettingsTable(PDO $db): void
+function organizerSettingsEnsureOrganizerSettingsTable(PDO $db): void
 {
     if (!organizerSettingsTableExists($db)) {
         jsonError(

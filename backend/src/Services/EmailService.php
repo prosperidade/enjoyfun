@@ -54,11 +54,11 @@ class EmailService
         curl_close($ch);
 
         if ($status >= 200 && $status < 300) {
-            error_log("[EmailService] OTP enviado para {$toEmail}");
+            error_log('[EmailService] OTP enviado com sucesso.');
             return true;
         }
 
-        error_log("[EmailService] Falha ao enviar OTP. Status: {$status} | Body: {$response}");
+        error_log("[EmailService] Falha ao enviar OTP. Status: {$status}");
         return false;
     }
 
@@ -179,8 +179,6 @@ HTML;
             'html'    => $html,
         ]);
 
-        error_log("[DEBUG RESEND] Payload: " . json_encode(['from' => $from, 'to' => $to, 'subject' => $subject]));
-
         $ch = curl_init('https://api.resend.com/emails');
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -198,13 +196,11 @@ HTML;
         curl_close($ch);
 
         if ($status >= 200 && $status < 300) {
-            error_log("[EmailService] E-mail manual enviado para {$to}");
+            error_log('[EmailService] E-mail manual enviado com sucesso.');
             return true;
         }
 
-        // Log completo + lança exceção para que o controller exponha ao frontend
-        $debugMsg = "[DEBUG RESEND] Status: {$status} | Resposta: {$response}";
-        error_log($debugMsg);
-        throw new \RuntimeException("Resend HTTP {$status}: {$response}");
+        error_log("[EmailService] Falha ao enviar e-mail manual. Status: {$status}");
+        throw new \RuntimeException("Resend HTTP {$status}");
     }
 }

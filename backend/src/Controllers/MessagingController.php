@@ -44,6 +44,7 @@ function sendBulkWhatsApp(array $body): void
     }
 
     $db = Database::getInstance();
+    messagingEnsureReady($db);
     $orgId = resolveOrgId($user);
 
     // Load WhatsApp Config
@@ -141,7 +142,7 @@ function getMessagingConfig(): void
     $settings = \EnjoyFun\Services\OrganizerMessagingConfigService::load($db, $orgId);
     $public = \EnjoyFun\Services\OrganizerMessagingConfigService::toPublicPayload($settings);
     $public['configured'] = (bool)($public['wa_configured'] ?? false);
-    $public['instance'] = $public['wa_instance'] ?? null;
+    unset($public['wa_api_url'], $public['wa_instance']);
     jsonSuccess($public);
 }
 
@@ -152,6 +153,7 @@ function getMessagingHistory(): void
 {
     $user = requireAuth(['admin', 'organizer']);
     $db = Database::getInstance();
+    messagingEnsureReady($db);
     $orgId = resolveOrgId($user);
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
 
@@ -173,6 +175,7 @@ function sendWhatsAppMessage(array $body): void
     }
 
     $db    = Database::getInstance();
+    messagingEnsureReady($db);
     $orgId = resolveOrgId($user);
 
     $cfg = \EnjoyFun\Services\OrganizerMessagingConfigService::load($db, $orgId);
@@ -258,6 +261,7 @@ function sendManualEmail(array $body): void
     }
 
     $db    = Database::getInstance();
+    messagingEnsureReady($db);
     $orgId = resolveOrgId($user);
 
     $cfg = \EnjoyFun\Services\OrganizerMessagingConfigService::load($db, $orgId);
@@ -304,14 +308,25 @@ function sendManualEmail(array $body): void
 function ingestMessagingWebhook(array $body, array $query): void
 {
     $db = Database::getInstance();
+    messagingEnsureReady($db);
     $provider = trim((string)($query['provider'] ?? $body['provider'] ?? ''));
-    $organizerId = isset($query['organizer_id'])
-        ? (int)$query['organizer_id']
-        : (isset($body['organizer_id']) ? (int)$body['organizer_id'] : null);
+    $resolvedContext = \EnjoyFun\Services\MessagingDeliveryService::resolveWebhookContext($db, $body, [
+        'provider' => $provider !== '' ? $provider : null,
+    ]);
+    $organizerId = (int)($resolvedContext['organizer_id'] ?? 0);
+    if ($organizerId <= 0) {
+        jsonError('Webhook de mensageria rejeitado: organizador não identificado pela instância registrada.', 422);
+    }
+
+    $headers = messagingRequestHeaders();
+    $rawBody = (string)($GLOBALS['ENJOYFUN_RAW_BODY'] ?? '');
+    $acceptedSecrets = messagingResolveWebhookSecrets($db, $organizerId);
+    if (!messagingWebhookAuthorized($headers, $query, $rawBody, $acceptedSecrets)) {
+        jsonError('Webhook de mensageria não autorizado.', 401);
+    }
 
     $result = \EnjoyFun\Services\MessagingDeliveryService::captureWebhookEvent($db, $body, [
-        'provider' => $provider !== '' ? $provider : null,
-        'organizer_id' => $organizerId,
+        'provider' => $resolvedContext['provider'] ?? ($provider !== '' ? $provider : null),
     ]);
 
     jsonSuccess($result, 'webhook recebido');
@@ -340,4 +355,126 @@ function messagingDecodeProviderPayload(string $response, int $status): array
         'http_status' => $status,
         'raw' => trim($response),
     ];
+}
+
+function messagingEnsureReady(PDO $db): void
+{
+    try {
+        \EnjoyFun\Services\MessagingDeliveryService::assertReady($db);
+    } catch (\RuntimeException $e) {
+        jsonError($e->getMessage(), 409);
+    }
+}
+
+function messagingRequestHeaders(): array
+{
+    $headers = [];
+    if (function_exists('getallheaders')) {
+        foreach ((array)getallheaders() as $key => $value) {
+            $headers[strtolower((string)$key)] = trim((string)$value);
+        }
+    }
+
+    foreach ($_SERVER as $key => $value) {
+        if (!str_starts_with($key, 'HTTP_')) {
+            continue;
+        }
+
+        $headerName = strtolower(str_replace('_', '-', substr($key, 5)));
+        $headers[$headerName] = trim((string)$value);
+    }
+
+    return $headers;
+}
+
+function messagingResolveWebhookSecrets(PDO $db, int $organizerId): array
+{
+    $secrets = [];
+    if ($organizerId > 0) {
+        $settings = \EnjoyFun\Services\OrganizerMessagingConfigService::load($db, $organizerId);
+        foreach (['wa_webhook_secret', 'wa_token'] as $field) {
+            $value = trim((string)($settings[$field] ?? ''));
+            if ($value !== '') {
+                $secrets[] = $value;
+            }
+        }
+    }
+
+    foreach (['MESSAGING_WEBHOOK_SECRET', 'WA_WEBHOOK_SECRET'] as $envKey) {
+        $value = trim((string)(getenv($envKey) ?: ''));
+        if ($value !== '') {
+            $secrets[] = $value;
+        }
+    }
+
+    return array_values(array_unique($secrets));
+}
+
+function messagingWebhookAuthorized(array $headers, array $query, string $rawBody, array $acceptedSecrets): bool
+{
+    if ($acceptedSecrets === []) {
+        return false;
+    }
+
+    $directCandidates = [];
+    foreach (['x-webhook-secret', 'x-enjoyfun-webhook-secret', 'x-wa-webhook-secret', 'apikey'] as $headerName) {
+        $value = trim((string)($headers[$headerName] ?? ''));
+        if ($value !== '') {
+            $directCandidates[] = $value;
+        }
+    }
+
+    $authorization = trim((string)($headers['authorization'] ?? ''));
+    if ($authorization !== '') {
+        if (stripos($authorization, 'Bearer ') === 0) {
+            $authorization = trim(substr($authorization, 7));
+        }
+        if ($authorization !== '') {
+            $directCandidates[] = $authorization;
+        }
+    }
+
+    foreach (['secret', 'token'] as $queryKey) {
+        $value = trim((string)($query[$queryKey] ?? ''));
+        if ($value !== '') {
+            $directCandidates[] = $value;
+        }
+    }
+
+    $signatureCandidates = [];
+    foreach (['x-signature', 'x-webhook-signature', 'x-hub-signature-256'] as $headerName) {
+        $value = trim((string)($headers[$headerName] ?? ''));
+        if ($value !== '') {
+            $signatureCandidates[] = $value;
+        }
+    }
+    foreach (['signature', 'sig'] as $queryKey) {
+        $value = trim((string)($query[$queryKey] ?? ''));
+        if ($value !== '') {
+            $signatureCandidates[] = $value;
+        }
+    }
+
+    foreach ($acceptedSecrets as $secret) {
+        foreach ($directCandidates as $candidate) {
+            if (hash_equals($secret, $candidate)) {
+                return true;
+            }
+        }
+
+        if ($rawBody === '') {
+            continue;
+        }
+
+        $digest = hash_hmac('sha256', $rawBody, $secret);
+        foreach ([$digest, 'sha256=' . $digest] as $expected) {
+            foreach ($signatureCandidates as $candidate) {
+                if (hash_equals($expected, $candidate)) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
 }

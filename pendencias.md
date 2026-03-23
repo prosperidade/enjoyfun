@@ -1,4 +1,4 @@
-# Pedências do Sistema
+# Pendências do Sistema
 
 ## 0. Objetivo deste arquivo
 
@@ -32,172 +32,221 @@
 
 | Módulo | Estado funcional | O que sobra |
 | --- | --- | --- |
-| Workforce / Participants Hub | Homologado e encerrado funcionalmente | governança de release e observabilidade |
-| Meals | Homologado e encerrado funcionalmente | residual não bloqueante consolidado neste arquivo |
-| POS / Bar / Food / Shop / Cartão Digital | Frente em fechamento com núcleo funcional endurecido | rollout final de banco, smoke operacional e fechamento documental |
-| Integrações transversais / Mensageria | Frente postergada fora do foco atual | segredos legados, webhook forte e retry/replay |
+| Mensageria / integrações transversais | Funcional com risco crítico aberto | webhook forte, integridade de tenant e fim do DDL em runtime |
+| Banco / governança de schema | Operacional, mas ainda semi-manual | drift conhecido, migrations pendentes e decisões de modelagem |
+| QA / smoke / contratos | Parcial | smokes operacionais e contratos mínimos ainda pendentes |
+| Workforce / Participants Hub | Homologado funcionalmente | observabilidade, testes e modularização do controller |
+| Meals | Homologado funcionalmente | residual controlado e rollout de migration específica |
+| Frontend release safety | Build funcional | lint/tooling e code splitting |
 
 ---
 
 ## 3. Pedências abertas
 
-## 3.1 Workforce / Participants Hub
+## 3.1 Mensageria / Integridade de Webhook
 
 ### Estado
 
-- Encerrado funcionalmente.
-- Base principal registrada em `docs/progresso6.md`.
+- Frente reaberta como prioridade operacional.
+- Base decisória registrada em `docs/progresso9.md` e `docs/progresso10.md`.
 
 ### Pedências remanescentes
 
-1. Testes de contrato de API
-- Risco: regressão silenciosa em rotas críticas de participants/workforce/sync.
-- Consequência: quebra em produção sem sinal prévio.
-- Mitigação: suíte mínima de contrato para:
-  - roles
-  - event roles
-  - assignments
-  - sync
-  - delete de participante
-- Critério de aceite: endpoints críticos validados automaticamente em CI/local.
-
-2. SLO e telemetria operacional
-- Risco: o módulo funcionar, mas operar sem visibilidade de falha, latência ou degradação.
-- Consequência: incidente difícil de detectar cedo.
+1. Assinatura forte de webhook
+- Risco: qualquer origem forja eventos de mensageria.
+- Consequência: histórico poluído, delivery incoerente, risco de fraude operacional.
 - Mitigação:
-  - métricas de erro por endpoint crítico
-  - taxa de falha de sync
-  - contagem de snapshot offline inválido
-- Critério de aceite: painel mínimo de saúde operacional definido.
+  - exigir assinatura/HMAC por provider
+  - rejeitar `organizer_id` vindo do cliente
+  - resolver tenant apenas por credencial/instância registrada
+- Critério de aceite: webhook inválido retorna `401/403` e não altera delivery.
 
-3. Playbook de incidente de Workforce
-- Risco: diante de inconsistência futura, cada correção voltar a ser improvisada.
-- Consequência: tempo alto de diagnóstico e chance de correção manual errada.
+2. Remoção de DDL em runtime
+- Risco: a API altera schema na primeira chamada e ambientes divergem silenciosamente.
+- Consequência: homologação e produção deixam de ser previsíveis.
 - Mitigação:
-  - playbook de reconstrução de árvore
-  - playbook de saneamento de assignments
-  - playbook de reconciliação de liderança
-- Critério de aceite: procedimento documentado e reproduzível.
+  - retirar `ensureSchema()` como bootstrap operacional
+  - materializar tudo via migrations/baseline
+- Critério de aceite: mensageria não cria tabela via HTTP.
+
+3. Retry/replay operacional
+- Risco: falha de provider exige correção manual improvisada.
+- Consequência: operação lenta e histórico inconsistente.
+- Mitigação:
+  - definir fluxo de retry administrativo
+  - definir replay controlado por provider
+- Critério de aceite: procedimento mínimo documentado e reproduzível.
 
 ---
 
-## 3.2 POS / Bar / Food / Shop / Cartao Digital
+## 3.2 Banco / Governança de Schema
 
 ### Estado
 
-- Frente quase encerrada.
-- Relatorios, catalogo, IA operacional, contrato canonico de `card_id`, fluxo offline novo e trilha de auditoria cashless ja foram endurecidos no codigo e registrados em `docs/progresso9.md`.
+- Baseline operacional definido em `schema_current.sql`, porém ainda com drift e decisões abertas.
 
 ### Pedencias remanescentes
 
-1. Rollout final de banco para cashless/offline
-- Risco: o codigo ja opera de forma mais rigida, mas o banco ainda pode aceitar estados indevidos sem as constraints/indices finais.
-- Consequencia: inconsistencias silenciosas de saldo, fila offline ou trilha de auditoria sob carga.
-- Mitigacao:
-  - aplicar `database/025_cashless_offline_hardening.sql`
-  - registrar a execucao em `database/migrations_applied.log`
-- Criterio de aceite: constraints e indices novos presentes no banco real.
+1. Migration `029_payment_gateways_hardening.sql`
+- Risco: backend convive com colunas financeiras “talvez existam”.
+- Consequência: comportamento diferente por ambiente.
+- Mitigação:
+  - materializar `is_primary`
+  - materializar `environment`
+  - aplicar backfill mínimo seguro
+- Critério de aceite: contrato financeiro refletido no baseline.
 
-2. Smoke operacional ponta a ponta do POS
-- Risco: regressao localizada no runtime real mesmo com sintaxe e build ok.
-- Consequencia: falha de recarga, checkout ou reconcile offline so no uso real do operador.
-- Mitigacao:
-  - reiniciar o backend local/ambiente para evitar runtime stale
-  - validar `POST /cards/resolve`
-  - validar recarga de cartao
-  - validar checkout online
-  - validar venda offline seguida de `POST /sync`
-- Criterio de aceite: fluxo cashless e offline concluido sem erro funcional e sem residuos indevidos na fila.
+2. Migration `030_operational_indexes.sql`
+- Risco: consultas quentes e trilhas operacionais seguem sem o melhor suporte de índice.
+- Consequência: custo alto sob carga e observabilidade pobre.
+- Mitigação:
+  - revisar `offline_queue`
+  - revisar `audit_log`
+  - revisar `participant_meals`
+- Critério de aceite: migration idempotente, sem índice duplicado.
 
-3. Fechamento documental da auditoria do POS
-- Risco: backlog historico continuar acusando achados ja mortos e reabrir frente desnecessariamente.
-- Consequencia: nova rodada gastar tempo em problema que ja foi corrigido.
-- Mitigacao:
-  - atualizar `auditoriaPOS.md`
-  - reduzir o residual do POS ao que realmente nao foi executado ainda
-- Criterio de aceite: auditoria do POS coerente com o codigo e com `docs/progresso9.md`.
+3. Decisão de modelagem pendente
+- Risco: colunas existentes sem uso consistente geram drift semântico.
+- Consequência: bugs silenciosos em BI/exportação e investigação.
+- Mitigação:
+  - decidir destino de `parking_records.organizer_id`
+  - decidir enriquecimento de `offline_queue` com `organizer_id` e `user_id`
+- Critério de aceite: decisão documentada e refletida no schema.
+
+---
+
+## 3.3 QA / Smoke / Contratos
+
+### Estado
+
+- A base funcional existe e o roteiro mínimo já foi versionado em `docs/qa/`, mas a execução viva ainda está pendente.
+
+### Pedências remanescentes
+
+1. Smoke `cashless + sync offline`
+- Risco: regressão operacional só aparecer no uso real.
+- Consequência: fila offline, recarga ou checkout falham sem aviso prévio.
+- Mitigação:
+  - executar `docs/qa/smoke_operacional_core.md`
+- Critério de aceite: fluxo ponta a ponta concluído sem resíduo indevido.
+
+2. Smoke emissão em massa de cartões
+- Risco: preview e emissão divergirem do comportamento real de gravação.
+- Consequência: time confiar em fluxo que não persiste no banco.
+- Mitigação:
+  - executar `docs/qa/smoke_operacional_core.md`
+- Critério de aceite: lote emitido aparece corretamente no histórico.
+
+3. Contratos mínimos de API
+- Risco: refactor quebrar endpoint crítico sem sinal precoce.
+- Consequência: regressão silenciosa em operação.
+- Mitigação:
+  - runner `backend/scripts/workforce_contract_check.mjs`
+  - matriz versionada em `docs/qa/contratos_minimos_api.md`
+- Critério de aceite: suíte mínima reproduzível localmente.
+
+---
+
+## 3.4 Workforce / Participants Hub
+
+### Estado
+
+- Encerrado funcionalmente, mas com débito estrutural alto em `WorkforceController.php`.
+
+### Pedências remanescentes
+
+1. Modularização segura do `WorkforceController.php`
+- Risco: qualquer mudança local gerar regressão em múltiplos fluxos.
+- Consequência: custo alto de manutenção e revisão.
+- Mitigação:
+  - extração incremental por famílias de endpoint
+  - manter `dispatch()` estável
+- Critério de aceite: controller progressivamente reduzido a borda HTTP.
+
+2. Testes de contrato da frente
+- Risco: extração quebrar payload/resposta.
+- Consequência: regressão silenciosa em produção.
+- Mitigação:
+  - validar roles
+  - event roles
+  - assignments
+  - card issuance
+  - sync
+- Critério de aceite: primeira suíte mínima verde antes do refactor pesado.
+
+3. SLO e telemetria operacional
+- Risco: módulo funcionar sem visibilidade real de falha/degradação.
+- Consequência: incidente difícil de detectar cedo.
+- Mitigação:
+  - métricas por endpoint crítico
+  - taxa de falha de sync
+  - snapshot offline inválido
+- Critério de aceite: painel mínimo de saúde operacional definido.
+
+---
+
+## 3.5 Meals
+
+### Estado
+
+- Homologado funcionalmente.
+
+### Pedências remanescentes
+
+1. Aplicar `database/014_participant_meals_domain_hardening.sql` em janela controlada
+- Risco: rollout incompatível com legado.
+- Consequência: quebra operacional em base antiga.
+- Mitigação: validar base limpa antes da aplicação.
+- Critério de aceite: constraints aplicadas e smoke de Meals preservado.
+
+2. Testes mínimos do domínio
+- Risco: regressão fina em `balance/history/services/sync`.
+- Consequência: quebra sem aviso em operação real.
+- Mitigação: validar contratos essenciais de `Meals`.
+- Critério de aceite: suíte mínima reproduzível localmente.
+
+---
+
+## 3.6 Frontend release safety
+
+### Estado
+
+- Build funcional, mas pipeline ainda não é sinal robusto de release.
+
+### Pedências remanescentes
+
+1. Corrigir lint/tooling
+- Risco: release sair com percepção falsa de saúde.
+- Consequência: regressão escapar do pipeline.
+- Mitigação: estabilizar `npm run lint`.
+- Critério de aceite: lint executa sem erro espúrio de tooling.
+
+2. Code splitting
+- Risco: bundle grande demais para operação real.
+- Consequência: piora de LCP/TTI e manutenção mais difícil.
+- Mitigação:
+  - separar dashboard
+  - POS
+  - participants
+  - messaging
+  - IA
+- Critério de aceite: redução do chunk principal e divisão por módulos.
 
 ---
 
 ## 4. Ordem recomendada de ataque
 
-1. Dashboard
-- iniciar a nova rodada pela superfície principal de operação
-- revisar indicadores, consultas, alertas e telemetria
-- seguir dali para os módulos encadeados pelo uso real
-
-2. Fechar o POS
-- aplicar a `025`
-- executar a smoke curta de cashless/offline
-- encerrar a auditoria documental do modulo
-
-3. Pendências transversais postergadas
-- reabrir mensageria apenas com decisão explícita
-- tratar webhook forte, backfill de segredos e retry/replay como frente separada
+1. Mensageria / webhook forte
+2. Banco / migrations `029` e `030`
+3. Smoke e contratos mínimos
+4. Modularização do `WorkforceController.php`
+5. Frontend release safety
 
 ---
 
 ## 5. Fontes oficiais deste consolidado
 
-- `docs/progresso6.md`
-- `docs/progresso7.md`
 - `docs/progresso9.md`
-
-
-# Pendencias
-
-## Meals
-
-### P0
-
-- Nenhuma pendencia operacional critica aberta no fechamento atual de `Meals`.
-
-### P1
-
-- Aplicar a `database/014_participant_meals_domain_hardening.sql` em janela controlada, somente depois de confirmar base limpa e validar constraints pendentes.
-- Validar em ambiente real as constraints adicionadas com rollout compativel para legado.
-- Criar testes de contrato/minimos para:
-  - `GET /meals/balance`
-  - `GET /meals`
-  - `POST /meals`
-  - `GET /meals/services`
-  - `POST /sync` com payload de `meal`
-- Adicionar telemetria operacional do modulo:
-  - latencia por endpoint
-  - taxa de falha do sync
-  - taxa de rejeicao por ACL, cota e ambiguidade operacional
-  - backlog offline por dispositivo
-
-### P2
-
-- Executar teste de carga do fluxo `Meals` com volume operacional mais proximo do evento real.
-- Revisar paginacao real do historico, hoje ainda limitada por `cap` fixo.
-- Evoluir a reconciliacao offline para um fluxo mais completo de DLQ/revisao/exportacao, se isso virar necessidade operacional.
-- Atualizar `docs/progresso9.md` quando houver novo fechamento residual para evitar diagnostico historico divergente.
-- Avaliar refactor futuro para reduzir duplicacao residual entre controller e service sem abrir risco de regressao agora.
-
-## Integracoes Transversais / Mensageria
-
-### P0
-
-- Nenhuma pendencia operacional critica ativa nesta frente porque a mensageria foi congelada fora do foco atual.
-
-### P1
-
-- Executar backfill explicito dos segredos legados ainda persistidos em claro fora do fluxo quente.
-- Implementar assinatura e validacao forte de webhook por provider de mensageria.
-- Criar retry administrativo e replay de falhas de mensageria sem depender de reprocessamento manual ad hoc.
-
-### Observacoes
-
-- Essas pendencias ficam postergadas ate reabertura explicita da frente de mensageria.
-- A proxima rodada priorizada do produto passa a comecar pelo dashboard, nao por integracoes de mensageria.
-
-## Observacoes Meals
-
-- Este bloco abaixo reflete somente o contexto residual especifico da auditoria de `Meals`.
-- `database/015_participant_meals_operational_day_reconciliation.sql` ja foi aplicada no banco local.
-- `database/016_participant_meals_outside_operational_day_review.sql` e somente leitura; antes da `017` ele evidenciou os `8` legados fora de janela e, apos a quarentena, passou a retornar `0` linhas.
-- `database/017_participant_meals_outside_operational_day_quarantine.sql` ja foi aplicada no banco local.
-- A auditoria de `outside_operational_day` ficou zerada apos a `017`.
-- O check `meal_without_shift_assignment_when_shifted` foi alinhado ao dominio atual e tambem ficou zerado.
+- `docs/progresso10.md`
+- `README.md`
+- `CLAUDE.md`

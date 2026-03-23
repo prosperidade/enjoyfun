@@ -13,8 +13,9 @@ const AuthContext = createContext(null);
 
 /**
  * Persists session in sessionStorage:
- *   access_token   – JWT (short-lived)
+ *   access_token   – JWT (short-lived) quando transporte = body
  *   refresh_token  – opaque (rotated)
+ *   access/refresh transport flags
  *   enjoyfun_user  – JSON user object for same-tab reloads
  */
 export function AuthProvider({ children }) {
@@ -28,15 +29,17 @@ export function AuthProvider({ children }) {
     let cancelled = false;
 
     async function bootstrapSession() {
-      const { accessToken, refreshToken } = getSessionSnapshot();
+      const { accessToken, accessTransport, refreshToken, refreshTransport } = getSessionSnapshot();
+      const canTryAccess = Boolean(accessToken) || accessTransport === 'cookie';
+      const canTryRefresh = Boolean(refreshToken) || refreshTransport === 'cookie';
 
-      if (!accessToken && !refreshToken) {
+      if (!canTryAccess && !canTryRefresh) {
         if (!cancelled) setLoading(false);
         return;
       }
 
       try {
-        if (accessToken) {
+        if (canTryAccess) {
           const nextUser = await meApi();
           if (!cancelled) {
             persistUser(nextUser);
@@ -53,7 +56,7 @@ export function AuthProvider({ children }) {
       } catch (error) {
         const status = error?.response?.status;
 
-        if (status === 401 && refreshToken) {
+        if (status === 401 && canTryRefresh) {
           try {
             const result = await refreshApi(refreshToken);
             if (!cancelled) {
@@ -90,7 +93,7 @@ export function AuthProvider({ children }) {
   // ── Actions ──────────────────────────────────────────────────────────────
   const login = useCallback(async (email, password) => {
     const result = await loginApi(email, password);
-    if (!result || !result.access_token) {
+    if (!result || (!result.access_token && result.access_transport !== 'cookie')) {
       throw new Error("Erro de autenticação: API não retornou o token JWT.");
     }
     persistSession(result);
@@ -100,7 +103,7 @@ export function AuthProvider({ children }) {
 
   const register = useCallback(async (payload) => {
     const result = await registerApi(payload);
-    if (!result || !result.access_token) {
+    if (!result || (!result.access_token && result.access_transport !== 'cookie')) {
       throw new Error("Erro de registro: API não retornou o token JWT.");
     }
     persistSession(result);

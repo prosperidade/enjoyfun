@@ -20,8 +20,8 @@ O sistema está em arquitetura **SPA React + API PHP + PostgreSQL**, com organiz
 - Estrutura de UX relativamente madura para operação, com filtros, modais e ações em massa em Participants/Workforce.
 
 ### Banco (estado atual)
-- `database/schema_real.sql` contém boa base das tabelas principais e trigger de imutabilidade no `audit_log`.
-- Há desalinhamento entre código atual e dump consolidado do schema em pontos de Workforce/Finance (migrations adicionais não refletidas no dump).
+- `database/schema_current.sql` é o baseline canônico atual e contém as estruturas operacionais centrais, incluindo `audit_log`, `guests`, `organizer_payment_gateways` e `workforce_role_settings`.
+- O principal risco hoje não é ausência do schema atual, e sim a convivência com documentação legada que ainda aponta `schema_real.sql` ou scripts históricos como fonte de verdade.
 
 ---
 
@@ -33,12 +33,11 @@ O sistema está em arquitetura **SPA React + API PHP + PostgreSQL**, com organiz
 - Middleware agora devolve `id`, `sub`, `name`, `email`, `role`, `organizer_id`, reduzindo inconsistência histórica com auditoria e emissão de tickets.
 
 **Parcial**
-- Comentários e documentação interna afirmam RS256, porém a implementação real do helper JWT está em **HS256 + HMAC**.
-- Existe bypass de emergência de senha hardcoded para e-mails específicos no login.
+- Parte da documentação legada ainda afirma RS256, porém a estratégia oficial e a implementação real do helper JWT estão em **HS256 + HMAC**.
 
 **Pendente / risco**
-- Débito de segurança por credencial de bypass em código de produção.
-- Divergência “documentação x implementação” dificulta auditoria e hardening.
+- Divergência “documentação x implementação” ainda dificulta auditoria e hardening.
+- Falta varredura periódica dos documentos operacionais para remover afirmações superadas de auth e segurança.
 
 ### Multi-tenant
 **Resolvido / consolidado**
@@ -143,31 +142,29 @@ O sistema está em arquitetura **SPA React + API PHP + PostgreSQL**, com organiz
 
 ## 4. Fragilidades reais ainda existentes
 
-1. **JWT real (HS256) divergente do discurso arquitetural (RS256)**.
-2. **Bypass de login hardcoded ativo para contas específicas**.
-3. **Drift entre `schema_real.sql` e código/migrations recentes** (especialmente Workforce/Finance).
-4. **Cobertura de auditoria incompleta entre domínios**.
-5. **Trechos pontuais com risco de escopo tenant em fluxos específicos** (ex.: transferência de ticket sem validação explícita por `organizer_id` na consulta inicial).
-6. **Contrato frontend/backend com aliases legados simultâneos** (`is_primary`/`is_principal`, etc.), elevando risco de regressão silenciosa.
+1. **Documentação legada ainda cita RS256, enquanto a estratégia oficial e o código atual operam em HS256**.
+2. **Documentação histórica ainda mistura `schema_current.sql` com `schema_real.sql` como se ambos fossem baseline vivo**.
+3. **Cobertura de auditoria incompleta entre domínios**.
+4. **Trechos pontuais com risco de escopo tenant em fluxos específicos** (ex.: transferência de ticket sem validação explícita por `organizer_id` na consulta inicial).
+5. **Contrato frontend/backend com aliases legados simultâneos** (`is_primary`/`is_principal`, etc.), elevando risco de regressão silenciosa.
 
 ---
 
 ## 5. Débitos técnicos priorizados
 
 ### Alta prioridade
-1. **Remover bypass de emergência no login** e fazer rotação controlada de credenciais.
-2. **Decidir e padronizar estratégia JWT** (assumir HS256 oficialmente com hardening, ou migrar de fato para RS256).
-3. **Sincronizar schema consolidado com migrations aplicadas** e garantir baseline único confiável (`schema_real.sql`).
-4. **Reforçar validação multi-tenant nos fluxos remanescentes de borda** (ticket transfer e rotas correlatas).
+1. **Alinhar documentação legada de Auth com a estratégia oficial HS256 já adotada no código**.
+2. **Sincronizar documentos e playbooks para tratar `schema_current.sql` como único baseline confiável**.
+3. **Reforçar validação multi-tenant nos fluxos remanescentes de borda** (ticket transfer e rotas correlatas).
 
 ### Média prioridade
-5. **Cobertura mínima mandatória de auditoria por endpoint sensível**.
-6. **Reduzir dualidade de campos de contrato** (normalizar naming de financeiro e payloads).
-7. **Adicionar testes de contrato backend/frontend para tabs de Settings e Finance**.
+4. **Cobertura mínima mandatória de auditoria por endpoint sensível**.
+5. **Reduzir dualidade de campos de contrato** (normalizar naming de financeiro e payloads).
+6. **Adicionar testes de contrato backend/frontend para tabs de Settings e Finance**.
 
 ### Baixa prioridade
-8. **Incrementar modularização de controllers grandes** (Participants/Workforce) para reduzir acoplamento.
-9. **Padronizar telemetria operacional (erros por domínio, taxa de falha por rota).**
+7. **Incrementar modularização de controllers grandes** (Participants/Workforce) para reduzir acoplamento.
+8. **Padronizar telemetria operacional (erros por domínio, taxa de falha por rota).**
 
 ---
 
@@ -184,9 +181,9 @@ O sistema está em arquitetura **SPA React + API PHP + PostgreSQL**, com organiz
 ## 7. Recomendações práticas por prioridade
 
 ### Prioridade alta
-- Remover imediatamente o bypass do login e validar com teste de autenticação básico (login válido/inválido/refresh).
-- Publicar ADR curta de segurança definindo padrão JWT oficial e atualizar código + documentação para convergência.
-- Regerar `database/schema_real.sql` após aplicar todas as migrations de workforce/finance em ambiente limpo.
+- Atualizar documentos operacionais que ainda citam RS256 para refletir a estratégia oficial HS256.
+- Garantir que novos diagnósticos, ADRs e checklists usem `database/schema_current.sql` como baseline.
+- Regerar `database/schema_current.sql` sempre que houver mudança estrutural relevante aplicada no banco.
 - Executar varredura dirigida de queries de ticket transfer e fluxos similares para blindagem explícita por tenant.
 
 ### Prioridade média

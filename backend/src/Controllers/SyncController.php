@@ -62,25 +62,22 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
                 continue;
             }
 
-            // 2. Registrar na fila offline (Auditoria)
-            $stmtQ = $db->prepare('
-                INSERT INTO offline_queue (event_id, device_id, payload_type, payload, offline_id, status, created_offline_at, processed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-            ');
             $eventId  = (int)($payload['event_id'] ?? 0);
             if ($eventId <= 0) {
                 throw new Exception('Evento inválido para sincronização offline.', 422);
             }
             $deviceId = trim((string)($_SERVER['HTTP_X_DEVICE_ID'] ?? 'browser_pos'));
-            $stmtQ->execute([
+            insertOfflineQueueAudit(
+                $db,
+                $operator,
                 $eventId,
                 $deviceId,
                 $type,
-                json_encode($payload),
+                $payload,
                 $offlineId,
-                'synced', // Já marcamos como sincronizado
+                'synced',
                 $createdAt
-            ]);
+            );
 
             // 3. Processar a regra de negócio baseada no Type
             if ($type === 'sale') {
@@ -333,4 +330,89 @@ function normalizeSyncSector(string $value): string
 {
     $normalized = strtolower(trim($value));
     return preg_replace('/\s+/', '_', $normalized) ?? '';
+}
+
+function insertOfflineQueueAudit(
+    PDO $db,
+    array $operator,
+    int $eventId,
+    string $deviceId,
+    string $type,
+    array $payload,
+    string $offlineId,
+    string $status,
+    string $createdAt
+): void
+{
+    $schema = offlineQueueSchema($db);
+
+    $columns = ['event_id', 'device_id', 'payload_type', 'payload', 'offline_id', 'status', 'created_offline_at', 'processed_at'];
+    $placeholders = ['?', '?', '?', '?', '?', '?', '?', 'NOW()'];
+    $values = [
+        $eventId,
+        $deviceId,
+        $type,
+        json_encode($payload),
+        $offlineId,
+        $status,
+        $createdAt,
+    ];
+
+    if (!empty($schema['has_organizer_id'])) {
+        array_splice($columns, 1, 0, ['organizer_id']);
+        array_splice($placeholders, 1, 0, ['?']);
+        array_splice($values, 1, 0, [resolveSyncOrganizerId($operator)]);
+    }
+
+    if (!empty($schema['has_user_id'])) {
+        array_splice($columns, 2, 0, ['user_id']);
+        array_splice($placeholders, 2, 0, ['?']);
+        array_splice($values, 2, 0, [(int)($operator['id'] ?? 0) ?: null]);
+    }
+
+    $sql = sprintf(
+        'INSERT INTO offline_queue (%s) VALUES (%s)',
+        implode(', ', $columns),
+        implode(', ', $placeholders)
+    );
+    $stmt = $db->prepare($sql);
+    $stmt->execute($values);
+}
+
+function offlineQueueSchema(PDO $db): array
+{
+    static $cache = [];
+    $key = spl_object_hash($db);
+    if (isset($cache[$key])) {
+        return $cache[$key];
+    }
+
+    $cache[$key] = [
+        'has_organizer_id' => offlineQueueColumnExists($db, 'organizer_id'),
+        'has_user_id' => offlineQueueColumnExists($db, 'user_id'),
+    ];
+
+    return $cache[$key];
+}
+
+function offlineQueueColumnExists(PDO $db, string $column): bool
+{
+    static $cache = [];
+    $key = 'offline_queue.' . $column;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'offline_queue'
+          AND column_name = :column
+        LIMIT 1
+    ");
+    $stmt->execute([':column' => $column]);
+    $cache[$key] = (bool)$stmt->fetchColumn();
+
+    return $cache[$key];
 }

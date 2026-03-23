@@ -652,6 +652,8 @@ ALTER SEQUENCE public.guests_id_seq OWNED BY public.guests.id;
 CREATE TABLE public.offline_queue (
     id integer NOT NULL,
     event_id integer,
+    organizer_id integer,
+    user_id integer,
     device_id character varying(100) NOT NULL,
     payload_type character varying(50) NOT NULL,
     payload jsonb NOT NULL,
@@ -816,8 +818,12 @@ CREATE TABLE public.organizer_payment_gateways (
     provider character varying(50) NOT NULL,
     credentials jsonb,
     is_active boolean DEFAULT true,
+    is_primary boolean DEFAULT false NOT NULL,
+    environment character varying(20) DEFAULT 'production'::character varying NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_organizer_payment_gateways_environment CHECK (((environment)::text = ANY ((ARRAY['production'::character varying, 'sandbox'::character varying])::text[]))),
+    CONSTRAINT chk_organizer_payment_gateways_provider CHECK (((provider)::text = ANY ((ARRAY['mercadopago'::character varying, 'pagseguro'::character varying, 'asaas'::character varying, 'pagarme'::character varying, 'infinitypay'::character varying])::text[])))
 );
 
 
@@ -867,7 +873,8 @@ CREATE TABLE public.organizer_settings (
     email_sender text,
     wa_api_url text,
     wa_token text,
-    wa_instance text
+    wa_instance text,
+    wa_webhook_secret text
 );
 
 
@@ -1204,7 +1211,13 @@ CREATE TABLE public.refresh_tokens (
     user_id bigint NOT NULL,
     token_hash character varying(255) NOT NULL,
     expires_at timestamp without time zone NOT NULL,
-    created_at timestamp without time zone DEFAULT now() NOT NULL
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    session_id character varying(64),
+    device_id character varying(100),
+    user_agent text,
+    ip_address character varying(64),
+    last_used_at timestamp without time zone,
+    revoked_at timestamp without time zone
 );
 
 
@@ -2851,6 +2864,27 @@ CREATE INDEX idx_offline_queue_status_created_at ON public.offline_queue USING b
 
 
 --
+-- Name: idx_offline_queue_event_device_created_offline; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_offline_queue_event_device_created_offline ON public.offline_queue USING btree (event_id, device_id, created_offline_at);
+
+
+--
+-- Name: idx_offline_queue_org_event_status_created_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_offline_queue_org_event_status_created_at ON public.offline_queue USING btree (organizer_id, event_id, status, created_at);
+
+
+--
+-- Name: idx_offline_queue_user_created_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_offline_queue_user_created_at ON public.offline_queue USING btree (user_id, created_at);
+
+
+--
 -- Name: idx_parking_event_id; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2869,6 +2903,13 @@ CREATE INDEX idx_parking_license_plate ON public.parking_records USING btree (li
 --
 
 CREATE UNIQUE INDEX idx_parking_qr_token ON public.parking_records USING btree (qr_token);
+
+
+--
+-- Name: idx_parking_organizer_event_status; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_parking_organizer_event_status ON public.parking_records USING btree (organizer_id, event_id, status);
 
 
 --
@@ -2921,6 +2962,27 @@ CREATE INDEX idx_pm_participant_day_service ON public.participant_meals USING bt
 
 
 --
+-- Name: ux_financial_settings_organizer; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX ux_financial_settings_organizer ON public.organizer_financial_settings USING btree (organizer_id);
+
+
+--
+-- Name: ux_payment_gateways_org_primary; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX ux_payment_gateways_org_primary ON public.organizer_payment_gateways USING btree (organizer_id) WHERE (is_primary = true);
+
+
+--
+-- Name: ux_payment_gateways_org_provider; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX ux_payment_gateways_org_provider ON public.organizer_payment_gateways USING btree (organizer_id, provider);
+
+
+--
 -- Name: idx_refresh_expires; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2932,6 +2994,27 @@ CREATE INDEX idx_refresh_expires ON public.refresh_tokens USING btree (user_id, 
 --
 
 CREATE INDEX idx_refresh_token ON public.refresh_tokens USING btree (token_hash);
+
+
+--
+-- Name: idx_refresh_session_active; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_refresh_session_active ON public.refresh_tokens USING btree (user_id, session_id) WHERE (revoked_at IS NULL);
+
+
+--
+-- Name: idx_refresh_device_active; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_refresh_device_active ON public.refresh_tokens USING btree (user_id, device_id) WHERE (revoked_at IS NULL);
+
+
+--
+-- Name: idx_refresh_token_active; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_refresh_token_active ON public.refresh_tokens USING btree (token_hash, expires_at) WHERE (revoked_at IS NULL);
 
 
 --
