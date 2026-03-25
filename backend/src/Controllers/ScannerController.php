@@ -6,8 +6,8 @@ require_once __DIR__ . '/../Helpers/ParticipantPresenceHelper.php';
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
-        \$method === 'POST' && \$id === 'process' => processScan(\$body),
-        \$method === 'GET' && \$id === 'dump' => dumpScannerCache(\$query),
+        $method === 'POST' && $id === 'process' => processScan($body),
+        $method === 'GET' && $id === 'dump' => dumpScannerCache($query),
         default => jsonError('Rota de scanner não encontrada.', 404),
     };
 }

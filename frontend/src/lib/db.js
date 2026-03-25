@@ -16,6 +16,13 @@ db.version(2).stores({
   mealsContext: 'cache_key, updated_at'
 });
 
+db.version(3).stores({
+  products: 'id, event_id, name, price, stock_qty',
+  offlineQueue: 'offline_id, status, payload_type',
+  mealsContext: 'cache_key, updated_at',
+  scannerCache: 'token, type, event_id, status, used_offline'
+});
+
 export async function markOfflineQueueItemsFailed(offlineIds = [], errors = []) {
   if (!Array.isArray(offlineIds) || offlineIds.length === 0) {
     return;
