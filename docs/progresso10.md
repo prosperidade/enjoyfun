@@ -769,3 +769,364 @@ php -d opcache.enable=0 -d opcache.enable_cli=0 -S localhost:8080 -t public rout
   - sem quebra da trilha já homologada no ambiente local `:8080`
 - esta passada fecha o segundo bloco da Fase 1 definido em `docs/progresso9.md`
 - a próxima extração segura continua sendo a família de `card issuance`
+
+## 2026-03-23 — Workforce Fase 1, passada 3: card issuance
+
+### Escopo
+
+- terceira extração segura do `WorkforceController`
+- alvo: família de `card issuance`
+- premissa mantida:
+  - `dispatch()` intacto
+  - contratos HTTP intactos
+  - sem mudança de regra de negócio
+
+### Extração aplicada
+
+- novo helper criado:
+  - `backend/src/Helpers/WorkforceCardIssuanceHelper.php`
+- o `backend/src/Controllers/WorkforceController.php` passou a carregar esse helper na borda do arquivo
+- saíram do controller e foram consolidadas no helper as funções:
+  - `previewCardIssuance`
+  - `issueCardsInBulk`
+  - `auditCardIssuancePreview`
+  - `auditCardIssuanceIssue`
+  - `auditCardIssuanceFailure`
+  - `cardIssuanceParticipantIdSample`
+- o controller deixou de carregar `CardIssuanceService` diretamente
+
+### Resultado estrutural
+
+- o `WorkforceController.php` caiu de `4137` para `3447` linhas
+- a redução desta passada foi de `690` linhas
+- a família de emissão em massa de cartões agora ficou isolada num helper dedicado, sem mexer no contrato do endpoint
+
+### Validação desta passada
+
+- `php -l backend/src/Helpers/WorkforceCardIssuanceHelper.php`
+- `php -l backend/src/Helpers/WorkforceControllerSupport.php`
+- `php -l backend/src/Helpers/WorkforceAssignmentIdentityHelper.php`
+- `php -l backend/src/Controllers/WorkforceController.php`
+- `node backend/scripts/workforce_contract_check.mjs`
+  - suíte concluída com `OK`
+  - contratos mínimos de `tree-status`, `roles`, `event-roles`, `managers`, `assignments`, `sync` e `participants` preservados
+
+### Leitura operacional
+
+- a modularização continua incremental e sem “big bang refactor”
+- a borda HTTP segue intacta no controller
+- esta passada fecha a Fase 3 definida em `docs/progresso9.md`
+- o próximo corte seguro passa a ser `role/member settings`
+
+## 2026-03-23 — Workforce Fase 1, passada 4: role/member settings
+
+### Escopo
+
+- quarta extração segura do `WorkforceController`
+- alvo: família de `role settings` e `member settings`
+- premissa mantida:
+  - `dispatch()` intacto
+  - contratos HTTP intactos
+  - sem mudança de regra de negócio
+
+### Extração aplicada
+
+- novo helper criado:
+  - `backend/src/Helpers/WorkforceSettingsHelper.php`
+- o `backend/src/Controllers/WorkforceController.php` passou a carregar esse helper na borda do arquivo
+- saíram do controller e foram consolidadas no helper as funções:
+  - `getRoleSettings`
+  - `upsertRoleSettings`
+  - `getMemberSettings`
+  - `upsertMemberSettings`
+  - `ensureWorkforceRoleSettingsTable`
+  - `fetchLegacyRoleSettingsRow`
+  - `persistLegacyRoleSettings`
+  - `resolveParticipantOperationalSettings`
+- o helper passou a concentrar a borda de settings legados e operacionais sem tocar na árvore por evento
+
+### Resultado estrutural
+
+- o `WorkforceController.php` caiu de `3447` para `3054` linhas
+- a redução desta passada foi de `393` linhas
+- a superfície de configuração de cargo e membro saiu do controller e ficou isolada num helper dedicado
+
+### Validação desta passada
+
+- `php -l backend/src/Helpers/WorkforceSettingsHelper.php`
+- `php -l backend/src/Controllers/WorkforceController.php`
+- `node backend/scripts/workforce_contract_check.mjs`
+  - suíte concluída com `OK`
+  - contratos mínimos de `tree-status`, `roles`, `event-roles`, `managers`, `assignments`, `sync` e `participants` preservados
+
+### Leitura operacional
+
+- a borda HTTP segue intacta no controller
+- o controller já saiu do patamar de 4k linhas e entrou em `3054` linhas no estado atual do workspace
+- esta passada fecha a Fase 4 definida em `docs/progresso9.md`
+- o próximo corte seguro passa a ser `assignments/managers`
+
+## 2026-03-23 — Workforce Fase 1, passada 5: assignments/managers
+
+### Escopo
+
+- quinta extração segura do `WorkforceController`
+- alvo: família de `assignments` e `managers`
+- premissa mantida:
+  - `dispatch()` intacto
+  - contratos HTTP intactos
+  - sem mudança de regra de negócio
+
+### Extração aplicada
+
+- novo helper criado:
+  - `backend/src/Helpers/WorkforceAssignmentsManagerHelper.php`
+- o `backend/src/Controllers/WorkforceController.php` passou a carregar esse helper na borda do arquivo
+- saíram do controller e foram consolidadas no helper as funções:
+  - `listManagers`
+  - `listAssignments`
+  - `createAssignment`
+  - `deleteAssignment`
+  - `listLegacyManagersForEvent`
+  - `listEventManagersForEvent`
+  - `buildManagerTeamCounts`
+  - `mergeManagerRowsWithCounts`
+- o bloco de managers e alocações ficou isolado sem tocar em `importWorkforce` nem na árvore por evento
+
+### Resultado estrutural
+
+- o `WorkforceController.php` caiu de `3054` para `2425` linhas
+- a redução desta passada foi de `629` linhas
+- o controller agora ficou concentrado principalmente em `roles/event-roles`, `importWorkforce` e `tree/backfill/sanitize`
+
+### Validação desta passada
+
+- `php -l backend/src/Helpers/WorkforceAssignmentsManagerHelper.php`
+- `php -l backend/src/Controllers/WorkforceController.php`
+- `node backend/scripts/workforce_contract_check.mjs`
+  - suíte concluída com `OK`
+  - contratos mínimos de `tree-status`, `roles`, `event-roles`, `managers`, `assignments`, `sync` e `participants` preservados
+
+### Leitura operacional
+
+- a borda HTTP segue intacta no controller
+- o controller caiu para `2425` linhas no estado atual do workspace
+- esta passada fecha a Fase 5 definida em `docs/progresso9.md`
+- o próximo corte seguro passa a ser `roles/event-roles`
+
+## 2026-03-23 — Workforce Fase 1, passada 6: roles/event-roles
+
+### Escopo
+
+- sexta extração segura do `WorkforceController`
+- alvo: família de `roles` e `event-roles`
+- premissa mantida:
+  - `dispatch()` intacto
+  - contratos HTTP intactos
+  - sem mudança de regra de negócio
+
+### Extração aplicada
+
+- novo helper criado:
+  - `backend/src/Helpers/WorkforceRolesEventRolesHelper.php`
+- o `backend/src/Controllers/WorkforceController.php` passou a carregar esse helper na borda do arquivo
+- saíram do controller e foram consolidadas no helper as funções:
+  - `listRoles`
+  - `createRole`
+  - `deleteRole`
+  - `ensureWorkforceEventRolesTable`
+  - `findEventRoleByIdentifier`
+  - `resolveEventRoleReference`
+  - `listEventRoles`
+  - `createEventRole`
+  - `getEventRole`
+  - `updateEventRole`
+  - `deleteEventRole`
+  - `persistEventRoleFromPayload`
+  - `syncLeadershipAssignmentForEventRole`
+  - `syncAssignmentsForEventRoleDefinition`
+  - `purgeSyncedLeadershipAssignmentsForEventRole`
+  - `ensureEventRoleForAssignment`
+- o bloco de cargos, cargos por evento e persistência estrutural da árvore saiu do controller sem tocar na borda HTTP
+
+### Resultado estrutural
+
+- o `WorkforceController.php` caiu de `2425` para `1578` linhas
+- a redução desta passada foi de `847` linhas
+- o controller agora ficou concentrado em `importWorkforce`, `tree-status`, `tree-backfill`, `tree-sanitize` e utilitários locais
+
+### Validação desta passada
+
+- `php -l backend/src/Helpers/WorkforceRolesEventRolesHelper.php`
+- `php -l backend/src/Controllers/WorkforceController.php`
+- `node backend/scripts/workforce_contract_check.mjs`
+  - suíte concluída com `OK`
+  - contratos mínimos de `tree-status`, `roles`, `event-roles`, `managers`, `assignments`, `sync` e `participants` preservados
+
+### Leitura operacional
+
+- a borda HTTP segue intacta no controller
+- o controller caiu para `1578` linhas no estado atual do workspace
+- esta passada fecha a Fase 6 definida em `docs/progresso9.md`
+- o próximo corte seguro passa a ser `tree/backfill/sanitize`
+
+## 12. 2026-03-23 — Workforce Fase 1, passada 7: `importWorkforce` com persistência compartilhada
+
+### Escopo
+
+- sétima extração segura do `WorkforceController`
+- alvo: reduzir o acoplamento interno de `importWorkforce`
+- premissa mantida:
+  - `dispatch()` intacto
+  - contratos HTTP intactos
+  - sem mudança de regra de negócio
+
+### Extração aplicada
+
+- `backend/src/Helpers/WorkforceAssignmentIdentityHelper.php` deixou de ser apenas helper de identidade e passou a concentrar também a persistência compartilhada de assignment/import:
+  - `workforceResolveAssignmentSupportFlags`
+  - `workforceBuildAssignmentMutationSelectColumns`
+  - `workforceNormalizeOptionalInt`
+  - `workforceUpsertAssignment`
+  - `workforceEnsureImportedParticipant`
+- `importWorkforce` deixou de montar manualmente os upserts mais frágeis de:
+  - `event_participants`
+  - `workforce_assignments`
+- `backend/src/Helpers/WorkforceAssignmentsManagerHelper.php` passou a reutilizar o mesmo caminho de persistência:
+  - `createAssignment()` agora usa `workforceUpsertAssignment()`
+
+### Resultado estrutural
+
+- a importação e a alocação manual deixaram de manter duas trilhas diferentes para gravação de assignment
+- o risco de drift entre `/workforce/import` e `/workforce/assignments` caiu materialmente
+- o controller ficou mais enxuto no trecho de importação, preservando a borda HTTP
+
+## 13. 2026-03-23 — Workforce Fase 1, passada 8: contexto e lote do `importWorkforce`
+
+### Escopo
+
+- oitava extração segura do `WorkforceController`
+- alvo: tirar do controller a resolução de contexto e o processamento por linha do `importWorkforce`
+- premissa mantida:
+  - `dispatch()` intacto
+  - contratos HTTP intactos
+  - sem mudança de regra de negócio
+
+### Extração aplicada
+
+- novo helper criado:
+  - `backend/src/Helpers/WorkforceImportHelper.php`
+- saíram do controller e foram consolidadas no helper as funções de contexto:
+  - `workforceAssertOrganizerEvent`
+  - `workforceFetchOrganizerCategoryIds`
+  - `findManagerContextForEvent`
+  - `workforceResolveImportContext`
+- depois, o loop operacional também saiu do controller:
+  - `workforceProcessImportParticipantRow`
+  - `workforceRunImportBatch`
+- `WorkforceAssignmentsManagerHelper.php` passou a depender desse helper para a mesma resolução de gerente/contexto
+
+### Resultado estrutural
+
+- `importWorkforce` deixou de concentrar:
+  - resolução de evento/organizador
+  - descoberta de setor
+  - resolução de gerente
+  - materialização de `event_role`
+  - processamento por participante
+- o controller passou a ficar focado em:
+  - receber a requisição
+  - abrir transação
+  - delegar contexto e lote
+  - devolver a resposta
+
+## 14. 2026-03-23 — Workforce Fase 1, passada 9: árvore operacional em módulo único
+
+### Escopo
+
+- nona extração segura do `WorkforceController`
+- alvo: remover do controller a família de árvore operacional
+- premissa mantida:
+  - `dispatch()` intacto
+  - contratos HTTP intactos
+  - sem mudança de regra de negócio
+
+### Extração aplicada
+
+- novo helper criado:
+  - `backend/src/Helpers/WorkforceTreeHelper.php`
+- saíram do controller e foram consolidadas no helper as funções:
+  - `buildWorkforceTreeStatus`
+  - `buildWorkforceTreeActivationBlockers`
+  - `runWorkforceTreeBackfill`
+  - `runWorkforceTreeSanitization`
+  - `fetchWorkforceEventRolesForSanitization`
+  - `fetchWorkforceTreeBackfillRows`
+  - `backfillManagerialStructureRow`
+  - `workforceBuildUserSectorKey`
+  - `appendWorkforceBackfillSample`
+- para o helper de árvore não depender do controller, `backend/src/Helpers/WorkforceControllerSupport.php` passou a concentrar também:
+  - `normalizeCostBucket`
+  - `inferCostBucketFromRoleName`
+
+### Resultado estrutural
+
+- o `WorkforceController.php` deixou de carregar regra pesada de:
+  - leitura de status da árvore
+  - backfill estrutural
+  - saneamento estrutural
+- a árvore ficou agrupada em um único módulo coeso, em vez de vários helpers menores e fragmentados
+
+## 15. 2026-03-23 — Workforce fechamento desta rodada
+
+### Estado final do controller
+
+- o `backend/src/Controllers/WorkforceController.php` caiu para `307` linhas
+- no estado atual do workspace ele ficou com apenas `7` funções:
+  - `dispatch`
+  - `getTreeStatus`
+  - `backfillTree`
+  - `sanitizeTree`
+  - `importWorkforce`
+  - `ensureParticipantQrToken`
+  - `backfillMissingQrTokensForEvent`
+- a borda HTTP permaneceu no controller
+- a regra pesada ficou distribuída nos módulos:
+  - `WorkforceControllerSupport.php`
+  - `WorkforceAssignmentIdentityHelper.php`
+  - `WorkforceAssignmentsManagerHelper.php`
+  - `WorkforceCardIssuanceHelper.php`
+  - `WorkforceImportHelper.php`
+  - `WorkforceRolesEventRolesHelper.php`
+  - `WorkforceSettingsHelper.php`
+  - `WorkforceTreeHelper.php`
+
+### Validação final desta rodada
+
+- `php -l backend/src/Controllers/WorkforceController.php`
+- `php -l backend/src/Helpers/WorkforceImportHelper.php`
+- `php -l backend/src/Helpers/WorkforceTreeHelper.php`
+- `php -l backend/src/Helpers/WorkforceAssignmentIdentityHelper.php`
+- `php -l backend/src/Helpers/WorkforceAssignmentsManagerHelper.php`
+- `php -l backend/src/Helpers/WorkforceControllerSupport.php`
+- `node backend/scripts/workforce_contract_check.mjs`
+  - suíte concluída com `OK`
+  - base viva usada: `http://localhost:8080/api`
+  - contratos mínimos preservados:
+    - autenticação
+    - `GET /workforce/tree-status`
+    - `GET /workforce/roles`
+    - `GET /workforce/event-roles`
+    - `GET /workforce/managers`
+    - `GET /workforce/assignments`
+    - `POST /sync` com falha rastreável
+    - `POST /participants`
+    - `DELETE /participants/:id`
+
+### Leitura operacional
+
+- a rodada de modularização do `WorkforceController` pode ser considerada estruturalmente concluída
+- o débito que sobra não é mais de controller monolítico, e sim de acabamento:
+  - padronização de nomes de alguns helpers
+  - revisão futura de consolidação entre helper e service onde fizer sentido
+  - expansão da cobertura de teste além do runner de contrato mínimo

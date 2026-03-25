@@ -1,6 +1,7 @@
 <?php
 
 require_once BASE_PATH . '/src/Services/CardIssuanceService.php';
+require_once __DIR__ . '/WorkforceEventRoleHelper.php';
 
 function resolveOrganizerId(array $user): int
 {
@@ -413,6 +414,44 @@ function resolveRoleCostBucket(PDO $db, int $organizerId, array $role): string
     }
 
     return normalizeCostBucket((string)($role['cost_bucket'] ?? ''), (string)($role['name'] ?? ''));
+}
+
+function normalizeCostBucket(string $value, string $roleName = ''): string
+{
+    $inferred = inferCostBucketFromRoleName($roleName);
+    if ($inferred === 'managerial') {
+        return 'managerial';
+    }
+    $normalized = strtolower(trim($value));
+    if ($normalized === 'managerial' || $normalized === 'operational') {
+        return $normalized;
+    }
+    return $inferred;
+}
+
+function inferCostBucketFromRoleName(string $roleName): string
+{
+    $name = strtolower(trim($roleName));
+    if (workforceIsOperationalCollectionRoleName($name)) {
+        return 'operational';
+    }
+    $managerialHints = [
+        'gerente',
+        'diretor',
+        'coordenador',
+        'supervisor',
+        'lider',
+        'chefe',
+        'gestor',
+        'manager',
+    ];
+
+    foreach ($managerialHints as $hint) {
+        if ($name !== '' && str_contains($name, $hint)) {
+            return 'managerial';
+        }
+    }
+    return 'operational';
 }
 
 function inferSectorFromRoleName(string $roleName): string

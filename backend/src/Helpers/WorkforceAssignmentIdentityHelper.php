@@ -62,6 +62,264 @@ function workforceFindExistingAssignment(
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
+function workforceResolveAssignmentSupportFlags(PDO $db): array
+{
+    return [
+        'supports_manager_binding' => columnExists($db, 'workforce_assignments', 'manager_user_id')
+            && columnExists($db, 'workforce_assignments', 'source_file_name'),
+        'supports_event_bindings' => workforceAssignmentsHaveEventRoleColumns($db),
+        'supports_public_id' => workforceAssignmentsHavePublicId($db),
+    ];
+}
+
+function workforceBuildAssignmentMutationSelectColumns(array $supportFlags): array
+{
+    $columns = ['id', 'role_id', 'sector', 'event_shift_id'];
+
+    if (!empty($supportFlags['supports_manager_binding'])) {
+        $columns[] = 'manager_user_id';
+        $columns[] = 'source_file_name';
+    }
+    if (!empty($supportFlags['supports_event_bindings'])) {
+        $columns[] = 'event_role_id';
+        $columns[] = 'root_manager_event_role_id';
+    }
+    if (!empty($supportFlags['supports_public_id'])) {
+        $columns[] = 'public_id';
+    }
+
+    return $columns;
+}
+
+function workforceNormalizeOptionalInt(mixed $value): ?int
+{
+    $normalized = (int)($value ?? 0);
+    return $normalized > 0 ? $normalized : null;
+}
+
+function workforceUpsertAssignment(PDO $db, array $payload): array
+{
+    $participantId = (int)($payload['participant_id'] ?? 0);
+    $roleId = (int)($payload['role_id'] ?? 0);
+    $sector = workforceNormalizeAssignmentIdentitySector((string)($payload['sector'] ?? ''));
+    $eventShiftId = workforceNormalizeOptionalInt($payload['event_shift_id'] ?? null);
+    $managerUserId = workforceNormalizeOptionalInt($payload['manager_user_id'] ?? null);
+    $sourceFileName = trim((string)($payload['source_file_name'] ?? ''));
+    $eventRoleId = workforceNormalizeOptionalInt($payload['event_role_id'] ?? null);
+    $rootManagerEventRoleId = workforceNormalizeOptionalInt($payload['root_manager_event_role_id'] ?? null);
+    $assignmentPublicId = trim((string)($payload['public_id'] ?? ''));
+    $supportFlags = $payload['support_flags'] ?? workforceResolveAssignmentSupportFlags($db);
+
+    if ($participantId <= 0 || $roleId <= 0) {
+        throw new InvalidArgumentException('participant_id e role_id são obrigatórios para persistir assignment.');
+    }
+
+    $existingAssignment = $payload['existing_assignment'] ?? null;
+    if (!$existingAssignment) {
+        $existingAssignment = workforceFindExistingAssignment(
+            $db,
+            $participantId,
+            $roleId,
+            $sector,
+            $eventShiftId,
+            workforceBuildAssignmentMutationSelectColumns($supportFlags),
+            $assignmentPublicId
+        );
+    }
+
+    if (!empty($supportFlags['supports_public_id']) && $assignmentPublicId === '' && $existingAssignment) {
+        $assignmentPublicId = trim((string)($existingAssignment['public_id'] ?? ''));
+    }
+
+    if ($existingAssignment) {
+        $setClauses = [];
+        $params = [':id' => (int)($existingAssignment['id'] ?? 0)];
+
+        if ((int)($existingAssignment['role_id'] ?? 0) !== $roleId) {
+            $setClauses[] = 'role_id = :role_id';
+            $params[':role_id'] = $roleId;
+        }
+
+        if (workforceNormalizeAssignmentIdentitySector((string)($existingAssignment['sector'] ?? '')) !== $sector) {
+            $setClauses[] = 'sector = :sector';
+            $params[':sector'] = $sector !== '' ? $sector : null;
+        }
+
+        $existingEventShiftId = workforceNormalizeOptionalInt($existingAssignment['event_shift_id'] ?? null);
+        if ($existingEventShiftId !== $eventShiftId) {
+            $setClauses[] = 'event_shift_id = :event_shift_id';
+            $params[':event_shift_id'] = $eventShiftId;
+        }
+
+        if (!empty($supportFlags['supports_manager_binding'])) {
+            $existingManagerUserId = workforceNormalizeOptionalInt($existingAssignment['manager_user_id'] ?? null);
+            $existingSourceFileName = (string)($existingAssignment['source_file_name'] ?? '');
+            if ($existingManagerUserId !== $managerUserId) {
+                $setClauses[] = 'manager_user_id = :manager_user_id';
+                $params[':manager_user_id'] = $managerUserId;
+            }
+            if ($existingSourceFileName !== $sourceFileName) {
+                $setClauses[] = 'source_file_name = :source_file_name';
+                $params[':source_file_name'] = $sourceFileName;
+            }
+        }
+
+        if (!empty($supportFlags['supports_event_bindings'])) {
+            $existingEventRoleId = workforceNormalizeOptionalInt($existingAssignment['event_role_id'] ?? null);
+            $existingRootManagerEventRoleId = workforceNormalizeOptionalInt($existingAssignment['root_manager_event_role_id'] ?? null);
+            if ($existingEventRoleId !== $eventRoleId) {
+                $setClauses[] = 'event_role_id = :event_role_id';
+                $params[':event_role_id'] = $eventRoleId;
+            }
+            if ($existingRootManagerEventRoleId !== $rootManagerEventRoleId) {
+                $setClauses[] = 'root_manager_event_role_id = :root_manager_event_role_id';
+                $params[':root_manager_event_role_id'] = $rootManagerEventRoleId;
+            }
+        }
+
+        if (!empty($supportFlags['supports_public_id']) && $assignmentPublicId !== '') {
+            $existingPublicId = trim((string)($existingAssignment['public_id'] ?? ''));
+            if ($existingPublicId !== $assignmentPublicId) {
+                $setClauses[] = 'public_id = :public_id';
+                $params[':public_id'] = $assignmentPublicId;
+            }
+        }
+
+        if (empty($setClauses)) {
+            return [
+                'id' => (int)($existingAssignment['id'] ?? 0),
+                'public_id' => $assignmentPublicId,
+                'mode' => 'unchanged',
+            ];
+        }
+
+        $stmt = $db->prepare("
+            UPDATE workforce_assignments
+            SET " . implode(",\n                ", $setClauses) . "
+            WHERE id = :id
+            RETURNING id" . (!empty($supportFlags['supports_public_id']) ? ', public_id' : '') . "
+        ");
+        $stmt->execute($params);
+        $saved = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'id' => (int)($saved['id'] ?? ($existingAssignment['id'] ?? 0)),
+            'public_id' => (string)($saved['public_id'] ?? $assignmentPublicId),
+            'mode' => 'updated',
+        ];
+    }
+
+    $columns = ['participant_id', 'role_id', 'sector', 'event_shift_id', 'created_at'];
+    $values = [':participant_id', ':role_id', ':sector', ':event_shift_id', 'NOW()'];
+    $params = [
+        ':participant_id' => $participantId,
+        ':role_id' => $roleId,
+        ':sector' => $sector !== '' ? $sector : null,
+        ':event_shift_id' => $eventShiftId,
+    ];
+
+    if (!empty($supportFlags['supports_manager_binding'])) {
+        $columns[] = 'manager_user_id';
+        $columns[] = 'source_file_name';
+        $values[] = ':manager_user_id';
+        $values[] = ':source_file_name';
+        $params[':manager_user_id'] = $managerUserId;
+        $params[':source_file_name'] = $sourceFileName;
+    }
+
+    if (!empty($supportFlags['supports_event_bindings'])) {
+        $columns[] = 'event_role_id';
+        $columns[] = 'root_manager_event_role_id';
+        $values[] = ':event_role_id';
+        $values[] = ':root_manager_event_role_id';
+        $params[':event_role_id'] = $eventRoleId;
+        $params[':root_manager_event_role_id'] = $rootManagerEventRoleId;
+    }
+
+    if (!empty($supportFlags['supports_public_id']) && $assignmentPublicId !== '') {
+        $columns[] = 'public_id';
+        $values[] = ':public_id';
+        $params[':public_id'] = $assignmentPublicId;
+    }
+
+    $stmt = $db->prepare("
+        INSERT INTO workforce_assignments (" . implode(', ', $columns) . ")
+        VALUES (" . implode(', ', $values) . ")
+        RETURNING id" . (!empty($supportFlags['supports_public_id']) ? ', public_id' : '') . "
+    ");
+    $stmt->execute($params);
+    $saved = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    return [
+        'id' => (int)($saved['id'] ?? 0),
+        'public_id' => (string)($saved['public_id'] ?? $assignmentPublicId),
+        'mode' => 'created',
+    ];
+}
+
+function workforceEnsureImportedParticipant(
+    PDO $db,
+    int $organizerId,
+    int $eventId,
+    int $defaultCategoryId,
+    array $validCategoryIds,
+    array $row
+): array {
+    $name = trim((string)($row['name'] ?? ''));
+    $email = trim((string)($row['email'] ?? ''));
+    $document = trim((string)($row['document'] ?? ''));
+    $phone = trim((string)($row['phone'] ?? ''));
+    $categoryId = (int)($row['category_id'] ?? 0);
+
+    if ($name === '') {
+        throw new InvalidArgumentException('nome é obrigatório para importar participante.');
+    }
+
+    if ($categoryId <= 0 || !isset($validCategoryIds[$categoryId])) {
+        $categoryId = $defaultCategoryId;
+    }
+
+    $personId = findPersonId($db, $organizerId, $document, $email);
+    if (!$personId) {
+        $stmtInsertPerson = $db->prepare("
+            INSERT INTO people (name, email, document, phone, organizer_id, created_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
+            RETURNING id
+        ");
+        $stmtInsertPerson->execute([$name, $email !== '' ? $email : null, $document !== '' ? $document : null, $phone !== '' ? $phone : null, $organizerId]);
+        $personId = (int)$stmtInsertPerson->fetchColumn();
+    } else {
+        $stmtUpdatePerson = $db->prepare("
+            UPDATE people
+            SET name = ?, email = ?, phone = ?, updated_at = NOW()
+            WHERE id = ?
+        ");
+        $stmtUpdatePerson->execute([$name, $email !== '' ? $email : null, $phone !== '' ? $phone : null, $personId]);
+    }
+
+    $participantId = findEventParticipantId($db, $eventId, $personId);
+    $participantCreated = false;
+    if (!$participantId) {
+        $qrToken = 'PT_' . bin2hex(random_bytes(16));
+        $stmtInsertParticipant = $db->prepare("
+            INSERT INTO event_participants (event_id, person_id, category_id, qr_token, created_at)
+            VALUES (?, ?, ?, ?, NOW())
+            RETURNING id
+        ");
+        $stmtInsertParticipant->execute([$eventId, $personId, $categoryId, $qrToken]);
+        $participantId = (int)$stmtInsertParticipant->fetchColumn();
+        $participantCreated = true;
+    } else {
+        ensureParticipantQrToken($db, (int)$participantId);
+    }
+
+    return [
+        'participant_id' => (int)$participantId,
+        'person_id' => (int)$personId,
+        'imported' => $participantCreated,
+    ];
+}
+
 function fetchLeaderParticipantBindingContext(PDO $db, int $organizerId, int $eventId, int $participantId): ?array
 {
     if ($eventId <= 0 || $participantId <= 0) {

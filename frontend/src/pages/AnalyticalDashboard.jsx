@@ -10,6 +10,7 @@ import AnalyticsSectorRevenuePanel from "../modules/analytics/components/Analyti
 import AnalyticsStateBox from "../modules/analytics/components/AnalyticsStateBox";
 import AnalyticsSummaryCards from "../modules/analytics/components/AnalyticsSummaryCards";
 import { useAnalyticalDashboard } from "../modules/analytics/hooks/useAnalyticalDashboard";
+import FinancialSummaryPanel from "../modules/analytics/components/FinancialSummaryPanel";
 
 function currency(value) {
   return `R$ ${Number(value || 0).toLocaleString("pt-BR", {
@@ -219,6 +220,18 @@ export default function AnalyticalDashboard() {
         />
 
         <AnalyticsAttendancePanel attendance={analytics?.attendance} />
+      </section>
+
+      <section className="space-y-6">
+        <SectionHeader
+          icon={BarChart3}
+          title="Análise Financeira do Evento"
+          badge="Módulo Financeiro"
+          iconClassName="text-yellow-400"
+          badgeClassName="bg-yellow-400/20 text-yellow-400"
+          description="Orçamento, comprometimento e breakdown por categoria alimentados pelo módulo de gestão financeira."
+        />
+        <FinancialSummaryPanel eventId={eventId} compareEventId={compareEventId} />
       </section>
     </div>
   );

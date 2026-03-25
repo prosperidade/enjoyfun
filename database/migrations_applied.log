@@ -9,3 +9,5 @@
 20/03/2026 14:07:56,09 - APLICADA: database\026_event_scoped_card_assignments.sql 
 20/03/2026 16:09:14,29 - APLICADA: database\027_expand_otp_code_storage.sql 
 20/03/2026 21:11:02,57 - APLICADA: database\028_workforce_bulk_card_issuance_foundation.sql 
+23/03/2026 17:32:46,55 - APLICADA: database\034_event_finance_module.sql 
+24/03/2026 11:53:48,00 - APLICADA: database\035_artist_logistics_module.sql 

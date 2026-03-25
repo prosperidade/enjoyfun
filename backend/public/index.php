@@ -371,6 +371,7 @@ initializeCurrentRequestContext($method, $uri, $resource, $id, $sub, $subId, $_G
     $controllers = [
         'auth'     => BASE_PATH . '/src/Controllers/AuthController.php',
         'admin'    => BASE_PATH . '/src/Controllers/AdminController.php',
+        'artists'  => BASE_PATH . '/src/Controllers/ArtistController.php',
         'analytics'=> BASE_PATH . '/src/Controllers/AnalyticsController.php',
         'cards'    => BASE_PATH . '/src/Controllers/CardController.php',
         'events'   => BASE_PATH . '/src/Controllers/EventController.php',
@@ -397,6 +398,7 @@ initializeCurrentRequestContext($method, $uri, $resource, $id, $sub, $subId, $_G
         'organizer-messaging-settings' => BASE_PATH . '/src/Controllers/OrganizerMessagingSettingsController.php',
         'organizer-ai-config' => BASE_PATH . '/src/Controllers/OrganizerAIConfigController.php',
         'organizer-finance' => BASE_PATH . '/src/Controllers/OrganizerFinanceController.php',
+        'event-finance'     => BASE_PATH . '/src/Controllers/EventFinanceDispatcher.php',
         'ai'       => BASE_PATH . '/src/Controllers/AIController.php',
     ];
 
@@ -432,7 +434,7 @@ try {
         $e->getFile(),
         $e->getLine()
     ));
-    jsonError('Erro interno. Informe o codigo de correlacao se o problema persistir.', 500, [
+    jsonError('Erro Interno Backend: ' . $e->getMessage() . ' (Linha ' . $e->getLine() . ')', 500, [
         'correlation_id' => $correlationId,
     ]);
 }

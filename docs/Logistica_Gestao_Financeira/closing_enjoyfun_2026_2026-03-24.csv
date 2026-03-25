@@ -1,0 +1,2 @@
+﻿payable_id;description;amount;paid_amount;remaining_amount;status;due_date;category;cost_center;supplier;payment_id;payment_date;payment_amount;payment_method;reference_code;payment_status
+2;Infra Estrutura do Palco Principal;20000.00;0.00;20000.00;overdue;2026-03-23;Palco Infra Estrutura;Palco Infra Estrutura;Agencia XYZ de Eventos Culturais SA;;;;;;

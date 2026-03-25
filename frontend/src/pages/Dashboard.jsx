@@ -22,6 +22,7 @@ import SectionHeader from "../modules/dashboard/SectionHeader";
 import StatCard from "../modules/dashboard/StatCard";
 import TopProductsPanel from "../modules/dashboard/TopProductsPanel";
 import WorkforceCostConnector from "../modules/dashboard/WorkforceCostConnector";
+import FinancialHealthConnector from "../modules/dashboard/FinancialHealthConnector";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -267,6 +268,8 @@ export default function Dashboard() {
           loading={loadingWorkforceCosts}
           workforceCosts={workforceCosts}
         />
+
+        <FinancialHealthConnector eventId={eventId} />
       </section>
     </div>
   );

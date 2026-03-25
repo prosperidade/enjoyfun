@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   LayoutDashboard,
   BarChart3,
+  BarChart2,
   CalendarDays,
   Ticket,
   CreditCard,
@@ -19,6 +20,12 @@ import {
   Shield,
   Scan,
   Briefcase,
+  MicVocal,
+  DollarSign,
+  Receipt,
+  Building2,
+  Upload,
+  Download,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -64,10 +71,38 @@ const nav = [
     roles: ["admin", "organizer", "manager", "staff"],
   },
   {
+    to: "/artists",
+    icon: MicVocal,
+    label: "Artistas",
+    roles: ["admin", "organizer", "manager", "staff"],
+  },
+  {
+    to: "/artists/import",
+    icon: Upload,
+    label: "Importar Artistas",
+    roles: ["admin", "organizer", "manager"],
+  },
+  {
     to: "/meals-control",
     icon: UtensilsCrossed,
     label: "Meals Control",
     roles: ["admin", "organizer", "manager", "staff"],
+  },
+  {
+    label: "Financeiro",
+    icon: DollarSign,
+    roles: ["admin", "organizer", "manager"],
+    isParent: true,
+    groupKey: "finance",
+    subItems: [
+      { to: "/finance",           label: "Painel",         icon: BarChart2   },
+      { to: "/finance/payables",  label: "Contas a Pagar", icon: Receipt     },
+      { to: "/finance/suppliers", label: "Fornecedores",   icon: Building2   },
+      { to: "/finance/budget",    label: "Orçamento",      icon: BarChart3   },
+      { to: "/finance/import",    label: "Importação",     icon: Upload      },
+      { to: "/finance/export",    label: "Exportação",     icon: Download    },
+      { to: "/finance/settings",  label: "Configurações",  icon: Settings    },
+    ],
   },
   { to: "/cards", icon: CreditCard, label: "Cartão Digital", roles: [] },
   {
@@ -75,10 +110,11 @@ const nav = [
     icon: ShoppingCart,
     roles: ["admin", "organizer", "bartender", "staff"],
     isParent: true,
+    groupKey: "pdv",
     subItems: [
-      { to: "/bar", label: "Bar", icon: Zap },
-      { to: "/food", label: "Alimentação", icon: UtensilsCrossed },
-      { to: "/shop", label: "Loja", icon: Store },
+      { to: "/bar",   label: "Bar",         icon: Zap            },
+      { to: "/food",  label: "Alimentação", icon: UtensilsCrossed },
+      { to: "/shop",  label: "Loja",        icon: Store           },
     ],
   },
   {
@@ -108,14 +144,22 @@ const nav = [
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
-  // hasRole é usado no filtro visibleNav — não remover
   const { user, hasRole } = useAuth();
   const location = useLocation();
+
   const [pdvOpen, setPdvOpen] = useState(
     location.pathname.includes("bar") ||
       location.pathname.includes("food") ||
       location.pathname.includes("shop"),
   );
+  const [financeOpen, setFinanceOpen] = useState(
+    location.pathname.startsWith("/finance"),
+  );
+
+  const groupState = {
+    pdv:     [pdvOpen,     setPdvOpen],
+    finance: [financeOpen, setFinanceOpen],
+  };
 
   // roles: [] → length === 0 → sempre visível
   // roles: ['x'] → verifica se usuário tem a role
@@ -142,16 +186,16 @@ export default function Sidebar({ isOpen, onClose }) {
         <div className="h-16 px-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
           <NavLink to="/" className="flex items-center gap-3">
             {user?.organizer_settings?.logo_url ? (
-              <img 
-                src={user.organizer_settings.logo_url} 
-                alt={user.organizer_settings.app_name || "Logo"} 
+              <img
+                src={user.organizer_settings.logo_url}
+                alt={user.organizer_settings.app_name || "Logo"}
                 className="w-10 h-10 object-contain"
               />
             ) : (
               <div className="flex items-center gap-3">
-                <img 
-                  src="/images/logoenjoyfun.png" 
-                  alt="EnjoyFun Logo" 
+                <img
+                  src="/images/logoenjoyfun.png"
+                  alt="EnjoyFun Logo"
                   className="w-10 h-10 object-contain rounded-lg shadow-[0_0_12px_rgba(124,58,237,0.4)]"
                 />
                 <span className="font-bold text-white text-lg tracking-tight">
@@ -177,10 +221,11 @@ export default function Sidebar({ isOpen, onClose }) {
             const Icon = item.icon;
 
             if (item.isParent) {
+              const [isGroupOpen, setIsGroupOpen] = groupState[item.groupKey] || [false, () => {}];
               return (
                 <div key={item.label} className="space-y-1">
                   <button
-                    onClick={() => setPdvOpen(!pdvOpen)}
+                    onClick={() => setIsGroupOpen(!isGroupOpen)}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800/50 transition-all"
                   >
                     <div className="flex items-center gap-3">
@@ -189,22 +234,24 @@ export default function Sidebar({ isOpen, onClose }) {
                     </div>
                     <ChevronDown
                       size={14}
-                      className={`transition-transform ${pdvOpen ? "rotate-180" : ""}`}
+                      className={`transition-transform ${isGroupOpen ? "rotate-180" : ""}`}
                     />
                   </button>
 
-                  {pdvOpen && (
+                  {isGroupOpen && (
                     <div className="pl-9 space-y-1">
                       {item.subItems.map((sub) => (
                         <NavLink
                           key={sub.to}
                           to={sub.to}
+                          end={sub.to === "/finance"}
                           onClick={onClose}
                           className={({ isActive }) => `
-                            flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all
+                            flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all
                             ${isActive ? "text-purple-400 bg-purple-600/5" : "text-gray-500 hover:text-gray-300"}
                           `}
                         >
+                          <sub.icon size={13} className="flex-shrink-0" />
                           <span>{sub.label}</span>
                         </NavLink>
                       ))}

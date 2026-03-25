@@ -27,9 +27,22 @@ import Settings from "./pages/Settings";
 import Scanner from "./pages/Operations/Scanner";
 import ParticipantsHub from "./pages/ParticipantsHub";
 import MealsControl from "./pages/MealsControl";
+import ArtistsCatalog from "./pages/ArtistsCatalog";
+import ArtistDetail from "./pages/ArtistDetail";
+import ArtistImport from "./pages/ArtistImport";
 import CustomerLogin from "./pages/CustomerApp/CustomerLogin";
 import CustomerDashboard from "./pages/CustomerApp/CustomerDashboard";
 import CustomerRecharge from "./pages/CustomerApp/CustomerRecharge";
+
+// Módulo Financeiro do Evento
+import EventFinanceDashboard from "./pages/EventFinanceDashboard";
+import EventFinancePayables from "./pages/EventFinancePayables";
+import EventFinancePayableDetail from "./pages/EventFinancePayableDetail";
+import EventFinanceSuppliers from "./pages/EventFinanceSuppliers";
+import EventFinanceBudget from "./pages/EventFinanceBudget";
+import EventFinanceImport from "./pages/EventFinanceImport";
+import EventFinanceExport from "./pages/EventFinanceExport";
+import EventFinanceSettings from "./pages/EventFinanceSettings";
 
 function NotFound() {
   return (
@@ -80,6 +93,7 @@ export default function App() {
               <Route path="/cards" element={<Cards />} />
               <Route path="/superadmin" element={<SuperAdminPanel />} />
 
+
               {/* PDVs Independentes */}
               <Route path="/bar" element={<Bar />} />
               <Route path="/food" element={<Food />} />
@@ -91,10 +105,23 @@ export default function App() {
               <Route path="/users" element={<Users />} />
               <Route path="/guests" element={<Guests />} />
               <Route path="/participants" element={<ParticipantsHub />} />
+              <Route path="/artists" element={<ArtistsCatalog />} />
+              <Route path="/artists/import" element={<ArtistImport />} />
+              <Route path="/artists/:id" element={<ArtistDetail />} />
               <Route path="/meals-control" element={<MealsControl />} />
               <Route path="/scanner" element={<Scanner />} />
-              
-              {/* Rota de Configurações Final */}
+
+              {/* Módulo Financeiro do Evento */}
+              <Route path="/finance" element={<EventFinanceDashboard />} />
+              <Route path="/finance/payables" element={<EventFinancePayables />} />
+              <Route path="/finance/payables/:id" element={<EventFinancePayableDetail />} />
+              <Route path="/finance/suppliers" element={<EventFinanceSuppliers />} />
+              <Route path="/finance/budget" element={<EventFinanceBudget />} />
+              <Route path="/finance/import" element={<EventFinanceImport />} />
+              <Route path="/finance/export" element={<EventFinanceExport />} />
+              <Route path="/finance/settings" element={<EventFinanceSettings />} />
+
+              {/* Configurações */}
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>

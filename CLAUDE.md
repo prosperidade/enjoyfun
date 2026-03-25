@@ -164,7 +164,7 @@ enjoyfun/
 │   │   ├── ParkingController.php      ✅ organizer_id blindado via JOIN
 │   │   ├── ParticipantController.php  ✅
 │   │   ├── ParticipantCheckinController.php ✅
-│   │   ├── WorkforceController.php    ⚠️ 4137 linhas — refatoração em andamento
+│   │   ├── WorkforceController.php    ⚠️ 1578 linhas — refatoração em andamento
 │   │   ├── MealController.php         ✅
 │   │   ├── GuestController.php        ✅
 │   │   ├── ScannerController.php      ✅
@@ -206,6 +206,12 @@ enjoyfun/
 │   │   ├── JWT.php                    ✅ HS256 (oficial por ADR)
 │   │   ├── Response.php               ✅
 │   │   ├── ParticipantPresenceHelper.php ✅
+│   │   ├── WorkforceControllerSupport.php ✅
+│   │   ├── WorkforceAssignmentIdentityHelper.php ✅
+│   │   ├── WorkforceCardIssuanceHelper.php ✅
+│   │   ├── WorkforceSettingsHelper.php ✅
+│   │   ├── WorkforceAssignmentsManagerHelper.php ✅
+│   │   ├── WorkforceRolesEventRolesHelper.php ✅
 │   │   └── WorkforceEventRoleHelper.php ✅
 │   └── Middleware/
 │       └── AuthMiddleware.php         ✅ Retorna id/sub/name/email/role/sector/organizer_id
@@ -249,7 +255,7 @@ enjoyfun/
 | Estacionamento | ✅ Encerrado | — |
 | Sync Offline | ✅ Encerrado | Smoke E2E pendente (smoke_cashless_offline) |
 | ParticipantsHub | ✅ Encerrado | Testes de contrato e telemetria |
-| Workforce | ✅ Encerrado funcional | Refatoração em andamento (4137 linhas) |
+| Workforce | ✅ Encerrado funcional | Refatoração em andamento (1578 linhas) |
 | Meals Control | ✅ Encerrado | Migration 014 pendente de aplicação em janela controlada |
 | Card Issuance em Massa | 🟡 Novo (migration 028) | Smoke ponta a ponta pendente |
 | White Label (Branding) | 🟡 Parcial | CSS vars dinâmicos, subdomínio ausente |
