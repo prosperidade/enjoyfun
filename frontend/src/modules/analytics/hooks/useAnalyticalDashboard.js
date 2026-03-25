@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { useEventScope } from "../../../context/EventScopeContext";
 import api from "../../../lib/api";
 
 export function useAnalyticalDashboard() {
+  const { eventId, setEventId: setScopedEventId } = useEventScope();
   const [analytics, setAnalytics] = useState(null);
   const [error, setError] = useState("");
   const [events, setEvents] = useState([]);
-  const [eventId, setEventId] = useState("");
   const [compareEventId, setCompareEventId] = useState("");
   const [groupBy, setGroupBy] = useState("hour");
   const [loading, setLoading] = useState(true);
@@ -74,7 +75,7 @@ export function useAnalyticalDashboard() {
   }, [compareEventId, eventId, groupBy]);
 
   const handleEventChange = (nextEventId) => {
-    setEventId(nextEventId);
+    setScopedEventId(nextEventId);
     setCompareEventId((currentCompareEventId) => {
       if (!nextEventId || String(currentCompareEventId) === String(nextEventId)) {
         return "";

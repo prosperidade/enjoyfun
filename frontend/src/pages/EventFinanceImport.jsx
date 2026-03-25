@@ -4,6 +4,7 @@ import {
   Upload, CheckCircle, AlertCircle, ChevronRight,
   FileText, X, FolderOpen,
 } from "lucide-react";
+import { useEventScope } from "../context/EventScopeContext";
 import api from "../lib/api";
 import toast from "react-hot-toast";
 
@@ -115,9 +116,9 @@ function FileDropZone({ onFile, file }) {
 }
 
 export default function EventFinanceImport() {
+  const { eventId, setEventId } = useEventScope();
   const [step, setStep] = useState(0);
   const [events, setEvents] = useState([]);
-  const [eventId, setEventId] = useState("");
   const [importType, setImportType] = useState("payables");
   const [file, setFile] = useState(null);
   const [parsedRows, setParsedRows] = useState([]);

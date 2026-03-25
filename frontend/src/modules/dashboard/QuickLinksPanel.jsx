@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Beer, Shirt, UtensilsCrossed } from "lucide-react";
+import { useEventScope } from "../../context/EventScopeContext";
 
 const links = [
   {
@@ -29,6 +30,8 @@ const links = [
 ];
 
 export default function QuickLinksPanel() {
+  const { buildScopedPath } = useEventScope();
+
   return (
     <div className="card border-gray-800/80 bg-gray-950/40">
       <h3 className="section-title mb-3">Acessos Rápidos de PDV</h3>
@@ -43,7 +46,7 @@ export default function QuickLinksPanel() {
           return (
             <Link
               key={item.to}
-              to={item.to}
+              to={buildScopedPath(item.to)}
               className={`group flex flex-col items-center justify-center rounded-xl border border-gray-700/50 bg-gray-900/50 p-5 transition-all ${item.borderClassName}`}
             >
               <div

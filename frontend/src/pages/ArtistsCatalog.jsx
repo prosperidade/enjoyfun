@@ -13,6 +13,7 @@ import {
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useEventScope } from "../context/EventScopeContext";
 import {
   ALERT_SEVERITY_META,
   BOOKING_STATUS_META,
@@ -484,6 +485,7 @@ export default function ArtistsCatalog() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { hasRole } = useAuth();
+  const { buildScopedPath, eventId: scopedEventId, setEventId } = useEventScope();
   const canImport = hasRole("admin") || hasRole("organizer") || hasRole("manager");
   const canManage = canImport;
 
@@ -492,7 +494,7 @@ export default function ArtistsCatalog() {
   const [timelineByBookingId, setTimelineByBookingId] = useState({});
   const [moduleStatus, setModuleStatus] = useState(null);
   const [meta, setMeta] = useState(null);
-  const [eventId, setEventId] = useState(searchParams.get("event_id") || "");
+  const eventId = searchParams.get("event_id") || scopedEventId || "";
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [activeFilter, setActiveFilter] = useState(searchParams.get("active") || "all");
   const [bookingStatusFilter, setBookingStatusFilter] = useState(
@@ -811,7 +813,7 @@ export default function ArtistsCatalog() {
 
           {canImport && (
             <Link
-              to={eventId ? `/artists/import?event_id=${eventId}` : "/artists/import"}
+              to={buildScopedPath("/artists/import", eventId)}
               className="btn-primary"
             >
               <Upload size={16} />

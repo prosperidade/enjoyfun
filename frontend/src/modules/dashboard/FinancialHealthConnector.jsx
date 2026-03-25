@@ -10,6 +10,7 @@ import { NavLink } from "react-router-dom";
 import SectionHeader from "./SectionHeader";
 import StatCard from "./StatCard";
 import api from "../../lib/api";
+import { useEventScope } from "../../context/EventScopeContext";
 
 const fmt = (v) =>
   `R$ ${Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
@@ -27,6 +28,7 @@ function EmptyState({ message }) {
 }
 
 export default function FinancialHealthConnector({ eventId }) {
+  const { buildScopedPath } = useEventScope();
   const [summary, setSummary] = useState(null);
   const [byCategory, setByCategory] = useState([]);
   const [overdue, setOverdue] = useState([]);
@@ -115,6 +117,7 @@ export default function FinancialHealthConnector({ eventId }) {
           color="bg-red-600"
           subtitle={`${fmt(summary?.overdue_amount)} em aberto`}
           to="/finance/payables"
+          scopeEventId={eventId}
         />
       </div>
 
@@ -193,7 +196,7 @@ export default function FinancialHealthConnector({ eventId }) {
               Contas Vencidas
             </h3>
             {overdue.length > 0 && (
-              <NavLink to="/finance/payables" className="text-xs text-purple-400 hover:text-purple-300 transition-colors">
+              <NavLink to={buildScopedPath("/finance/payables", eventId)} className="text-xs text-purple-400 hover:text-purple-300 transition-colors">
                 Ver todas →
               </NavLink>
             )}
@@ -205,7 +208,7 @@ export default function FinancialHealthConnector({ eventId }) {
               {overdue.slice(0, 10).map((p) => (
                 <NavLink
                   key={p.id}
-                  to={`/finance/payables/${p.id}`}
+                  to={buildScopedPath(`/finance/payables/${p.id}`, eventId)}
                   className="flex items-center justify-between rounded-lg border border-red-900/30 bg-red-900/5 px-3 py-2 hover:bg-red-900/10 transition-colors"
                 >
                   <div>

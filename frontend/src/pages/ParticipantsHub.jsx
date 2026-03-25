@@ -3,19 +3,20 @@ import { Users, Briefcase, CalendarCheck } from 'lucide-react';
 import GuestManagementTab from './ParticipantsTabs/GuestManagementTab';
 import WorkforceOpsTab from './ParticipantsTabs/WorkforceOpsTab';
 import api from '../lib/api';
+import { useEventScope } from '../context/EventScopeContext';
 
 export default function ParticipantsHub() {
+    const { eventId, setEventId } = useEventScope();
     const [activeTab, setActiveTab] = useState('guests');
     const [events, setEvents] = useState([]);
-    const [eventId, setEventId] = useState('');
 
     useEffect(() => {
         api.get('/events').then(res => {
             const data = res.data.data || [];
             setEvents(data);
-            if (data.length > 0) setEventId(data[0].id);
+            if (!eventId && data.length > 0) setEventId(String(data[0].id));
         }).catch(() => {});
-    }, []);
+    }, [eventId, setEventId]);
 
     return (
         <div className="space-y-6 pb-12 animate-fade-in">

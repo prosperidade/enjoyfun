@@ -18,6 +18,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import api from "../lib/api";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
+import { useEventScope } from "../context/EventScopeContext";
 import {
   ALERT_SEVERITY_META,
   ALERT_STATUS_META,
@@ -216,6 +217,7 @@ export default function ArtistDetail() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { hasRole } = useAuth();
+  const { buildScopedPath, eventId: scopedEventId, setEventId: setScopedEventId } = useEventScope();
   const canImport = hasRole("admin") || hasRole("organizer") || hasRole("manager");
   const canManage = canImport;
 
@@ -226,7 +228,7 @@ export default function ArtistDetail() {
       : requestedTab === "overview"
         ? "bookings"
         : requestedTab;
-  const selectedEventId = searchParams.get("event_id") || "";
+  const selectedEventId = searchParams.get("event_id") || scopedEventId || "";
 
   const [events, setEvents] = useState([]);
   const [artist, setArtist] = useState(null);
@@ -311,9 +313,11 @@ export default function ArtistDetail() {
     }
 
     const nextParams = new URLSearchParams(searchParams);
-    nextParams.set("event_id", String(artist.bookings[0].event_id));
+    const nextEventId = String(artist.bookings[0].event_id);
+    nextParams.set("event_id", nextEventId);
+    setScopedEventId(nextEventId, { updateUrl: false });
     setSearchParams(nextParams, { replace: true });
-  }, [artist, loading, searchParams, selectedEventId, setSearchParams]);
+  }, [artist, loading, searchParams, selectedEventId, setScopedEventId, setSearchParams]);
 
   useEffect(() => {
     if (!selectedEventId || !currentBooking) {
@@ -410,9 +414,12 @@ export default function ArtistDetail() {
 
     if (Object.prototype.hasOwnProperty.call(nextValues, "event_id")) {
       if (nextValues.event_id) {
-        nextParams.set("event_id", String(nextValues.event_id));
+        const nextEventId = String(nextValues.event_id);
+        nextParams.set("event_id", nextEventId);
+        setScopedEventId(nextEventId, { updateUrl: false });
       } else {
         nextParams.delete("event_id");
+        setScopedEventId("", { updateUrl: false });
       }
     }
 
@@ -2138,7 +2145,11 @@ export default function ArtistDetail() {
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="flex items-start gap-3">
-          <button type="button" onClick={() => navigate(-1)} className="btn-outline p-2">
+          <button
+            type="button"
+            onClick={() => navigate(buildScopedPath("/artists", selectedEventId || scopedEventId))}
+            className="btn-outline p-2"
+          >
             <ArrowLeft size={16} />
           </button>
 
@@ -2188,11 +2199,7 @@ export default function ArtistDetail() {
 
           {canImport && (
             <Link
-              to={
-                currentBooking?.event_id
-                  ? `/artists/import?event_id=${currentBooking.event_id}`
-                  : "/artists/import"
-              }
+              to={buildScopedPath("/artists/import", currentBooking?.event_id || selectedEventId || scopedEventId)}
               className="btn-primary"
             >
               <Upload size={16} />

@@ -104,7 +104,7 @@ function createPayment(array $body): void
     try {
         // Carrega e trava a conta para evitar race condition
         $chk = $db->prepare("
-            SELECT id, status, amount, remaining_amount
+            SELECT id, status, amount, remaining_amount, event_id
             FROM event_payables
             WHERE id = :id AND organizer_id = :organizer_id
             FOR UPDATE
@@ -115,6 +115,10 @@ function createPayment(array $body): void
         if (!$payable) {
             $db->rollBack();
             jsonError('Conta a pagar não encontrada.', 404);
+        }
+        if ((int)$payable['event_id'] !== $eventId) {
+            $db->rollBack();
+            jsonError('O event_id do pagamento difere do evento da conta a pagar.', 400);
         }
         if ($payable['status'] === 'cancelled') {
             $db->rollBack();

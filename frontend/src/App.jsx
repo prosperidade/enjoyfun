@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
+import { EventScopeProvider } from "./context/EventScopeContext";
 import PrivateRoute from "./components/PrivateRoute";
 import DashboardLayout from "./layouts/DashboardLayout";
 import Login from "./pages/Login";
@@ -84,7 +85,7 @@ export default function App() {
           <Route path="/invite" element={<GuestTicket />} />
 
           <Route element={<PrivateRoute />}>
-            <Route element={<DashboardLayout />}>
+            <Route element={<EventScopeProvider><DashboardLayout /></EventScopeProvider>}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/analytics" element={<AnalyticalDashboard />} />
               <Route path="/events" element={<Events />} />

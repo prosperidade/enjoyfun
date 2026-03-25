@@ -231,7 +231,11 @@ export default function AnalyticalDashboard() {
           badgeClassName="bg-yellow-400/20 text-yellow-400"
           description="Orçamento, comprometimento e breakdown por categoria alimentados pelo módulo de gestão financeira."
         />
-        <FinancialSummaryPanel eventId={eventId} compareEventId={compareEventId} />
+        <FinancialSummaryPanel
+          eventId={eventId}
+          compareEventId={compareEventId}
+          analyticsSummary={analytics?.summary}
+        />
       </section>
     </div>
   );

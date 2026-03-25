@@ -39,8 +39,8 @@ class MetricsDefinitionService
                 ],
             ],
             'cashless' => [
-                'remaining_balance' => [
-                    'source_path' => 'totals.remaining_balance_current',
+                'remaining_balance_global' => [
+                    'source_path' => 'totals.remaining_balance_global',
                     'official_metric' => 'remaining_balance',
                     'block' => 'executive_core',
                     'intent' => 'Saldo remanescente total disponível na modelagem híbrida atual.',

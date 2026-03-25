@@ -88,6 +88,7 @@ function getSummary(array $query): void
         'paid'           => round($paid, 2),
         'pending'        => round($pending, 2),
         'overdue'        => round($overdue, 2),
+        'overdue_amount' => round($overdue, 2),
         'budget_remaining' => round($freeSlack, 2),
         'is_over_budget' => $committed > $totalBudget && $totalBudget > 0,
         'overdue_count'  => (int)$agg['overdue_count'],
@@ -109,6 +110,9 @@ function getSummaryByCategory(array $query): void
             COALESCE(SUM(p.amount)           FILTER (WHERE p.status <> 'cancelled'), 0) AS committed,
             COALESCE(SUM(p.paid_amount)      FILTER (WHERE p.status <> 'cancelled'), 0) AS paid,
             COALESCE(SUM(p.remaining_amount) FILTER (WHERE p.status NOT IN ('cancelled','paid')), 0) AS pending,
+            COALESCE(SUM(p.amount)           FILTER (WHERE p.status = 'overdue'), 0) AS overdue_amount,
+            COUNT(*) FILTER (WHERE p.status = 'overdue') AS overdue_count,
+            COUNT(*) FILTER (WHERE p.status <> 'cancelled') AS payables_count,
             COUNT(*) FILTER (WHERE p.status <> 'cancelled') AS count
         FROM event_cost_categories c
         LEFT JOIN event_payables p
@@ -138,11 +142,15 @@ function getSummaryByCostCenter(array $query): void
             COALESCE(SUM(p.amount)           FILTER (WHERE p.status <> 'cancelled'), 0) AS committed,
             COALESCE(SUM(p.paid_amount)      FILTER (WHERE p.status <> 'cancelled'), 0) AS paid,
             COALESCE(SUM(p.remaining_amount) FILTER (WHERE p.status NOT IN ('cancelled','paid')), 0) AS pending,
+            COALESCE(SUM(p.amount)           FILTER (WHERE p.status = 'overdue'), 0) AS overdue_amount,
+            COUNT(*) FILTER (WHERE p.status = 'overdue') AS overdue_count,
+            COUNT(*) FILTER (WHERE p.status <> 'cancelled') AS payables_count,
             COUNT(*) FILTER (WHERE p.status <> 'cancelled') AS count
         FROM event_cost_centers cc
         LEFT JOIN event_payables p
                ON p.cost_center_id = cc.id
               AND p.organizer_id   = :org
+              AND p.event_id       = :ev
         WHERE cc.organizer_id = :org AND cc.event_id = :ev
         GROUP BY cc.id, cc.name, cc.budget_limit
         ORDER BY committed DESC
@@ -169,15 +177,57 @@ function getSummaryByArtist(array $query): void
 
     $stmt = $db->prepare("
         SELECT
-            p.event_artist_id,
-            COALESCE(SUM(p.amount)      FILTER (WHERE p.status <> 'cancelled'), 0) AS committed,
-            COALESCE(SUM(p.paid_amount) FILTER (WHERE p.status <> 'cancelled'), 0) AS paid,
-            COUNT(*) FILTER (WHERE p.status <> 'cancelled') AS count
-        FROM event_payables p
-        WHERE p.organizer_id = :org AND p.event_id = :ev
-          AND p.event_artist_id IS NOT NULL
-        GROUP BY p.event_artist_id
-        ORDER BY committed DESC
+            ea.id AS event_artist_id,
+            ea.artist_id,
+            a.stage_name AS artist_stage_name,
+            ea.booking_status,
+            ea.performance_start_at,
+            CAST(ea.cache_amount AS FLOAT) AS cache_amount,
+            CAST(COALESCE(costs.total_logistics_cost, 0) AS FLOAT) AS total_logistics_cost,
+            CAST(COALESCE(ea.cache_amount, 0) + COALESCE(costs.total_logistics_cost, 0) AS FLOAT) AS total_artist_cost,
+            CAST(COALESCE(finance.committed, 0) AS FLOAT) AS committed,
+            CAST(COALESCE(finance.paid, 0) AS FLOAT) AS paid,
+            CAST(COALESCE(finance.pending, 0) AS FLOAT) AS pending,
+            CAST(COALESCE(finance.overdue_amount, 0) AS FLOAT) AS overdue_amount,
+            COALESCE(finance.overdue_count, 0) AS overdue_count,
+            COALESCE(finance.payables_count, 0) AS payables_count,
+            COALESCE(finance.payables_count, 0) AS count
+        FROM event_artists ea
+        JOIN artists a
+               ON a.id = ea.artist_id
+              AND a.organizer_id = ea.organizer_id
+        LEFT JOIN (
+            SELECT
+                event_artist_id,
+                COALESCE(SUM(COALESCE(total_amount, CASE WHEN unit_amount IS NOT NULL THEN quantity * unit_amount ELSE 0 END)), 0) AS total_logistics_cost
+            FROM artist_logistics_items
+            GROUP BY event_artist_id
+        ) costs
+          ON costs.event_artist_id = ea.id
+        LEFT JOIN (
+            SELECT
+                event_artist_id,
+                COALESCE(SUM(amount) FILTER (WHERE status <> 'cancelled'), 0) AS committed,
+                COALESCE(SUM(paid_amount) FILTER (WHERE status <> 'cancelled'), 0) AS paid,
+                COALESCE(SUM(remaining_amount) FILTER (WHERE status NOT IN ('cancelled', 'paid')), 0) AS pending,
+                COALESCE(SUM(amount) FILTER (WHERE status = 'overdue'), 0) AS overdue_amount,
+                COUNT(*) FILTER (WHERE status = 'overdue') AS overdue_count,
+                COUNT(*) FILTER (WHERE status <> 'cancelled') AS payables_count
+            FROM event_payables
+            WHERE organizer_id = :org
+              AND event_id = :ev
+              AND event_artist_id IS NOT NULL
+            GROUP BY event_artist_id
+        ) finance
+          ON finance.event_artist_id = ea.id
+        WHERE ea.organizer_id = :org
+          AND ea.event_id = :ev
+        ORDER BY GREATEST(
+            COALESCE(ea.cache_amount, 0) + COALESCE(costs.total_logistics_cost, 0),
+            COALESCE(finance.committed, 0)
+        ) DESC,
+        COALESCE(ea.performance_start_at, ea.created_at) ASC,
+        ea.id ASC
     ");
     $stmt->execute([':org' => $orgId, ':ev' => $eventId]);
     jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC), 'Resumo por artista carregado.');
@@ -197,8 +247,11 @@ function getSummaryOverdue(array $query): void
                CURRENT_DATE - p.due_date AS days_overdue
         FROM event_payables p
         JOIN event_cost_categories c  ON c.id  = p.category_id
+                                       AND c.organizer_id = p.organizer_id
         JOIN event_cost_centers    cc ON cc.id = p.cost_center_id
+                                       AND cc.organizer_id = p.organizer_id
         LEFT JOIN suppliers        s  ON s.id  = p.supplier_id
+                                       AND s.organizer_id = p.organizer_id
         WHERE p.organizer_id = :org AND p.event_id = :ev
           AND p.status = 'overdue'
         ORDER BY p.due_date ASC

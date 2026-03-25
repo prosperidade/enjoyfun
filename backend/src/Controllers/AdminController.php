@@ -28,7 +28,9 @@ function getDashboardStats(): void
         $data = \EnjoyFun\Services\DashboardService::getExecutiveDashboard($db, $organizerId, $eventId);
         jsonSuccess($data);
     } catch (Exception $e) {
-        jsonError("Error fetching dashboard stats: " . $e->getMessage(), 500);
+        $ref = uniqid();
+        error_log("[Dashboard] Error fetching dashboard stats (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao montar dashboard (Ref: {$ref})", 500);
     }
 }
 
@@ -69,6 +71,8 @@ function getBillingStats(): void
                 'by_agent' => []
             ]);
         }
-        jsonError("Error fetching billing stats: " . $e->getMessage(), 500);
+        $ref = uniqid();
+        error_log("[Billing] Error fetching billing stats (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao carregar estatísticas de uso (Ref: {$ref})", 500);
     }
 }

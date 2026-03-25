@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useEventScope } from "../context/EventScopeContext";
 
 // roles: []        → visível para TODOS os usuários logados
 // roles: ['admin'] → visível apenas para quem tem aquela role
@@ -145,6 +146,7 @@ const nav = [
 
 export default function Sidebar({ isOpen, onClose }) {
   const { user, hasRole } = useAuth();
+  const { buildScopedPath } = useEventScope();
   const location = useLocation();
 
   const [pdvOpen, setPdvOpen] = useState(
@@ -184,7 +186,7 @@ export default function Sidebar({ isOpen, onClose }) {
       `}
       >
         <div className="h-16 px-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
-          <NavLink to="/" className="flex items-center gap-3">
+          <NavLink to={buildScopedPath("/")} className="flex items-center gap-3">
             {user?.organizer_settings?.logo_url ? (
               <img
                 src={user.organizer_settings.logo_url}
@@ -243,7 +245,7 @@ export default function Sidebar({ isOpen, onClose }) {
                       {item.subItems.map((sub) => (
                         <NavLink
                           key={sub.to}
-                          to={sub.to}
+                          to={buildScopedPath(sub.to)}
                           end={sub.to === "/finance"}
                           onClick={onClose}
                           className={({ isActive }) => `
@@ -264,7 +266,7 @@ export default function Sidebar({ isOpen, onClose }) {
             return (
               <NavLink
                 key={item.to}
-                to={item.to}
+                to={buildScopedPath(item.to)}
                 end={item.to === "/"}
                 className={({ isActive }) => `
                   flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group
@@ -287,7 +289,7 @@ export default function Sidebar({ isOpen, onClose }) {
               Sistema
             </div>
             <NavLink
-              to="/settings"
+              to={buildScopedPath("/settings")}
               className={({ isActive }) => `
                 flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
                 ${isActive ? "bg-purple-600/10 text-purple-400 font-semibold" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}

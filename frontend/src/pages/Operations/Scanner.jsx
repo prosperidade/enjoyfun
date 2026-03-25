@@ -14,6 +14,7 @@ import {
 import toast from "react-hot-toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../lib/api";
+import { useEventScope } from "../../context/EventScopeContext";
 
 const SCANNER_EVENTS_CACHE_KEY = "enjoyfun_scanner_events_v1";
 const SCANNER_SECTORS_CACHE_PREFIX = "enjoyfun_scanner_sectors_v1";
@@ -133,12 +134,12 @@ export default function Scanner() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const { eventId, setEventId } = useEventScope();
 
   const requestedMode = normalizeScannerModeValue(searchParams.get("mode") || "");
   const requestedEventId = String(searchParams.get("event_id") || "");
 
   const [events, setEvents] = useState([]);
-  const [eventId, setEventId] = useState(requestedEventId);
   const [sectorModes, setSectorModes] = useState([]);
   const [eventsFromCache, setEventsFromCache] = useState(false);
   const [sectorsFromCache, setSectorsFromCache] = useState(false);
@@ -215,7 +216,7 @@ export default function Scanner() {
         setEventsFromCache(false);
         writeJsonCache(SCANNER_EVENTS_CACHE_KEY, { data: list });
 
-        const nextEventId = selectDefaultEventId(list, requestedEventId, "");
+        const nextEventId = selectDefaultEventId(list, requestedEventId, eventId);
         if (nextEventId) {
           setEventId(nextEventId);
         }
@@ -227,7 +228,7 @@ export default function Scanner() {
         if (cachedEvents.length > 0) {
           setEvents(cachedEvents);
           setEventsFromCache(true);
-          const nextEventId = selectDefaultEventId(cachedEvents, requestedEventId, "");
+          const nextEventId = selectDefaultEventId(cachedEvents, requestedEventId, eventId);
           if (nextEventId) {
             setEventId(nextEventId);
           }
@@ -247,7 +248,7 @@ export default function Scanner() {
     return () => {
       cancelled = true;
     };
-  }, [requestedEventId]);
+  }, [eventId, requestedEventId, setEventId]);
 
   useEffect(() => {
     if (!eventId) {

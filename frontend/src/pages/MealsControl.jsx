@@ -3,6 +3,7 @@ import { Copy, QrCode, UtensilsCrossed, RefreshCw, Settings2, Save, X } from "lu
 import toast from "react-hot-toast";
 import api from "../lib/api";
 import { db, markOfflineQueueItemsFailed, requeueOfflineQueueItems } from "../lib/db";
+import { useEventScope } from "../context/EventScopeContext";
 
 function extractToken(raw = "") {
   const value = String(raw || "").trim();
@@ -603,12 +604,12 @@ function getRoleClassLabel(roleClass = "") {
 }
 
 export default function MealsControl() {
+  const { eventId, setEventId } = useEventScope();
   const [events, setEvents] = useState([]);
   const [eventDays, setEventDays] = useState([]);
   const [eventShifts, setEventShifts] = useState([]);
   const [mealServices, setMealServices] = useState([]);
 
-  const [eventId, setEventId] = useState("");
   const [eventDayId, setEventDayId] = useState("");
   const [eventShiftId, setEventShiftId] = useState("");
   const [mealServiceId, setMealServiceId] = useState("");

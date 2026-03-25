@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { BarChart3, Plus, Pencil, Trash2, X, TrendingUp, TrendingDown } from "lucide-react";
+import { useEventScope } from "../context/EventScopeContext";
 import api from "../lib/api";
 import toast from "react-hot-toast";
 
@@ -9,8 +10,8 @@ const fmt = (v) =>
   );
 
 export default function EventFinanceBudget() {
+  const { eventId, setEventId } = useEventScope();
   const [events, setEvents] = useState([]);
-  const [eventId, setEventId] = useState("");
   const [budget, setBudget] = useState(null);
   const [lines, setLines] = useState([]);
   const [categories, setCategories] = useState([]);

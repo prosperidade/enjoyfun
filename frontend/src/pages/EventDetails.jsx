@@ -3,10 +3,12 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../lib/api";
 import { CalendarDays, MapPin, Clock, ArrowLeft, Users, CheckCircle, Layers3, UserRound, Trash2, Pencil } from "lucide-react";
 import toast from "react-hot-toast";
+import { useEventScope } from "../context/EventScopeContext";
 
 export default function EventDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { buildScopedPath } = useEventScope();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [ticketTypes, setTicketTypes] = useState([]);
@@ -139,8 +141,8 @@ export default function EventDetails() {
                 <CheckCircle size={18} /> Sistema Integrado
               </div>
               <div className="flex flex-wrap gap-2">
-                <Link to="/bar" className="badge-blue cursor-pointer hover:bg-blue-800">POS Ativo</Link>
-                <Link to={`/tickets?event_id=${id}`} className="badge-purple cursor-pointer hover:bg-purple-800">Bilheteria Linkada</Link>
+                <Link to={buildScopedPath("/bar", id)} className="badge-blue cursor-pointer hover:bg-blue-800">POS Ativo</Link>
+                <Link to={buildScopedPath("/tickets", id)} className="badge-purple cursor-pointer hover:bg-purple-800">Bilheteria Linkada</Link>
               </div>
             </div>
           </div>

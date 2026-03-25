@@ -6,7 +6,8 @@ require_once __DIR__ . '/../Helpers/ParticipantPresenceHelper.php';
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
-        $method === 'POST' && $id === 'process' => processScan($body),
+        \$method === 'POST' && \$id === 'process' => processScan(\$body),
+        \$method === 'GET' && \$id === 'dump' => dumpScannerCache(\$query),
         default => jsonError('Rota de scanner não encontrada.', 404),
     };
 }
@@ -375,3 +376,95 @@ function scannerTableExists(PDO $db, string $table): bool
     $cache[$table] = (bool)$stmt->fetchColumn();
     return $cache[$table];
 }
+
+function dumpScannerCache(array $query): void
+{
+    $operator = requireAuth(['admin', 'organizer', 'manager', 'staff', 'bartender', 'parking_staff']);
+    $organizerId = resolveScannerOrganizerId($operator);
+    $eventId = (int)($query['event_id'] ?? 0);
+
+    if ($eventId <= 0) {
+        jsonError('O event_id é obrigatório para a carga offline.', 422);
+    }
+
+    try {
+        $db = Database::getInstance();
+        $cache = [];
+
+        if (scannerTableExists($db, 'tickets')) {
+            $stmtTickets = $db->prepare("
+                SELECT id, qr_token, order_reference, totp_secret, holder_name, status
+                FROM tickets
+                WHERE event_id = ? AND organizer_id = ?
+                  AND status IN ('paid', 'used')
+            ");
+            $stmtTickets->execute([$eventId, $organizerId]);
+            foreach ($stmtTickets->fetchAll(PDO::FETCH_ASSOC) as $t) {
+                $cache[] = [
+                    'type' => 'ticket',
+                    'id' => $t['id'],
+                    'token' => trim((string)$t['qr_token']),
+                    'ref' => trim((string)$t['order_reference']),
+                    'totp_secret' => trim((string)$t['totp_secret']),
+                    'holder_name' => $t['holder_name'],
+                    'status' => $t['status']
+                ];
+            }
+        }
+
+        if (scannerTableExists($db, 'guests')) {
+            $stmtGuests = $db->prepare("
+                SELECT id, qr_code_token, name, status
+                FROM guests
+                WHERE event_id = ? AND organizer_id = ?
+            ");
+            $stmtGuests->execute([$eventId, $organizerId]);
+            foreach ($stmtGuests->fetchAll(PDO::FETCH_ASSOC) as $g) {
+                $cache[] = [
+                    'type' => 'guest',
+                    'id' => $g['id'],
+                    'token' => trim((string)$g['qr_code_token']),
+                    'holder_name' => $g['name'],
+                    'status' => $g['status']
+                ];
+            }
+        }
+
+        if (scannerTableExists($db, 'event_participants')) {
+            $stmtPart = $db->prepare("
+                SELECT ep.id, ep.qr_token, p.name AS participant_name, ep.status, c.name AS category_name,
+                       (SELECT string_agg(LOWER(REGEXP_REPLACE(COALESCE(wa.sector, ''), '\s+', '_', 'g')), ',') 
+                        FROM workforce_assignments wa WHERE wa.participant_id = ep.id) as allowed_sectors
+                FROM event_participants ep
+                JOIN events e ON e.id = ep.event_id
+                JOIN people p ON p.id = ep.person_id
+                LEFT JOIN participant_categories c ON c.id = ep.category_id
+                WHERE ep.event_id = ? AND e.organizer_id = ?
+            ");
+            $stmtPart->execute([$eventId, $organizerId]);
+            foreach ($stmtPart->fetchAll(PDO::FETCH_ASSOC) as $ep) {
+                $cache[] = [
+                    'type' => 'participant',
+                    'id' => $ep['id'],
+                    'token' => trim((string)$ep['qr_token']),
+                    'holder_name' => $ep['participant_name'],
+                    'category' => $ep['category_name'],
+                    'status' => $ep['status'],
+                    'allowed_sectors' => empty($ep['allowed_sectors']) ? [] : explode(',', $ep['allowed_sectors'])
+                ];
+            }
+        }
+
+        jsonSuccess([
+            'event_id' => $eventId,
+            'generated_at' => date('c'),
+            'total' => count($cache),
+            'items' => $cache
+        ], 'Carga offline gerada com sucesso.');
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[ScannerDump] Error (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao carregar hashes. Ref: {$ref}", 500);
+    }
+}
+

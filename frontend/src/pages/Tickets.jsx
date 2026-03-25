@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import { QRCodeCanvas } from "qrcode.react";
 import { Link, useSearchParams } from "react-router-dom";
 import * as otplib from "otplib";
+import { useEventScope } from "../context/EventScopeContext";
 
 const { totp } = otplib;
 
@@ -35,11 +36,11 @@ const statusLabel = {
 };
 
 export default function Tickets() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { eventId: scopedEventId, setEventId, buildScopedPath } = useEventScope();
+  const [searchParams] = useSearchParams();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
-  const [eventId, setEventId] = useState("");
   const [ticketTypes, setTicketTypes] = useState([]);
   const [batches, setBatches] = useState([]);
   const [commissaries, setCommissaries] = useState([]);
@@ -61,14 +62,14 @@ export default function Tickets() {
 
   const effectiveEventId = useMemo(() => {
     const availableIds = new Set(events.map((event) => String(event.id)));
-    if (eventId && availableIds.has(String(eventId))) {
-      return String(eventId);
-    }
     if (requestedEventId && availableIds.has(String(requestedEventId))) {
       return String(requestedEventId);
     }
+    if (scopedEventId && availableIds.has(String(scopedEventId))) {
+      return String(scopedEventId);
+    }
     return events[0] ? String(events[0].id) : "";
-  }, [eventId, events, requestedEventId]);
+  }, [events, requestedEventId, scopedEventId]);
 
   const resolvedTicketTypeId = useMemo(() => {
     if (selectedBatch?.ticket_type_id) {
@@ -118,16 +119,6 @@ export default function Tickets() {
       .then((r) => setEvents(r.data.data || []))
       .catch(() => toast.error("Erro ao carregar eventos."));
   }, []);
-
-  const syncEventQuery = useCallback((nextEventId) => {
-    const next = new URLSearchParams(searchParams);
-    if (nextEventId) {
-      next.set("event_id", String(nextEventId));
-    } else {
-      next.delete("event_id");
-    }
-    setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
 
   const loadCommercialConfig = useCallback(async () => {
     if (!effectiveEventId) {
@@ -219,7 +210,6 @@ export default function Tickets() {
     setEventId(nextEventId);
     setBatchFilter("");
     setCommissaryFilter("");
-    syncEventQuery(nextEventId);
   };
 
   const handleQuickSale = async () => {
@@ -287,8 +277,8 @@ export default function Tickets() {
         </div>
         <div className="flex flex-wrap gap-3 w-full sm:w-auto">
           <Link
-            to={`/scanner?mode=portaria${effectiveEventId ? `&event_id=${effectiveEventId}` : ""}`}
-            state={{ returnTo: "/tickets" }}
+            to={buildScopedPath("/scanner?mode=portaria", effectiveEventId)}
+            state={{ returnTo: buildScopedPath("/tickets", effectiveEventId) }}
             className="btn-outline flex-1 sm:flex-none justify-center"
           >
             <Camera size={18} /> Scanner

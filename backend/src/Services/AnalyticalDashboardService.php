@@ -59,7 +59,7 @@ class AnalyticalDashboardService
                 'tickets_sold' => $ticketsSold,
                 'gross_revenue' => $grossRevenue,
                 'average_ticket' => $ticketsSold > 0 ? round($grossRevenue / $ticketsSold, 2) : 0.0,
-                'remaining_balance' => self::fetchRemainingBalance($db, $organizerId),
+                'remaining_balance_global' => self::fetchRemainingBalance($db, $organizerId),
                 'top_sector' => self::resolveTopSector($sectorRevenue),
             ],
             'sales_curve' => self::fetchSalesCurve($db, $organizerId, $eventId, $groupBy),

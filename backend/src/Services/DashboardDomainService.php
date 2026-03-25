@@ -129,7 +129,7 @@ class DashboardDomainService
         self::bindScope($stmtPark, $organizerId, $eventId);
         $stmtPark->execute();
         $carsInsideNow = (int)$stmtPark->fetchColumn();
-        $remainingBalanceCurrent = $creditsFloatBalance;
+        $remainingBalanceGlobal = $creditsFloatBalance;
 
         $offlineTerminalsCount = 0;
         $offlinePendingOperations = 0;
@@ -460,26 +460,8 @@ class DashboardDomainService
             ];
         }
 
-        $participantsGuestsTotal = 0;
-        if (self::tableExists($db, 'guests')) {
-            $sqlGuests = "
-                SELECT COUNT(g.id)
-                FROM guests g
-                WHERE g.organizer_id = :org_id
-            ";
-            if ($eventId) {
-                $sqlGuests .= ' AND g.event_id = :event_id';
-            }
-            $stmtGuests = $db->prepare($sqlGuests);
-            $stmtGuests->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
-            if ($eventId) {
-                $stmtGuests->bindValue(':event_id', $eventId, PDO::PARAM_INT);
-            }
-            $stmtGuests->execute();
-            $participantsGuestsTotal += (int)$stmtGuests->fetchColumn();
-        }
-
         $participantsStaffTotal = 0;
+        $eventParticipantsGuestCount = 0;
         if (self::tableExists($db, 'event_participants') && self::tableExists($db, 'participant_categories')) {
             $sqlParticipantsTotals = "
                 SELECT
@@ -502,12 +484,33 @@ class DashboardDomainService
             $stmtParticipantsTotals->execute();
             $participantsTotals = $stmtParticipantsTotals->fetch(PDO::FETCH_ASSOC) ?: ['guest_count' => 0, 'staff_count' => 0];
 
-            $participantsGuestsTotal += (int)($participantsTotals['guest_count'] ?? 0);
+            $eventParticipantsGuestCount = (int)($participantsTotals['guest_count'] ?? 0);
             $participantsStaffTotal = (int)($participantsTotals['staff_count'] ?? 0);
         }
 
+        $participantsGuestsTotal = $eventParticipantsGuestCount;
+        $shouldUseLegacyGuests = ($eventParticipantsGuestCount <= 0 && self::tableExists($db, 'guests'));
+
+        if ($shouldUseLegacyGuests) {
+            $sqlGuests = "
+                SELECT COUNT(g.id)
+                FROM guests g
+                WHERE g.organizer_id = :org_id
+            ";
+            if ($eventId) {
+                $sqlGuests .= ' AND g.event_id = :event_id';
+            }
+            $stmtGuests = $db->prepare($sqlGuests);
+            $stmtGuests->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
+            if ($eventId) {
+                $stmtGuests->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+            }
+            $stmtGuests->execute();
+            $participantsGuestsTotal += (int)$stmtGuests->fetchColumn();
+        }
+
         $participantsByCategoryMap = [];
-        if (self::tableExists($db, 'guests')) {
+        if ($shouldUseLegacyGuests) {
             $sqlGuestsByCategory = "
                 SELECT COUNT(g.id)
                 FROM guests g
@@ -563,7 +566,7 @@ class DashboardDomainService
         });
 
         $participantsPresentCount = 0;
-        if (self::tableExists($db, 'guests')) {
+        if ($shouldUseLegacyGuests) {
             $sqlGuestsPresent = "
                 SELECT COUNT(g.id)
                 FROM guests g
@@ -621,7 +624,7 @@ class DashboardDomainService
                 'tenant_users_count' => $tenantUsersCount,
                 'completed_sales_revenue' => $completedSalesRevenue,
                 'credits_float_balance' => $creditsFloatBalance,
-                'remaining_balance_current' => $remainingBalanceCurrent,
+                'remaining_balance_global' => $remainingBalanceGlobal,
                 'cars_inside_now' => $carsInsideNow,
                 'offline_terminals_count' => $offlineTerminalsCount,
                 'offline_pending_operations' => $offlinePendingOperations,

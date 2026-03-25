@@ -611,6 +611,12 @@ function listArtistAlerts(array $query): void
     }
 
     if ($severity !== null) {
+        $severity = strtolower($severity);
+        $severity = match ($severity) {
+            'critical' => 'red',
+            'high' => 'orange',
+            default => $severity,
+        };
         $countSql .= " AND al.severity = :severity";
         $dataSql .= " AND al.severity = :severity";
         $countParams[':severity'] = $severity;
@@ -618,10 +624,16 @@ function listArtistAlerts(array $query): void
     }
 
     if ($status !== null) {
-        $countSql .= " AND al.status = :status";
-        $dataSql .= " AND al.status = :status";
-        $countParams[':status'] = $status;
-        $dataParams[':status'] = $status;
+        $status = strtolower($status);
+        if ($status === 'active') {
+            $countSql .= " AND al.status IN ('open', 'acknowledged')";
+            $dataSql .= " AND al.status IN ('open', 'acknowledged')";
+        } else {
+            $countSql .= " AND al.status = :status";
+            $dataSql .= " AND al.status = :status";
+            $countParams[':status'] = $status;
+            $dataParams[':status'] = $status;
+        }
     }
 
     $dataSql .= "

@@ -36,6 +36,8 @@ function getAnalyticalDashboardV1(array $query): void
 
         jsonSuccess($payload);
     } catch (Exception $e) {
-        jsonError('Error fetching analytical dashboard: ' . $e->getMessage(), 500);
+        $ref = uniqid();
+        error_log("[AnalyticalDashboard] Error fetching analytical dashboard (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao montar dashboard analítico (Ref: {$ref})", 500);
     }
 }

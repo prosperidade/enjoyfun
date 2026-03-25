@@ -638,6 +638,7 @@
   - cancelamento de booking
   - criacao, edicao e remocao de membros da equipe
   - registro e remocao de arquivos operacionais
+
   - recarga automatica do contexto apos mutacoes do frontend
 
 ### Estado funcional apos esta passada
@@ -764,3 +765,48 @@
   - `backend/src/Helpers/ArtistModuleHelper.php`
 - `eslint` em:
   - `frontend/src/pages/ArtistDetail.jsx`
+
+## 20. 2026-03-24 - Integração do hub de artistas com dashboards
+
+### Escopo fechado nesta passada
+
+- integração do módulo `/api/artists` com o `Dashboard.jsx`
+- sem empurrar ledger para dentro do domínio de artistas
+- sem alterar o contrato de `/api/admin/dashboard`
+
+### O que foi implementado
+
+- `backend/src/Helpers/ArtistOperationsHelper.php`
+  - `GET /api/artists/alerts` passou a aceitar aliases de leitura operacional:
+    - `severity=critical` -> `red`
+    - `severity=high` -> `orange`
+    - `status=active` -> `open + acknowledged`
+- `frontend/src/modules/dashboard/ArtistAlertBadge.jsx`
+  - novo bloco de leitura do hub de artistas no painel geral
+  - consome `/api/artists/alerts` diretamente, sem reabrir contratos legados
+- `frontend/src/pages/Dashboard.jsx`
+  - passou a exibir o bloco de alertas de artistas quando existe `event_id` selecionado
+
+### Resultado funcional
+
+- o painel geral agora mostra rapidamente:
+  - quantos alertas críticos de artistas estão ativos
+  - quantos alertas de atenção seguem abertos
+- a navegação leva direto para `/artists` já filtrado por evento e severidade
+
+## 21. 2026-03-25 - Auditoria de Integridade e Convergência de Tipos (Fase 2)
+
+### Escopo fechado nesta passada
+
+- Auditoria arquitetural de consistência de dados baseada em script de diagnóstico focado na convergência do novo domínio `/api/artists`.
+- Adaptação das tipagens do módulo logístico para alinhar com o módulo financeiro e criação de ferramenta de monitoramento.
+
+### O que foi implementado
+
+- **Convergência para BIGINT:**
+  - Criada a migration `database/036_artist_logistics_bigint_keys.sql` para alterar o tipo das chaves `organizer_id` e `event_id` de `INTEGER` para `BIGINT` nas 10 tabelas operacionais do módulo de artistas.
+  - O script elimina o risco de drift de tipagem e casts implícitos de índice, alinhando as chaves estrangeiras perfeitamente com a estrutura primária do financeiro (`034`).
+- **Auditoria Cruzada (Logística ↔ Financeiro):**
+  - Criado o script CLI autônomo `backend/scripts/audit_artist_logistics_payables.php`.
+  - O script faz a reconciliação bidirecional do cachê (em `event_artists`) e dos custos logísticos gerais (`artist_logistics_items`) contra os títulos de pagamento lançados no módulo financeiro (`event_payables`).
+  - Permite a operação identificar rapidamente falhas de lançamento onde existem custos logísticos provisionados, mas sem a devida conta a pagar em aberto atrelada ao artista.

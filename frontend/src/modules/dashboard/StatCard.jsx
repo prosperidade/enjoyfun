@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
+import { useEventScope } from "../../context/EventScopeContext";
 
 export default function StatCard({
   icon: Icon,
@@ -9,14 +10,17 @@ export default function StatCard({
   to,
   loading,
   subtitle,
+  scopeEventId,
   compact = false,
 }) {
+  const { buildScopedPath } = useEventScope();
   const baseClassName = compact
     ? "stat-card group relative overflow-hidden min-h-[170px]"
     : "stat-card group relative overflow-hidden";
+  const target = to ? buildScopedPath(to, scopeEventId) : "#";
 
   return (
-    <Link to={to || "#"} className={baseClassName}>
+    <Link to={target} className={baseClassName}>
       <div className={`absolute top-0 right-0 h-24 w-24 rounded-full mix-blend-overlay opacity-10 blur-2xl ${color} -mr-8 -mt-8`} />
       <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
         {Icon && <Icon size={20} className="text-white" />}

@@ -108,16 +108,52 @@ function exportByArtist(PDO $db, int $orgId, int $eventId): array
 {
     $stmt = $db->prepare("
         SELECT
-            p.event_artist_id,
-            COALESCE(SUM(p.amount)      FILTER (WHERE p.status <> 'cancelled'), 0) AS committed,
-            COALESCE(SUM(p.paid_amount) FILTER (WHERE p.status <> 'cancelled'), 0) AS paid,
-            COALESCE(SUM(p.remaining_amount) FILTER (WHERE p.status NOT IN ('cancelled','paid')), 0) AS pending,
-            COUNT(*) FILTER (WHERE p.status <> 'cancelled') AS payables_count
-        FROM event_payables p
-        WHERE p.organizer_id = :org AND p.event_id = :ev
-          AND p.event_artist_id IS NOT NULL
-        GROUP BY p.event_artist_id
-        ORDER BY committed DESC
+            ea.id AS event_artist_id,
+            ea.artist_id,
+            a.stage_name AS artist_stage_name,
+            ea.booking_status,
+            ea.performance_start_at,
+            CAST(ea.cache_amount AS FLOAT) AS cache_amount,
+            CAST(COALESCE(costs.total_logistics_cost, 0) AS FLOAT) AS total_logistics_cost,
+            CAST(COALESCE(ea.cache_amount, 0) + COALESCE(costs.total_logistics_cost, 0) AS FLOAT) AS total_artist_cost,
+            CAST(COALESCE(finance.committed, 0) AS FLOAT) AS committed,
+            CAST(COALESCE(finance.paid, 0) AS FLOAT) AS paid,
+            CAST(COALESCE(finance.pending, 0) AS FLOAT) AS pending,
+            COALESCE(finance.payables_count, 0) AS payables_count
+        FROM event_artists ea
+        JOIN artists a
+               ON a.id = ea.artist_id
+              AND a.organizer_id = ea.organizer_id
+        LEFT JOIN (
+            SELECT
+                event_artist_id,
+                COALESCE(SUM(COALESCE(total_amount, CASE WHEN unit_amount IS NOT NULL THEN quantity * unit_amount ELSE 0 END)), 0) AS total_logistics_cost
+            FROM artist_logistics_items
+            GROUP BY event_artist_id
+        ) costs
+          ON costs.event_artist_id = ea.id
+        LEFT JOIN (
+            SELECT
+                event_artist_id,
+                COALESCE(SUM(amount) FILTER (WHERE status <> 'cancelled'), 0) AS committed,
+                COALESCE(SUM(paid_amount) FILTER (WHERE status <> 'cancelled'), 0) AS paid,
+                COALESCE(SUM(remaining_amount) FILTER (WHERE status NOT IN ('cancelled', 'paid')), 0) AS pending,
+                COUNT(*) FILTER (WHERE status <> 'cancelled') AS payables_count
+            FROM event_payables
+            WHERE organizer_id = :org
+              AND event_id = :ev
+              AND event_artist_id IS NOT NULL
+            GROUP BY event_artist_id
+        ) finance
+          ON finance.event_artist_id = ea.id
+        WHERE ea.organizer_id = :org
+          AND ea.event_id = :ev
+        ORDER BY GREATEST(
+            COALESCE(ea.cache_amount, 0) + COALESCE(costs.total_logistics_cost, 0),
+            COALESCE(finance.committed, 0)
+        ) DESC,
+        COALESCE(ea.performance_start_at, ea.created_at) ASC,
+        ea.id ASC
     ");
     $stmt->execute([':org' => $orgId, ':ev' => $eventId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);

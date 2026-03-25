@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Plus, Edit2, CheckCircle2, XCircle, Search, Settings as SettingsIcon } from "lucide-react";
+import { useEventScope } from "../context/EventScopeContext";
 import api from "../lib/api";
 import toast from "react-hot-toast";
 
 export default function EventFinanceSettings() {
+  const { eventId: selectedEventId, setEventId: setSelectedEventId } = useEventScope();
   const [activeTab, setActiveTab] = useState("categories"); // 'categories' or 'cost-centers'
   const [events, setEvents] = useState([]);
-  const [selectedEventId, setSelectedEventId] = useState("");
 
   const [categories, setCategories] = useState([]);
   const [costCenters, setCostCenters] = useState([]);
@@ -20,7 +21,6 @@ export default function EventFinanceSettings() {
   useEffect(() => {
     api.get("/events").then((r) => {
       setEvents(r.data.data || []);
-      if (r.data.data?.length > 0) setSelectedEventId(r.data.data[0].id.toString());
     }).catch(() => {});
   }, []);
 
@@ -33,6 +33,8 @@ export default function EventFinanceSettings() {
       } else if (activeTab === "cost-centers" && selectedEventId) {
         const res = await api.get(`/event-finance/cost-centers?event_id=${selectedEventId}&active=false`);
         setCostCenters(res.data.data || []);
+      } else if (activeTab === "cost-centers") {
+        setCostCenters([]);
       }
     } catch (err) {
       toast.error("Erro ao carregar dados.");
@@ -112,6 +114,7 @@ export default function EventFinanceSettings() {
         <div className="flex max-w-sm flex-col">
           <label className="input-label">Selecione o Evento</label>
           <select className="select" value={selectedEventId} onChange={(e) => setSelectedEventId(e.target.value)}>
+            <option value="">Selecionar evento...</option>
             {events.map((ev) => (
               <option key={ev.id} value={ev.id}>{ev.name}</option>
             ))}

@@ -12,13 +12,14 @@ import { useState, useEffect, useCallback, useRef } from "react"; // useRef adic
 import { QRCodeCanvas } from "qrcode.react";
 import api from "../lib/api";
 import toast from "react-hot-toast";
+import { useEventScope } from "../context/EventScopeContext";
 
 export default function Parking() {
+  const { eventId, setEventId } = useEventScope();
   const [tab, setTab] = useState("parking");
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
-  const [eventId, setEventId] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date()); // Relógio Anti-fraude
@@ -50,6 +51,13 @@ export default function Parking() {
       .then((r) => setEvents(r.data.data || []))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      event_id: String(eventId || ""),
+    }));
+  }, [eventId]);
 
   const fetchRecords = useCallback(() => {
     setLoading(true);
@@ -134,7 +142,7 @@ export default function Parking() {
       await api.post("/parking", form);
       toast.success("Entrada registrada!");
       setShowForm(false);
-      setForm({ event_id: "", license_plate: "", vehicle_type: "car" });
+      setForm({ event_id: String(eventId || ""), license_plate: "", vehicle_type: "car" });
       fetchRecords();
     } catch (err) {
       toast.error(err.response?.data?.message || "Erro ao registrar entrada.");

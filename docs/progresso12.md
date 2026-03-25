@@ -273,3 +273,80 @@ POST   /api/event-finance/exports/closing
 - Toda mudança do módulo financeiro deve ser registrada em `docs/progresso12.md`.
 - `docs/progresso11.md` permanece como trilha exclusiva do módulo de logística de artistas.
 - A Fase 6 (dashboard integration) deve ser feita sem modificar a estrutura de controllers já entregues.
+
+---
+
+## 9. 2026-03-24 - Fase 6 concluída: integrações com artistas e dashboards
+
+### Escopo fechado nesta passada
+
+- fechamento da Fase 6 sem reabrir o contrato de `/api/admin/dashboard`
+- consumo direto dos endpoints de `summary` pelos dashboards existentes
+- integração operacional do financeiro com o hub de artistas via `event_artist_id`
+
+### O que foi implementado
+
+- `backend/src/Controllers/EventFinanceSummaryController.php`
+  - `summary` passou a expor `overdue_amount` com compatibilidade para os conectores visuais
+  - `summary/by-category` e `summary/by-cost-center` passaram a expor `payables_count` e `overdue_count`
+  - `summary/by-artist` passou a retornar:
+    - `artist_id`
+    - `artist_stage_name`
+    - `booking_status`
+    - `performance_start_at`
+    - totais financeiros por artista vinculado
+- `backend/src/Controllers/EventFinancePayableController.php`
+  - criação e edição de contas agora validam `event_artist_id` contra `event_id` quando `source_type` é `artist` ou `logistics`
+  - listagem e detalhe passaram a retornar contexto do artista vinculado
+- `backend/src/Controllers/EventFinanceExportController.php`
+  - exportação `by-artist` passou a carregar nome do artista e contexto do booking
+- `frontend/src/pages/EventFinancePayables.jsx`
+  - modal de nova conta passou a permitir vínculo com contratação do artista
+  - tabela passou a evidenciar quando o lançamento está ligado a um artista
+- `frontend/src/pages/EventFinancePayableDetail.jsx`
+  - detalhe da conta passou a navegar para o artista vinculado
+- `frontend/src/pages/EventFinanceDashboard.jsx`
+  - painel financeiro passou a exibir o bloco `Custo por Artista`
+- `frontend/src/modules/analytics/components/FinancialSummaryPanel.jsx`
+  - seção analítica passou a consumir `summary/by-artist`
+  - leitura financeira agora mostra custo por artista e margem estimada frente à receita do analítico
+- `frontend/src/pages/AnalyticalDashboard.jsx`
+  - repassa o resumo comercial para composição da visão financeira analítica
+
+### Critérios de aceite atualizados
+
+- [x] Integração com Dashboard.jsx (Fase 6 — concluída)
+- [x] Integração com AnalyticalDashboard.jsx (Fase 6 — concluída)
+
+---
+
+## 10. 2026-03-25 - Auditoria de Integridade e Resiliência (Fase 1 e 2)
+
+### Escopo fechado nesta passada
+
+- Execução das correções de hardening financeiro levantadas pelo diagnóstico estrutural de usabilidade e segurança.
+- Reforço de isolamento multi-tenant, bloqueio de cross-data entre eventos e validação transacional rigorosa no módulo `/api/event-finance`.
+
+### O que foi implementado no Backend
+
+- `backend/src/Controllers/EventFinanceSummaryController.php`:
+  - Correção de vazamento de agregação no método `getSummaryByCostCenter` (adicionado restritor `AND p.event_id = :ev` no `LEFT JOIN` final).
+  - Escopo e blindagem `organizer_id` tornados obrigatórios em transições parciais de `getSummaryOverdue`.
+- `backend/src/Controllers/EventFinancePayableController.php`:
+  - Restrição extra em isolamento de listagem via joins de validação multi-tenant (`categories`, `cost_centers`, `suppliers`).
+  - Aplicação de higiene de segurança bloqueando a montagem pós-update via fetch simples sem validação explícita de `organizer_id`.
+- `backend/src/Controllers/EventFinancePaymentController.php`:
+  - Adição de barreira atômica em `createPayment`. O backend agora bloqueia a transação gerando erro HTTP 400 se rastrear que a conta a pagar informada pertence a um evento (`payable.event_id`) diferente da operação de pagamento atual.
+
+### O que foi implementado no Frontend
+
+- `frontend/src/pages/EventFinanceDashboard.jsx`:
+  - Adaptação do mapeamento hexadecimal de cores ao status `gray` na renderização do quadro resumos, garantindo visual standardizado.
+  - Eliminação de fallbacks em caches silenciosos, passando a exibir logs visuais amigáveis de `toast.error()` mitigando falhas invisíveis para o usuário.
+- `frontend/src/pages/EventFinancePayables.jsx`:
+  - Substituição paralela de falsos retornos de rede no carregamento das relacões (eventos, centros, categorias) por avisos dinâmicos.
+  - Inserida trava de UX (Pré-Check): O app agora impede a abertura do modal "Nova Conta a Pagar" caso constate que as dependências (`Categorias` ou `Centros de Custo`) do evento se encontram vazias, evitando o abandono de fluxo e direcionando o usuário pelo caminho feliz.
+
+### O que foi implementado de Arquitetura (Fase 2)
+
+- Criado Job PHP explícito `audit_artist_logistics_payables.php`, concebido para conectar o modelo logístico de `/api/artists` à conferência cega do financeiro de eventos, varrendo custos não lançados.

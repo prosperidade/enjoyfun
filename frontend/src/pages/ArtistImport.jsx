@@ -14,6 +14,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import api from "../lib/api";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
+import { useEventScope } from "../context/EventScopeContext";
 
 const IMPORT_TYPES = [
   {
@@ -157,11 +158,12 @@ function FileDropZone({ onFile, file }) {
 export default function ArtistImport() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { hasRole } = useAuth();
+  const { buildScopedPath, eventId: scopedEventId, setEventId } = useEventScope();
   const canImport = hasRole("admin") || hasRole("organizer") || hasRole("manager");
 
   const [step, setStep] = useState(0);
   const [events, setEvents] = useState([]);
-  const [eventId, setEventId] = useState(searchParams.get("event_id") || "");
+  const eventId = searchParams.get("event_id") || scopedEventId || "";
   const [importType, setImportType] = useState("bookings");
   const [file, setFile] = useState(null);
   const [parsedRows, setParsedRows] = useState([]);
@@ -186,7 +188,7 @@ export default function ArtistImport() {
 
         if (!eventId && nextEvents.length > 0) {
           const nextEventId = String(nextEvents[0].id);
-          setEventId(nextEventId);
+          setEventId(nextEventId, { updateUrl: false });
           const nextParams = new URLSearchParams(searchParams);
           nextParams.set("event_id", nextEventId);
           setSearchParams(nextParams, { replace: true });
@@ -202,7 +204,7 @@ export default function ArtistImport() {
     return () => {
       cancelled = true;
     };
-  }, [eventId, searchParams, setSearchParams]);
+  }, [eventId, searchParams, setEventId, setSearchParams]);
 
   function handleFile(nextFile) {
     if (nextFile.size > 5 * 1024 * 1024) {
@@ -289,7 +291,7 @@ export default function ArtistImport() {
           Importacao de artistas exige perfil `admin`, `organizer` ou `manager`.
         </p>
         <div className="mt-6">
-          <Link to="/artists" className="btn-outline">
+          <Link to={buildScopedPath("/artists", eventId || scopedEventId)} className="btn-outline">
             Voltar ao catalogo
           </Link>
         </div>
@@ -312,7 +314,7 @@ export default function ArtistImport() {
           </p>
         </div>
 
-        <Link to="/artists" className="btn-outline">
+        <Link to={buildScopedPath("/artists", eventId || scopedEventId)} className="btn-outline">
           Voltar ao catalogo
         </Link>
       </div>
@@ -564,7 +566,7 @@ export default function ArtistImport() {
               Novo lote
             </button>
             <Link
-              to={eventId ? `/artists?event_id=${eventId}` : "/artists"}
+              to={buildScopedPath("/artists", eventId || scopedEventId)}
               className="btn-outline"
             >
               Ir para artistas

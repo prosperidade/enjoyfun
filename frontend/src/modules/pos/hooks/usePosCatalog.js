@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
+import { useEventScope } from "../../../context/EventScopeContext";
 import api from "../../../lib/api";
 import { getProductIcon } from "../utils/getProductIcon";
 
 export function usePosCatalog({ currentSector }) {
+  const { eventId, setEventId } = useEventScope();
   const [events, setEvents] = useState([]);
   const [eventsError, setEventsError] = useState("");
-  const [eventId, setEventId] = useState("");
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [catalogError, setCatalogError] = useState("");

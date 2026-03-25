@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import CriticalStockPanel from "../modules/dashboard/CriticalStockPanel";
 import { useAuth } from "../context/AuthContext";
+import { useEventScope } from "../context/EventScopeContext";
 import api from "../lib/api";
 import OperationalNoticePanel from "../modules/dashboard/OperationalNoticePanel";
 import ParticipantsByCategoryPanel from "../modules/dashboard/ParticipantsByCategoryPanel";
@@ -23,21 +24,25 @@ import StatCard from "../modules/dashboard/StatCard";
 import TopProductsPanel from "../modules/dashboard/TopProductsPanel";
 import WorkforceCostConnector from "../modules/dashboard/WorkforceCostConnector";
 import FinancialHealthConnector from "../modules/dashboard/FinancialHealthConnector";
+import ArtistAlertBadge from "../modules/dashboard/ArtistAlertBadge";
+import { toast } from "react-hot-toast";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { eventId, setEventId } = useEventScope();
   const [stats, setStats] = useState(null);
   const [workforceCosts, setWorkforceCosts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingWorkforceCosts, setLoadingWorkforceCosts] = useState(true);
-  const [eventId, setEventId] = useState("");
   const [events, setEvents] = useState([]);
 
   useEffect(() => {
     api
       .get("/events")
       .then((response) => setEvents(response.data.data || []))
-      .catch(() => {});
+      .catch(() => {
+        toast.error("Erro ao carregar lista de operações globais.");
+      });
   }, []);
 
   useEffect(() => {
@@ -165,10 +170,10 @@ export default function Dashboard() {
             loading={loading}
             icon={CreditCard}
             label="Saldo Ainda Disponível"
-            value={`R$ ${Number(stats?.cashless?.remaining_balance || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            value={`R$ ${Number(stats?.cashless?.remaining_balance_global || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
             color="bg-emerald-700"
             to="/cards"
-            subtitle="Saldo restante da base atual de cartões"
+            subtitle="Saldo global de cartões do organizador"
           />
           <StatCard
             loading={loading}
@@ -270,6 +275,7 @@ export default function Dashboard() {
         />
 
         <FinancialHealthConnector eventId={eventId} />
+        <ArtistAlertBadge eventId={eventId} />
       </section>
     </div>
   );

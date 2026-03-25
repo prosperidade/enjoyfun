@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link2, Mail, Pencil, Trash2, Upload, Users, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
+import { useEventScope } from '../context/EventScopeContext';
 
 const PAGE_SIZE = 10;
 
 export default function Guests() {
+  const { eventId: selectedEvent, setEventId: setSelectedEvent } = useEventScope();
   const [guests, setGuests]           = useState([]);
   const [events, setEvents]           = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -17,7 +19,6 @@ export default function Guests() {
   const [selectedGuest, setSelectedGuest]     = useState(null); // convidado em edição
 
   // Filtros e paginação
-  const [selectedEvent, setSelectedEvent] = useState('');
   const [searchInput, setSearchInput]     = useState('');
   const [search, setSearch]               = useState('');
   const [page, setPage]                   = useState(1);
@@ -189,7 +190,13 @@ export default function Guests() {
           <p className="text-sm text-gray-500">{pagination.total} convidado(s) • {activeEventName}</p>
         </div>
 
-        <button className="btn-primary flex items-center gap-2" onClick={() => setShowUploadModal(true)}>
+        <button
+          className="btn-primary flex items-center gap-2"
+          onClick={() => {
+            setUploadEvent(selectedEvent || '');
+            setShowUploadModal(true);
+          }}
+        >
           <Upload size={16} /> Importar CSV
         </button>
       </div>

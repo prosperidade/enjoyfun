@@ -1,11 +1,14 @@
 import { ArrowLeft, Wifi, WifiOff } from "lucide-react";
+import { useEventScope } from "../../../context/EventScopeContext";
 
 export default function PosHeader({ isOffline, navigate, sectorInfo }) {
+  const { buildScopedPath } = useEventScope();
+
   return (
     <header className="h-16 px-6 border-b border-gray-800 flex items-center justify-between bg-gray-950/50 backdrop-blur-md sticky top-0 z-50">
       <div className="flex items-center gap-4">
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate(buildScopedPath("/"))}
           className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-all flex items-center justify-center"
           title="Voltar ao Dashboard"
         >

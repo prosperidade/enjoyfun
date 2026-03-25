@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../lib/api';
 import { CreditCard, Lock, Plus, RefreshCw, Search, Trash2, TrendingDown, TrendingUp, Unlock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useEventScope } from '../context/EventScopeContext';
 
 export default function Cards() {
+  const { eventId, setEventId } = useEventScope();
   const [cards, setCards]     = useState([]);
   const [loading, setLoading] = useState(true);
   const [events, setEvents]   = useState([]);
-  const [eventId, setEventId] = useState('');
   const [selected, setSelected] = useState(null);
   const [txLoading, setTxLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);

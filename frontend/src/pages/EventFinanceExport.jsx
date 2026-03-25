@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Download, FileText, CheckCircle } from "lucide-react";
+import { useEventScope } from "../context/EventScopeContext";
 import api from "../lib/api";
 import toast from "react-hot-toast";
 
@@ -58,8 +59,8 @@ function downloadCSV(rows, filename) {
 }
 
 export default function EventFinanceExport() {
+  const { eventId, setEventId } = useEventScope();
   const [events, setEvents] = useState([]);
-  const [eventId, setEventId] = useState("");
   const [exporting, setExporting] = useState(null);
   const [filterStatus, setFilterStatus] = useState("");
 

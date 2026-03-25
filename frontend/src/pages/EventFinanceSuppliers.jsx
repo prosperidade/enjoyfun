@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Building2, Plus, ChevronDown, ChevronUp, X, FileText,
 } from "lucide-react";
+import { useEventScope } from "../context/EventScopeContext";
 import api from "../lib/api";
 import toast from "react-hot-toast";
 
@@ -17,17 +18,39 @@ const CONTRACT_STATUS = {
   cancelled: { label: "Cancelado", cls: "badge-red" },
 };
 
-function SupplierRow({ supplier, events, onUpdated }) {
+function SupplierRow({ supplier, events, onUpdated, scopedEventId, onScopedEventChange }) {
   const [open, setOpen] = useState(false);
   const [contracts, setContracts] = useState([]);
-  const [eventId, setEventId] = useState("");
+  const [eventId, setEventId] = useState(scopedEventId || "");
   const [loadingContracts, setLoadingContracts] = useState(false);
   const [showNewContract, setShowNewContract] = useState(false);
   const [newContract, setNewContract] = useState({
-    event_id: "", supplier_id: supplier.id, description: "",
+    event_id: scopedEventId || "", supplier_id: supplier.id, description: "",
     total_amount: "", signed_at: "", valid_until: "", status: "draft", notes: "",
   });
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setEventId(scopedEventId || "");
+    setNewContract((current) => (
+      current.event_id
+        ? current
+        : { ...current, event_id: scopedEventId || "" }
+    ));
+  }, [scopedEventId]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    if (!eventId) {
+      setContracts([]);
+      return;
+    }
+
+    loadContracts(eventId);
+  }, [eventId, loadContracts, open]);
 
   const loadContracts = useCallback((eid) => {
     if (!eid) return;
@@ -106,7 +129,10 @@ function SupplierRow({ supplier, events, onUpdated }) {
                 <select
                   className="select w-auto text-xs"
                   value={eventId}
-                  onChange={(e) => { setEventId(e.target.value); loadContracts(e.target.value); }}
+                  onChange={(e) => {
+                    setEventId(e.target.value);
+                    onScopedEventChange?.(e.target.value);
+                  }}
                 >
                   <option value="">Filtrar por evento...</option>
                   {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
@@ -269,6 +295,7 @@ function NewSupplierModal({ onSaved, onClose }) {
 }
 
 export default function EventFinanceSuppliers() {
+  const { eventId, setEventId } = useEventScope();
   const [suppliers, setSuppliers] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -333,7 +360,14 @@ export default function EventFinanceSuppliers() {
       ) : (
         <div className="space-y-3">
           {filtered.map((s) => (
-            <SupplierRow key={s.id} supplier={s} events={events} onUpdated={loadSuppliers} />
+            <SupplierRow
+              key={s.id}
+              supplier={s}
+              events={events}
+              onUpdated={loadSuppliers}
+              scopedEventId={eventId}
+              onScopedEventChange={setEventId}
+            />
           ))}
         </div>
       )}

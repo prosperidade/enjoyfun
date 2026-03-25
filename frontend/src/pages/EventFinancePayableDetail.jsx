@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Clock,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import api from "../lib/api";
 import toast from "react-hot-toast";
+import { useEventScope } from "../context/EventScopeContext";
 
 const fmt = (v) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -128,6 +129,7 @@ function RegisterPaymentModal({ payableId, eventId, remaining, onSaved, onClose 
 export default function EventFinancePayableDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { buildScopedPath } = useEventScope();
   const [payable, setPayable] = useState(null);
   const [payments, setPayments] = useState([]);
   const [attachments, setAttachments] = useState([]);
@@ -208,7 +210,7 @@ export default function EventFinancePayableDetail() {
 
       {/* Header */}
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="btn-outline p-2">
+        <button onClick={() => navigate(buildScopedPath("/finance/payables", payable?.event_id))} className="btn-outline p-2">
           <ArrowLeft size={16} />
         </button>
         <div className="flex-1">
@@ -278,6 +280,17 @@ export default function EventFinancePayableDetail() {
           {payable.supplier_name && <span>Fornecedor: {payable.supplier_name}</span>}
           {payable.payment_method && <span>Pagamento: {payable.payment_method.toUpperCase()}</span>}
         </div>
+        {payable.artist_id && (
+          <div className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2 text-sm text-cyan-100">
+            <span className="text-cyan-300">Origem vinculada:</span>{" "}
+            <Link
+              to={buildScopedPath(`/artists/${payable.artist_id}?tab=bookings`, payable.event_id)}
+              className="font-medium text-cyan-200 hover:text-white"
+            >
+              {payable.artist_stage_name || `Artista #${payable.artist_id}`}
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Pagamentos */}
