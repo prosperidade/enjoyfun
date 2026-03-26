@@ -26,6 +26,10 @@
 - correção do card `Custo por Artista` no dashboard analítico
 - implantação de escopo global de `event_id` com persistência ao navegar entre módulos
 - padronização de links internos secundários e breadcrumbs para sempre carregar `event_id`
+- auditoria técnica do fluxo de ingressos, scanner e operação offline
+- correção operacional do scanner offline para leitura por `qr_token` dinâmico e por `order_reference`
+- restauração do seletor de evento e das operações globais do dashboard em modo offline
+- padronização de finais de linha com `.gitattributes` e `.editorconfig`
 
 ---
 
@@ -321,3 +325,89 @@
   - dashboard -> financeiro -> detalhe -> artista
   - dashboard -> tickets -> scanner -> retorno
   - evento -> PDV / bilheteria
+
+---
+
+## 11. Tickets + scanner + operação offline
+
+### Escopo fechado nesta passada
+
+- auditoria técnica do fluxo de bilheteria, scanner operacional e sincronização offline
+- correção do scanner offline para aceitar tanto o token dinâmico quanto a referência comercial do ingresso
+- ajuste de replay da fila offline para portaria, evitando reenvio indevido para a rota errada
+- restauração do catálogo de eventos no dashboard em cenários sem internet
+
+### O que foi implementado
+
+- `auditoriaoffline.md`
+  - documento de auditoria consolidando riscos P0/P1 do fluxo offline de tickets e scanner
+- `frontend/src/lib/offlineScanner.js`
+  - centralização da normalização de leitura do scanner
+  - geração de candidatos por `dynamic_token`, `qr_token`, `token`, `code` e `order_reference`
+- `frontend/src/lib/eventCatalogCache.js`
+  - cache compartilhado da lista de eventos para modo degradado no dashboard e no scanner
+- `frontend/src/lib/db.js`
+  - evolução do `scannerCache` local para índices de busca por `token_lookup` e `ref_lookup`
+- `frontend/src/pages/Operations/Scanner.jsx`
+  - sincronização do cofre offline passou a persistir chaves de busca por token e referência
+  - leitura offline passou a resolver:
+    - QR dinâmico
+    - token base
+    - referência comercial digitada/manual
+  - fila local passou a separar `ticket_validate` de `scanner_process`
+  - retrocompatibilidade mantida para caches legados já presentes no dispositivo
+- `frontend/src/hooks/useOfflineSync.js`
+  - replay offline passou a suportar `ticket_validate`
+  - compatibilidade adicionada para itens antigos de portaria ainda salvos como `scanner_process`
+- `frontend/src/pages/Dashboard.jsx`
+  - a lista de eventos agora cai para cache local quando a internet some
+  - o seletor de evento e a visão de operações globais deixam de desaparecer em contingência
+- `backend/src/Controllers/ScannerController.php`
+  - remoção de `totp_secret` do dump offline
+  - hardening da autorização de setor por `participant_id + event_id + organizer_id`
+  - remoção do fallback ambíguo de tenant para admin em contexto de scanner
+- `.gitattributes`
+  - política de EOL padronizada para manter código em `LF` e scripts Windows em `CRLF`
+- `.editorconfig`
+  - alinhamento do editor local à mesma política de finais de linha
+
+### Resultado funcional
+
+- o scanner offline volta a operar com os dois identificadores reais de campo:
+  - QR/token dinâmico
+  - referência comercial do ingresso
+- o replay da fila offline deixa de falhar por enviar validação de ticket para `/scanner/process`
+- ao entrar em modo offline e voltar para o dashboard, o organizador continua vendo as operações globais e consegue manter o evento selecionado
+- o dump offline do scanner para tickets deixa de expor segredo TOTP ao cliente
+
+---
+
+## 12. Validações complementares desta passada
+
+- `php -l backend/src/Controllers/ScannerController.php`
+- `npm run build` em `frontend` concluído com sucesso após os ajustes do scanner offline e do dashboard degradado
+
+---
+
+## 13. Arquivos adicionais desta passada
+
+- `auditoriaoffline.md`
+- `.gitattributes`
+- `.editorconfig`
+- `frontend/src/lib/eventCatalogCache.js`
+- `frontend/src/lib/offlineScanner.js`
+- `frontend/src/hooks/useOfflineSync.js`
+- `frontend/src/lib/db.js`
+- `frontend/src/pages/Dashboard.jsx`
+- `frontend/src/pages/Operations/Scanner.jsx`
+- `backend/src/Controllers/ScannerController.php`
+
+---
+
+## 14. Observação para amanhã
+
+- próximo passo correto: implementar o bloco estrutural do scanner `offline-first` como previsto na auditoria
+- foco recomendado:
+  - endpoint versionado de replay idempotente para scanner
+  - reconciliação visual de leituras offline
+  - governança de conflitos pós-sync

@@ -116,8 +116,20 @@ export default function Tickets() {
 
   useEffect(() => {
     api.get("/events")
-      .then((r) => setEvents(r.data.data || []))
-      .catch(() => toast.error("Erro ao carregar eventos."));
+      .then((r) => {
+        const list = r.data.data || [];
+        setEvents(list);
+        localStorage.setItem("enjoyfun_tickets_events_cache", JSON.stringify(list));
+      })
+      .catch(() => {
+        const cached = localStorage.getItem("enjoyfun_tickets_events_cache");
+        if (cached) {
+          try { setEvents(JSON.parse(cached)); } catch { /* ignore */ }
+          toast("Modo Offline: eventos carregados do cache.");
+        } else {
+          toast.error("Sem internet e sem cache. Carregue os eventos quando estiver online.");
+        }
+      });
   }, []);
 
   const loadCommercialConfig = useCallback(async () => {
@@ -135,24 +147,45 @@ export default function Tickets() {
     ]);
 
     if (typesRes.status === "fulfilled") {
-      setTicketTypes(typesRes.value.data?.data || []);
+      const data = typesRes.value.data?.data || [];
+      setTicketTypes(data);
+      localStorage.setItem(`tickets_types_${effectiveEventId}`, JSON.stringify(data));
     } else {
-      setTicketTypes([]);
-      toast.error(typesRes.reason?.response?.data?.message || "Erro ao carregar tipos de ingresso.");
+      const cached = localStorage.getItem(`tickets_types_${effectiveEventId}`);
+      if (cached) {
+        try { setTicketTypes(JSON.parse(cached)); } catch { setTicketTypes([]); }
+      } else {
+        setTicketTypes([]);
+        toast.error("Erro ao carregar tipos de ingresso (offline).");
+      }
     }
 
     if (batchesRes.status === "fulfilled") {
-      setBatches(batchesRes.value.data?.data || []);
+      const data = batchesRes.value.data?.data || [];
+      setBatches(data);
+      localStorage.setItem(`tickets_batches_${effectiveEventId}`, JSON.stringify(data));
     } else {
-      setBatches([]);
-      toast.error(batchesRes.reason?.response?.data?.message || "Erro ao carregar lotes comerciais.");
+      const cached = localStorage.getItem(`tickets_batches_${effectiveEventId}`);
+      if (cached) {
+        try { setBatches(JSON.parse(cached)); } catch { setBatches([]); }
+      } else {
+        setBatches([]);
+        toast.error("Erro ao carregar lotes comerciais (offline).");
+      }
     }
 
     if (commissariesRes.status === "fulfilled") {
-      setCommissaries(commissariesRes.value.data?.data || []);
+      const data = commissariesRes.value.data?.data || [];
+      setCommissaries(data);
+      localStorage.setItem(`tickets_commissaries_${effectiveEventId}`, JSON.stringify(data));
     } else {
-      setCommissaries([]);
-      toast.error(commissariesRes.reason?.response?.data?.message || "Erro ao carregar comissários.");
+      const cached = localStorage.getItem(`tickets_commissaries_${effectiveEventId}`);
+      if (cached) {
+        try { setCommissaries(JSON.parse(cached)); } catch { setCommissaries([]); }
+      } else {
+        setCommissaries([]);
+        toast.error("Erro ao carregar comissários (offline).");
+      }
     }
   }, [effectiveEventId]);
 

@@ -11,6 +11,7 @@ import {
 import { useState, useEffect, useCallback, useRef } from "react"; // useRef adicionado para o scanner
 import { QRCodeCanvas } from "qrcode.react";
 import api from "../lib/api";
+import { db } from "../lib/db";
 import toast from "react-hot-toast";
 import { useEventScope } from "../context/EventScopeContext";
 
@@ -87,7 +88,7 @@ export default function Parking() {
     };
   }, [eventId]);
 
-  // 🚀 ADIÇÃO CIRÚRGICA: Função de envio via Scanner (Automático)
+  // Função de envio via Scanner (leitura de pistola/câmera) com fallback offline
   const handleScannerEntry = useCallback(async () => {
     const scannedPlate = entryScanInput.trim().toUpperCase();
 
@@ -110,6 +111,20 @@ export default function Parking() {
       setEntryScanInput("");
       fetchRecords();
     } catch (err) {
+      if (!err.response || err.code === 'ERR_NETWORK') {
+        const offlineId = crypto.randomUUID();
+        await db.offlineQueue.put({
+          offline_id: offlineId,
+          status: 'pending',
+          payload_type: 'parking_entry',
+          created_at: new Date().toISOString(),
+          payload: { event_id: form.event_id, vehicle_type: form.vehicle_type, license_plate: scannedPlate },
+        });
+        toast.success("Entrada salva localmente (Offline)!");
+        setEntryScanInput("");
+        setRecords(prev => [{ id: offlineId, license_plate: scannedPlate, vehicle_type: form.vehicle_type, status: 'parked', created_at: new Date().toISOString() }, ...prev]);
+        return;
+      }
       toast.error(err.response?.data?.message || "Erro ao registrar entrada.");
       setEntryScanInput("");
     } finally {
@@ -145,6 +160,21 @@ export default function Parking() {
       setForm({ event_id: String(eventId || ""), license_plate: "", vehicle_type: "car" });
       fetchRecords();
     } catch (err) {
+      if (!err.response || err.code === 'ERR_NETWORK') {
+        const offlineId = crypto.randomUUID();
+        await db.offlineQueue.put({
+          offline_id: offlineId,
+          status: 'pending',
+          payload_type: 'parking_entry',
+          created_at: new Date().toISOString(),
+          payload: { event_id: form.event_id, vehicle_type: form.vehicle_type, license_plate: form.license_plate },
+        });
+        toast.success("Entrada salva localmente (Offline)!");
+        setShowForm(false);
+        setForm({ event_id: String(eventId || ""), license_plate: "", vehicle_type: "car" });
+        setRecords(prev => [{ id: offlineId, license_plate: form.license_plate, vehicle_type: form.vehicle_type, status: 'parked', created_at: new Date().toISOString() }, ...prev]);
+        return;
+      }
       toast.error(err.response?.data?.message || "Erro ao registrar entrada.");
     }
   };
@@ -155,6 +185,19 @@ export default function Parking() {
       toast.success("Saída registrada!");
       fetchRecords();
     } catch (err) {
+      if (!err.response || err.code === 'ERR_NETWORK') {
+        const offlineId = crypto.randomUUID();
+        await db.offlineQueue.put({
+          offline_id: offlineId,
+          status: 'pending',
+          payload_type: 'parking_exit',
+          created_at: new Date().toISOString(),
+          payload: { parking_id: id, event_id: eventId },
+        });
+        toast.success("Saída salva localmente (Offline)!");
+        setRecords(prev => prev.map(r => r.id === id ? { ...r, status: 'exited', updated_at: new Date().toISOString() } : r));
+        return;
+      }
       toast.error(err.response?.data?.message || "Erro ao registrar saída.");
     }
   };
@@ -189,6 +232,34 @@ export default function Parking() {
         fetchRecords(); 
       }
     } catch (err) {
+            if (!err.response || err.code === 'ERR_NETWORK') {
+         try {
+             const cached = await db.scannerCache.where("token").equals(ticketInput.trim()).first();
+             if (cached && cached.event_id === parseFloat(eventId)) {
+                 if (cached.used_offline) {
+                    setValidationResult({ ok: false, message: "Atenção: Já validado localmente" });
+                    return toast.error("Voucher já validado offline!");
+                 }
+                 await db.scannerCache.update(cached.token, { used_offline: 1 });
+                 
+                 const offlineId = crypto.randomUUID();
+                 await db.offlineQueue.put({
+                     offline_id: offlineId,
+                     status: 'pending',
+                     payload_type: 'parking_validate',
+                     created_at: new Date().toISOString(),
+                     payload: { qr_token: ticketInput.trim(), event_id: eventId }
+                 });
+
+                 setValidationResult({ ok: true, message: "Validado via Offline", holder: cached.holder_name, type: "TICKET", event: "OFFLINE", current_status: "Acesso Liberado" });
+                 setTicketInput("");
+                 return toast.success("Validado localmente!");
+             }
+         } catch(e) {}
+         
+         setValidationResult({ ok: false, message: "Ingresso não encontrado no cache offline" });
+         return toast.error("Voucher inválido ou não cacheado.");
+      }
       const errorMsg = err.response?.data?.message || "Erro ao validar voucher.";
       
       setValidationResult({

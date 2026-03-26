@@ -15,6 +15,7 @@ import CriticalStockPanel from "../modules/dashboard/CriticalStockPanel";
 import { useAuth } from "../context/AuthContext";
 import { useEventScope } from "../context/EventScopeContext";
 import api from "../lib/api";
+import { readEventCatalogCache, writeEventCatalogCache } from "../lib/eventCatalogCache";
 import OperationalNoticePanel from "../modules/dashboard/OperationalNoticePanel";
 import ParticipantsByCategoryPanel from "../modules/dashboard/ParticipantsByCategoryPanel";
 import QuickLinksPanel from "../modules/dashboard/QuickLinksPanel";
@@ -35,12 +36,26 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [loadingWorkforceCosts, setLoadingWorkforceCosts] = useState(true);
   const [events, setEvents] = useState([]);
+  const [eventsFromCache, setEventsFromCache] = useState(false);
 
   useEffect(() => {
     api
       .get("/events")
-      .then((response) => setEvents(response.data.data || []))
+      .then((response) => {
+        const nextEvents = response.data.data || [];
+        setEvents(nextEvents);
+        setEventsFromCache(false);
+        writeEventCatalogCache(nextEvents);
+      })
       .catch(() => {
+        const cached = readEventCatalogCache();
+        if (cached.data.length > 0) {
+          setEvents(cached.data);
+          setEventsFromCache(true);
+          toast("Modo offline: operações globais carregadas do cache.");
+          return;
+        }
+
         toast.error("Erro ao carregar lista de operações globais.");
       });
   }, []);
@@ -128,6 +143,12 @@ export default function Dashboard() {
           ))}
         </select>
       </div>
+
+      {eventsFromCache ? (
+        <div className="rounded-xl border border-amber-900/60 bg-amber-950/30 px-4 py-3 text-xs text-amber-100">
+          Operações globais carregadas do cache local. O evento selecionado permanece disponível mesmo sem internet.
+        </div>
+      ) : null}
 
       <section className="space-y-6">
         <SectionHeader

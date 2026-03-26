@@ -103,13 +103,20 @@ function processParticipantScan(PDO $db, array $participant, string $mode, array
 {
     $participantId = (int)$participant['id'];
     $participantStatus = normalizeScannerStatus((string)($participant['status'] ?? ''));
+    $organizerId = resolveScannerOrganizerId($operator);
 
     if (in_array($participantStatus, ['blocked', 'bloqueado', 'cancelled', 'inactive', 'inapto'], true)) {
         scannerAuditFailure($operator, (string)$participant['qr_token'], $mode, 'participant_blocked', $participantId);
         jsonError('Participante bloqueado/inapto para validação.', 403);
     }
 
-    if (!scannerModeAllowsParticipant($db, $participantId, $mode)) {
+    if (!scannerModeAllowsParticipant(
+        $db,
+        $participantId,
+        (int)($participant['event_id'] ?? 0),
+        $organizerId,
+        $mode
+    )) {
         scannerAuditFailure($operator, (string)$participant['qr_token'], $mode, 'mode_not_allowed_for_participant', $participantId);
         jsonError("Modo '{$mode}' não permitido para este QR de equipe ou setor não vinculado ao participante.", 422);
     }
@@ -267,20 +274,28 @@ function scannerModeIsValid(string $mode): bool
     return preg_match('/^[a-z0-9_-]+$/', $mode) === 1;
 }
 
-function scannerModeAllowsParticipant(PDO $db, int $participantId, string $mode): bool
+function scannerModeAllowsParticipant(PDO $db, int $participantId, int $eventId, int $organizerId, string $mode): bool
 {
     if ($mode === 'portaria') {
         return true;
     }
 
+    if ($participantId <= 0 || $eventId <= 0 || $organizerId <= 0) {
+        return false;
+    }
+
     $stmt = $db->prepare("
         SELECT 1
         FROM workforce_assignments wa
+        JOIN event_participants ep ON ep.id = wa.participant_id
+        JOIN events e ON e.id = ep.event_id
         WHERE wa.participant_id = ?
+          AND ep.event_id = ?
+          AND e.organizer_id = ?
           AND LOWER(REGEXP_REPLACE(COALESCE(wa.sector, ''), '\s+', '_', 'g')) = ?
         LIMIT 1
     ");
-    $stmt->execute([$participantId, $mode]);
+    $stmt->execute([$participantId, $eventId, $organizerId, $mode]);
     return (bool)$stmt->fetchColumn();
 }
 
@@ -319,9 +334,6 @@ function normalizeScannerToken(string $rawToken): string
 
 function resolveScannerOrganizerId(array $user): int
 {
-    if (($user['role'] ?? '') === 'admin') {
-        return (int)($user['organizer_id'] ?? $user['id'] ?? 0);
-    }
     return (int)($user['organizer_id'] ?? 0);
 }
 
@@ -393,7 +405,7 @@ function dumpScannerCache(array $query): void
 
         if (scannerTableExists($db, 'tickets')) {
             $stmtTickets = $db->prepare("
-                SELECT id, qr_token, order_reference, totp_secret, holder_name, status
+                SELECT id, qr_token, order_reference, holder_name, status
                 FROM tickets
                 WHERE event_id = ? AND organizer_id = ?
                   AND status IN ('paid', 'used')
@@ -405,7 +417,6 @@ function dumpScannerCache(array $query): void
                     'id' => $t['id'],
                     'token' => trim((string)$t['qr_token']),
                     'ref' => trim((string)$t['order_reference']),
-                    'totp_secret' => trim((string)$t['totp_secret']),
                     'holder_name' => $t['holder_name'],
                     'status' => $t['status']
                 ];

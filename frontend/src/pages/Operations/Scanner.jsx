@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import {
   Camera,
@@ -10,13 +10,20 @@ import {
   Loader2,
   ArrowLeft,
   WifiOff,
+  Database,
+  CloudDownload,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { db } from "../../lib/db";
 import api from "../../lib/api";
 import { useEventScope } from "../../context/EventScopeContext";
+import { readEventCatalogCache, writeEventCatalogCache } from "../../lib/eventCatalogCache";
+import {
+  buildOfflineScannerLookupCandidates,
+  buildScannerCacheRecord,
+} from "../../lib/offlineScanner";
 
-const SCANNER_EVENTS_CACHE_KEY = "enjoyfun_scanner_events_v1";
 const SCANNER_SECTORS_CACHE_PREFIX = "enjoyfun_scanner_sectors_v1";
 
 function normalizeScannerModeValue(value = "") {
@@ -162,6 +169,38 @@ export default function Scanner() {
     requestedMode === "portaria" ||
     (requestedMode !== "" && sectorModes.some((item) => item.id === requestedMode));
   const returnTo = buildScannerReturnPath(requestedMode, location.state?.returnTo);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [offlineCount, setOfflineCount] = useState(0);
+
+  useEffect(() => {
+    if (eventId) {
+      db.scannerCache.where("event_id").equals(parseFloat(eventId)).count().then(count => {
+        setOfflineCount(count);
+      }).catch(err => console.log('DB count err', err));
+    }
+  }, [eventId]);
+
+  const handleSyncScanners = async () => {
+    if (!eventId) return;
+    setIsSyncing(true);
+    try {
+      const res = await api.get("/scanner/dump", { params: { event_id: eventId } });
+      const items = res.data?.data?.items || [];
+      
+      await db.scannerCache.where("event_id").equals(parseFloat(eventId)).delete();
+      const docs = items.map((item) => buildScannerCacheRecord(item, eventId));
+      await db.scannerCache.bulkPut(docs);
+      
+      setOfflineCount(docs.length);
+      toast.success(docs.length + " registros guardados (offline).");
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao sincronizar cofre offline.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
 
   const startScanner = async () => {
     setScanResult(null);
@@ -214,7 +253,7 @@ export default function Scanner() {
         const list = res.data?.data || [];
         setEvents(list);
         setEventsFromCache(false);
-        writeJsonCache(SCANNER_EVENTS_CACHE_KEY, { data: list });
+        writeEventCatalogCache(list);
 
         const nextEventId = selectDefaultEventId(list, requestedEventId, eventId);
         if (nextEventId) {
@@ -223,7 +262,7 @@ export default function Scanner() {
       } catch {
         if (cancelled) return;
 
-        const cached = readJsonCache(SCANNER_EVENTS_CACHE_KEY);
+        const cached = readEventCatalogCache();
         const cachedEvents = cached?.data || [];
         if (cachedEvents.length > 0) {
           setEvents(cachedEvents);
@@ -349,9 +388,130 @@ export default function Scanner() {
     return () => clearInterval(focusInterval);
   }, [isProcessing, operationMode, scanResult]);
 
+  // ── Fallback offline: consulta scannerCache local ──────────────────────
+  const handleScanOffline = useCallback(async (qrData) => {
+    try {
+      const numericEventId = Number(eventId);
+      const { tokenCandidates, refCandidates } = buildOfflineScannerLookupCandidates(qrData);
+
+      let cached = null;
+
+      for (const candidate of tokenCandidates) {
+        cached = await db.scannerCache
+          .where("[event_id+token_lookup]")
+          .equals([numericEventId, candidate])
+          .first();
+
+        if (cached) {
+          break;
+        }
+      }
+
+      if (!cached) {
+        for (const candidate of refCandidates) {
+          cached = await db.scannerCache
+            .where("[event_id+ref_lookup]")
+            .equals([numericEventId, candidate])
+            .first();
+
+          if (cached) {
+            break;
+          }
+        }
+      }
+
+      if (!cached) {
+        for (const candidate of tokenCandidates) {
+          cached = await db.scannerCache.where("token").equals(candidate).first();
+          if (cached?.event_id === numericEventId) {
+            break;
+          }
+          cached = null;
+        }
+      }
+
+      if (!cached) {
+        const legacyItems = await db.scannerCache.where("event_id").equals(numericEventId).toArray();
+        cached = legacyItems.find((item) => {
+          const itemToken = String(item?.token || "").trim();
+          const itemRef = String(item?.ref || "").trim().toUpperCase();
+          return tokenCandidates.includes(itemToken) || refCandidates.includes(itemRef);
+        }) || null;
+      }
+
+      if (!cached || cached.event_id !== numericEventId) {
+        setScanResult({ type: "error", message: "Ingresso não encontrado no cofre offline. Sincronize antes de entrar em campo." });
+        toast.error("Erro na leitura (offline)");
+        return;
+      }
+
+      if (cached.used_offline) {
+        setScanResult({ type: "warning", message: "Já validado offline" });
+        toast.error("Atenção na leitura");
+        return;
+      }
+
+      if (['cancelled', 'blocked', 'inapto'].includes(cached.status)) {
+        setScanResult({ type: "error", message: "Cancelado ou Bloqueado" });
+        toast.error("Erro na leitura");
+        return;
+      }
+
+      if (operationMode !== 'portaria' && cached.type === 'participant') {
+        if (!cached.allowed_sectors?.includes(operationMode)) {
+          setScanResult({ type: "error", message: "Setor não permitido" });
+          toast.error("Erro na leitura");
+          return;
+        }
+      }
+
+      await db.scannerCache.update(cached.token, { used_offline: 1 });
+
+      const offlineId = crypto.randomUUID();
+      const isOfflineTicket = cached.type === "ticket";
+      await db.offlineQueue.put({
+        offline_id: offlineId,
+        status: 'pending',
+        payload_type: isOfflineTicket ? 'ticket_validate' : 'scanner_process',
+        created_at: new Date().toISOString(),
+        payload: {
+          token: qrData,
+          mode: operationMode,
+          event_id: numericEventId,
+          entity_type: cached.type || null,
+        },
+      });
+
+      setScanResult({
+        type: "success",
+        message: "Acesso (Offline)!",
+        details: {
+          holder_name: cached.holder_name || "Participante",
+          info: isOfflineTicket
+            ? "Ingresso registrado localmente"
+            : cached.type === "guest"
+              ? "Convite registrado localmente"
+              : "Leitura registrada localmente",
+        },
+      });
+      toast.success("Leitura offline!");
+    } catch (dbErr) {
+      console.error("[Scanner offline]", dbErr);
+      setScanResult({ type: "error", message: "Erro no módulo offline. Tente novamente." });
+      toast.error("Erro offline.");
+    }
+  }, [eventId, operationMode]);
+
+  // ── handleScan: tenta online; cai em offline se sem resposta de rede ──
   const handleScan = async (qrData) => {
     setIsProcessing(true);
     try {
+      // Detecta offline ANTES de qualquer chamada de rede
+      if (!navigator.onLine) {
+        await handleScanOffline(qrData);
+        return;
+      }
+
       let data;
 
       if (operationMode === "portaria") {
@@ -359,19 +519,20 @@ export default function Scanner() {
           const ticketResponse = await api.post("/tickets/validate", {
             dynamic_token: qrData,
           });
-
           data = {
             message: ticketResponse.data?.message || "Acesso liberado!",
-            data: {
-              ...ticketResponse.data?.data,
-              info: "Ingresso validado",
-            },
+            data: { ...ticketResponse.data?.data, info: "Ingresso validado" },
           };
         } catch (ticketErr) {
-          if (ticketErr.response?.status !== 404) {
+          // Sem resposta = erro de rede → fallback offline imediato
+          if (!ticketErr.response) {
+            await handleScanOffline(qrData);
+            return;
+          }
+          // 404 no tickets/validate → tenta scanner/process (ingresso de convidado)
+          if (ticketErr.response.status !== 404) {
             throw ticketErr;
           }
-
           const fallbackResponse = await api.post("/scanner/process", {
             token: qrData,
             mode: operationMode,
@@ -393,15 +554,17 @@ export default function Scanner() {
       });
       toast.success("Leitura aprovada!");
     } catch (err) {
+      // Erro de rede em qualquer outro ponto → fallback offline
+      if (!err.response) {
+        await handleScanOffline(qrData);
+        return;
+      }
+
       const msg = err.response?.data?.message || "Erro na validação do QR Code.";
       const lowerMsg = msg.toLowerCase();
 
       let type = "error";
-      if (
-        lowerMsg.includes("já utilizado") ||
-        lowerMsg.includes("já validado") ||
-        lowerMsg.includes("already used")
-      ) {
+      if (lowerMsg.includes("já utilizado") || lowerMsg.includes("já validado") || lowerMsg.includes("already used")) {
         type = "warning";
       } else if (lowerMsg.includes("limite") || lowerMsg.includes("cota atingida")) {
         type = "warning";
@@ -409,10 +572,7 @@ export default function Scanner() {
         type = "error";
       }
 
-      setScanResult({
-        type,
-        message: msg,
-      });
+      setScanResult({ type, message: msg });
       toast.error(type === "warning" ? "Atenção na leitura" : "Erro na leitura");
     } finally {
       setIsProcessing(false);
@@ -553,6 +713,19 @@ export default function Scanner() {
             ))}
           </div>
 
+                    {eventId && (
+             <div className="card p-4 mt-6 border-brand/40 bg-brand/5">
+                <div className="flex items-center justify-between">
+                   <div className="space-y-1">
+                      <h4 className="font-semibold text-white flex items-center gap-2"><Database size={16} className="text-brand"/> Cofre Offline</h4>
+                      <p className="text-xs text-gray-400">{offlineCount} ingressos baixados para contorno de crise.</p>
+                   </div>
+                   <button onClick={handleSyncScanners} disabled={isSyncing} className="btn-secondary py-1 text-xs">
+                     {isSyncing ? <Loader2 size={14} className="animate-spin" /> : <CloudDownload size={14} />} Sincronizar
+                   </button>
+                </div>
+             </div>
+          )}
           {catalogLoading ? (
             <p className="text-sm text-gray-500 text-center">Carregando catálogo operacional...</p>
           ) : eventId && sectorModes.length === 0 ? (

@@ -15,6 +15,7 @@ import SuperAdminPanel from "./pages/SuperAdminPanel";
 import Guests from "./pages/Guests";
 import GuestTicket from "./pages/GuestTicket";
 import AppVersionGuard from "./components/AppVersionGuard";
+import { useOfflineSync } from "./hooks/useOfflineSync";
 
 // Nossos arquivos independentes
 import Bar from "./pages/Bar";
@@ -59,10 +60,17 @@ function NotFound() {
   );
 }
 
+/** Monta o background sync global uma única vez dentro do contexto autenticado */
+function GlobalSyncMount() {
+  useOfflineSync();
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <GlobalSyncMount />
         <Toaster
           position="top-right"
           toastOptions={{
