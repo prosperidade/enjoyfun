@@ -61,7 +61,7 @@ function updateConfig(array $body): void
     $isActive     = filter_var($body['is_active'] ?? true, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
 
     if ($provider === '') {
-        jsonError('provider inválido. Use openai ou gemini.', 422);
+        jsonError('provider inválido. Use openai, gemini ou claude.', 422);
     }
 
     $checkStmt = $db->prepare("
@@ -107,5 +107,5 @@ function resolveOrganizerId(array $user): int
 function normalizeAiProvider(string $provider): string
 {
     $provider = strtolower(trim($provider));
-    return in_array($provider, ['openai', 'gemini'], true) ? $provider : '';
+    return in_array($provider, ['openai', 'gemini', 'claude'], true) ? $provider : '';
 }

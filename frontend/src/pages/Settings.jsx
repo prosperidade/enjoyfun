@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Palette, MessageCircle, Bot, CreditCard } from 'lucide-react';
+import { Palette, MessageCircle, CreditCard } from 'lucide-react';
 import BrandingTab from './SettingsTabs/BrandingTab';
 import ChannelsTab from './SettingsTabs/ChannelsTab';
-import AIConfigTab from './SettingsTabs/AIConfigTab';
 import FinanceTab from './SettingsTabs/FinanceTab';
 
 export default function Settings() {
@@ -11,7 +10,6 @@ export default function Settings() {
     const tabs = [
         { id: 'branding', label: 'Identidade Visual', icon: <Palette size={18} /> },
         { id: 'channels', label: 'Canais de Contato', icon: <MessageCircle size={18} /> },
-        { id: 'ai', label: 'AI Config', icon: <Bot size={18} /> },
         { id: 'finance', label: 'Camada Financeira', icon: <CreditCard size={18} /> },
     ];
 
@@ -19,7 +17,6 @@ export default function Settings() {
         switch (activeTab) {
             case 'branding': return <BrandingTab />;
             case 'channels': return <ChannelsTab />;
-            case 'ai': return <AIConfigTab />;
             case 'finance': return <FinanceTab />;
             default: return <BrandingTab />;
         }
@@ -29,7 +26,7 @@ export default function Settings() {
         <div className="p-6 max-w-6xl mx-auto space-y-6 animate-fade-in">
             <div className="mb-8">
                 <h1 className="page-title">Configurações do Organizador</h1>
-                <p className="text-gray-400 text-sm mt-1">Gerencie a marca e os módulos do seu evento white-label.</p>
+                <p className="text-gray-400 text-sm mt-1">Gerencie branding, canais e camada financeira do seu evento white-label.</p>
             </div>
 
             {/* Tabs Navigation */}

@@ -17,6 +17,8 @@ import { useEventScope } from "../context/EventScopeContext";
 
 export default function Parking() {
   const { eventId, setEventId } = useEventScope();
+  const parkingEventsCacheKey = "enjoyfun_parking_events_cache";
+  const parkingRecordsCacheKey = eventId ? `enjoyfun_parking_records_${eventId}` : "";
   const [tab, setTab] = useState("parking");
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,8 +51,24 @@ export default function Parking() {
   useEffect(() => {
     api
       .get("/events")
-      .then((r) => setEvents(r.data.data || []))
-      .catch(() => {});
+      .then((r) => {
+        const list = r.data.data || [];
+        setEvents(list);
+        localStorage.setItem(parkingEventsCacheKey, JSON.stringify(list));
+      })
+      .catch(() => {
+        const cached = localStorage.getItem(parkingEventsCacheKey);
+        if (!cached) {
+          return;
+        }
+
+        try {
+          setEvents(JSON.parse(cached));
+          toast("Modo Offline: eventos do parking carregados do cache.");
+        } catch {
+          // Ignora cache corrompido.
+        }
+      });
   }, []);
 
   useEffect(() => {
@@ -60,33 +78,47 @@ export default function Parking() {
     }));
   }, [eventId]);
 
-  const fetchRecords = useCallback(() => {
+  const setRecordsWithCache = useCallback((nextValue) => {
+    setRecords((current) => {
+      const next = typeof nextValue === "function" ? nextValue(current) : nextValue;
+      if (parkingRecordsCacheKey) {
+        localStorage.setItem(parkingRecordsCacheKey, JSON.stringify(next));
+      }
+      return next;
+    });
+  }, [parkingRecordsCacheKey]);
+
+  const fetchRecords = useCallback(async () => {
     setLoading(true);
     const params = eventId ? { event_id: eventId } : {};
-    api
-      .get("/parking", { params })
-      .then((r) => setRecords(r.data.data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [eventId]);
+
+    try {
+      const response = await api.get("/parking", { params });
+      setRecordsWithCache(response.data.data || []);
+    } catch {
+      if (parkingRecordsCacheKey) {
+        const cached = localStorage.getItem(parkingRecordsCacheKey);
+        if (cached) {
+          try {
+            setRecordsWithCache(JSON.parse(cached));
+            toast("Modo Offline: estacionamento carregado do cache.");
+          } catch {
+            setRecordsWithCache([]);
+          }
+        } else {
+          setRecordsWithCache([]);
+        }
+      } else {
+        setRecordsWithCache([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId, parkingRecordsCacheKey, setRecordsWithCache]);
 
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-    const params = eventId ? { event_id: eventId } : {};
-    api
-      .get("/parking", { params })
-      .then((r) => {
-        if (active) setRecords(r.data.data || []);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [eventId]);
+    fetchRecords();
+  }, [fetchRecords]);
 
   // Função de envio via Scanner (leitura de pistola/câmera) com fallback offline
   const handleScannerEntry = useCallback(async () => {
@@ -122,7 +154,7 @@ export default function Parking() {
         });
         toast.success("Entrada salva localmente (Offline)!");
         setEntryScanInput("");
-        setRecords(prev => [{ id: offlineId, license_plate: scannedPlate, vehicle_type: form.vehicle_type, status: 'parked', created_at: new Date().toISOString() }, ...prev]);
+        setRecordsWithCache(prev => [{ id: offlineId, license_plate: scannedPlate, vehicle_type: form.vehicle_type, status: 'parked', created_at: new Date().toISOString() }, ...prev]);
         return;
       }
       toast.error(err.response?.data?.message || "Erro ao registrar entrada.");
@@ -130,7 +162,7 @@ export default function Parking() {
     } finally {
       setScanningEntry(false);
     }
-  }, [entryScanInput, scanningEntry, form.event_id, form.vehicle_type, fetchRecords]);
+  }, [entryScanInput, scanningEntry, form.event_id, form.vehicle_type, fetchRecords, setRecordsWithCache]);
 
   // 🚀 ADIÇÃO CIRÚRGICA: Foco Inteligente (NÃO trava digitação manual)
   useEffect(() => {
@@ -172,7 +204,7 @@ export default function Parking() {
         toast.success("Entrada salva localmente (Offline)!");
         setShowForm(false);
         setForm({ event_id: String(eventId || ""), license_plate: "", vehicle_type: "car" });
-        setRecords(prev => [{ id: offlineId, license_plate: form.license_plate, vehicle_type: form.vehicle_type, status: 'parked', created_at: new Date().toISOString() }, ...prev]);
+        setRecordsWithCache(prev => [{ id: offlineId, license_plate: form.license_plate, vehicle_type: form.vehicle_type, status: 'parked', created_at: new Date().toISOString() }, ...prev]);
         return;
       }
       toast.error(err.response?.data?.message || "Erro ao registrar entrada.");
@@ -195,7 +227,7 @@ export default function Parking() {
           payload: { parking_id: id, event_id: eventId },
         });
         toast.success("Saída salva localmente (Offline)!");
-        setRecords(prev => prev.map(r => r.id === id ? { ...r, status: 'exited', updated_at: new Date().toISOString() } : r));
+        setRecordsWithCache(prev => prev.map(r => r.id === id ? { ...r, status: 'exited', updated_at: new Date().toISOString() } : r));
         return;
       }
       toast.error(err.response?.data?.message || "Erro ao registrar saída.");
@@ -232,33 +264,62 @@ export default function Parking() {
         fetchRecords(); 
       }
     } catch (err) {
-            if (!err.response || err.code === 'ERR_NETWORK') {
-         try {
-             const cached = await db.scannerCache.where("token").equals(ticketInput.trim()).first();
-             if (cached && cached.event_id === parseFloat(eventId)) {
-                 if (cached.used_offline) {
-                    setValidationResult({ ok: false, message: "Atenção: Já validado localmente" });
-                    return toast.error("Voucher já validado offline!");
-                 }
-                 await db.scannerCache.update(cached.token, { used_offline: 1 });
-                 
-                 const offlineId = crypto.randomUUID();
-                 await db.offlineQueue.put({
-                     offline_id: offlineId,
-                     status: 'pending',
-                     payload_type: 'parking_validate',
-                     created_at: new Date().toISOString(),
-                     payload: { qr_token: ticketInput.trim(), event_id: eventId }
-                 });
+      if (!err.response || err.code === 'ERR_NETWORK') {
+        const normalizedToken = ticketInput.trim();
+        const cachedRecord = records.find(
+          (record) => String(record?.qr_token || "").trim() === normalizedToken,
+        );
 
-                 setValidationResult({ ok: true, message: "Validado via Offline", holder: cached.holder_name, type: "TICKET", event: "OFFLINE", current_status: "Acesso Liberado" });
-                 setTicketInput("");
-                 return toast.success("Validado localmente!");
-             }
-         } catch(e) {}
-         
-         setValidationResult({ ok: false, message: "Ingresso não encontrado no cache offline" });
-         return toast.error("Voucher inválido ou não cacheado.");
+        if (!cachedRecord) {
+          setValidationResult({ ok: false, message: "Voucher não encontrado no cache offline do estacionamento" });
+          return toast.error("Voucher inválido ou não cacheado no parking.");
+        }
+
+        const parkingId = Number(cachedRecord?.id || 0);
+        if (parkingId <= 0) {
+          setValidationResult({ ok: false, message: "Registro ainda não sincronizado; valide novamente quando voltar a conexão" });
+          return toast.error("Registro offline sem ID real ainda não pode ser reconciliado.");
+        }
+
+        const action = String(cachedRecord?.status || "").trim().toLowerCase() === "parked"
+          ? "exit"
+          : "entry";
+        const offlineId = crypto.randomUUID();
+        await db.offlineQueue.put({
+          offline_id: offlineId,
+          status: 'pending',
+          payload_type: 'parking_validate',
+          created_at: new Date().toISOString(),
+          payload: {
+            parking_id: parkingId,
+            qr_token: normalizedToken,
+            event_id: eventId,
+            action,
+          },
+        });
+
+        setRecordsWithCache((current) => current.map((record) => {
+          if (Number(record?.id || 0) !== parkingId) {
+            return record;
+          }
+
+          return {
+            ...record,
+            status: action === "exit" ? "exited" : "parked",
+            updated_at: new Date().toISOString(),
+          };
+        }));
+
+        setValidationResult({
+          ok: true,
+          message: action === "exit" ? "Saída registrada via Offline" : "Entrada registrada via Offline",
+          holder: cachedRecord.license_plate,
+          type: cachedRecord.vehicle_type === 'car' ? 'CARRO' : 'MOTO',
+          event: "OFFLINE",
+          current_status: action === "exit" ? "Saída Registrada" : "Acesso Liberado",
+        });
+        setTicketInput("");
+        return toast.success(action === "exit" ? "Saída validada localmente!" : "Entrada validada localmente!");
       }
       const errorMsg = err.response?.data?.message || "Erro ao validar voucher.";
       

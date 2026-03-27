@@ -8,9 +8,11 @@
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
-    $operator = requireAuth(['admin', 'organizer', 'manager', 'staff']);
+    $operator = requireAuth(['admin', 'organizer', 'manager', 'staff', 'bartender', 'parking_staff']);
     require_once __DIR__ . '/../Services/SalesDomainService.php';
     require_once __DIR__ . '/../Services/MealsDomainService.php';
+    require_once __DIR__ . '/../Helpers/WorkforceEventRoleHelper.php';
+    require_once __DIR__ . '/../Helpers/ParticipantPresenceHelper.php';
 
     if ($method !== 'POST') {
         jsonError('Method not allowed.', 405);
@@ -47,6 +49,18 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
                 $payload = normalizeOfflineSalePayload($payload, $item);
             } elseif ($type === 'meal') {
                 $payload = normalizeOfflineMealPayload($payload, $item);
+            } elseif ($type === 'ticket_validate') {
+                $payload = normalizeOfflineTicketValidationPayload($payload, $item);
+            } elseif ($type === 'guest_validate') {
+                $payload = normalizeOfflineGuestValidationPayload($payload, $item);
+            } elseif ($type === 'participant_validate') {
+                $payload = normalizeOfflineParticipantValidationPayload($payload, $item);
+            } elseif ($type === 'parking_entry') {
+                $payload = normalizeOfflineParkingEntryPayload($payload, $item);
+            } elseif ($type === 'parking_exit') {
+                $payload = normalizeOfflineParkingExitPayload($payload, $item);
+            } elseif ($type === 'parking_validate') {
+                $payload = normalizeOfflineParkingValidationPayload($payload, $item);
             }
 
             authorizeOfflineSyncPayload($db, $operator, $type, $payload);
@@ -84,6 +98,18 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
                 processSale($db, $operator, $payload, $offlineId);
             } elseif ($type === 'meal') {
                 processMeal($db, $operator, $payload, $offlineId);
+            } elseif ($type === 'ticket_validate') {
+                processOfflineTicketValidation($db, $operator, $payload);
+            } elseif ($type === 'guest_validate') {
+                processOfflineGuestValidation($db, $operator, $payload);
+            } elseif ($type === 'participant_validate') {
+                processOfflineParticipantValidation($db, $operator, $payload);
+            } elseif ($type === 'parking_entry') {
+                processOfflineParkingEntry($db, $operator, $payload);
+            } elseif ($type === 'parking_exit') {
+                processOfflineParkingExit($db, $operator, $payload);
+            } elseif ($type === 'parking_validate') {
+                processOfflineParkingValidation($db, $operator, $payload);
             } else {
                 throw new Exception("Tipo de payload offline não suportado: {$type}.", 422);
             }
@@ -245,6 +271,530 @@ function normalizeOfflineMealPayload(array $payload, array $item): array
         'consumed_at' => $payload['consumed_at'] ?? null,
         'operational_timezone' => trim((string)($payload['operational_timezone'] ?? '')),
     ];
+}
+
+function normalizeOfflineTicketValidationPayload(array $payload, array $item): array
+{
+    return [
+        'event_id' => (int)($payload['event_id'] ?? 0),
+        'token' => trim((string)($payload['token'] ?? $payload['dynamic_token'] ?? $payload['qr_token'] ?? '')),
+        'scanned_token' => trim((string)($payload['scanned_token'] ?? $item['token'] ?? '')),
+    ];
+}
+
+function normalizeOfflineGuestValidationPayload(array $payload, array $item): array
+{
+    return [
+        'event_id' => (int)($payload['event_id'] ?? 0),
+        'token' => trim((string)($payload['token'] ?? $payload['qr_token'] ?? '')),
+        'mode' => normalizeOfflineScannerMode((string)($payload['mode'] ?? 'portaria')),
+        'scanned_token' => trim((string)($payload['scanned_token'] ?? $item['token'] ?? '')),
+    ];
+}
+
+function normalizeOfflineParticipantValidationPayload(array $payload, array $item): array
+{
+    return [
+        'event_id' => (int)($payload['event_id'] ?? 0),
+        'token' => trim((string)($payload['token'] ?? $payload['qr_token'] ?? '')),
+        'mode' => normalizeOfflineScannerMode((string)($payload['mode'] ?? 'portaria')),
+        'scanned_token' => trim((string)($payload['scanned_token'] ?? $item['token'] ?? '')),
+    ];
+}
+
+function normalizeOfflineParkingEntryPayload(array $payload, array $item): array
+{
+    return [
+        'event_id' => (int)($payload['event_id'] ?? 0),
+        'vehicle_type' => trim((string)($payload['vehicle_type'] ?? 'car')) ?: 'car',
+        'license_plate' => strtoupper(trim((string)($payload['license_plate'] ?? ''))),
+    ];
+}
+
+function normalizeOfflineParkingExitPayload(array $payload, array $item): array
+{
+    return [
+        'event_id' => (int)($payload['event_id'] ?? 0),
+        'parking_id' => isset($payload['parking_id']) ? (int)$payload['parking_id'] : 0,
+    ];
+}
+
+function normalizeOfflineParkingValidationPayload(array $payload, array $item): array
+{
+    return [
+        'event_id' => (int)($payload['event_id'] ?? 0),
+        'parking_id' => isset($payload['parking_id']) ? (int)$payload['parking_id'] : 0,
+        'qr_token' => trim((string)($payload['qr_token'] ?? '')),
+        'action' => normalizeOfflineParkingAction((string)($payload['action'] ?? '')),
+    ];
+}
+
+function processOfflineTicketValidation(PDO $db, array $operator, array $payload): void
+{
+    $organizerId = resolveSyncOrganizerId($operator);
+    if ($organizerId <= 0) {
+        throw new Exception('Organizador inválido para sincronização offline de ingressos.', 403);
+    }
+
+    $eventId = (int)($payload['event_id'] ?? 0);
+    $receivedToken = normalizeOfflineScannedToken((string)($payload['token'] ?? ''));
+    if ($eventId <= 0 || $receivedToken === '') {
+        throw new Exception('Token e evento são obrigatórios para sincronização offline de ingressos.', 422);
+    }
+
+    $tokenParts = explode('.', $receivedToken);
+    $otpCode = null;
+    $qrToken = $receivedToken;
+
+    if (count($tokenParts) === 2 && ctype_digit((string)($tokenParts[1] ?? ''))) {
+        $qrToken = $tokenParts[0];
+        $otpCode = $tokenParts[1];
+    }
+
+    $stmt = $db->prepare("
+        SELECT *
+        FROM tickets
+        WHERE event_id = ?
+          AND organizer_id = ?
+          AND (qr_token = ? OR order_reference = ?)
+        LIMIT 1
+    ");
+    $stmt->execute([$eventId, $organizerId, $qrToken, $qrToken]);
+    $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$ticket) {
+        throw new Exception('Ingresso não encontrado.', 404);
+    }
+    if (($ticket['status'] ?? '') === 'used') {
+        throw new Exception('Ingresso já utilizado.', 409);
+    }
+    if (($ticket['status'] ?? '') === 'cancelled') {
+        throw new Exception('Ingresso cancelado.', 409);
+    }
+
+    if ($otpCode && !syncVerifyTOTP((string)($ticket['totp_secret'] ?? ''), $otpCode)) {
+        throw new Exception('QR Code expirado (impressão detectada). Peça para atualizar a tela.', 403);
+    }
+
+    $db->prepare("UPDATE tickets SET status = 'used', used_at = NOW() WHERE id = ?")
+        ->execute([(int)$ticket['id']]);
+
+    if (class_exists('AuditService')) {
+        AuditService::log(
+            AuditService::TICKET_VALIDATE,
+            'ticket',
+            (int)$ticket['id'],
+            ['status' => $ticket['status']],
+            ['status' => 'used'],
+            $operator,
+            'success',
+            ['event_id' => (int)$ticket['event_id']]
+        );
+    }
+}
+
+function processOfflineGuestValidation(PDO $db, array $operator, array $payload): void
+{
+    $organizerId = resolveSyncOrganizerId($operator);
+    if ($organizerId <= 0) {
+        throw new Exception('Organizador inválido para sincronização offline de convidados.', 403);
+    }
+
+    $eventId = (int)($payload['event_id'] ?? 0);
+    $token = normalizeOfflineScannedToken((string)($payload['token'] ?? ''));
+    $mode = normalizeOfflineScannerMode((string)($payload['mode'] ?? 'portaria'));
+
+    if ($eventId <= 0 || $token === '') {
+        throw new Exception('Token e evento são obrigatórios para sincronização offline de convidados.', 422);
+    }
+    if ($mode !== 'portaria') {
+        throw new Exception('Guest só pode ser validado na portaria.', 422);
+    }
+
+    $stmt = $db->prepare("
+        SELECT id, event_id, name, status, metadata, qr_code_token
+        FROM guests
+        WHERE event_id = ?
+          AND organizer_id = ?
+          AND qr_code_token = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$eventId, $organizerId, $token]);
+    $guest = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$guest) {
+        throw new Exception('Convidado não encontrado.', 404);
+    }
+
+    $guestStatus = strtolower(trim((string)($guest['status'] ?? '')));
+    if (in_array($guestStatus, ['cancelled', 'bloqueado', 'blocked', 'inapto'], true)) {
+        throw new Exception('Convidado bloqueado/inapto para validação.', 403);
+    }
+    if (in_array($guestStatus, ['presente', 'checked_in', 'checked-in', 'utilizado', 'used'], true)) {
+        throw new Exception('Convidado já realizou check-in.', 409);
+    }
+
+    $metadataRaw = $guest['metadata'] ?? '{}';
+    $metadata = is_string($metadataRaw) ? json_decode($metadataRaw, true) : $metadataRaw;
+    if (!is_array($metadata)) {
+        $metadata = [];
+    }
+
+    $checkedAt = date('c');
+    $metadata['checkin_at'] = $checkedAt;
+    $metadata['checkin_mode'] = 'portaria';
+    $metadata['scanner_source'] = 'offline_sync';
+
+    $updateGuestStmt = $db->prepare(
+        "UPDATE guests SET status = 'presente', metadata = ?::jsonb, updated_at = NOW() WHERE id = ? AND organizer_id = ?"
+    );
+    $updateGuestStmt->execute([json_encode($metadata, JSON_UNESCAPED_UNICODE), (int)$guest['id'], $organizerId]);
+
+    if (class_exists('AuditService')) {
+        AuditService::log(
+            'guest.checkin',
+            'guest',
+            (int)$guest['id'],
+            ['status' => $guest['status']],
+            ['status' => 'presente'],
+            $operator,
+            'success',
+            ['event_id' => (int)$guest['event_id']]
+        );
+    }
+}
+
+function processOfflineParticipantValidation(PDO $db, array $operator, array $payload): void
+{
+    $organizerId = resolveSyncOrganizerId($operator);
+    if ($organizerId <= 0) {
+        throw new Exception('Organizador inválido para sincronização offline de participantes.', 403);
+    }
+
+    $eventId = (int)($payload['event_id'] ?? 0);
+    $token = normalizeOfflineScannedToken((string)($payload['token'] ?? ''));
+    $mode = normalizeOfflineScannerMode((string)($payload['mode'] ?? 'portaria'));
+
+    if ($eventId <= 0 || $token === '') {
+        throw new Exception('Token e evento são obrigatórios para sincronização offline de participantes.', 422);
+    }
+    if (!syncScannerModeIsValid($mode)) {
+        throw new Exception("Modo '{$mode}' inválido ou não suportado.", 422);
+    }
+
+    $participant = participantPresenceLockParticipantForTenant($db, $organizerId, null, $token);
+    if (!$participant) {
+        throw new Exception('Participante não encontrado ou restrito.', 404);
+    }
+
+    $participantId = (int)($participant['id'] ?? 0);
+    $participantEventId = (int)($participant['event_id'] ?? 0);
+    if ($participantId <= 0 || $participantEventId !== $eventId) {
+        throw new Exception('Participante fora do escopo do evento para sincronização offline.', 403);
+    }
+
+    $participantStatus = strtolower(trim((string)($participant['status'] ?? '')));
+    if (in_array($participantStatus, ['blocked', 'bloqueado', 'cancelled', 'inactive', 'inapto'], true)) {
+        throw new Exception('Participante bloqueado/inapto para validação.', 403);
+    }
+
+    if (!syncScannerModeAllowsParticipant($db, $participantId, $participantEventId, $organizerId, $mode)) {
+        throw new Exception("Modo '{$mode}' não permitido para este QR de equipe ou setor não vinculado ao participante.", 422);
+    }
+
+    $cfg = workforceResolveParticipantOperationalConfig($db, $participantId);
+    $window = participantPresenceResolveOperationalWindow($db, $participantId);
+    $result = participantPresenceRegisterAction($db, $participantId, 'check-in', participantPresenceNormalizeGateId($mode), [
+        'current_status' => (string)($participant['status'] ?? ''),
+        'max_shifts_event' => (int)($cfg['max_shifts_event'] ?? 1),
+        'duplicate_checkin_message' => 'Participante já validado neste turno.',
+        'duplicate_checkout_message' => 'Saída já registrada neste turno.',
+        'limit_reached_message' => 'Limite de turnos configurado para este membro foi atingido.',
+        'event_day_id' => $window['event_day_id'] ?? null,
+        'event_shift_id' => $window['event_shift_id'] ?? null,
+        'source_channel' => 'offline_sync',
+        'operator_user_id' => isset($operator['id']) ? (int)$operator['id'] : null,
+    ]);
+
+    if (class_exists('AuditService')) {
+        AuditService::log(
+            'scanner.process.participant',
+            'participant',
+            $participantId,
+            null,
+            [
+                'event_id' => $participantEventId,
+                'mode' => $mode,
+                'recorded_at' => $result['recorded_at'] ?? null,
+                'status' => $result['status'] ?? null,
+            ],
+            $operator,
+            'success',
+            ['metadata' => ['mode' => $mode], 'event_id' => $participantEventId]
+        );
+    }
+}
+
+function processOfflineParkingEntry(PDO $db, array $operator, array $payload): void
+{
+    $organizerId = resolveSyncOrganizerId($operator);
+    if ($organizerId <= 0) {
+        throw new Exception('Organizador inválido para sincronização offline de estacionamento.', 403);
+    }
+
+    $eventId = (int)($payload['event_id'] ?? 0);
+    $licensePlate = strtoupper(trim((string)($payload['license_plate'] ?? '')));
+    $vehicleType = trim((string)($payload['vehicle_type'] ?? 'car')) ?: 'car';
+
+    if ($eventId <= 0 || $licensePlate === '') {
+        throw new Exception('Placa do veículo e evento são obrigatórios.', 422);
+    }
+
+    $qrToken = 'PRK-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
+    if (syncParkingRecordHasOrganizerColumn($db)) {
+        $stmt = $db->prepare("
+            INSERT INTO parking_records (event_id, organizer_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
+            VALUES (?, ?, ?, ?, NULL, 'pending', ?, NOW())
+        ");
+        $stmt->execute([$eventId, $organizerId, $licensePlate, $vehicleType, $qrToken]);
+        return;
+    }
+
+    $stmt = $db->prepare("
+        INSERT INTO parking_records (event_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
+        VALUES (?, ?, ?, NULL, 'pending', ?, NOW())
+    ");
+    $stmt->execute([$eventId, $licensePlate, $vehicleType, $qrToken]);
+}
+
+function processOfflineParkingExit(PDO $db, array $operator, array $payload): void
+{
+    $record = findOfflineParkingRecord($db, $operator, $payload);
+    if (!$record) {
+        throw new Exception('Registro de estacionamento não encontrado ou acesso negado.', 404);
+    }
+
+    if (strtolower(trim((string)($record['status'] ?? ''))) === 'exited') {
+        return;
+    }
+
+    $stmt = $db->prepare("
+        UPDATE parking_records
+        SET exit_at = NOW(), status = 'exited', updated_at = NOW()
+        WHERE id = ?
+    ");
+    $stmt->execute([(int)$record['id']]);
+}
+
+function processOfflineParkingValidation(PDO $db, array $operator, array $payload): void
+{
+    $record = findOfflineParkingRecord($db, $operator, $payload);
+    if (!$record) {
+        throw new Exception('Ticket de estacionamento não reconhecido.', 404);
+    }
+
+    $currentStatus = strtolower(trim((string)($record['status'] ?? '')));
+    $action = normalizeOfflineParkingAction((string)($payload['action'] ?? ''));
+    if ($action === '') {
+        $action = $currentStatus === 'parked' ? 'exit' : 'entry';
+    }
+
+    if ($action === 'entry') {
+        if ($currentStatus === 'parked') {
+            return;
+        }
+
+        $stmt = $db->prepare("
+            UPDATE parking_records
+            SET status = 'parked', entry_at = NOW(), exit_at = NULL, updated_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->execute([(int)$record['id']]);
+        return;
+    }
+
+    if ($action === 'exit') {
+        if ($currentStatus === 'exited') {
+            return;
+        }
+
+        $stmt = $db->prepare("
+            UPDATE parking_records
+            SET status = 'exited', exit_at = NOW(), updated_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->execute([(int)$record['id']]);
+        return;
+    }
+
+    throw new Exception('Ação de validação de estacionamento inválida.', 422);
+}
+
+function findOfflineParkingRecord(PDO $db, array $operator, array $payload): ?array
+{
+    $organizerId = resolveSyncOrganizerId($operator);
+    $eventId = (int)($payload['event_id'] ?? 0);
+    $parkingId = isset($payload['parking_id']) ? (int)$payload['parking_id'] : 0;
+    $qrToken = trim((string)($payload['qr_token'] ?? ''));
+
+    if ($organizerId <= 0 || $eventId <= 0 || ($parkingId <= 0 && $qrToken === '')) {
+        throw new Exception('Payload de estacionamento offline incompleto.', 422);
+    }
+
+    if ($parkingId > 0) {
+        $stmt = $db->prepare("
+            SELECT p.id, p.status, p.qr_token
+            FROM parking_records p
+            JOIN events e ON e.id = p.event_id
+            WHERE p.id = ?
+              AND p.event_id = ?
+              AND e.organizer_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$parkingId, $eventId, $organizerId]);
+        $record = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $record ?: null;
+    }
+
+    $stmt = $db->prepare("
+        SELECT p.id, p.status, p.qr_token
+        FROM parking_records p
+        JOIN events e ON e.id = p.event_id
+        WHERE p.qr_token = ?
+          AND p.event_id = ?
+          AND e.organizer_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$qrToken, $eventId, $organizerId]);
+    $record = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $record ?: null;
+}
+
+function normalizeOfflineScannedToken(string $rawToken): string
+{
+    $token = trim($rawToken, " \t\n\r\0\x0B\"'");
+    if ($token === '') {
+        return '';
+    }
+
+    if (str_starts_with($token, '{') && str_ends_with($token, '}')) {
+        $decoded = json_decode($token, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            foreach (['dynamic_token', 'qr_token', 'token', 'code'] as $key) {
+                if (!empty($decoded[$key]) && is_string($decoded[$key])) {
+                    $token = trim($decoded[$key]);
+                    break;
+                }
+            }
+        }
+    }
+
+    if (filter_var($token, FILTER_VALIDATE_URL)) {
+        $query = parse_url($token, PHP_URL_QUERY) ?: '';
+        if ($query !== '') {
+            parse_str($query, $params);
+            foreach (['dynamic_token', 'qr_token', 'token', 'code'] as $key) {
+                if (!empty($params[$key]) && is_string($params[$key])) {
+                    return trim($params[$key]);
+                }
+            }
+        }
+    }
+
+    return $token;
+}
+
+function normalizeOfflineScannerMode(string $mode): string
+{
+    $normalized = strtolower(trim($mode));
+    $normalized = preg_replace('/\s+/', '_', $normalized);
+    return trim((string)$normalized, '_');
+}
+
+function syncScannerModeIsValid(string $mode): bool
+{
+    if ($mode === '') {
+        return false;
+    }
+
+    return preg_match('/^[a-z0-9_-]+$/', $mode) === 1;
+}
+
+function syncScannerModeAllowsParticipant(PDO $db, int $participantId, int $eventId, int $organizerId, string $mode): bool
+{
+    if ($mode === 'portaria') {
+        return true;
+    }
+
+    if ($participantId <= 0 || $eventId <= 0 || $organizerId <= 0) {
+        return false;
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM workforce_assignments wa
+        JOIN event_participants ep ON ep.id = wa.participant_id
+        JOIN events e ON e.id = ep.event_id
+        WHERE wa.participant_id = ?
+          AND ep.event_id = ?
+          AND e.organizer_id = ?
+          AND LOWER(REGEXP_REPLACE(COALESCE(wa.sector, ''), '\s+', '_', 'g')) = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$participantId, $eventId, $organizerId, $mode]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function syncVerifyTOTP(string $secret, string $code): bool
+{
+    $window = 1;
+    $timestamp = floor(time() / 30);
+    $key = hex2bin($secret);
+    if ($key === false) {
+        return false;
+    }
+
+    for ($i = -$window; $i <= $window; $i++) {
+        $timeSlot = $timestamp + $i;
+        $timePacked = pack('N*', 0) . pack('N*', $timeSlot);
+        $hash = hash_hmac('sha1', $timePacked, $key, true);
+        $offset = ord(substr($hash, -1)) & 0x0F;
+        $value = unpack('N', substr($hash, $offset, 4));
+        $value = $value[1] & 0x7FFFFFFF;
+        $otp = str_pad($value % 1000000, 6, '0', STR_PAD_LEFT);
+        if (hash_equals($otp, $code)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function normalizeOfflineParkingAction(string $action): string
+{
+    $normalized = strtolower(trim($action));
+    return in_array($normalized, ['entry', 'exit'], true) ? $normalized : '';
+}
+
+function syncParkingRecordHasOrganizerColumn(PDO $db): bool
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'parking_records'
+          AND column_name = 'organizer_id'
+        LIMIT 1
+    ");
+    $stmt->execute();
+    $cache = (bool)$stmt->fetchColumn();
+
+    return $cache;
 }
 
 function authorizeOfflineSyncPayload(PDO $db, array $operator, string $type, array $payload): void

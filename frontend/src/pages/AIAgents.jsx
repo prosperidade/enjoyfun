@@ -1,142 +1,434 @@
-import { Bot, TrendingUp, Truck, Settings, BarChart2, FileText, MessageSquare, Zap } from 'lucide-react';
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import {
+  Bot,
+  TrendingUp,
+  Truck,
+  Settings,
+  BarChart2,
+  FileText,
+  MessageSquare,
+  Save,
+  Zap,
+} from "lucide-react";
+import AIControlCenter from "../components/AIControlCenter";
+import {
+  listOrganizerAIAgents,
+  listOrganizerAIProviders,
+  updateOrganizerAIAgent,
+} from "../api/ai";
 
-const agents = [
-  {
-    id: 'marketing',
+const AGENT_PRESENTATION = {
+  marketing: {
     icon: TrendingUp,
-    title: 'Agente de Marketing',
-    color: 'from-pink-700 to-rose-700',
-    border: 'border-pink-800/40',
-    emoji: '📢',
-    description: 'Segmentação avançada de público, otimização de campanhas, geração de conteúdo e previsão de vendas.',
-    capabilities: ['Segmentação de público', 'Otimização de campanhas', 'Geração de conteúdo', 'Análise de sentimento', 'Previsão de vendas'],
-    status: 'Configurar',
-    prompt_example: 'Analise as vendas de ingressos desta semana e sugira uma estratégia de comunicação para aumentar as recargas de crédito no evento.',
+    color: "from-pink-700 to-rose-700",
+    border: "border-pink-800/40",
+    emoji: "MKT",
+    example:
+      "Analise a demanda comercial do evento e sugira uma acao de comunicacao de maior impacto no curto prazo.",
   },
-  {
-    id: 'logistics',
+  logistics: {
     icon: Truck,
-    title: 'Agente de Logística',
-    color: 'from-blue-700 to-cyan-700',
-    border: 'border-blue-800/40',
-    emoji: '🚛',
-    description: 'Otimização de layout, previsão de demanda, gerenciamento de filas e coordenação de fornecedores.',
-    capabilities: ['Otimização de layout', 'Previsão de demanda', 'Gestão de filas', 'Planejamento de contingência', 'Coordenação de fornecedores'],
-    status: 'Configurar',
-    prompt_example: 'Com base nos dados de vendas do bar nas últimas 2 horas, preveja a demanda para as próximas 3 horas e sugira ajustes de estoque.',
+    color: "from-blue-700 to-cyan-700",
+    border: "border-blue-800/40",
+    emoji: "LOG",
+    example:
+      "Aponte gargalos operacionais em filas, abastecimento e deslocamento dentro do evento.",
   },
-  {
-    id: 'management',
+  management: {
     icon: BarChart2,
-    title: 'Agente de Gestão',
-    color: 'from-purple-700 to-indigo-700',
-    border: 'border-purple-800/40',
-    emoji: '📊',
-    description: 'Assistente executivo com dashboards de KPIs em tempo real, previsão financeira e gestão de riscos.',
-    capabilities: ['KPIs em tempo real', 'Previsão financeira', 'Assistente de decisão', 'Automação de relatórios', 'Gestão de riscos'],
-    status: 'Ativo',
-    prompt_example: 'Gere um relatório executivo do evento atual com as principais métricas financeiras e recomendações de ação.',
+    color: "from-purple-700 to-indigo-700",
+    border: "border-purple-800/40",
+    emoji: "OPS",
+    example:
+      "Resuma os principais riscos e oportunidades do evento atual com foco executivo.",
   },
-  {
-    id: 'bar',
+  bar: {
     icon: Settings,
-    title: 'Agente de Bar & Estoque',
-    color: 'from-amber-700 to-orange-700',
-    border: 'border-amber-800/40',
-    emoji: '🍺',
-    description: 'Projeção de demanda, otimização de inventário, preços dinâmicos e monitoramento de qualidade.',
-    capabilities: ['Previsão de demanda', 'Otimização de inventário', 'Preços dinâmicos', 'Monitoramento de desempenho', 'Controle de qualidade'],
-    status: 'Configurar',
-    prompt_example: 'Analise quais produtos estão com baixo estoque e calcule a projeção de consumo até o fim do evento.',
+    color: "from-amber-700 to-orange-700",
+    border: "border-amber-800/40",
+    emoji: "PDV",
+    example:
+      "Analise ruptura, mix e ritmo de venda do bar para apontar a melhor acao operacional.",
   },
-  {
-    id: 'contracting',
+  contracting: {
     icon: FileText,
-    title: 'Agente de Contratação',
-    color: 'from-green-700 to-teal-700',
-    border: 'border-green-800/40',
-    emoji: '📝',
-    description: 'Comparação de propostas, verificação de reputação, geração de contratos e monitoramento de conformidade.',
-    capabilities: ['Análise de propostas', 'Verificação de fornecedores', 'Geração de contratos', 'Monitoramento de conformidade', 'Otimização de custos'],
-    status: 'Configurar',
-    prompt_example: 'Compare as propostas dos 3 fornecedores de bebidas e recomende a melhor opção baseada em custo-benefício.',
+    color: "from-green-700 to-teal-700",
+    border: "border-green-800/40",
+    emoji: "CTR",
+    example:
+      "Compare fornecedores e aponte a alternativa mais segura para contratacao neste evento.",
+  },
+  feedback: {
+    icon: MessageSquare,
+    color: "from-violet-700 to-purple-700",
+    border: "border-violet-800/40",
+    emoji: "FBK",
+    example:
+      "Consolide os sinais de participantes e operacao para identificar os 3 problemas mais recorrentes.",
+  },
+};
+
+const AGENT_ORDER = [
+  "marketing",
+  "logistics",
+  "management",
+  "bar",
+  "contracting",
+  "feedback",
+];
+
+const APPROVAL_OPTIONS = [
+  {
+    value: "confirm_write",
+    label: "Confirmar escrita",
+    description: "Permite leitura livre e exige confirmacao antes de qualquer acao de escrita.",
   },
   {
-    id: 'feedback',
-    icon: MessageSquare,
-    title: 'Agente de Feedback',
-    color: 'from-violet-700 to-purple-700',
-    border: 'border-violet-800/40',
-    emoji: '💬',
-    description: 'Coleta de feedback de múltiplos canais, análise de sentimento, identificação de temas e recomendações.',
-    capabilities: ['Análise de sentimento', 'Identificação de temas', 'Priorização de problemas', 'Geração de recomendações', 'Insights de participantes'],
-    status: 'Configurar',
-    prompt_example: 'Analise os comentários do WhatsApp desta semana e identifique os 3 principais problemas relatados pelos participantes.',
+    value: "manual_confirm",
+    label: "Confirmar tudo",
+    description: "Exige confirmacao explicita antes de qualquer acao do agente.",
+  },
+  {
+    value: "auto_read_only",
+    label: "Auto leitura",
+    description: "Leituras podem rodar automaticamente, sem permissao de escrita.",
   },
 ];
 
+function sortAgents(list) {
+  return [...list].sort((left, right) => {
+    const leftIndex = AGENT_ORDER.indexOf(left.agent_key);
+    const rightIndex = AGENT_ORDER.indexOf(right.agent_key);
+
+    if (leftIndex === -1 && rightIndex === -1) {
+      return String(left.label || left.agent_key).localeCompare(
+        String(right.label || right.agent_key),
+        "pt-BR"
+      );
+    }
+    if (leftIndex === -1) return 1;
+    if (rightIndex === -1) return -1;
+    return leftIndex - rightIndex;
+  });
+}
+
+function formatUpdatedAt(value) {
+  if (!value) return "Ainda nao configurado";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Atualizacao indisponivel";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function resolveAgentStatus(agent) {
+  if (agent.is_enabled) return { label: "Ativo", className: "badge-green" };
+  if (agent.source === "tenant") return { label: "Desligado", className: "badge-gray" };
+  return { label: "Catalogo", className: "badge-gray" };
+}
+
+function resolveProviderLabel(providers, providerKey, defaultProvider) {
+  if (!providerKey) {
+    return defaultProvider?.label
+      ? `${defaultProvider.label} (padrao)`
+      : "Provider padrao do organizer";
+  }
+
+  const match = providers.find((item) => item.provider === providerKey);
+  return match?.label || providerKey;
+}
+
 export default function AIAgents() {
+  const [agents, setAgents] = useState([]);
+  const [providers, setProviders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [savingAgentKey, setSavingAgentKey] = useState("");
+
+  const loadData = async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
+
+    try {
+      const [agentList, providerList] = await Promise.all([
+        listOrganizerAIAgents(),
+        listOrganizerAIProviders(),
+      ]);
+      setAgents(sortAgents(agentList));
+      setProviders(providerList);
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || "Erro ao carregar agentes e providers de IA."
+      );
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleAgentChange = (agentKey, field, value) => {
+    setAgents((current) =>
+      current.map((agent) =>
+        agent.agent_key === agentKey ? { ...agent, [field]: value } : agent
+      )
+    );
+  };
+
+  const handleSaveAgent = async (agent) => {
+    setSavingAgentKey(agent.agent_key);
+
+    try {
+      const payload = {
+        is_enabled: Boolean(agent.is_enabled),
+        approval_mode: agent.approval_mode || "confirm_write",
+        provider: agent.provider || "",
+      };
+
+      const updated = await updateOrganizerAIAgent(agent.agent_key, payload);
+      setAgents((current) =>
+        sortAgents(
+          current.map((item) =>
+            item.agent_key === agent.agent_key ? { ...item, ...updated } : item
+          )
+        )
+      );
+      toast.success(`Agente ${agent.label || agent.agent_key} salvo com sucesso.`);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Erro ao salvar agente de IA.");
+      await loadData({ silent: true });
+    } finally {
+      setSavingAgentKey("");
+    }
+  };
+
+  const activeAgents = agents.filter((agent) => agent.is_enabled).length;
+  const configuredProviders = providers.filter((provider) => provider.is_configured).length;
+  const defaultProvider = providers.find((provider) => provider.is_default) || null;
+
+  if (loading) {
+    return <div className="text-gray-500 animate-pulse">Carregando agentes de IA...</div>;
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="page-title flex items-center gap-2">
-          <Bot size={22} className="text-purple-400" /> Agentes de Inteligência Artificial
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">6 agentes especializados para otimizar todos os aspectos do seu evento</p>
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="page-title flex items-center gap-2">
+            <Bot size={22} className="text-purple-400" /> Agentes de Inteligencia Artificial
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            Hub vivo dos agentes por organizer, com provider, politica de aprovacao e status real.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="px-3 py-1 rounded-full border border-gray-800 bg-gray-900 text-gray-300">
+            {activeAgents} ativos
+          </span>
+          <span className="px-3 py-1 rounded-full border border-gray-800 bg-gray-900 text-gray-300">
+            {configuredProviders} providers configurados
+          </span>
+          <span className="px-3 py-1 rounded-full border border-gray-800 bg-gray-900 text-gray-300">
+            Padrao: {defaultProvider?.label || "nao definido"}
+          </span>
+        </div>
       </div>
 
       <div className="card bg-gradient-to-r from-purple-900/30 to-pink-900/30 border-purple-800/40 flex items-start gap-4">
         <div className="w-10 h-10 rounded-xl bg-purple-700 flex items-center justify-center flex-shrink-0">
           <Zap size={18} className="text-white" />
         </div>
-        <div>
-          <p className="font-medium text-white">Arquitetura baseada em API direta</p>
-          <p className="text-sm text-gray-400 mt-1">
-            Os agentes consultam modelos de linguagem (OpenAI GPT-4, Anthropic Claude ou outros) via API direta, sem intermediários.
-            Configure sua API Key nas <span className="text-purple-400">Configurações</span> para ativar cada agente.
+        <div className="space-y-2">
+          <p className="font-medium text-white">Central de IA do organizer</p>
+          <p className="text-sm text-gray-400">
+            Configure providers, runtime e agentes em um unico lugar.
           </p>
         </div>
       </div>
 
+      <AIControlCenter />
+
       <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
-        {agents.map(agent => (
-          <AgentCard key={agent.id} agent={agent} />
+        {agents.map((agent) => (
+          <AgentCard
+            key={agent.agent_key}
+            agent={agent}
+            providers={providers}
+            defaultProvider={defaultProvider}
+            saving={savingAgentKey === agent.agent_key}
+            onChange={handleAgentChange}
+            onSave={handleSaveAgent}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function AgentCard({ agent }) {
-  const Icon = agent.icon;
+function AgentCard({
+  agent,
+  providers,
+  defaultProvider,
+  saving,
+  onChange,
+  onSave,
+}) {
+  const presentation = AGENT_PRESENTATION[agent.agent_key] || {};
+  const Icon = presentation.icon || Bot;
+  const status = resolveAgentStatus(agent);
+  const approvalMeta =
+    APPROVAL_OPTIONS.find((option) => option.value === agent.approval_mode) ||
+    APPROVAL_OPTIONS[0];
+  const runtimeProviderLabel = resolveProviderLabel(
+    providers,
+    agent.provider,
+    defaultProvider
+  );
+  const selectedProvider = providers.find((provider) => provider.provider === agent.provider);
+  const runtimeProvider = selectedProvider || defaultProvider;
+  const runtimeReady = runtimeProvider ? runtimeProvider.is_configured : false;
+
   return (
-    <div className={`card-hover flex flex-col ${agent.border}`}>
-      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${agent.color} flex items-center justify-center text-xl mb-4 flex-shrink-0`}>
-        {agent.emoji}
-      </div>
-      <h3 className="font-bold text-white mb-1">{agent.title}</h3>
-      <p className="text-xs text-gray-400 mb-4 leading-relaxed">{agent.description}</p>
-
-      <div className="space-y-1.5 mb-4">
-        {agent.capabilities.map(cap => (
-          <div key={cap} className="flex items-center gap-2 text-xs text-gray-400">
-            <span className="w-1 h-1 rounded-full bg-purple-500 flex-shrink-0" />
-            {cap}
+    <div className={`card-hover flex flex-col ${presentation.border || "border-gray-800"}`}>
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-start gap-3">
+          <div
+            className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${
+              presentation.color || "from-gray-700 to-gray-800"
+            } flex items-center justify-center text-xs font-black tracking-[0.24em] text-white flex-shrink-0`}
+          >
+            {presentation.emoji || "AI"}
           </div>
-        ))}
+          <div>
+            <h3 className="font-bold text-white mb-1">{agent.label || agent.agent_key}</h3>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              {agent.description || "Agente configuravel para operacao do organizer."}
+            </p>
+          </div>
+        </div>
+        <span className={`badge ${status.className}`}>{status.label}</span>
       </div>
 
-      <div className="mt-auto pt-4 border-t border-gray-800">
-        <div className="bg-gray-800/50 rounded-lg p-3 mb-3">
-          <p className="text-xs text-gray-500 mb-1">Exemplo de consulta:</p>
-          <p className="text-xs text-gray-400 italic">"{agent.prompt_example.slice(0, 80)}..."</p>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-2">
+            <p className="text-gray-500 mb-1">Provider efetivo</p>
+            <p className="text-gray-200">{runtimeProviderLabel}</p>
+          </div>
+          <div className="rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-2">
+            <p className="text-gray-500 mb-1">Runtime</p>
+            <p className={runtimeReady ? "text-green-400" : "text-amber-300"}>
+              {runtimeReady ? "Configurado" : "Sem chave/modelo salvo"}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center justify-between">
-          <span className={`badge ${agent.status === 'Ativo' ? 'badge-green' : 'badge-gray'}`}>{agent.status}</span>
-          <button className={`btn btn-sm ${agent.status === 'Ativo' ? 'btn-primary' : 'btn-outline'}`}>
-            {agent.status === 'Ativo' ? <><Icon size={12} /> Consultar</> : 'Configurar API'}
-          </button>
+
+        <div>
+          <p className="text-xs text-gray-500 mb-2">Superficies alvo</p>
+          <div className="flex flex-wrap gap-2">
+            {(agent.surfaces || []).length > 0 ? (
+              agent.surfaces.map((surface) => (
+                <span
+                  key={surface}
+                  className="px-2 py-1 rounded-full border border-gray-800 bg-gray-900 text-[11px] text-gray-300"
+                >
+                  {surface}
+                </span>
+              ))
+            ) : (
+              <span className="px-2 py-1 rounded-full border border-gray-800 bg-gray-900 text-[11px] text-gray-500">
+                Nenhuma superficie mapeada
+              </span>
+            )}
+          </div>
         </div>
+
+        <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-3">
+          <div>
+            <p className="text-sm text-gray-200">Agente habilitado</p>
+            <p className="text-xs text-gray-500">Liga ou desliga este agente no escopo do organizer.</p>
+          </div>
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-green-500"
+            checked={Boolean(agent.is_enabled)}
+            onChange={(event) =>
+              onChange(agent.agent_key, "is_enabled", event.target.checked)
+            }
+          />
+        </label>
+
+        <div>
+          <label className="input-label">Provider do agente</label>
+          <select
+            className="input"
+            value={agent.provider || ""}
+            onChange={(event) => onChange(agent.agent_key, "provider", event.target.value)}
+          >
+            <option value="">Usar provider padrao do organizer</option>
+            {providers.map((provider) => (
+              <option key={provider.provider} value={provider.provider}>
+                {provider.label}
+                {provider.is_default ? " (Padrao)" : ""}
+                {!provider.is_configured ? " - sem chave" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="input-label">Politica de aprovacao</label>
+          <select
+            className="input"
+            value={agent.approval_mode || "confirm_write"}
+            onChange={(event) =>
+              onChange(agent.agent_key, "approval_mode", event.target.value)
+            }
+          >
+            {APPROVAL_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-2">{approvalMeta.description}</p>
+        </div>
+
+        <div className="rounded-xl border border-dashed border-gray-800 bg-gray-950/60 p-3">
+          <div className="flex items-center gap-2 text-gray-300 text-sm mb-2">
+            <Icon size={14} className="text-purple-300" />
+            Exemplo de uso
+          </div>
+          <p className="text-xs text-gray-400 italic">
+            "
+            {presentation.example ||
+              "Use este agente para orientar a operacao do evento com contexto real."}
+            "
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-auto pt-4 border-t border-gray-800 flex items-center justify-between gap-3">
+        <div className="text-xs text-gray-500">
+          Atualizado: {formatUpdatedAt(agent.updated_at)}
+        </div>
+        <button
+          type="button"
+          className="btn-primary flex items-center gap-2"
+          disabled={saving}
+          onClick={() => onSave(agent)}
+        >
+          <Save size={16} />
+          {saving ? "Salvando..." : "Salvar"}
+        </button>
       </div>
     </div>
   );

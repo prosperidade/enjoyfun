@@ -178,7 +178,7 @@ export default function Scanner() {
         setOfflineCount(count);
       }).catch(err => console.log('DB count err', err));
     }
-  }, [eventId]);
+  }, [eventId, modeLocked, requestedMode]);
 
   const handleSyncScanners = async () => {
     if (!eventId) return;
@@ -339,7 +339,7 @@ export default function Scanner() {
     return () => {
       cancelled = true;
     };
-  }, [eventId]);
+  }, [eventId, modeLocked, requestedMode]);
 
   useEffect(() => {
     if (requestedMode === "portaria") {
@@ -451,7 +451,18 @@ export default function Scanner() {
         return;
       }
 
-      if (['cancelled', 'blocked', 'inapto'].includes(cached.status)) {
+      if (['used', 'utilizado', 'presente', 'checked_in', 'checked-in', 'present'].includes(String(cached.status || '').trim().toLowerCase())) {
+        const alreadyUsedMessage = cached.type === "guest"
+          ? "Convidado já realizou check-in"
+          : cached.type === "participant"
+            ? "Participante já validado neste turno"
+            : "Ingresso já utilizado";
+        setScanResult({ type: "warning", message: alreadyUsedMessage });
+        toast.error("Atenção na leitura");
+        return;
+      }
+
+      if (['cancelled', 'blocked', 'inactive', 'inapto'].includes(String(cached.status || '').trim().toLowerCase())) {
         setScanResult({ type: "error", message: "Cancelado ou Bloqueado" });
         toast.error("Erro na leitura");
         return;
@@ -469,13 +480,23 @@ export default function Scanner() {
 
       const offlineId = crypto.randomUUID();
       const isOfflineTicket = cached.type === "ticket";
+      const isOfflineGuest = cached.type === "guest";
+      const isOfflineParticipant = cached.type === "participant";
+      const canonicalToken = String(cached?.token || tokenCandidates[0] || "").trim();
       await db.offlineQueue.put({
         offline_id: offlineId,
         status: 'pending',
-        payload_type: isOfflineTicket ? 'ticket_validate' : 'scanner_process',
+        payload_type: isOfflineTicket
+          ? 'ticket_validate'
+          : isOfflineGuest
+            ? 'guest_validate'
+            : isOfflineParticipant
+              ? 'participant_validate'
+              : 'scanner_process',
         created_at: new Date().toISOString(),
         payload: {
-          token: qrData,
+          token: (isOfflineTicket || isOfflineGuest || isOfflineParticipant) ? canonicalToken : qrData,
+          scanned_token: qrData,
           mode: operationMode,
           event_id: numericEventId,
           entity_type: cached.type || null,

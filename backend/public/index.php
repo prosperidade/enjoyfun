@@ -397,6 +397,8 @@ initializeCurrentRequestContext($method, $uri, $resource, $id, $sub, $subId, $_G
         'organizer-settings' => BASE_PATH . '/src/Controllers/OrganizerSettingsController.php',
         'organizer-messaging-settings' => BASE_PATH . '/src/Controllers/OrganizerMessagingSettingsController.php',
         'organizer-ai-config' => BASE_PATH . '/src/Controllers/OrganizerAIConfigController.php',
+        'organizer-ai-providers' => BASE_PATH . '/src/Controllers/OrganizerAIProviderController.php',
+        'organizer-ai-agents' => BASE_PATH . '/src/Controllers/OrganizerAIAgentController.php',
         'organizer-finance' => BASE_PATH . '/src/Controllers/OrganizerFinanceController.php',
         'event-finance'     => BASE_PATH . '/src/Controllers/EventFinanceDispatcher.php',
         'ai'       => BASE_PATH . '/src/Controllers/AIController.php',

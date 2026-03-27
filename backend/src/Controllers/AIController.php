@@ -6,6 +6,7 @@
 
 require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/src/Services/AIBillingService.php';
+require_once BASE_PATH . '/src/Services/AIProviderConfigService.php';
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -35,6 +36,13 @@ function getInsight(array $body): void
         jsonError('A IA operacional está desativada para este organizador.', 409);
     }
 
+    try {
+        $runtime = \EnjoyFun\Services\AIProviderConfigService::resolveRuntime($db, $organizerId, $aiConfig['provider']);
+    } catch (RuntimeException $e) {
+        $statusCode = (int)$e->getCode();
+        jsonError($e->getMessage(), $statusCode >= 400 ? $statusCode : 503);
+    }
+
     $prompt = sprintf(
         "SETOR EM ANÁLISE: %s\nPERÍODO: %s\nFATURAMENTO TOTAL: R$ %s\nITENS VENDIDOS: %s und\nTOP PRODUTOS (JSON): %s\nESTOQUE CRÍTICO (JSON): %s\n\nTAREFAS E RESTRIÇÕES:\n1. Avalie o ritmo de vendas e saúde do faturamento.\n2. Destaque os campeões de venda.\n3. Alerte sobre itens perto do limite do estoque.\n4. Sugira 2 ações práticas e imediatas aplicáveis **DENTRO** do evento em tempo real (ex: promoção relâmpago no bar, remanejamento de vendedores).\n5. **EXTREMAMENTE IMPORTANTE**: NÃO sugira campanhas de redes sociais, tráfego ou vendas fora do escopo do evento atual.\n\nPERGUNTA DO OPERADOR: %s",
         strtoupper((string)($context['sector'] ?? 'N/A')),
@@ -50,9 +58,11 @@ function getInsight(array $body): void
     $systemPrompt = trim($baseSystemPrompt . ($aiConfig['system_prompt'] !== '' ? "\n\nINSTRUÇÕES DO ORGANIZADOR:\n" . $aiConfig['system_prompt'] : ''));
 
     try {
-        $result = $aiConfig['provider'] === 'gemini'
-            ? aiRequestGeminiInsight($systemPrompt, $prompt)
-            : aiRequestOpenAiInsight($systemPrompt, $prompt);
+        $result = match ($aiConfig['provider']) {
+            'gemini' => aiRequestGeminiInsight($runtime, $systemPrompt, $prompt),
+            'claude' => aiRequestClaudeInsight($runtime, $systemPrompt, $prompt),
+            default => aiRequestOpenAiInsight($runtime, $systemPrompt, $prompt),
+        };
     } catch (RuntimeException $e) {
         $statusCode = (int)$e->getCode();
         jsonError($e->getMessage(), $statusCode >= 400 ? $statusCode : 502);
@@ -134,7 +144,7 @@ function aiLoadOrganizerConfig(PDO $db, int $organizerId): array
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
     $provider = strtolower(trim((string)($row['provider'] ?? 'openai')));
-    if (!in_array($provider, ['openai', 'gemini'], true)) {
+    if (!in_array($provider, ['openai', 'gemini', 'claude'], true)) {
         $provider = 'openai';
     }
 
@@ -145,14 +155,15 @@ function aiLoadOrganizerConfig(PDO $db, int $organizerId): array
     ];
 }
 
-function aiRequestOpenAiInsight(string $systemPrompt, string $prompt): array
+function aiRequestOpenAiInsight(array $runtime, string $systemPrompt, string $prompt): array
 {
-    $apiKey = trim((string)getenv('OPENAI_API_KEY'));
+    $apiKey = trim((string)($runtime['api_key'] ?? ''));
     if ($apiKey === '') {
         throw new RuntimeException('API Key da OpenAI não configurada no servidor (.env).', 503);
     }
 
-    $model = trim((string)(getenv('OPENAI_MODEL') ?: 'gpt-4o-mini'));
+    $model = trim((string)($runtime['model'] ?? 'gpt-4o-mini'));
+    $baseUrl = rtrim((string)($runtime['base_url'] ?? 'https://api.openai.com/v1'), '/');
     $payload = json_encode([
         'model' => $model,
         'messages' => [
@@ -164,7 +175,7 @@ function aiRequestOpenAiInsight(string $systemPrompt, string $prompt): array
 
     $startMs = (int)round(microtime(true) * 1000);
     $response = aiExecuteJsonRequest(
-        'https://api.openai.com/v1/chat/completions',
+        $baseUrl . '/chat/completions',
         $payload,
         [
             'Content-Type: application/json',
@@ -192,15 +203,16 @@ function aiRequestOpenAiInsight(string $systemPrompt, string $prompt): array
     ];
 }
 
-function aiRequestGeminiInsight(string $systemPrompt, string $prompt): array
+function aiRequestGeminiInsight(array $runtime, string $systemPrompt, string $prompt): array
 {
-    $apiKey = trim((string)getenv('GEMINI_API_KEY'));
+    $apiKey = trim((string)($runtime['api_key'] ?? ''));
     if ($apiKey === '') {
         throw new RuntimeException('API Key do Gemini não configurada no servidor (.env).', 503);
     }
 
-    $model = trim((string)(getenv('GEMINI_MODEL') ?: 'gemini-2.5-flash'));
-    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($model) . ':generateContent?key=' . rawurlencode($apiKey);
+    $model = trim((string)($runtime['model'] ?? 'gemini-2.5-flash'));
+    $baseUrl = rtrim((string)($runtime['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta'), '/');
+    $url = $baseUrl . '/models/' . rawurlencode($model) . ':generateContent?key=' . rawurlencode($apiKey);
     $payload = json_encode([
         'system_instruction' => [
             'parts' => [['text' => $systemPrompt]],
@@ -238,6 +250,74 @@ function aiRequestGeminiInsight(string $systemPrompt, string $prompt): array
         'usage' => [
             'prompt_tokens' => $promptTokens,
             'completion_tokens' => $completionTokens,
+        ],
+        'request_duration_ms' => max(0, $endMs - $startMs),
+    ];
+}
+
+function aiRequestClaudeInsight(array $runtime, string $systemPrompt, string $prompt): array
+{
+    $apiKey = trim((string)($runtime['api_key'] ?? ''));
+    if ($apiKey === '') {
+        throw new RuntimeException('API Key do Claude não configurada no servidor (.env).', 503);
+    }
+
+    $model = trim((string)($runtime['model'] ?? 'claude-3-5-sonnet-latest'));
+    $baseUrl = trim((string)($runtime['base_url'] ?? ''));
+    if ($baseUrl === '') {
+        $url = 'https://api.anthropic.com/v1/messages';
+    } else {
+        $url = rtrim($baseUrl, '/');
+        if (!str_ends_with(strtolower($url), '/messages')) {
+            $url .= '/messages';
+        }
+    }
+
+    $payload = json_encode([
+        'model' => $model,
+        'system' => $systemPrompt,
+        'messages' => [
+            ['role' => 'user', 'content' => $prompt],
+        ],
+        'max_tokens' => 800,
+        'temperature' => 0.4,
+    ], JSON_UNESCAPED_UNICODE);
+
+    $startMs = (int)round(microtime(true) * 1000);
+    $response = aiExecuteJsonRequest(
+        $url,
+        $payload,
+        [
+            'Content-Type: application/json',
+            "x-api-key: {$apiKey}",
+            'anthropic-version: 2023-06-01',
+        ],
+        'Claude'
+    );
+    $endMs = (int)round(microtime(true) * 1000);
+
+    $decoded = json_decode($response['body'], true);
+    $blocks = is_array($decoded['content'] ?? null) ? $decoded['content'] : [];
+    $parts = [];
+    foreach ($blocks as $block) {
+        $text = trim((string)($block['text'] ?? ''));
+        if ($text !== '') {
+            $parts[] = $text;
+        }
+    }
+
+    $insight = trim(implode("\n\n", $parts));
+    if ($insight === '') {
+        throw new RuntimeException('A IA não retornou uma resposta válida para sua pergunta.', 502);
+    }
+
+    return [
+        'provider' => 'claude',
+        'model' => $model,
+        'insight' => $insight,
+        'usage' => [
+            'prompt_tokens' => (int)($decoded['usage']['input_tokens'] ?? 0),
+            'completion_tokens' => (int)($decoded['usage']['output_tokens'] ?? 0),
         ],
         'request_duration_ms' => max(0, $endMs - $startMs),
     ];

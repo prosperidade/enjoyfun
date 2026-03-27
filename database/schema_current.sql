@@ -662,7 +662,7 @@ CREATE TABLE public.offline_queue (
     created_offline_at timestamp without time zone NOT NULL,
     processed_at timestamp without time zone,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_offline_queue_payload_type CHECK (((payload_type)::text = ANY ((ARRAY['sale'::character varying, 'meal'::character varying, 'topup'::character varying])::text[]))),
+    CONSTRAINT chk_offline_queue_payload_type CHECK (((payload_type)::text = ANY ((ARRAY['sale'::character varying, 'meal'::character varying, 'topup'::character varying, 'ticket_validate'::character varying, 'guest_validate'::character varying, 'participant_validate'::character varying, 'parking_entry'::character varying, 'parking_exit'::character varying, 'parking_validate'::character varying])::text[]))),
     CONSTRAINT chk_offline_queue_status CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'failed'::character varying, 'synced'::character varying])::text[])))
 );
 
@@ -728,6 +728,93 @@ ALTER SEQUENCE public.organizer_ai_config_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.organizer_ai_config_id_seq OWNED BY public.organizer_ai_config.id;
+
+
+--
+-- Name: organizer_ai_providers; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.organizer_ai_providers (
+    id integer NOT NULL,
+    organizer_id integer NOT NULL,
+    provider character varying(50) NOT NULL,
+    encrypted_api_key text,
+    model character varying(120),
+    base_url text,
+    is_active boolean DEFAULT true NOT NULL,
+    is_default boolean DEFAULT false NOT NULL,
+    settings_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_organizer_ai_providers_provider CHECK (((provider)::text = ANY ((ARRAY['openai'::character varying, 'gemini'::character varying, 'claude'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.organizer_ai_providers OWNER TO postgres;
+
+--
+-- Name: organizer_ai_providers_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.organizer_ai_providers_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.organizer_ai_providers_id_seq OWNER TO postgres;
+
+--
+-- Name: organizer_ai_providers_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.organizer_ai_providers_id_seq OWNED BY public.organizer_ai_providers.id;
+
+
+--
+-- Name: organizer_ai_agents; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.organizer_ai_agents (
+    id integer NOT NULL,
+    organizer_id integer NOT NULL,
+    agent_key character varying(100) NOT NULL,
+    provider character varying(50),
+    is_enabled boolean DEFAULT true NOT NULL,
+    approval_mode character varying(50) DEFAULT 'confirm_write'::character varying NOT NULL,
+    config_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_organizer_ai_agents_approval_mode CHECK (((approval_mode)::text = ANY ((ARRAY['manual_confirm'::character varying, 'confirm_write'::character varying, 'auto_read_only'::character varying])::text[]))),
+    CONSTRAINT chk_organizer_ai_agents_provider CHECK (((provider IS NULL) OR ((provider)::text = ANY ((ARRAY['openai'::character varying, 'gemini'::character varying, 'claude'::character varying])::text[]))))
+);
+
+
+ALTER TABLE public.organizer_ai_agents OWNER TO postgres;
+
+--
+-- Name: organizer_ai_agents_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.organizer_ai_agents_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.organizer_ai_agents_id_seq OWNER TO postgres;
+
+--
+-- Name: organizer_ai_agents_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.organizer_ai_agents_id_seq OWNED BY public.organizer_ai_agents.id;
 
 
 --
@@ -2056,6 +2143,20 @@ ALTER TABLE ONLY public.organizer_ai_config ALTER COLUMN id SET DEFAULT nextval(
 
 
 --
+-- Name: organizer_ai_providers id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.organizer_ai_providers ALTER COLUMN id SET DEFAULT nextval('public.organizer_ai_providers_id_seq'::regclass);
+
+
+--
+-- Name: organizer_ai_agents id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.organizer_ai_agents ALTER COLUMN id SET DEFAULT nextval('public.organizer_ai_agents_id_seq'::regclass);
+
+
+--
 -- Name: organizer_channels id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -2379,6 +2480,22 @@ ALTER TABLE ONLY public.offline_queue
 
 ALTER TABLE ONLY public.organizer_ai_config
     ADD CONSTRAINT organizer_ai_config_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organizer_ai_providers organizer_ai_providers_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.organizer_ai_providers
+    ADD CONSTRAINT organizer_ai_providers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organizer_ai_agents organizer_ai_agents_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.organizer_ai_agents
+    ADD CONSTRAINT organizer_ai_agents_pkey PRIMARY KEY (id);
 
 
 --
@@ -3099,6 +3216,27 @@ CREATE INDEX idx_event_participants_person ON public.event_participants USING bt
 --
 
 CREATE UNIQUE INDEX uq_event_participants_qr_token ON public.event_participants USING btree (qr_token) WHERE ((qr_token IS NOT NULL) AND ((btrim((qr_token)::text) <> ''::text)));
+
+
+--
+-- Name: uq_organizer_ai_agents_org_agent; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX uq_organizer_ai_agents_org_agent ON public.organizer_ai_agents USING btree (organizer_id, agent_key);
+
+
+--
+-- Name: uq_organizer_ai_providers_default; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX uq_organizer_ai_providers_default ON public.organizer_ai_providers USING btree (organizer_id) WHERE (is_default = true);
+
+
+--
+-- Name: uq_organizer_ai_providers_org_provider; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX uq_organizer_ai_providers_org_provider ON public.organizer_ai_providers USING btree (organizer_id, provider);
 
 
 --

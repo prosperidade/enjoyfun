@@ -7,7 +7,7 @@ db.version(1).stores({
   products: 'id, event_id, name, price, stock_qty',
   
   // Tabela de sincronização (fila)
-  offlineQueue: 'offline_id, status, payload_type' // uuid, pending|failed|synced, sale|topup|meal
+  offlineQueue: 'offline_id, status, payload_type' // uuid, pending|failed|synced, sale|topup|meal|ticket_validate|guest_validate|participant_validate|parking_*
 });
 
 db.version(2).stores({

@@ -411,3 +411,140 @@
   - endpoint versionado de replay idempotente para scanner
   - reconciliação visual de leituras offline
   - governança de conflitos pós-sync
+
+---
+
+## 15. Continuação da frente offline operacional (`2026-03-26`)
+
+### Escopo fechado nesta continuação
+
+- endurecimento do replay offline operacional para concentrar `ticket`, `guest`, `participant` e `parking` no contrato idempotente de `POST /sync`
+- expansão do contrato persistido em `offline_queue` para aceitar os novos `payload_type`
+- aplicação real da migration local e execução de smoke positiva ponta a ponta com dados sintéticos controlados
+
+### O que foi implementado
+
+- `backend/src/Controllers/SyncController.php`
+  - o pipeline de `POST /sync` foi expandido para aceitar:
+    - `ticket_validate`
+    - `guest_validate`
+    - `participant_validate`
+    - `parking_entry`
+    - `parking_exit`
+    - `parking_validate`
+  - a reconciliação passou a verificar `offline_id` no backend antes de reprocessar o item
+  - tickets, guests, participants e parking passaram a ser processados diretamente pelo fluxo idempotente do `/sync`
+  - validações de escopo por `organizer/event_id` e por setor continuaram sendo aplicadas antes da regra de negócio
+- `frontend/src/hooks/useOfflineSync.js`
+  - o replay local deixou de repostar `ticket`, `guest`, `participant` e `parking` nas rotas finais e passou a centralizar esses tipos em `/sync`
+  - `scanner_process` ficou restrito ao residual legado ainda não migrado para o contrato explícito
+- `frontend/src/pages/Operations/Scanner.jsx`
+  - o scanner offline passou a separar explicitamente:
+    - `ticket_validate`
+    - `guest_validate`
+    - `participant_validate`
+  - o token persistido para replay passou a priorizar o token canônico cacheado, preservando `scanned_token` para auditoria
+  - estados consumidos/bloqueados foram alinhados para evitar replay incorreto de convidado ou participante já validado
+- `frontend/src/pages/Parking.jsx`
+  - o parking offline deixou de depender do cache errado do scanner e passou a usar cache próprio de eventos e registros
+  - a validação offline passou a derivar `action = entry|exit` e a enfileirar `parking_validate` com `parking_id`, `event_id` e `qr_token`
+- `frontend/src/lib/db.js`
+  - documentação do `offlineQueue` local foi atualizada para refletir os novos tipos operacionais
+- `database/037_operational_offline_sync_expansion.sql`
+  - nova migration para expandir a `check constraint` de `offline_queue`
+- `database/schema_current.sql`
+  - snapshot do schema atualizado para o mesmo contrato expandido
+- `backend/scripts/offline_sync_smoke.mjs`
+  - novo script de smoke autenticado para:
+    - login
+    - resolução de `event_id` e `ticket_type_id`
+    - criação sintética de `ticket`, `guest` e `participant`
+    - replay positivo de `parking_entry`, `ticket_validate`, `guest_validate`, `participant_validate`, `parking_validate` e `parking_exit`
+    - cleanup automático de `guest` e `participant`
+  - as requisições do smoke passaram a sair marcadas com `X-Operational-Test=offline-sync-smoke`
+
+### Migration aplicada em base local
+
+- `database/037_operational_offline_sync_expansion.sql`
+  - aplicada com sucesso na base local `enjoyfun`
+  - registro confirmado em `database/migrations_applied.log`
+  - timestamp de aplicação registrado:
+    - `26/03/2026 12:55:33,98 - APLICADA: database\037_operational_offline_sync_expansion.sql`
+- o contrato de `chk_offline_queue_payload_type` passou a aceitar:
+  - `sale`
+  - `meal`
+  - `topup`
+  - `ticket_validate`
+  - `guest_validate`
+  - `participant_validate`
+  - `parking_entry`
+  - `parking_exit`
+  - `parking_validate`
+
+### Smoke executada em `26/03/2026`
+
+- antes da smoke positiva, uma chamada controlada a `POST /sync` com payloads inválidos confirmou que o backend já não respondia mais com `Tipo de payload offline não suportado`
+- depois disso foi executada a smoke positiva completa via:
+  - `node backend/scripts/offline_sync_smoke.mjs`
+- execução real validada contra:
+  - `http://localhost:8080/api`
+  - `event_id = 7`
+  - `ticket_type_id = 6`
+- sequência confirmada pela smoke:
+  - criação de ticket sintético
+  - criação de guest sintético
+  - criação de participant sintético
+  - `parking_entry` via `/sync`
+  - batch positivo com:
+    - `ticket_validate`
+    - `guest_validate`
+    - `participant_validate`
+    - `parking_validate`
+  - `parking_exit` via `/sync`
+  - cleanup de `guest` e `participant`
+
+### Resultado funcional
+
+- o contrato idempotente de `/sync` passou a cobrir a trilha operacional offline de:
+  - ticket
+  - guest
+  - participant
+  - parking
+- o replay offline deixou de depender de endpoints finais heterogêneos para esses fluxos
+- a migration necessária para aceitar os novos tipos já ficou aplicada na base local
+- a smoke positiva ficou verde ponta a ponta no ambiente local
+- a evidência operacional preservada após a smoke ficou limitada a:
+  - um ticket comercial sintético com status `used`
+  - um registro sintético de parking com status `exited`
+  - a trilha correspondente em `offline_queue`
+
+---
+
+## 16. Validações complementares da continuação
+
+- `php -l backend/src/Controllers/SyncController.php`
+- `npx eslint src/hooks/useOfflineSync.js src/pages/Operations/Scanner.jsx src/pages/Parking.jsx src/lib/db.js`
+- `node --check backend/scripts/offline_sync_smoke.mjs`
+- `node backend/scripts/offline_sync_smoke.mjs`
+
+---
+
+## 17. Arquivos adicionais desta continuação
+
+- `backend/src/Controllers/SyncController.php`
+- `backend/scripts/offline_sync_smoke.mjs`
+- `database/037_operational_offline_sync_expansion.sql`
+- `database/schema_current.sql`
+- `database/migrations_applied.log`
+- `frontend/src/hooks/useOfflineSync.js`
+- `frontend/src/lib/db.js`
+- `frontend/src/pages/Operations/Scanner.jsx`
+- `frontend/src/pages/Parking.jsx`
+
+---
+
+## 18. Próximo corte recomendado após a smoke
+
+- formalizar esta smoke no pacote de QA operacional em `docs/qa/`
+- reduzir o residual legado ainda dependente de `scanner_process`
+- adicionar uma leitura de reconciliação visual para filas offline já sincronizadas e filas com conflito

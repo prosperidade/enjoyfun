@@ -1,9 +1,9 @@
 /**
- * useOfflineSync — Hook global de Background Sync para Scanner e Parking.
+ * useOfflineSync — Hook global de Background Sync para scanner e parking.
  *
  * Ao reconectar, lê todos os itens 'pending' da offlineQueue com
- * payload_type em [scanner_process, ticket_validate, parking_entry, parking_exit, parking_validate]
- * e tenta fazer o POST correspondente.
+ * payload_type em [scanner_process, ticket_validate, guest_validate, participant_validate, parking_entry, parking_exit, parking_validate]
+ * e tenta fazer o replay correspondente.
  *
  * Também roda em polling a cada POLL_INTERVAL_MS enquanto online, como fallback
  * para o caso de o evento 'online' não ser capturado (PWA, mobile, etc.).
@@ -13,13 +13,50 @@ import { db } from '../lib/db';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
-const SYNC_TYPES = ['scanner_process', 'ticket_validate', 'parking_entry', 'parking_exit', 'parking_validate'];
+const SYNC_TYPES = ['scanner_process', 'ticket_validate', 'guest_validate', 'participant_validate', 'parking_entry', 'parking_exit', 'parking_validate'];
+const SYNC_ENDPOINT_TYPES = ['ticket_validate', 'guest_validate', 'participant_validate', 'parking_entry', 'parking_exit', 'parking_validate'];
 const MAX_ATTEMPTS = 3;
 const POLL_INTERVAL_MS = 30_000; // 30 segundos
+
+function normalizeSyncQueueItem(item) {
+  const payload = item?.payload ?? item?.data ?? {};
+
+  return {
+    offline_id: item?.offline_id,
+    payload_type: item?.payload_type ?? item?.type,
+    payload: {
+      ...payload,
+      event_id: Number(payload?.event_id ?? 0) || null,
+    },
+    created_offline_at: item?.created_offline_at ?? item?.created_at ?? new Date().toISOString(),
+  };
+}
+
+async function dispatchThroughSync(item) {
+  const normalizedItem = normalizeSyncQueueItem(item);
+  const { data } = await api.post('/sync', { items: [normalizedItem] });
+
+  if (!data?.success) {
+    throw new Error('Nao foi possivel concluir o replay offline.');
+  }
+
+  const failedIds = Array.isArray(data?.data?.failed_ids) ? data.data.failed_ids : [];
+  if (failedIds.includes(item.offline_id)) {
+    const errors = Array.isArray(data?.data?.errors) ? data.data.errors : [];
+    const matched = errors.find((entry) => entry?.offline_id === item.offline_id);
+    throw new Error(matched?.error || 'Replay offline rejeitado pelo backend.');
+  }
+
+  return data;
+}
 
 /** Mapeia payload_type → chamada de API */
 async function dispatchQueueItem(item) {
   const { payload_type, payload } = item;
+
+  if (SYNC_ENDPOINT_TYPES.includes(payload_type)) {
+    return dispatchThroughSync(item);
+  }
 
   switch (payload_type) {
     case 'scanner_process':
@@ -38,27 +75,6 @@ async function dispatchQueueItem(item) {
       return api.post('/scanner/process', {
         token: payload.token,
         mode: payload.mode,
-      });
-
-    case 'ticket_validate':
-      return api.post('/tickets/validate', {
-        dynamic_token: payload.token,
-      });
-
-    case 'parking_entry':
-      return api.post('/parking', {
-        event_id: payload.event_id,
-        vehicle_type: payload.vehicle_type,
-        license_plate: payload.license_plate,
-      });
-
-    case 'parking_exit':
-      // payload.parking_id é o ID real do registro de estacionamento
-      return api.post(`/parking/${payload.parking_id}/exit`);
-
-    case 'parking_validate':
-      return api.post('/parking/validate', {
-        qr_token: payload.qr_token,
       });
 
     default:
