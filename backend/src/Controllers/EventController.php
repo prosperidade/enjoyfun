@@ -3,6 +3,8 @@
  * Event Controller - Blindado (Multi-tenant)
  */
 
+require_once BASE_PATH . '/src/Services/AIMemoryStoreService.php';
+
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     if (strpos($_SERVER['REQUEST_URI'], 'test-event') !== false) {
@@ -142,6 +144,18 @@ function createEvent(array $body): void
 
         syncEventOperationalCalendar($db, $id, $payload);
         persistEventCommercialConfig($db, $id, $organizerId, $commercialConfig);
+        if ($payload['status'] === 'finished') {
+            \EnjoyFun\Services\AIMemoryStoreService::queueEndOfEventReport($db, $organizerId, $id, [
+                'automation_source' => 'event_finished',
+                'summary_markdown' => 'Evento criado ja finalizado. Relatorio automatico de fim de evento enfileirado.',
+                'event_snapshot' => [
+                    'name' => $payload['name'],
+                    'status' => $payload['status'],
+                    'starts_at' => $payload['starts_at'],
+                    'ends_at' => $payload['ends_at'],
+                ],
+            ]);
+        }
         $db->commit();
 
         jsonSuccess(['id' => $id], "Evento criado com sucesso!", 201);
@@ -171,9 +185,10 @@ function updateEvent(int $id, array $body): void
     $db = null;
     try {
         $db = Database::getInstance();
-        $stmtEvent = $db->prepare('SELECT id FROM events WHERE id = ? AND organizer_id = ? LIMIT 1');
+        $stmtEvent = $db->prepare('SELECT id, status FROM events WHERE id = ? AND organizer_id = ? LIMIT 1');
         $stmtEvent->execute([$id, $organizerId]);
-        if (!$stmtEvent->fetchColumn()) {
+        $existingEvent = $stmtEvent->fetch(PDO::FETCH_ASSOC);
+        if (!$existingEvent) {
             jsonError('Evento não encontrado para este organizador.', 404);
         }
 
@@ -235,6 +250,20 @@ function updateEvent(int $id, array $body): void
 
         syncEventOperationalCalendar($db, $id, $payload);
         persistEventCommercialConfig($db, $id, $organizerId, $commercialConfig);
+        if (($existingEvent['status'] ?? '') !== 'finished' && $payload['status'] === 'finished') {
+            \EnjoyFun\Services\AIMemoryStoreService::queueEndOfEventReport($db, $organizerId, $id, [
+                'automation_source' => 'event_finished',
+                'generated_by_user_id' => isset($user['id']) ? (int)$user['id'] : null,
+                'requested_by' => $user['email'] ?? $user['name'] ?? null,
+                'summary_markdown' => 'Evento mudou para finished. Relatorio automatico de fim de evento enfileirado.',
+                'event_snapshot' => [
+                    'name' => $payload['name'],
+                    'status' => $payload['status'],
+                    'starts_at' => $payload['starts_at'],
+                    'ends_at' => $payload['ends_at'],
+                ],
+            ]);
+        }
         $db->commit();
 
         jsonSuccess(['id' => $id], 'Evento atualizado com sucesso.');

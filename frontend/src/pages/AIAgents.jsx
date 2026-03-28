@@ -11,7 +11,9 @@ import {
   Save,
   Zap,
 } from "lucide-react";
+import AIBlueprintWorkbench from "../components/AIBlueprintWorkbench";
 import AIControlCenter from "../components/AIControlCenter";
+import AIExecutionFeed from "../components/AIExecutionFeed";
 import {
   listOrganizerAIAgents,
   listOrganizerAIProviders,
@@ -219,26 +221,39 @@ export default function AIAgents() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="page-title flex items-center gap-2">
-            <Bot size={22} className="text-purple-400" /> Agentes de Inteligencia Artificial
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Hub vivo dos agentes por organizer, com provider, politica de aprovacao e status real.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 text-xs">
-          <span className="px-3 py-1 rounded-full border border-gray-800 bg-gray-900 text-gray-300">
-            {activeAgents} ativos
-          </span>
-          <span className="px-3 py-1 rounded-full border border-gray-800 bg-gray-900 text-gray-300">
-            {configuredProviders} providers configurados
-          </span>
-          <span className="px-3 py-1 rounded-full border border-gray-800 bg-gray-900 text-gray-300">
-            Padrao: {defaultProvider?.label || "nao definido"}
-          </span>
+    <div className="space-y-8">
+      <div className="relative overflow-hidden rounded-[2rem] border border-fuchsia-900/30 bg-[radial-gradient(circle_at_top_left,_rgba(168,85,247,0.24),_transparent_30%),linear-gradient(135deg,_rgba(23,23,23,0.95),_rgba(17,24,39,0.98))] p-8">
+        <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_center,_rgba(244,114,182,0.18),_transparent_55%)] pointer-events-none" />
+        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-4xl">
+            <span className="inline-flex items-center gap-2 rounded-full border border-fuchsia-800/40 bg-fuchsia-950/30 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-fuchsia-200">
+              <Bot size={13} /> EnjoyFun AI Hub
+            </span>
+            <h1 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
+              Agentes, memoria, governanca e automacao do evento em um unico lugar.
+            </h1>
+            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-gray-300">
+              Este hub virou a superficie principal da inteligencia do organizer: providers,
+              politicas, roteamento por agente, trilha operacional, memoria viva e relatorio
+              automatico de fim de evento.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[420px]">
+            <span className="rounded-2xl border border-gray-800 bg-gray-950/70 px-4 py-3 text-sm text-gray-300">
+              <span className="block text-[11px] uppercase tracking-[0.22em] text-gray-500">Agentes ativos</span>
+              <span className="mt-1 block text-2xl font-black text-white">{activeAgents}</span>
+            </span>
+            <span className="rounded-2xl border border-gray-800 bg-gray-950/70 px-4 py-3 text-sm text-gray-300">
+              <span className="block text-[11px] uppercase tracking-[0.22em] text-gray-500">Providers</span>
+              <span className="mt-1 block text-2xl font-black text-white">{configuredProviders}</span>
+            </span>
+            <span className="rounded-2xl border border-gray-800 bg-gray-950/70 px-4 py-3 text-sm text-gray-300">
+              <span className="block text-[11px] uppercase tracking-[0.22em] text-gray-500">Default</span>
+              <span className="mt-1 block text-sm font-bold text-white">
+                {defaultProvider?.label || "nao definido"}
+              </span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -254,7 +269,9 @@ export default function AIAgents() {
         </div>
       </div>
 
+      <AIBlueprintWorkbench />
       <AIControlCenter />
+      <AIExecutionFeed />
 
       <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
         {agents.map((agent) => (

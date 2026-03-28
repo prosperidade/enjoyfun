@@ -5,12 +5,18 @@
  */
 
 require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
-require_once BASE_PATH . '/src/Services/AIBillingService.php';
-require_once BASE_PATH . '/src/Services/AIProviderConfigService.php';
+require_once BASE_PATH . '/src/Services/AgentExecutionService.php';
+require_once BASE_PATH . '/src/Services/AIMemoryStoreService.php';
+require_once BASE_PATH . '/src/Services/AIOrchestratorService.php';
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
+        $method === 'GET' && $id === 'blueprint' => getBlueprint(),
+        $method === 'GET' && $id === 'executions' => listExecutions($query),
+        $method === 'GET' && $id === 'memories' => listMemories($query),
+        $method === 'GET' && $id === 'reports' && $sub === null => listReports($query),
+        $method === 'POST' && $id === 'reports' && $sub === 'end-of-event' => queueEndOfEventReport($body),
         $method === 'POST' && $id === 'insight' => getInsight($body),
         default => jsonError("Rota não encontrada: {$method} /{$id}", 404),
     };
@@ -19,75 +25,144 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 function getInsight(array $body): void
 {
     $operator = requireAuth(['admin', 'organizer', 'manager', 'bartender', 'staff']);
-
     $payload = aiNormalizeInsightPayload($body);
-    $context = $payload['context'] ?? null;
-    $question = trim((string)($payload['question'] ?? ''));
-
-    if (!$context || !$question) {
-        jsonError('Contexto analítico (context) e pergunta (question) são obrigatórios.', 422);
-    }
-
-    $db = Database::getInstance();
-    $organizerId = aiResolveOrganizerId($operator, is_array($context) ? $context : []);
-    $aiConfig = aiLoadOrganizerConfig($db, $organizerId);
-
-    if (!$aiConfig['is_active']) {
-        jsonError('A IA operacional está desativada para este organizador.', 409);
-    }
 
     try {
-        $runtime = \EnjoyFun\Services\AIProviderConfigService::resolveRuntime($db, $organizerId, $aiConfig['provider']);
+        $result = \EnjoyFun\Services\AIOrchestratorService::generateInsight(
+            Database::getInstance(),
+            $operator,
+            $payload
+        );
     } catch (RuntimeException $e) {
         $statusCode = (int)$e->getCode();
         jsonError($e->getMessage(), $statusCode >= 400 ? $statusCode : 503);
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[AIController] Error generating insight (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao gerar insight de IA (Ref: {$ref})", 500);
     }
 
-    $prompt = sprintf(
-        "SETOR EM ANÁLISE: %s\nPERÍODO: %s\nFATURAMENTO TOTAL: R$ %s\nITENS VENDIDOS: %s und\nTOP PRODUTOS (JSON): %s\nESTOQUE CRÍTICO (JSON): %s\n\nTAREFAS E RESTRIÇÕES:\n1. Avalie o ritmo de vendas e saúde do faturamento.\n2. Destaque os campeões de venda.\n3. Alerte sobre itens perto do limite do estoque.\n4. Sugira 2 ações práticas e imediatas aplicáveis **DENTRO** do evento em tempo real (ex: promoção relâmpago no bar, remanejamento de vendedores).\n5. **EXTREMAMENTE IMPORTANTE**: NÃO sugira campanhas de redes sociais, tráfego ou vendas fora do escopo do evento atual.\n\nPERGUNTA DO OPERADOR: %s",
-        strtoupper((string)($context['sector'] ?? 'N/A')),
-        $context['time_filter'] ?? 'N/A',
-        $context['total_revenue'] ?? '0',
-        $context['total_items'] ?? '0',
-        json_encode($context['top_products'] ?? []),
-        json_encode($context['stock_levels'] ?? []),
-        $question
-    );
+    jsonSuccess($result, 'Insight gerado com sucesso.');
+}
 
-    $baseSystemPrompt = 'Você é a IA Consultora do EnjoyFun, especialista em eventos. Forneça insights executivos de vendas em português, usando emojis para estruturar.';
-    $systemPrompt = trim($baseSystemPrompt . ($aiConfig['system_prompt'] !== '' ? "\n\nINSTRUÇÕES DO ORGANIZADOR:\n" . $aiConfig['system_prompt'] : ''));
+function listExecutions(array $query): void
+{
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido para consultar execuções de IA.', 403);
+    }
 
     try {
-        $result = match ($aiConfig['provider']) {
-            'gemini' => aiRequestGeminiInsight($runtime, $systemPrompt, $prompt),
-            'claude' => aiRequestClaudeInsight($runtime, $systemPrompt, $prompt),
-            default => aiRequestOpenAiInsight($runtime, $systemPrompt, $prompt),
-        };
+        $data = \EnjoyFun\Services\AgentExecutionService::listExecutions(
+            Database::getInstance(),
+            $organizerId,
+            $query
+        );
     } catch (RuntimeException $e) {
         $statusCode = (int)$e->getCode();
-        jsonError($e->getMessage(), $statusCode >= 400 ? $statusCode : 502);
+        jsonError($e->getMessage(), $statusCode >= 400 ? $statusCode : 503);
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[AIController] Error listing executions (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao carregar histórico de IA (Ref: {$ref})", 500);
     }
 
-    $eventId = isset($context['event_id']) ? (int)$context['event_id'] : null;
-    $sector = strtolower(trim((string)($context['sector'] ?? 'general')));
-    $agentName = preg_replace('/[^a-z0-9_]+/', '_', $sector) ?: 'general';
-    $usage = is_array($result['usage'] ?? null) ? $result['usage'] : [];
+    jsonSuccess($data);
+}
 
-    \EnjoyFun\Services\AIBillingService::logUsage([
-        'user_id' => isset($operator['id']) ? (int)$operator['id'] : null,
-        'event_id' => $eventId > 0 ? $eventId : null,
-        'organizer_id' => $organizerId > 0 ? $organizerId : null,
-        'agent_name' => "{$result['provider']}_sales_insight_{$agentName}",
-        'prompt_tokens' => (int)($usage['prompt_tokens'] ?? 0),
-        'completion_tokens' => (int)($usage['completion_tokens'] ?? 0),
-        'request_duration_ms' => (int)($result['request_duration_ms'] ?? 0),
-    ]);
+function listMemories(array $query): void
+{
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido para consultar memórias de IA.', 403);
+    }
 
-    jsonSuccess([
-        'insight' => $result['insight'],
-        'provider' => $result['provider'],
-        'model' => $result['model'],
-    ], 'Insight gerado com sucesso.');
+    try {
+        $data = \EnjoyFun\Services\AIMemoryStoreService::listMemories(
+            Database::getInstance(),
+            $organizerId,
+            $query
+        );
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[AIController] Error listing memories (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao carregar memórias de IA (Ref: {$ref})", 500);
+    }
+
+    jsonSuccess($data);
+}
+
+function listReports(array $query): void
+{
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido para consultar relatórios de IA.', 403);
+    }
+
+    try {
+        $data = \EnjoyFun\Services\AIMemoryStoreService::listReports(
+            Database::getInstance(),
+            $organizerId,
+            $query
+        );
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[AIController] Error listing reports (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao carregar relatórios de IA (Ref: {$ref})", 500);
+    }
+
+    jsonSuccess($data);
+}
+
+function queueEndOfEventReport(array $body): void
+{
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido para enfileirar relatório final.', 403);
+    }
+
+    $eventId = (int)($body['event_id'] ?? 0);
+    if ($eventId <= 0) {
+        jsonError('event_id é obrigatório para enfileirar o relatório final.', 422);
+    }
+
+    try {
+        $data = \EnjoyFun\Services\AIMemoryStoreService::queueEndOfEventReport(
+            Database::getInstance(),
+            $organizerId,
+            $eventId,
+            [
+                'automation_source' => 'manual',
+                'generated_by_user_id' => isset($operator['id']) ? (int)$operator['id'] : null,
+                'requested_by' => $operator['email'] ?? $operator['name'] ?? null,
+            ]
+        );
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[AIController] Error queueing end-of-event report (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao enfileirar relatório final (Ref: {$ref})", 500);
+    }
+
+    jsonSuccess($data, 'Relatório final enfileirado com sucesso.', 201);
+}
+
+function getBlueprint(): void
+{
+    requireAuth(['admin', 'organizer', 'manager']);
+
+    try {
+        $data = \EnjoyFun\Services\AIMemoryStoreService::getBlueprintPayload();
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[AIController] Error loading blueprint (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao carregar blueprint de IA (Ref: {$ref})", 500);
+    }
+
+    jsonSuccess($data);
 }
 
 function aiNormalizeInsightPayload(array $body): array
@@ -111,295 +186,4 @@ function aiNormalizeInsightPayload(array $body): array
     }
 
     return $payload;
-}
-
-function aiResolveOrganizerId(array $operator, array $context): int
-{
-    $fromOperator = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
-    if ($fromOperator > 0) {
-        return $fromOperator;
-    }
-
-    return (int)($context['organizer_id'] ?? 0);
-}
-
-function aiLoadOrganizerConfig(PDO $db, int $organizerId): array
-{
-    if ($organizerId <= 0) {
-        return [
-            'provider' => 'openai',
-            'system_prompt' => '',
-            'is_active' => true,
-        ];
-    }
-
-    $stmt = $db->prepare('
-        SELECT provider, system_prompt, is_active
-        FROM organizer_ai_config
-        WHERE organizer_id = ?
-        ORDER BY updated_at DESC NULLS LAST, id DESC
-        LIMIT 1
-    ');
-    $stmt->execute([$organizerId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-
-    $provider = strtolower(trim((string)($row['provider'] ?? 'openai')));
-    if (!in_array($provider, ['openai', 'gemini', 'claude'], true)) {
-        $provider = 'openai';
-    }
-
-    return [
-        'provider' => $provider,
-        'system_prompt' => trim((string)($row['system_prompt'] ?? '')),
-        'is_active' => isset($row['is_active']) ? filter_var($row['is_active'], FILTER_VALIDATE_BOOLEAN) : true,
-    ];
-}
-
-function aiRequestOpenAiInsight(array $runtime, string $systemPrompt, string $prompt): array
-{
-    $apiKey = trim((string)($runtime['api_key'] ?? ''));
-    if ($apiKey === '') {
-        throw new RuntimeException('API Key da OpenAI não configurada no servidor (.env).', 503);
-    }
-
-    $model = trim((string)($runtime['model'] ?? 'gpt-4o-mini'));
-    $baseUrl = rtrim((string)($runtime['base_url'] ?? 'https://api.openai.com/v1'), '/');
-    $payload = json_encode([
-        'model' => $model,
-        'messages' => [
-            ['role' => 'system', 'content' => $systemPrompt],
-            ['role' => 'user', 'content' => $prompt],
-        ],
-        'temperature' => 0.4,
-    ], JSON_UNESCAPED_UNICODE);
-
-    $startMs = (int)round(microtime(true) * 1000);
-    $response = aiExecuteJsonRequest(
-        $baseUrl . '/chat/completions',
-        $payload,
-        [
-            'Content-Type: application/json',
-            "Authorization: Bearer {$apiKey}",
-        ],
-        'OpenAI'
-    );
-    $endMs = (int)round(microtime(true) * 1000);
-
-    $decoded = json_decode($response['body'], true);
-    $insight = $decoded['choices'][0]['message']['content'] ?? null;
-    if (!is_string($insight) || trim($insight) === '') {
-        throw new RuntimeException('A IA não retornou uma resposta válida para sua pergunta.', 502);
-    }
-
-    return [
-        'provider' => 'openai',
-        'model' => $model,
-        'insight' => trim($insight),
-        'usage' => [
-            'prompt_tokens' => (int)($decoded['usage']['prompt_tokens'] ?? 0),
-            'completion_tokens' => (int)($decoded['usage']['completion_tokens'] ?? 0),
-        ],
-        'request_duration_ms' => max(0, $endMs - $startMs),
-    ];
-}
-
-function aiRequestGeminiInsight(array $runtime, string $systemPrompt, string $prompt): array
-{
-    $apiKey = trim((string)($runtime['api_key'] ?? ''));
-    if ($apiKey === '') {
-        throw new RuntimeException('API Key do Gemini não configurada no servidor (.env).', 503);
-    }
-
-    $model = trim((string)($runtime['model'] ?? 'gemini-2.5-flash'));
-    $baseUrl = rtrim((string)($runtime['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta'), '/');
-    $url = $baseUrl . '/models/' . rawurlencode($model) . ':generateContent?key=' . rawurlencode($apiKey);
-    $payload = json_encode([
-        'system_instruction' => [
-            'parts' => [['text' => $systemPrompt]],
-        ],
-        'contents' => [
-            ['role' => 'user', 'parts' => [['text' => $prompt]]],
-        ],
-        'generationConfig' => [
-            'temperature' => 0.4,
-            'response_mime_type' => 'text/plain',
-        ],
-    ], JSON_UNESCAPED_UNICODE);
-
-    $startMs = (int)round(microtime(true) * 1000);
-    $response = aiExecuteJsonRequest($url, $payload, ['Content-Type: application/json'], 'Gemini');
-    $endMs = (int)round(microtime(true) * 1000);
-
-    $decoded = json_decode($response['body'], true);
-    $insight = $decoded['candidates'][0]['content']['parts'][0]['text'] ?? null;
-    if (!is_string($insight) || trim($insight) === '') {
-        throw new RuntimeException('A IA não retornou uma resposta válida para sua pergunta.', 502);
-    }
-
-    $promptTokens = (int)($decoded['usageMetadata']['promptTokenCount'] ?? 0);
-    $completionTokens = (int)($decoded['usageMetadata']['candidatesTokenCount'] ?? 0);
-    if ($completionTokens <= 0) {
-        $totalTokens = (int)($decoded['usageMetadata']['totalTokenCount'] ?? 0);
-        $completionTokens = max(0, $totalTokens - $promptTokens);
-    }
-
-    return [
-        'provider' => 'gemini',
-        'model' => $model,
-        'insight' => trim($insight),
-        'usage' => [
-            'prompt_tokens' => $promptTokens,
-            'completion_tokens' => $completionTokens,
-        ],
-        'request_duration_ms' => max(0, $endMs - $startMs),
-    ];
-}
-
-function aiRequestClaudeInsight(array $runtime, string $systemPrompt, string $prompt): array
-{
-    $apiKey = trim((string)($runtime['api_key'] ?? ''));
-    if ($apiKey === '') {
-        throw new RuntimeException('API Key do Claude não configurada no servidor (.env).', 503);
-    }
-
-    $model = trim((string)($runtime['model'] ?? 'claude-3-5-sonnet-latest'));
-    $baseUrl = trim((string)($runtime['base_url'] ?? ''));
-    if ($baseUrl === '') {
-        $url = 'https://api.anthropic.com/v1/messages';
-    } else {
-        $url = rtrim($baseUrl, '/');
-        if (!str_ends_with(strtolower($url), '/messages')) {
-            $url .= '/messages';
-        }
-    }
-
-    $payload = json_encode([
-        'model' => $model,
-        'system' => $systemPrompt,
-        'messages' => [
-            ['role' => 'user', 'content' => $prompt],
-        ],
-        'max_tokens' => 800,
-        'temperature' => 0.4,
-    ], JSON_UNESCAPED_UNICODE);
-
-    $startMs = (int)round(microtime(true) * 1000);
-    $response = aiExecuteJsonRequest(
-        $url,
-        $payload,
-        [
-            'Content-Type: application/json',
-            "x-api-key: {$apiKey}",
-            'anthropic-version: 2023-06-01',
-        ],
-        'Claude'
-    );
-    $endMs = (int)round(microtime(true) * 1000);
-
-    $decoded = json_decode($response['body'], true);
-    $blocks = is_array($decoded['content'] ?? null) ? $decoded['content'] : [];
-    $parts = [];
-    foreach ($blocks as $block) {
-        $text = trim((string)($block['text'] ?? ''));
-        if ($text !== '') {
-            $parts[] = $text;
-        }
-    }
-
-    $insight = trim(implode("\n\n", $parts));
-    if ($insight === '') {
-        throw new RuntimeException('A IA não retornou uma resposta válida para sua pergunta.', 502);
-    }
-
-    return [
-        'provider' => 'claude',
-        'model' => $model,
-        'insight' => $insight,
-        'usage' => [
-            'prompt_tokens' => (int)($decoded['usage']['input_tokens'] ?? 0),
-            'completion_tokens' => (int)($decoded['usage']['output_tokens'] ?? 0),
-        ],
-        'request_duration_ms' => max(0, $endMs - $startMs),
-    ];
-}
-
-function aiExecuteJsonRequest(string $url, string $payload, array $headers, string $providerLabel): array
-{
-    $ch = curl_init($url);
-    $curlOptions = [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => $payload,
-        CURLOPT_HTTPHEADER => $headers,
-        CURLOPT_TIMEOUT => 15,
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_SSL_VERIFYHOST => 2,
-    ];
-
-    $caBundle = aiResolveCaBundlePath();
-    if ($caBundle !== null) {
-        $curlOptions[CURLOPT_CAINFO] = $caBundle;
-    }
-
-    curl_setopt_array($ch, $curlOptions);
-
-    $body = curl_exec($ch);
-    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $error = curl_error($ch);
-    curl_close($ch);
-
-    if ($error !== '') {
-        $normalizedErr = strtolower($error);
-        if (str_contains($normalizedErr, 'ssl') || str_contains($normalizedErr, 'certificate')) {
-            $message = 'Falha de validação TLS com o provedor de IA. Revise os certificados e a data/hora do ambiente.';
-            if ($caBundle === null) {
-                $message .= ' Configure CURL_CA_BUNDLE, SSL_CERT_FILE ou um CA bundle compatível no servidor.';
-            }
-            throw new RuntimeException($message, 502);
-        }
-        throw new RuntimeException("Erro de comunicação com {$providerLabel}: {$error}", 502);
-    }
-
-    if ($status === 429) {
-        throw new RuntimeException("O limite de requisições ou créditos do provider {$providerLabel} foi atingido.", 429);
-    }
-
-    if ($status < 200 || $status >= 300) {
-        $decoded = json_decode((string)$body, true);
-        $message = $decoded['error']['message']
-            ?? $decoded['message']
-            ?? "Erro interno do provider {$providerLabel} (HTTP {$status})";
-        throw new RuntimeException($message, $status >= 400 ? $status : 502);
-    }
-
-    return [
-        'status' => $status,
-        'body' => (string)$body,
-    ];
-}
-
-function aiResolveCaBundlePath(): ?string
-{
-    $candidates = [
-        trim((string)(getenv('AI_CA_BUNDLE') ?: '')),
-        trim((string)(getenv('CURL_CA_BUNDLE') ?: '')),
-        trim((string)(getenv('SSL_CERT_FILE') ?: '')),
-        trim((string)(getenv('OPENSSL_CAFILE') ?: '')),
-        trim((string)ini_get('curl.cainfo')),
-        trim((string)ini_get('openssl.cafile')),
-        'C:\\Program Files\\Git\\mingw64\\etc\\ssl\\certs\\ca-bundle.crt',
-        'C:\\Program Files\\Git\\usr\\ssl\\certs\\ca-bundle.crt',
-        'C:\\Program Files\\Git\\mingw64\\etc\\pki\\ca-trust\\extracted\\pem\\tls-ca-bundle.pem',
-        '/etc/ssl/certs/ca-certificates.crt',
-        '/etc/pki/tls/certs/ca-bundle.crt',
-        '/etc/ssl/cert.pem',
-    ];
-
-    foreach ($candidates as $candidate) {
-        if ($candidate !== '' && is_file($candidate) && is_readable($candidate)) {
-            return $candidate;
-        }
-    }
-
-    return null;
 }

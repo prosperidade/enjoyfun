@@ -31,6 +31,7 @@ import BulkWorkforceSettingsModal from "./BulkWorkforceSettingsModal";
 import WorkforceCardIssuanceModal from "./WorkforceCardIssuanceModal";
 import WorkforceRoleSettingsModal from "./WorkforceRoleSettingsModal";
 import WorkforceSectorCostsModal from "./WorkforceSectorCostsModal";
+import WorkforceAIAssistant from "../../components/WorkforceAIAssistant";
 import { reportOperationalTelemetry } from "../../lib/operationalTelemetry";
 
 const normalizeSector = (value = "") =>
@@ -1623,6 +1624,27 @@ export default function WorkforceOpsTab({ eventId }) {
             </button>
           </div>
         ) : null}
+
+        <WorkforceAIAssistant
+          eventId={eventId}
+          assignmentsTotal={Number(treeStatus?.assignments_total || assignments.length || 0)}
+          missingBindings={Number(treeStatus?.assignments_missing_bindings || 0)}
+          managerRootsCount={Number(treeStatus?.manager_roots_count || managerRows.length || 0)}
+          selectedManagerName={selectedManager?.person_name || selectedManager?.name || ""}
+          selectedManagerRoleName={selectedManager?.role_name || ""}
+          selectedManagerSector={selectedManagerSector}
+          selectedManagerPlannedTeamSize={selectedManagerPlannedTeamSize}
+          selectedManagerFilledTeamSize={selectedManagerFilledTeamSize}
+          selectedManagerLeadershipTotal={selectedManagerLeadershipTotal}
+          selectedManagerLeadershipFilledTotal={selectedManagerLeadershipFilledTotal}
+          selectedManagerOperationalTotal={selectedManagerOperationalTotal}
+          selectedTeamMembersLoaded={teamMembers.length}
+          eventStructure={eventStructure}
+          treeUsable={Boolean(treeStatus?.tree_usable)}
+          loadedFromSnapshot={loadedFromSnapshot}
+          healthStatusLabel={operationalHealthStatus.label}
+          syncFailureRate={syncFailureRate}
+        />
 
         {activeOverviewTab === "operation" && (
           <div className="card p-4 border border-gray-800 bg-gray-900/40">

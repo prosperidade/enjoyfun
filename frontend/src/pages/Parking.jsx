@@ -14,6 +14,7 @@ import api from "../lib/api";
 import { db } from "../lib/db";
 import toast from "react-hot-toast";
 import { useEventScope } from "../context/EventScopeContext";
+import ParkingAIAssistant from "../components/ParkingAIAssistant";
 
 export default function Parking() {
   const { eventId, setEventId } = useEventScope();
@@ -335,6 +336,8 @@ export default function Parking() {
   };
 
   const parkedCount = records.filter((r) => r.status === "parked").length;
+  const pendingCount = records.filter((r) => r.status === "pending").length;
+  const selectedEvent = events.find((event) => String(event.id) === String(eventId)) || null;
 
   return (
     <div className="space-y-6">
@@ -549,6 +552,13 @@ export default function Parking() {
               ))}
             </select>
           </div>
+
+          <ParkingAIAssistant
+            eventId={eventId}
+            eventName={selectedEvent?.name || ""}
+            parkedCount={parkedCount}
+            pendingCount={pendingCount}
+          />
 
           <div className="table-wrapper">
             {loading ? (

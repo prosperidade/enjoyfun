@@ -39,3 +39,28 @@ export async function updateOrganizerAIAgent(agentKey, payload) {
   const { data } = await api.put(`/organizer-ai-agents/${agentKey}`, payload);
   return data?.data || null;
 }
+
+export async function listAIExecutions(params = {}) {
+  const { data } = await api.get("/ai/executions", { params });
+  return Array.isArray(data?.data) ? data.data : [];
+}
+
+export async function getAIBlueprint() {
+  const { data } = await api.get("/ai/blueprint");
+  return data?.data || {};
+}
+
+export async function listAIMemories(params = {}) {
+  const { data } = await api.get("/ai/memories", { params });
+  return Array.isArray(data?.data) ? data.data : [];
+}
+
+export async function listAIReports(params = {}) {
+  const { data } = await api.get("/ai/reports", { params });
+  return Array.isArray(data?.data) ? data.data : [];
+}
+
+export async function queueAIEndOfEventReport(eventId) {
+  const { data } = await api.post("/ai/reports/end-of-event", { event_id: eventId });
+  return data?.data || null;
+}

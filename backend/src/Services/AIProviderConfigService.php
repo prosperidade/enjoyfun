@@ -45,7 +45,7 @@ final class AIProviderConfigService
         }
 
         $stmt = $db->prepare("
-            SELECT provider, model, base_url, is_active, is_default, encrypted_api_key
+            SELECT provider, model, base_url, is_active, is_default, encrypted_api_key, settings_json
             FROM public.organizer_ai_providers
             WHERE organizer_id = :organizer_id
             ORDER BY provider
@@ -110,6 +110,9 @@ final class AIProviderConfigService
 
         $encryptedApiKey = $existing['encrypted_api_key'] ?? '';
         if ($apiKey !== null) {
+            $apiKey = $apiKey !== ''
+                ? self::validateProviderApiKey($normalizedProvider, $apiKey, true)
+                : '';
             $encryptedApiKey = $apiKey !== ''
                 ? SecretCryptoService::encrypt($apiKey, self::providerScope($organizerId, $normalizedProvider))
                 : '';
@@ -189,8 +192,8 @@ final class AIProviderConfigService
                 ':encrypted_api_key' => $encryptedApiKey,
                 ':model' => $model,
                 ':base_url' => $baseUrl,
-                ':is_active' => $isActive,
-                ':is_default' => $isDefault,
+                ':is_active' => self::postgresBool($isActive),
+                ':is_default' => self::postgresBool($isDefault),
                 ':settings_json' => json_encode($settings, JSON_UNESCAPED_UNICODE),
             ]);
 
@@ -237,6 +240,7 @@ final class AIProviderConfigService
         if ($apiKey === '') {
             throw new RuntimeException("API Key do provider {$normalizedProvider} não configurada.", 503);
         }
+        $apiKey = self::validateProviderApiKey($normalizedProvider, $apiKey, false);
 
         $model = self::nullableTrimmedString($row['model'] ?? null)
             ?? self::nullableTrimmedString($fallback['model'] ?? null)
@@ -396,7 +400,7 @@ final class AIProviderConfigService
             ':organizer_id' => $organizerId,
             ':agent_key' => $normalizedAgentKey,
             ':provider' => $provider,
-            ':is_enabled' => $isEnabled,
+            ':is_enabled' => self::postgresBool($isEnabled),
             ':approval_mode' => $approvalMode,
             ':config_json' => json_encode($config, JSON_UNESCAPED_UNICODE),
         ]);
@@ -483,6 +487,58 @@ final class AIProviderConfigService
         };
 
         return self::nullableTrimmedString($value);
+    }
+
+    private static function validateProviderApiKey(string $provider, string $apiKey, bool $saving): string
+    {
+        $normalized = trim($apiKey);
+        if ($normalized === '') {
+            return '';
+        }
+
+        $lower = strtolower($normalized);
+        $action = $saving ? 'salvar' : 'usar';
+        if (
+            str_contains($lower, 'sqlstate')
+            || str_contains($lower, 'incorrect api key')
+            || str_contains($lower, 'erro:')
+            || str_contains($lower, 'error:')
+        ) {
+            throw new RuntimeException(
+                "A chave do provider {$provider} está inválida. O sistema tentou {$action} um texto de erro em vez da API key real. Cole somente o segredo do provider.",
+                422
+            );
+        }
+
+        if (preg_match('/\s/u', $normalized) === 1) {
+            throw new RuntimeException(
+                "A chave do provider {$provider} está inválida. O valor contém espaços ou quebras de linha e não parece um segredo real.",
+                422
+            );
+        }
+
+        $isValid = match ($provider) {
+            'openai' => str_starts_with($normalized, 'sk-'),
+            'claude' => str_starts_with($normalized, 'sk-ant-'),
+            'gemini' => preg_match('/^[A-Za-z0-9_-]{20,}$/', $normalized) === 1,
+            default => true,
+        };
+
+        if (!$isValid) {
+            $hint = match ($provider) {
+                'openai' => 'A chave da OpenAI deve começar com sk-.',
+                'claude' => 'A chave da Anthropic deve começar com sk-ant-.',
+                'gemini' => 'A chave do Gemini deve ser a API key bruta do Google AI Studio.',
+                default => 'Informe o segredo bruto do provider.',
+            };
+
+            throw new RuntimeException(
+                "A chave do provider {$provider} está inválida. {$hint}",
+                422
+            );
+        }
+
+        return $normalized;
     }
 
     private static function providerScope(int $organizerId, string $provider): string
@@ -611,5 +667,10 @@ final class AIProviderConfigService
     {
         $trimmed = trim((string)$value);
         return $trimmed !== '' ? $trimmed : null;
+    }
+
+    private static function postgresBool(mixed $value): string
+    {
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
     }
 }
