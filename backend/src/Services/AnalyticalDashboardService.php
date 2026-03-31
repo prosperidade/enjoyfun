@@ -584,38 +584,12 @@ class AnalyticalDashboardService
 
     private static function ticketScopeFilter(string $alias): string
     {
-        return "
-            AND (
-                {$alias}.organizer_id = :org_id
-                OR (
-                    {$alias}.organizer_id IS NULL
-                    AND EXISTS (
-                        SELECT 1
-                        FROM events e_scope
-                        WHERE e_scope.id = {$alias}.event_id
-                          AND e_scope.organizer_id = :org_id_scope
-                    )
-                )
-            )
-        ";
+        return " AND {$alias}.organizer_id = :org_id ";
     }
 
     private static function salesScopeFilter(string $alias): string
     {
-        return "
-            AND (
-                {$alias}.organizer_id = :org_id
-                OR (
-                    {$alias}.organizer_id IS NULL
-                    AND EXISTS (
-                        SELECT 1
-                        FROM events e_scope
-                        WHERE e_scope.id = {$alias}.event_id
-                          AND e_scope.organizer_id = :org_id_scope
-                    )
-                )
-            )
-        ";
+        return " AND {$alias}.organizer_id = :org_id ";
     }
 
     private static function eventFilter(string $alias, ?int $eventId): string
@@ -626,7 +600,6 @@ class AnalyticalDashboardService
     private static function bindScope(\PDOStatement $stmt, int $organizerId, ?int $eventId): void
     {
         $stmt->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
-        $stmt->bindValue(':org_id_scope', $organizerId, PDO::PARAM_INT);
         if ($eventId !== null) {
             $stmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
         }

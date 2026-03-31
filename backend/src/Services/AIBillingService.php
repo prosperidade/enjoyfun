@@ -64,6 +64,68 @@ class AIBillingService
         }
     }
 
+    public static function getBillingStats(?PDO $db = null, ?int $organizerId = null): array
+    {
+        $db ??= Database::getInstance();
+
+        $sql = '
+            SELECT
+                COALESCE(SUM(total_tokens), 0) AS total_tokens_used,
+                COALESCE(SUM(estimated_cost), 0) AS total_cost_usd,
+                COALESCE(COUNT(id), 0) AS total_generations,
+                agent_name
+            FROM ai_usage_logs
+        ';
+        $params = [];
+
+        if ($organizerId !== null) {
+            $sql .= ' WHERE organizer_id = :organizer_id';
+            $params[':organizer_id'] = $organizerId;
+        }
+
+        $sql .= '
+            GROUP BY agent_name
+            ORDER BY total_cost_usd DESC
+        ';
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+
+        $agentStats = array_map(
+            static function (array $row): array {
+                return [
+                    'total_tokens_used' => (int)($row['total_tokens_used'] ?? 0),
+                    'total_cost_usd' => round((float)($row['total_cost_usd'] ?? 0), 4),
+                    'total_generations' => (int)($row['total_generations'] ?? 0),
+                    'agent_name' => (string)($row['agent_name'] ?? 'unknown'),
+                ];
+            },
+            $stmt->fetchAll(PDO::FETCH_ASSOC)
+        );
+
+        $overallTokens = array_sum(array_column($agentStats, 'total_tokens_used'));
+        $overallCost = array_sum(array_column($agentStats, 'total_cost_usd'));
+
+        return [
+            'overall' => [
+                'total_tokens' => $overallTokens,
+                'total_cost_usd' => round((float)$overallCost, 4),
+            ],
+            'by_agent' => $agentStats,
+        ];
+    }
+
+    public static function emptyBillingStats(): array
+    {
+        return [
+            'overall' => [
+                'total_tokens' => 0,
+                'total_cost_usd' => 0.0,
+            ],
+            'by_agent' => [],
+        ];
+    }
+
     private static function calculateCost(int $prompt, int $completion): float
     {
         $costPrompt = ($prompt / 1000) * self::COST_PER_1K_PROMPT;

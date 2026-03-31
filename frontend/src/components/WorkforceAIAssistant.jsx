@@ -16,6 +16,9 @@ export default function WorkforceAIAssistant({
   managerRootsCount,
   selectedManagerName,
   selectedManagerRoleName,
+  selectedManagerEventRoleId,
+  selectedManagerRootEventRoleId,
+  selectedManagerRoleClass,
   selectedManagerSector,
   selectedManagerPlannedTeamSize,
   selectedManagerFilledTeamSize,
@@ -32,6 +35,7 @@ export default function WorkforceAIAssistant({
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const hasExplicitFocus = Boolean(selectedManagerName || selectedManagerSector);
 
   const focusLabel = selectedManagerName
     ? `${selectedManagerName}${selectedManagerRoleName ? ` • ${selectedManagerRoleName}` : ""}`
@@ -67,6 +71,9 @@ export default function WorkforceAIAssistant({
           manager_roots_count_hint: Number(managerRootsCount || 0),
           selected_manager_name: selectedManagerName || null,
           selected_manager_role_name: selectedManagerRoleName || null,
+          selected_manager_event_role_id: Number(selectedManagerEventRoleId || 0),
+          selected_manager_root_event_role_id: Number(selectedManagerRootEventRoleId || 0),
+          selected_manager_role_class: selectedManagerRoleClass || null,
           selected_manager_sector: selectedManagerSector || null,
           selected_manager_planned_team_size: Number(selectedManagerPlannedTeamSize || 0),
           selected_manager_filled_team_size: Number(selectedManagerFilledTeamSize || 0),
@@ -132,8 +139,9 @@ export default function WorkforceAIAssistant({
             {Number(assignmentsTotal || 0).toLocaleString("pt-BR")}
           </p>
           <p className="mt-1 text-xs text-gray-500">
-            {Number(selectedTeamMembersLoaded || 0).toLocaleString("pt-BR")} pessoas carregadas no
-            foco atual
+            {hasExplicitFocus
+              ? `${Number(selectedTeamMembersLoaded || 0).toLocaleString("pt-BR")} pessoas carregadas no foco atual`
+              : "Nenhum gerente ou setor selecionado no foco atual"}
           </p>
         </div>
 

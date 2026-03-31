@@ -93,7 +93,7 @@ class SalesReportService
         ";
 
         $stmt = $db->prepare($sql);
-        $stmt->execute([$eventId, $organizerId, $organizerId]);
+        $stmt->execute([$eventId, $organizerId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -114,7 +114,7 @@ class SalesReportService
               AND {$sectorExpr} = '{$sector}'
               {$whereTime}
         ");
-        $stmt->execute([$eventId, $organizerId, $organizerId]);
+        $stmt->execute([$eventId, $organizerId]);
         return (float)$stmt->fetchColumn();
     }
 
@@ -135,7 +135,7 @@ class SalesReportService
               AND {$sectorExpr} = '{$sector}'
               {$whereTime}
         ");
-        $stmt->execute([$eventId, $organizerId, $organizerId]);
+        $stmt->execute([$eventId, $organizerId]);
         return (int)$stmt->fetchColumn();
     }
 
@@ -158,7 +158,7 @@ class SalesReportService
             GROUP BY COALESCE(p.name, CONCAT('Produto #', si.product_id::text))
             ORDER BY qty DESC
         ");
-        $stmt->execute([$eventId, $organizerId, $organizerId]);
+        $stmt->execute([$eventId, $organizerId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -182,7 +182,7 @@ class SalesReportService
             ORDER BY qty DESC
             LIMIT 10
         ");
-        $stmt->execute([$eventId, $organizerId, $organizerId]);
+        $stmt->execute([$eventId, $organizerId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -226,7 +226,6 @@ class SalesReportService
 
         $stmt->execute([
             $eventId,
-            $organizerId,
             $organizerId,
             $startAt->format('Y-m-d H:i:s'),
             $endExclusive->format('Y-m-d H:i:s'),
@@ -358,7 +357,7 @@ class SalesReportService
 
     private static function salesScopeFilter(string $salesAlias): string
     {
-        return "AND ({$salesAlias}.organizer_id = ? OR ({$salesAlias}.organizer_id IS NULL AND EXISTS (SELECT 1 FROM events e_scope WHERE e_scope.id = {$salesAlias}.event_id AND e_scope.organizer_id = ?)))";
+        return "AND {$salesAlias}.organizer_id = ?";
     }
 
     private static function buildSectorExpr(string $productAlias, string $salesAlias, string $sector): string

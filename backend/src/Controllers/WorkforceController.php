@@ -282,26 +282,38 @@ function ensureParticipantQrToken(PDO $db, int $participantId): void
 {
     $stmt = $db->prepare("
         UPDATE event_participants
-        SET qr_token = 'PT_' || md5(random()::text || clock_timestamp()::text || id::text)
-        WHERE id = ?
+        SET qr_token = :qr_token
+        WHERE id = :participant_id
           AND (qr_token IS NULL OR TRIM(qr_token) = '')
     ");
-    $stmt->execute([$participantId]);
+    $stmt->execute([
+        ':qr_token' => workforceGenerateParticipantQrToken(),
+        ':participant_id' => $participantId,
+    ]);
 }
 
 function backfillMissingQrTokensForEvent(PDO $db, int $eventId, int $organizerId): void
 {
     $stmt = $db->prepare("
-        UPDATE event_participants ep
-        SET qr_token = 'PT_' || md5(random()::text || clock_timestamp()::text || ep.id::text)
-        FROM people p
-        WHERE ep.person_id = p.id
-          AND ep.event_id = :event_id
+        SELECT ep.id
+        FROM event_participants ep
+        JOIN people p ON p.id = ep.person_id
+        WHERE ep.event_id = :event_id
           AND p.organizer_id = :organizer_id
           AND (ep.qr_token IS NULL OR TRIM(ep.qr_token) = '')
+        ORDER BY ep.id ASC
     ");
     $stmt->execute([
         ':event_id' => $eventId,
         ':organizer_id' => $organizerId
     ]);
+
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $participantId) {
+        ensureParticipantQrToken($db, (int)$participantId);
+    }
+}
+
+function workforceGenerateParticipantQrToken(): string
+{
+    return 'PT_' . bin2hex(random_bytes(16));
 }

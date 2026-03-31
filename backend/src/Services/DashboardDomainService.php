@@ -30,58 +30,10 @@ class DashboardDomainService
         $whereEventTickets = $eventId ? " AND t.event_id = :event_id" : "";
         $whereEventParking = $eventId ? " AND pr.event_id = :event_id" : "";
         $whereEventProducts = $eventId ? " AND p.event_id = :event_id" : "";
-        $salesScope = "
-            AND (
-                s.organizer_id = :org_id
-                OR (
-                    s.organizer_id IS NULL
-                    AND EXISTS (
-                        SELECT 1 FROM events e_scope
-                        WHERE e_scope.id = s.event_id
-                          AND e_scope.organizer_id = :org_id_scope
-                    )
-                )
-            )
-        ";
-        $ticketScope = "
-            AND (
-                t.organizer_id = :org_id
-                OR (
-                    t.organizer_id IS NULL
-                    AND EXISTS (
-                        SELECT 1 FROM events e_scope
-                        WHERE e_scope.id = t.event_id
-                          AND e_scope.organizer_id = :org_id_scope
-                    )
-                )
-            )
-        ";
-        $parkingScope = "
-            AND (
-                pr.organizer_id = :org_id
-                OR (
-                    pr.organizer_id IS NULL
-                    AND EXISTS (
-                        SELECT 1 FROM events e_scope
-                        WHERE e_scope.id = pr.event_id
-                          AND e_scope.organizer_id = :org_id_scope
-                    )
-                )
-            )
-        ";
-        $productScope = "
-            AND (
-                p.organizer_id = :org_id
-                OR (
-                    p.organizer_id IS NULL
-                    AND EXISTS (
-                        SELECT 1 FROM events e_scope
-                        WHERE e_scope.id = p.event_id
-                          AND e_scope.organizer_id = :org_id_scope
-                    )
-                )
-            )
-        ";
+        $salesScope = " AND s.organizer_id = :org_id ";
+        $ticketScope = " AND t.organizer_id = :org_id ";
+        $parkingScope = " AND pr.organizer_id = :org_id ";
+        $productScope = " AND p.organizer_id = :org_id ";
 
         $stmtTickets = $db->prepare("
             SELECT COUNT(t.id)
@@ -652,7 +604,6 @@ class DashboardDomainService
     private static function bindScope(\PDOStatement $stmt, int $organizerId, ?int $eventId): void
     {
         $stmt->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
-        $stmt->bindValue(':org_id_scope', $organizerId, PDO::PARAM_INT);
         if ($eventId) {
             $stmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
         }

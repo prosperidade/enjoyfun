@@ -2,6 +2,291 @@ import Dexie from 'dexie';
 
 export const db = new Dexie('EnjoyFunDB');
 
+const DEFAULT_RETRY_POLICY = Object.freeze({
+  priority: 'standard',
+  maxAttempts: 5,
+  baseDelayMs: 30_000,
+  maxDelayMs: 15 * 60_000,
+});
+
+const OFFLINE_QUEUE_RETRY_POLICIES = Object.freeze({
+  sale: {
+    priority: 'critical',
+    maxAttempts: 8,
+    baseDelayMs: 15_000,
+    maxDelayMs: 20 * 60_000,
+  },
+  meal: {
+    priority: 'high',
+    maxAttempts: 6,
+    baseDelayMs: 20_000,
+    maxDelayMs: 15 * 60_000,
+  },
+  topup: {
+    priority: 'critical',
+    maxAttempts: 8,
+    baseDelayMs: 15_000,
+    maxDelayMs: 20 * 60_000,
+  },
+  scanner_process: {
+    priority: 'high',
+    maxAttempts: 6,
+    baseDelayMs: 10_000,
+    maxDelayMs: 10 * 60_000,
+  },
+  ticket_validate: {
+    priority: 'high',
+    maxAttempts: 6,
+    baseDelayMs: 10_000,
+    maxDelayMs: 10 * 60_000,
+  },
+  guest_validate: {
+    priority: 'high',
+    maxAttempts: 6,
+    baseDelayMs: 10_000,
+    maxDelayMs: 10 * 60_000,
+  },
+  participant_validate: {
+    priority: 'high',
+    maxAttempts: 6,
+    baseDelayMs: 10_000,
+    maxDelayMs: 10 * 60_000,
+  },
+  parking_entry: {
+    priority: 'operational',
+    maxAttempts: 5,
+    baseDelayMs: 20_000,
+    maxDelayMs: 15 * 60_000,
+  },
+  parking_exit: {
+    priority: 'operational',
+    maxAttempts: 5,
+    baseDelayMs: 20_000,
+    maxDelayMs: 15 * 60_000,
+  },
+  parking_validate: {
+    priority: 'operational',
+    maxAttempts: 5,
+    baseDelayMs: 20_000,
+    maxDelayMs: 15 * 60_000,
+  },
+});
+
+function normalizeOfflineQueueId(rawId) {
+  return String(rawId || '').trim();
+}
+
+function normalizeOfflineAttempts(value) {
+  const numericValue = Number(value || 0);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return 0;
+  }
+
+  return Math.floor(numericValue);
+}
+
+function resolveIsoDate(value, fallbackIso) {
+  const parsed = value ? new Date(value) : null;
+  if (parsed && !Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString();
+  }
+
+  return fallbackIso;
+}
+
+function createRetryJitterMultiplier() {
+  return 0.85 + Math.random() * 0.3;
+}
+
+function buildErrorMessageMap(errors = []) {
+  return new Map(
+    (Array.isArray(errors) ? errors : [])
+      .map((entry) => [normalizeOfflineQueueId(entry?.offline_id), String(entry?.error || '').trim()])
+      .filter(([offlineId]) => offlineId),
+  );
+}
+
+export function getOfflineQueueRetryPolicy(payloadType) {
+  const normalizedType = String(payloadType || '').trim();
+  return OFFLINE_QUEUE_RETRY_POLICIES[normalizedType] || DEFAULT_RETRY_POLICY;
+}
+
+export function createOfflineQueueRecord(record = {}) {
+  const nowIso = new Date().toISOString();
+  const payloadType = String(record?.payload_type ?? record?.type ?? '').trim();
+  const status = String(record?.status || 'pending').trim() || 'pending';
+  const createdOfflineAt = resolveIsoDate(
+    record?.created_offline_at ?? record?.created_at,
+    nowIso,
+  );
+  const policy = getOfflineQueueRetryPolicy(payloadType);
+
+  return {
+    ...record,
+    payload_type: payloadType,
+    status,
+    created_offline_at: createdOfflineAt,
+    sync_attempts: normalizeOfflineAttempts(record?.sync_attempts),
+    next_retry_at:
+      status === 'pending'
+        ? resolveIsoDate(record?.next_retry_at, createdOfflineAt)
+        : record?.next_retry_at ?? null,
+    retry_priority: record?.retry_priority ?? policy.priority,
+  };
+}
+
+export function computeOfflineQueueNextRetryAt(record, attempts, now = new Date()) {
+  const policy = getOfflineQueueRetryPolicy(record?.payload_type);
+  const nowDate = now instanceof Date ? now : new Date(now);
+  const normalizedAttempts = Math.max(1, normalizeOfflineAttempts(attempts));
+  const exponentialDelay = Math.min(
+    policy.baseDelayMs * (2 ** Math.max(0, normalizedAttempts - 1)),
+    policy.maxDelayMs,
+  );
+  const jitteredDelay = Math.max(
+    policy.baseDelayMs,
+    Math.round(exponentialDelay * createRetryJitterMultiplier()),
+  );
+
+  return new Date(nowDate.getTime() + jitteredDelay).toISOString();
+}
+
+export function isOfflineQueueItemReadyForSync(record, now = new Date()) {
+  if (String(record?.status || '').trim() !== 'pending') {
+    return false;
+  }
+
+  const target = record?.next_retry_at;
+  if (!target) {
+    return true;
+  }
+
+  const parsedTarget = new Date(target);
+  if (Number.isNaN(parsedTarget.getTime())) {
+    return true;
+  }
+
+  const nowDate = now instanceof Date ? now : new Date(now);
+  return parsedTarget.getTime() <= nowDate.getTime();
+}
+
+export async function loadOfflineQueueItems({
+  statuses = ['pending'],
+  payloadTypes = null,
+  readyOnly = false,
+  now = new Date(),
+} = {}) {
+  const normalizedStatuses = Array.isArray(statuses)
+    ? statuses.map((status) => String(status || '').trim()).filter(Boolean)
+    : [];
+
+  if (normalizedStatuses.length === 0) {
+    return [];
+  }
+
+  const records = normalizedStatuses.length === 1
+    ? await db.offlineQueue.where('status').equals(normalizedStatuses[0]).toArray()
+    : await db.offlineQueue.where('status').anyOf(...normalizedStatuses).toArray();
+
+  const normalizedPayloadTypes = Array.isArray(payloadTypes)
+    ? payloadTypes.map((payloadType) => String(payloadType || '').trim()).filter(Boolean)
+    : null;
+
+  return records
+    .map((record) => createOfflineQueueRecord(record))
+    .filter((record) => (
+      !normalizedPayloadTypes || normalizedPayloadTypes.includes(record.payload_type)
+    ))
+    .filter((record) => (
+      !readyOnly || isOfflineQueueItemReadyForSync(record, now)
+    ));
+}
+
+export async function scheduleOfflineQueueRetries(offlineIds = [], errors = []) {
+  if (!Array.isArray(offlineIds) || offlineIds.length === 0) {
+    return { requeued: 0, failed: 0 };
+  }
+
+  const errorById = buildErrorMessageMap(errors);
+  const now = new Date();
+  const nowIso = now.toISOString();
+  let requeued = 0;
+  let failed = 0;
+
+  await db.transaction('rw', db.offlineQueue, async () => {
+    for (const rawId of offlineIds) {
+      const offlineId = normalizeOfflineQueueId(rawId);
+      if (!offlineId) continue;
+
+      const existing = await db.offlineQueue.get(offlineId);
+      if (!existing) continue;
+
+      const normalizedRecord = createOfflineQueueRecord(existing);
+      const attempts = normalizeOfflineAttempts(normalizedRecord.sync_attempts) + 1;
+      const policy = getOfflineQueueRetryPolicy(normalizedRecord.payload_type);
+      const shouldFail = attempts >= policy.maxAttempts;
+
+      await db.offlineQueue.put({
+        ...normalizedRecord,
+        status: shouldFail ? 'failed' : 'pending',
+        sync_attempts: attempts,
+        last_error: errorById.get(offlineId) || normalizedRecord?.last_error || 'Falha na sincronizacao.',
+        last_error_at: nowIso,
+        next_retry_at: shouldFail
+          ? null
+          : computeOfflineQueueNextRetryAt(normalizedRecord, attempts, now),
+        retry_priority: policy.priority,
+      });
+
+      if (shouldFail) {
+        failed += 1;
+      } else {
+        requeued += 1;
+      }
+    }
+  });
+
+  return { requeued, failed };
+}
+
+export function isOfflineQueueTransientError(error) {
+  const status = Number(error?.response?.status || 0);
+  const code = String(error?.code || '').trim().toUpperCase();
+
+  if (!error?.response) {
+    return true;
+  }
+
+  if (code === 'ERR_NETWORK' || code === 'ECONNABORTED' || code === 'ETIMEDOUT') {
+    return true;
+  }
+
+  return [408, 425, 429].includes(status) || status >= 500;
+}
+
+export async function getOfflineQueueReconciliationSnapshot({ limit = 8 } = {}) {
+  const records = await loadOfflineQueueItems({ statuses: ['pending', 'failed'] });
+  const allFailedRecords = records
+    .filter((record) => record.status === 'failed')
+    .sort((left, right) => {
+      const leftTime = new Date(left?.last_error_at || left?.created_offline_at || 0).getTime();
+      const rightTime = new Date(right?.last_error_at || right?.created_offline_at || 0).getTime();
+      return rightTime - leftTime;
+    });
+  const failedRecords = allFailedRecords.slice(0, Math.max(1, Number(limit) || 8));
+  const pendingRecords = records.filter((record) => record.status === 'pending');
+  const readyCount = pendingRecords.filter((record) => isOfflineQueueItemReadyForSync(record)).length;
+
+  return {
+    pendingCount: pendingRecords.length,
+    readyCount,
+    scheduledCount: Math.max(0, pendingRecords.length - readyCount),
+    failedCount: allFailedRecords.length,
+    failedIds: allFailedRecords.map((record) => record.offline_id),
+    failedRecords,
+  };
+}
+
 db.version(1).stores({
   // Tabela local de produtos para acesso muito rápido
   products: 'id, event_id, name, price, stock_qty',
@@ -35,27 +320,26 @@ export async function markOfflineQueueItemsFailed(offlineIds = [], errors = []) 
     return;
   }
 
-  const errorById = new Map(
-    (Array.isArray(errors) ? errors : [])
-      .map((entry) => [String(entry?.offline_id || "").trim(), String(entry?.error || "").trim()])
-      .filter(([offlineId]) => offlineId)
-  );
+  const errorById = buildErrorMessageMap(errors);
   const now = new Date().toISOString();
 
   await db.transaction('rw', db.offlineQueue, async () => {
     for (const rawId of offlineIds) {
-      const offlineId = String(rawId || "").trim();
+      const offlineId = normalizeOfflineQueueId(rawId);
       if (!offlineId) continue;
 
       const existing = await db.offlineQueue.get(offlineId);
       if (!existing) continue;
+      const normalizedRecord = createOfflineQueueRecord(existing);
+      const attempts = normalizeOfflineAttempts(normalizedRecord?.sync_attempts) + 1;
 
       await db.offlineQueue.put({
-        ...existing,
+        ...normalizedRecord,
         status: 'failed',
-        last_error: errorById.get(offlineId) || existing?.last_error || 'Falha na sincronização.',
+        last_error: errorById.get(offlineId) || normalizedRecord?.last_error || 'Falha na sincronizacao.',
         last_error_at: now,
-        sync_attempts: Number(existing?.sync_attempts || 0) + 1,
+        sync_attempts: attempts,
+        next_retry_at: null,
       });
     }
   });
@@ -69,17 +353,20 @@ export async function requeueOfflineQueueItems(offlineIds = []) {
   const now = new Date().toISOString();
   await db.transaction('rw', db.offlineQueue, async () => {
     for (const rawId of offlineIds) {
-      const offlineId = String(rawId || "").trim();
+      const offlineId = normalizeOfflineQueueId(rawId);
       if (!offlineId) continue;
 
       const existing = await db.offlineQueue.get(offlineId);
       if (!existing) continue;
+      const normalizedRecord = createOfflineQueueRecord(existing);
 
       await db.offlineQueue.put({
-        ...existing,
+        ...normalizedRecord,
         status: 'pending',
+        sync_attempts: 0,
         last_error: null,
         last_error_at: null,
+        next_retry_at: now,
         retried_at: now,
       });
     }

@@ -308,7 +308,7 @@ function participantPresenceRegisterAction(PDO $db, int $participantId, string $
             $participantId,
             $action,
             $resolvedEventShiftId,
-            $action === 'check-out' ? (int)($lastEntry['id'] ?? 0) : null,
+            (int)($lastEntry['id'] ?? 0),
             $options
         )
         : null;

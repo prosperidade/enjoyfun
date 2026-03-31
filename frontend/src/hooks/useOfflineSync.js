@@ -1,21 +1,26 @@
 /**
  * useOfflineSync — Hook global de Background Sync para scanner e parking.
  *
- * Ao reconectar, lê todos os itens 'pending' da offlineQueue com
+ * Ao reconectar, lê todos os itens 'pending' prontos para retry na offlineQueue com
  * payload_type em [scanner_process, ticket_validate, guest_validate, participant_validate, parking_entry, parking_exit, parking_validate]
- * e tenta fazer o replay correspondente.
+ * e tenta fazer o replay correspondente, respeitando a janela de backoff.
  *
  * Também roda em polling a cada POLL_INTERVAL_MS enquanto online, como fallback
  * para o caso de o evento 'online' não ser capturado (PWA, mobile, etc.).
  */
 import { useCallback, useEffect, useRef } from 'react';
-import { db } from '../lib/db';
+import {
+  db,
+  isOfflineQueueTransientError,
+  loadOfflineQueueItems,
+  markOfflineQueueItemsFailed,
+  scheduleOfflineQueueRetries,
+} from '../lib/db';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
 const SYNC_TYPES = ['scanner_process', 'ticket_validate', 'guest_validate', 'participant_validate', 'parking_entry', 'parking_exit', 'parking_validate'];
 const SYNC_ENDPOINT_TYPES = ['ticket_validate', 'guest_validate', 'participant_validate', 'parking_entry', 'parking_exit', 'parking_validate'];
-const MAX_ATTEMPTS = 3;
 const POLL_INTERVAL_MS = 30_000; // 30 segundos
 
 function normalizeSyncQueueItem(item) {
@@ -90,19 +95,16 @@ export function useOfflineSync() {
     isSyncingRef.current = true;
 
     try {
-      const pending = await db.offlineQueue
-        .where('status').equals('pending')
-        .toArray();
-
-      const relevant = pending.filter(
-        (item) =>
-          SYNC_TYPES.includes(item.payload_type) &&
-          Number(item.sync_attempts || 0) < MAX_ATTEMPTS,
-      );
+      const relevant = await loadOfflineQueueItems({
+        statuses: ['pending'],
+        payloadTypes: SYNC_TYPES,
+        readyOnly: true,
+      });
 
       if (relevant.length === 0) return;
 
       let synced = 0;
+      let rescheduled = 0;
       let failed = 0;
 
       for (const item of relevant) {
@@ -112,27 +114,40 @@ export function useOfflineSync() {
           await db.offlineQueue.update(item.offline_id, {
             status: 'synced',
             synced_at: new Date().toISOString(),
+            next_retry_at: null,
+            last_error: null,
+            last_error_at: null,
           });
           synced += 1;
         } catch (err) {
-          const attempts = Number(item.sync_attempts || 0) + 1;
-          const newStatus = attempts >= MAX_ATTEMPTS ? 'failed' : 'pending';
+          const errorPayload = [{
+            offline_id: item.offline_id,
+            error: err?.response?.data?.message || err?.message || 'Erro desconhecido',
+          }];
 
-          await db.offlineQueue.update(item.offline_id, {
-            status: newStatus,
-            sync_attempts: attempts,
-            last_error: err?.response?.data?.message || err?.message || 'Erro desconhecido',
-            last_error_at: new Date().toISOString(),
-          });
-          if (newStatus === 'failed') failed += 1;
+          if (isOfflineQueueTransientError(err)) {
+            const retryState = await scheduleOfflineQueueRetries([item.offline_id], errorPayload);
+            rescheduled += Number(retryState?.requeued || 0);
+            failed += Number(retryState?.failed || 0);
+          } else {
+            await markOfflineQueueItemsFailed([item.offline_id], errorPayload);
+            failed += 1;
+          }
         }
       }
 
       if (synced > 0) {
         toast.success(`${synced} operação(ões) offline sincronizadas!`, { id: 'offline-sync-ok' });
       }
+      if (rescheduled > 0) {
+        toast(`${rescheduled} operação(ões) offline aguardando nova tentativa automática.`, {
+          id: 'offline-sync-retry',
+        });
+      }
       if (failed > 0) {
-        toast.error(`${failed} operação(ões) offline falharam após ${MAX_ATTEMPTS} tentativas.`, { id: 'offline-sync-fail' });
+        toast.error(`${failed} operação(ões) offline exigem reconciliacao manual.`, {
+          id: 'offline-sync-fail',
+        });
       }
     } finally {
       isSyncingRef.current = false;

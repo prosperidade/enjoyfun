@@ -120,11 +120,35 @@ final class AIPromptCatalogService
     {
         $selectedManager = is_array($context['selected_manager_context'] ?? null) ? $context['selected_manager_context'] : [];
         $treeStatus = is_array($context['workforce_tree_status'] ?? null) ? $context['workforce_tree_status'] : [];
-        $structure = is_array($context['workforce_structure'] ?? null) ? $context['workforce_structure'] : [];
+        $timeline = is_array($context['workforce_timeline'] ?? null)
+            ? $context['workforce_timeline']
+            : (is_array($context['workforce_structure'] ?? null) ? $context['workforce_structure'] : []);
+        $treeSnapshot = is_array($context['workforce_tree_snapshot'] ?? null) ? $context['workforce_tree_snapshot'] : [];
+        $leadershipDigest = is_array($context['workforce_leadership_digest'] ?? null)
+            ? $context['workforce_leadership_digest']
+            : [];
         $focusSector = is_array($context['workforce_focus_sector'] ?? null) ? $context['workforce_focus_sector'] : null;
+        $effectiveFocus = is_array($context['workforce_effective_focus'] ?? null)
+            ? $context['workforce_effective_focus']
+            : null;
+        $selectedManagerTree = is_array($context['workforce_selected_manager_tree'] ?? null)
+            ? $context['workforce_selected_manager_tree']
+            : null;
+        $selectedManagerConfig = is_array($context['selected_manager_operational_config'] ?? null)
+            ? $context['selected_manager_operational_config']
+            : null;
+        $costSnapshot = is_array($context['workforce_cost_snapshot'] ?? null) ? $context['workforce_cost_snapshot'] : [];
+        $focusCosts = is_array($context['workforce_focus_costs'] ?? null) ? $context['workforce_focus_costs'] : null;
+        $attentionSectors = is_array($context['workforce_attention_sectors'] ?? null) ? $context['workforce_attention_sectors'] : [];
+        $mealExecutionSnapshot = is_array($context['workforce_meal_execution_snapshot'] ?? null)
+            ? $context['workforce_meal_execution_snapshot']
+            : [];
+        $focusMealExecution = is_array($context['workforce_focus_meal_execution'] ?? null)
+            ? $context['workforce_focus_meal_execution']
+            : null;
 
         return sprintf(
-            "SUPERFICIE: WORKFORCE\nEVENTO: %s\nSTATUS DO EVENTO: %s\nINICIO: %s\nFIM: %s\nMEMBROS NO EVENTO: %d\nASSIGNMENTS TOTAIS: %d\nASSIGNMENTS GERENCIAIS: %d\nASSIGNMENTS OPERACIONAIS: %d\nASSIGNMENTS COM ROOT MANAGER: %d\nASSIGNMENTS SEM VINCULO: %d\nSETORES ATIVOS: %d\nMANAGER ROOTS: %d\nCOORDENACOES/SUPERVISOES: %d\nTREE USABLE: %s\nTREE READY: %s\nSOURCE PREFERENCE: %s\nBLOCKERS (JSON): %s\nESTRUTURA DO EVENTO (JSON): %s\nSETORES (JSON): %s\nCARGOS MAIS FREQUENTES (JSON): %s\nASSIGNMENTS RECENTES (JSON): %s\nFOCO DE SETOR (JSON): %s\nGERENTE/FOCO SELECIONADO (JSON): %s\n\nTAREFAS:\n1. Ler cobertura, lacunas de lideranca, bindings e distribuicao por setor.\n2. Explicar gargalos de montagem de equipe ou risco operacional do Workforce.\n3. Propor ate 3 acoes praticas para corrigir cobertura, estrutura ou distribuicao.\n4. Se o foco atual for um gerente/setor, priorizar esse recorte.\n5. Se os dados forem insuficientes, declarar explicitamente o que falta.\n\nPERGUNTA DO OPERADOR: %s",
+            "SUPERFICIE: WORKFORCE\nEVENTO: %s\nSTATUS DO EVENTO: %s\nINICIO: %s\nFIM: %s\nMEMBROS NO EVENTO: %d\nASSIGNMENTS CARREGADOS: %d\nASSIGNMENTS GERENCIAIS VINCULADOS: %d\nASSIGNMENTS OPERACIONAIS VINCULADOS: %d\nLIDERANCAS CONFIGURADAS: %d\nLIDERANCAS PREENCHIDAS: %d\nLIDERANCAS PENDENTES: %d\nTIME PLANEJADO (TREE): %d\nTIME PREENCHIDO (TREE): %d\nASSIGNMENTS COM ROOT MANAGER: %d\nASSIGNMENTS SEM VINCULO: %d\nSETORES ATIVOS: %d\nMANAGER ROOTS: %d\nCOORDENACOES/SUPERVISOES: %d\nTREE USABLE: %s\nTREE READY: %s\nSOURCE PREFERENCE: %s\nFOCO SOLICITADO: %s\nFONTE DO FOCO EFETIVO: %s\nBLOCKERS (JSON): %s\nTIMELINE DO EVENTO (JSON): %s\nARVORE WORKFORCE (JSON): %s\nDIGEST DE LIDERANCA (JSON): %s\nSETORES PRIORITARIOS (JSON): %s\nSETORES (JSON): %s\nCARGOS MAIS FREQUENTES (JSON): %s\nASSIGNMENTS RECENTES (JSON): %s\nFOCO EFETIVO (JSON): %s\nFOCO DE SETOR (JSON): %s\nGERENTE/FOCO SELECIONADO (JSON): %s\nESTRUTURA DO FOCO SELECIONADO (JSON): %s\nCONFIGURACAO OPERACIONAL DO FOCO (JSON): %s\nCUSTOS WORKFORCE (JSON): %s\nCUSTOS DO FOCO (JSON): %s\nREFEICOES EXECUTADAS WORKFORCE (JSON): %s\nREFEICOES EXECUTADAS NO FOCO (JSON): %s\n\nTAREFAS:\n1. Separar claramente pessoas em assignments carregados versus liderancas configuradas na arvore; nunca tratar essas contagens como equivalentes.\n2. Ler cobertura, hierarquia, lacunas de lideranca, binds e distribuicao por setor priorizando o bucket do event_role quando existir.\n3. Cruzar custos, refeicoes planejadas, refeicoes servidas, quantidade de turnos, horas por turno e configuracao operacional do Workforce.\n4. Usar DIGEST DE LIDERANCA e FOCO EFETIVO para citar nominalmente gerente, coordenadores e supervisores por setor, inclusive quando nao houver foco manual.\n5. Explicar qualquer ambiguidade real de contagem, por exemplo: gerente configurado na arvore sem assignment proprio, coordenador presente em assignments e lideranca estrutural, ou bindings faltantes.\n6. Propor ate 3 acoes praticas e objetivas para corrigir cobertura, estrutura, custo ou distribuicao.\n7. Se algum dado estiver ausente, declarar explicitamente o que falta.\n\nPERGUNTA DO OPERADOR: %s",
             (string)($context['event_name'] ?? 'Evento nao identificado'),
             (string)($context['event_status'] ?? 'desconhecido'),
             (string)($context['event_starts_at'] ?? 'n/d'),
@@ -133,6 +157,11 @@ final class AIPromptCatalogService
             (int)($context['assignments_total'] ?? 0),
             (int)($context['managerial_assignments_total'] ?? 0),
             (int)($context['operational_assignments_total'] ?? 0),
+            (int)($context['leadership_positions_total'] ?? 0),
+            (int)($context['leadership_filled_total'] ?? 0),
+            (int)($context['leadership_placeholder_total'] ?? 0),
+            (int)($context['planned_workforce_total'] ?? 0),
+            (int)($context['filled_workforce_total'] ?? 0),
             (int)($context['assignments_with_root_manager'] ?? 0),
             (int)($context['assignments_missing_bindings'] ?? 0),
             (int)($context['active_sectors_count'] ?? 0),
@@ -141,13 +170,25 @@ final class AIPromptCatalogService
             !empty($treeStatus['tree_usable']) ? 'sim' : 'nao',
             !empty($treeStatus['tree_ready']) ? 'sim' : 'nao',
             (string)($treeStatus['source_preference'] ?? 'legacy'),
+            (string)($context['focus_sector_requested'] ?? 'nenhum'),
+            (string)($context['focus_sector_source'] ?? 'none'),
             self::encodeJsonFragment($treeStatus['activation_blockers'] ?? []),
-            self::encodeJsonFragment($structure),
+            self::encodeJsonFragment($timeline),
+            self::encodeJsonFragment($treeSnapshot),
+            self::encodeJsonFragment($leadershipDigest),
+            self::encodeJsonFragment($attentionSectors),
             self::encodeJsonFragment($context['workforce_sectors'] ?? []),
             self::encodeJsonFragment($context['workforce_top_roles'] ?? []),
             self::encodeJsonFragment($context['workforce_recent_assignments'] ?? []),
+            self::encodeJsonFragment($effectiveFocus ?? []),
             self::encodeJsonFragment($focusSector ?? []),
             self::encodeJsonFragment($selectedManager),
+            self::encodeJsonFragment($selectedManagerTree ?? []),
+            self::encodeJsonFragment($selectedManagerConfig ?? []),
+            self::encodeJsonFragment($costSnapshot),
+            self::encodeJsonFragment($focusCosts ?? []),
+            self::encodeJsonFragment($mealExecutionSnapshot),
+            self::encodeJsonFragment($focusMealExecution ?? []),
             $question
         );
     }

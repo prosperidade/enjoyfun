@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import OfflineQueueReconciliationPanel from '../components/OfflineQueueReconciliationPanel';
 import { useAuth } from '../context/AuthContext';
 import { useNetwork } from '../hooks/useNetwork';
 import { Menu, LogOut, Zap, Bell, Wifi, WifiOff, RefreshCw } from 'lucide-react';
@@ -61,6 +62,7 @@ export default function DashboardLayout() {
                 {isSyncing ? 'Sincronizando...' : isOnline ? 'Conectado' : 'Offline Mode'}
               </span>
             </div>
+            <OfflineQueueReconciliationPanel />
             <button className="p-2 text-gray-400 hover:text-white relative rounded-full hover:bg-gray-800 transition-colors">
               <Bell size={20} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-pink-500 rounded-full border-2 border-gray-900"></span>

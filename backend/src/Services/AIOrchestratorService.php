@@ -41,20 +41,24 @@ final class AIOrchestratorService
         try {
             $result = self::requestInsight($runtime, $systemPrompt, $prompt);
         } catch (\Throwable $e) {
-            self::logExecution(
-                $db,
-                $operator,
-                $organizerId,
-                $context,
-                $agentExecution,
-                $runtime,
-                $question,
-                $prompt,
-                null,
-                $startedAt,
-                'failed',
-                $e->getMessage()
-            );
+            try {
+                self::logExecution(
+                    $db,
+                    $operator,
+                    $organizerId,
+                    $context,
+                    $agentExecution,
+                    $runtime,
+                    $question,
+                    $prompt,
+                    null,
+                    $startedAt,
+                    'failed',
+                    $e->getMessage()
+                );
+            } catch (\Throwable $auditError) {
+                error_log('AIOrchestratorService::logExecution failure while handling request error: ' . $auditError->getMessage());
+            }
             throw $e;
         }
 

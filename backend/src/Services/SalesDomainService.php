@@ -72,27 +72,23 @@ class SalesDomainService
             // 1. Cálculo seguro do total re-lendo os preços do banco (anti-fraude)
             $calculatedTotal = 0.0;
             $resolvedItems = [];
-            foreach ($items as $item) {
-                $productId = (int)($item['product_id'] ?? 0);
-                $quantity = (int)($item['quantity'] ?? 0);
-                if ($productId <= 0 || $quantity <= 0) {
-                    throw new Exception("Item de checkout inválido.", 422);
-                }
-
-                // Valida o produto garantindo que pertence ao evento, ao organizador e (se definido) ao setor correto
-                $stmtP = $db->prepare(
-                    "SELECT id, name, price FROM products 
-                     WHERE id = ? AND event_id = ? AND organizer_id = ? 
-                     AND (sector = ? OR sector IS NULL)"
-                );
-                $stmtP->execute([$productId, $eventId, $organizerId, $sector]);
-                $product = $stmtP->fetch(PDO::FETCH_ASSOC);
-                
-                if (!$product) {
+            $normalizedItems = self::normalizeCheckoutItems($items);
+            $productsById = self::fetchCheckoutProducts(
+                $db,
+                $eventId,
+                $organizerId,
+                $sector,
+                self::extractCheckoutProductIds($normalizedItems)
+            );
+            foreach ($normalizedItems as $item) {
+                $productId = (int)$item['product_id'];
+                $quantity = (int)$item['quantity'];
+                $product = $productsById[$productId] ?? null;
+                if ($product === null) {
                     throw new Exception("Produto não encontrado ou setor incompatível: " . $productId, 404);
                 }
 
-                $price = (float)$product['price'];
+                $price = (float)($product['price'] ?? 0);
                 if ($price <= 0) {
                     throw new Exception("Produto com preço inválido: " . $productId, 422);
                 }
@@ -209,13 +205,11 @@ class SalesDomainService
                  WHERE id = ?
                    AND event_id = ?
                    AND organizer_id = ?
-                   AND (sector = ? OR sector IS NULL)
-                   AND stock_qty >= ?"
+                    AND (sector = ? OR sector IS NULL)
+                    AND stock_qty >= ?"
             );
 
-            foreach ($resolvedItems as $item) {
-                $subtotal = $item['price'] * $item['quantity'];
-
+            foreach (self::aggregateStockReservations($resolvedItems) as $item) {
                 $stmtUpdateStock->execute([
                     $item['quantity'],
                     $item['product_id'],
@@ -231,12 +225,15 @@ class SalesDomainService
                         409
                     );
                 }
+            }
 
+            foreach ($resolvedItems as $item) {
+                $subtotal = $item['price'] * $item['quantity'];
                 $stmtInsertItem->execute([
-                    $saleId, 
-                    $item['product_id'], 
-                    $item['quantity'], 
-                    $item['price'], 
+                    $saleId,
+                    $item['product_id'],
+                    $item['quantity'],
+                    $item['price'],
                     $subtotal
                 ]);
             }
@@ -305,5 +302,86 @@ class SalesDomainService
         $saleId = $stmt->fetchColumn();
 
         return $saleId !== false ? (int)$saleId : null;
+    }
+
+    private static function normalizeCheckoutItems(array $items): array
+    {
+        $normalized = [];
+        foreach ($items as $item) {
+            $productId = (int)($item['product_id'] ?? 0);
+            $quantity = (int)($item['quantity'] ?? 0);
+            if ($productId <= 0 || $quantity <= 0) {
+                throw new Exception("Item de checkout inválido.", 422);
+            }
+
+            $normalized[] = [
+                'product_id' => $productId,
+                'quantity' => $quantity,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    private static function extractCheckoutProductIds(array $items): array
+    {
+        $productIds = [];
+        foreach ($items as $item) {
+            $productId = (int)($item['product_id'] ?? 0);
+            if ($productId <= 0 || isset($productIds[$productId])) {
+                continue;
+            }
+            $productIds[$productId] = true;
+        }
+
+        return array_map('intval', array_keys($productIds));
+    }
+
+    private static function fetchCheckoutProducts(PDO $db, int $eventId, int $organizerId, string $sector, array $productIds): array
+    {
+        if (empty($productIds)) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($productIds), '?'));
+        $sql = sprintf(
+            "SELECT id, name, price
+             FROM products
+             WHERE event_id = ?
+               AND organizer_id = ?
+               AND (sector = ? OR sector IS NULL)
+               AND id IN (%s)",
+            $placeholders
+        );
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute(array_merge([$eventId, $organizerId, $sector], array_map('intval', $productIds)));
+
+        $productsById = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $productsById[(int)($row['id'] ?? 0)] = $row;
+        }
+
+        return $productsById;
+    }
+
+    private static function aggregateStockReservations(array $resolvedItems): array
+    {
+        $aggregated = [];
+        foreach ($resolvedItems as $item) {
+            $productId = (int)($item['product_id'] ?? 0);
+            if ($productId <= 0) {
+                continue;
+            }
+
+            if (!isset($aggregated[$productId])) {
+                $aggregated[$productId] = $item;
+                continue;
+            }
+
+            $aggregated[$productId]['quantity'] += (int)($item['quantity'] ?? 0);
+        }
+
+        return array_values($aggregated);
     }
 }

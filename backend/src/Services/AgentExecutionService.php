@@ -3,6 +3,7 @@
 namespace EnjoyFun\Services;
 
 use PDO;
+use RuntimeException;
 
 final class AgentExecutionService
 {
@@ -10,6 +11,11 @@ final class AgentExecutionService
     {
         try {
             if (!self::tableExists($db, 'ai_agent_executions')) {
+                self::handlePersistenceFailure(
+                    new RuntimeException('Tabela public.ai_agent_executions ausente.'),
+                    $payload,
+                    'ai.audit.execution_store_unavailable'
+                );
                 return null;
             }
 
@@ -104,7 +110,7 @@ final class AgentExecutionService
             ]);
             return (int)$stmt->fetchColumn();
         } catch (\Throwable $e) {
-            error_log('AgentExecutionService Error: ' . $e->getMessage());
+            self::handlePersistenceFailure($e, $payload, 'ai.audit.execution_persist_failed');
             return null;
         }
     }
@@ -306,6 +312,42 @@ final class AgentExecutionService
     {
         $encoded = json_encode($value, JSON_UNESCAPED_UNICODE);
         return is_string($encoded) ? $encoded : $fallback;
+    }
+
+    private static function handlePersistenceFailure(\Throwable $e, array $payload, string $eventName): void
+    {
+        self::emitPersistenceLog($eventName, [
+            'organizer_id' => (int)($payload['organizer_id'] ?? 0),
+            'event_id' => self::nullablePositiveInt($payload['event_id'] ?? null),
+            'surface' => self::nullableText($payload['surface'] ?? null, 100),
+            'agent_key' => self::nullableText($payload['agent_key'] ?? null, 100),
+            'entrypoint' => self::nullableText($payload['entrypoint'] ?? null, 100),
+            'message' => self::truncate(self::sanitizeText($e->getMessage()), 400),
+        ]);
+
+        if (self::isAuditStrictModeEnabled()) {
+            throw new RuntimeException('Falha ao persistir auditoria de execucao da IA.', 0, $e);
+        }
+    }
+
+    private static function emitPersistenceLog(string $eventName, array $payload): void
+    {
+        $context = ['event' => $eventName];
+        foreach ($payload as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+            $context[$key] = $value;
+        }
+
+        $encoded = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        error_log(is_string($encoded) ? $encoded : $eventName);
+    }
+
+    private static function isAuditStrictModeEnabled(): bool
+    {
+        $raw = strtolower(trim((string)(getenv('AI_AUDIT_STRICT') ?: '0')));
+        return in_array($raw, ['1', 'true', 'yes', 'on'], true);
     }
 
     private static function normalizeTimestamp(mixed $value): ?string

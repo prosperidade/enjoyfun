@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { db, markOfflineQueueItemsFailed } from '../lib/db';
+import {
+  db,
+  isOfflineQueueTransientError,
+  loadOfflineQueueItems,
+  markOfflineQueueItemsFailed,
+  scheduleOfflineQueueRetries,
+} from '../lib/db';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+
+const NETWORK_SYNC_TYPES = ['sale', 'meal'];
 
 function hasValidEventId(eventId) {
   return Number(eventId) > 0;
@@ -41,9 +49,15 @@ export function useNetwork() {
 
     isSyncingRef.current = true;
     setIsSyncing(true);
+    let retryableRecords = [];
     
     try {
-      const pending = await db.offlineQueue.where('status').equals('pending').toArray();
+      const pending = await loadOfflineQueueItems({
+        statuses: ['pending'],
+        payloadTypes: NETWORK_SYNC_TYPES,
+        readyOnly: true,
+      });
+
       if (pending.length === 0) {
         toast.dismiss('sync');
         return;
@@ -58,6 +72,7 @@ export function useNetwork() {
       const payloadOut = normalizedPending.filter((record) =>
         hasValidEventId(record?.payload?.event_id),
       );
+      retryableRecords = payloadOut;
 
       if (payloadOut.length === 0) {
         await markOfflineQueueItemsFailed(
@@ -74,8 +89,18 @@ export function useNetwork() {
         return;
       }
 
+      if (invalidPending.length > 0) {
+        await markOfflineQueueItemsFailed(
+          invalidPending.map((record) => record.offline_id),
+          invalidPending.map((record) => ({
+            offline_id: record.offline_id,
+            error: 'Registro offline sem event_id valido. Corrija o payload antes de reenfileirar.',
+          })),
+        );
+      }
+
       const { data } = await api.post('/sync', { items: payloadOut });
-      
+
       if (data.success) {
         const syncStatus = data?.data?.status ?? 'success';
         const processedIds = data?.data?.processed_ids ?? payloadOut.map(p => p.offline_id);
@@ -90,16 +115,6 @@ export function useNetwork() {
           await markOfflineQueueItemsFailed(failedIds, data?.data?.errors ?? []);
         }
 
-        if (invalidPending.length > 0) {
-          await markOfflineQueueItemsFailed(
-            invalidPending.map((record) => record.offline_id),
-            invalidPending.map((record) => ({
-              offline_id: record.offline_id,
-              error: 'Registro offline sem event_id valido. Corrija o payload antes de reenfileirar.',
-            })),
-          );
-        }
-
         if (syncStatus === 'partial_failure' || failedCount > 0 || invalidPending.length > 0) {
           toast.error(
             `${processedIds.length} registros sincronizados, ${failedCount} mantidos como falha local e ${invalidPending.length} bloqueados por evento invalido.`,
@@ -109,11 +124,50 @@ export function useNetwork() {
           toast.success(`${processedIds.length} registros sincronizados!`, { id: 'sync' });
         }
       } else {
+        await markOfflineQueueItemsFailed(
+          payloadOut.map((record) => record.offline_id),
+          payloadOut.map((record) => ({
+            offline_id: record.offline_id,
+            error: 'O backend recusou a sincronizacao offline sem detalhar o motivo.',
+          })),
+        );
         toast.error('Nao foi possivel concluir a sincronizacao offline.', { id: 'sync' });
       }
     } catch (err) {
       console.error('Offline Sync error:', err);
-      toast.error('Ocorreu um erro ao sincronizar em background.', { id: 'sync' });
+      const errorEntries = retryableRecords.map((record) => ({
+        offline_id: record.offline_id,
+        error: err?.response?.data?.message || err?.message || 'Erro desconhecido na sincronizacao offline.',
+      }));
+
+      if (isOfflineQueueTransientError(err)) {
+        const retryState = await scheduleOfflineQueueRetries(
+          retryableRecords.map((record) => record.offline_id),
+          errorEntries,
+        );
+        const terminalCount = Number(retryState?.failed || 0);
+        const rescheduledCount = Number(retryState?.requeued || 0);
+
+        if (terminalCount > 0) {
+          toast.error(
+            `${terminalCount} registro(s) atingiram o limite de retry e foram movidos para reconciliacao manual.`,
+            { id: 'sync' },
+          );
+        } else if (rescheduledCount > 0) {
+          toast(
+            `${rescheduledCount} registro(s) offline reagendados com backoff automatico.`,
+            { id: 'sync' },
+          );
+        } else {
+          toast.error('Ocorreu um erro ao sincronizar em background.', { id: 'sync' });
+        }
+      } else {
+        await markOfflineQueueItemsFailed(
+          retryableRecords.map((record) => record.offline_id),
+          errorEntries,
+        );
+        toast.error('Ocorreu um erro ao sincronizar em background.', { id: 'sync' });
+      }
     } finally {
       isSyncingRef.current = false;
       setIsSyncing(false);

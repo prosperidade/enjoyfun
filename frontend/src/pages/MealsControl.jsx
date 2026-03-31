@@ -2,7 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Copy, QrCode, UtensilsCrossed, RefreshCw, Settings2, Save, X } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../lib/api";
-import { db, markOfflineQueueItemsFailed, requeueOfflineQueueItems } from "../lib/db";
+import {
+  createOfflineQueueRecord,
+  db,
+  markOfflineQueueItemsFailed,
+  requeueOfflineQueueItems,
+} from "../lib/db";
 import { useEventScope } from "../context/EventScopeContext";
 
 function extractToken(raw = "") {
@@ -1600,14 +1605,14 @@ export default function MealsControl() {
     }
 
     const offlineId = createOfflineId();
-    await db.offlineQueue.put({
+    await db.offlineQueue.put(createOfflineQueueRecord({
       offline_id: offlineId,
       payload_type: "meal",
       payload: recordPayload,
       status: "pending",
       created_offline_at: new Date().toISOString(),
       sector: recordPayload.sector || null,
-    });
+    }));
     return offlineId;
   };
 

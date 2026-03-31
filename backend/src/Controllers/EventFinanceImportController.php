@@ -43,13 +43,38 @@ function previewImport(array $body): void
         jsonError('rows deve ser um array não vazio.', 422);
     }
 
+    assertEventFinanceImportEventAccess($db, $orgId, $eventId);
+
     // Pré-carrega IDs válidos para validação pesada no preview, evitando FK Violations no confirm
     $context = ['categories' => [], 'cost_centers' => [], 'budgets' => []];
     if ($importType === 'payables' || $importType === 'budget_lines') {
-        $context['categories'] = $db->query("SELECT id FROM event_cost_categories WHERE organizer_id = $orgId AND is_active = TRUE")->fetchAll(PDO::FETCH_COLUMN);
+        $stmtCategories = $db->prepare('
+            SELECT id
+            FROM event_cost_categories
+            WHERE organizer_id = :organizer_id
+              AND is_active = TRUE
+        ');
+        $stmtCategories->execute([':organizer_id' => $orgId]);
+        $context['categories'] = array_map('intval', $stmtCategories->fetchAll(PDO::FETCH_COLUMN));
+
         if ($eventId !== null) {
-            $context['cost_centers'] = $db->query("SELECT id FROM event_cost_centers WHERE event_id = $eventId AND is_active = TRUE")->fetchAll(PDO::FETCH_COLUMN);
-            $context['budgets']      = $db->query("SELECT id FROM event_budgets WHERE event_id = $eventId AND is_active = TRUE")->fetchAll(PDO::FETCH_COLUMN);
+            $stmtCostCenters = $db->prepare('
+                SELECT id
+                FROM event_cost_centers
+                WHERE event_id = :event_id
+                  AND is_active = TRUE
+            ');
+            $stmtCostCenters->execute([':event_id' => $eventId]);
+            $context['cost_centers'] = array_map('intval', $stmtCostCenters->fetchAll(PDO::FETCH_COLUMN));
+
+            $stmtBudgets = $db->prepare('
+                SELECT id
+                FROM event_budgets
+                WHERE event_id = :event_id
+                  AND is_active = TRUE
+            ');
+            $stmtBudgets->execute([':event_id' => $eventId]);
+            $context['budgets'] = array_map('intval', $stmtBudgets->fetchAll(PDO::FETCH_COLUMN));
         }
     }
 
@@ -247,6 +272,29 @@ function getImportBatch(int $id): void
     $batch['rows'] = $rowsStmt->fetchAll(PDO::FETCH_ASSOC);
 
     jsonSuccess($batch, 'Batch de importação carregado.');
+}
+
+function assertEventFinanceImportEventAccess(PDO $db, int $organizerId, ?int $eventId): void
+{
+    if ($eventId === null) {
+        return;
+    }
+
+    $stmt = $db->prepare('
+        SELECT 1
+        FROM events
+        WHERE id = :event_id
+          AND organizer_id = :organizer_id
+        LIMIT 1
+    ');
+    $stmt->execute([
+        ':event_id' => $eventId,
+        ':organizer_id' => $organizerId,
+    ]);
+
+    if (!$stmt->fetchColumn()) {
+        jsonError('Evento não encontrado para este organizador.', 404);
+    }
 }
 
 // ── Validação e aplicação por tipo ────────────────────────────────────────────

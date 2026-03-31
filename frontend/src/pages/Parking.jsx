@@ -11,7 +11,7 @@ import {
 import { useState, useEffect, useCallback, useRef } from "react"; // useRef adicionado para o scanner
 import { QRCodeCanvas } from "qrcode.react";
 import api from "../lib/api";
-import { db } from "../lib/db";
+import { createOfflineQueueRecord, db } from "../lib/db";
 import toast from "react-hot-toast";
 import { useEventScope } from "../context/EventScopeContext";
 import ParkingAIAssistant from "../components/ParkingAIAssistant";
@@ -146,13 +146,13 @@ export default function Parking() {
     } catch (err) {
       if (!err.response || err.code === 'ERR_NETWORK') {
         const offlineId = crypto.randomUUID();
-        await db.offlineQueue.put({
+        await db.offlineQueue.put(createOfflineQueueRecord({
           offline_id: offlineId,
           status: 'pending',
           payload_type: 'parking_entry',
           created_at: new Date().toISOString(),
           payload: { event_id: form.event_id, vehicle_type: form.vehicle_type, license_plate: scannedPlate },
-        });
+        }));
         toast.success("Entrada salva localmente (Offline)!");
         setEntryScanInput("");
         setRecordsWithCache(prev => [{ id: offlineId, license_plate: scannedPlate, vehicle_type: form.vehicle_type, status: 'parked', created_at: new Date().toISOString() }, ...prev]);
@@ -195,13 +195,13 @@ export default function Parking() {
     } catch (err) {
       if (!err.response || err.code === 'ERR_NETWORK') {
         const offlineId = crypto.randomUUID();
-        await db.offlineQueue.put({
+        await db.offlineQueue.put(createOfflineQueueRecord({
           offline_id: offlineId,
           status: 'pending',
           payload_type: 'parking_entry',
           created_at: new Date().toISOString(),
           payload: { event_id: form.event_id, vehicle_type: form.vehicle_type, license_plate: form.license_plate },
-        });
+        }));
         toast.success("Entrada salva localmente (Offline)!");
         setShowForm(false);
         setForm({ event_id: String(eventId || ""), license_plate: "", vehicle_type: "car" });
@@ -220,13 +220,13 @@ export default function Parking() {
     } catch (err) {
       if (!err.response || err.code === 'ERR_NETWORK') {
         const offlineId = crypto.randomUUID();
-        await db.offlineQueue.put({
+        await db.offlineQueue.put(createOfflineQueueRecord({
           offline_id: offlineId,
           status: 'pending',
           payload_type: 'parking_exit',
           created_at: new Date().toISOString(),
           payload: { parking_id: id, event_id: eventId },
-        });
+        }));
         toast.success("Saída salva localmente (Offline)!");
         setRecordsWithCache(prev => prev.map(r => r.id === id ? { ...r, status: 'exited', updated_at: new Date().toISOString() } : r));
         return;
@@ -286,7 +286,7 @@ export default function Parking() {
           ? "exit"
           : "entry";
         const offlineId = crypto.randomUUID();
-        await db.offlineQueue.put({
+        await db.offlineQueue.put(createOfflineQueueRecord({
           offline_id: offlineId,
           status: 'pending',
           payload_type: 'parking_validate',
@@ -297,7 +297,7 @@ export default function Parking() {
             event_id: eventId,
             action,
           },
-        });
+        }));
 
         setRecordsWithCache((current) => current.map((record) => {
           if (Number(record?.id || 0) !== parkingId) {

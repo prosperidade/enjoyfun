@@ -7,11 +7,6 @@ require_once BASE_PATH . '/src/Services/AIMemoryStoreService.php';
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
-    if (strpos($_SERVER['REQUEST_URI'], 'test-event') !== false) {
-        getEventDetails((int)$id, false);
-        return;
-    }
-
     match (true) {
         $method === 'GET' && $id === null => listEvents(),
         $method === 'POST' && $id === null => createEvent($body),
@@ -279,13 +274,10 @@ function updateEvent(int $id, array $body): void
     }
 }
 
-function getEventDetails(int $id, bool $checkAuth = true): void
+function getEventDetails(int $id): void
 {
-    $organizerId = null;
-    if ($checkAuth) {
-        $user = requireAuth();
-        $organizerId = (int)($user['organizer_id'] ?? 0);
-    }
+    $user = requireAuth();
+    $organizerId = (int)($user['organizer_id'] ?? 0);
 
     try {
         $db = Database::getInstance();
@@ -310,28 +302,19 @@ function getEventDetails(int $id, bool $checkAuth = true): void
                 " . ($hasEventTimezone ? "event_timezone" : "NULL::varchar AS event_timezone") . ",
                 organizer_id
             FROM events
-            WHERE id = ?
+             WHERE id = ?
+               AND organizer_id = ?
         ";
 
-        if ($organizerId) {
-            $sql .= " AND organizer_id = ?";
-        }
-
         $stmt = $db->prepare($sql);
-        $params = [$id];
-        if ($organizerId) {
-            $params[] = $organizerId;
-        }
-        $stmt->execute($params);
+        $stmt->execute([$id, $organizerId]);
         $event = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$event) {
             jsonError("Evento não encontrado ou acesso negado.", 404);
         }
 
-        if ($organizerId) {
-            $event['can_delete'] = canDeleteEventSafely($db, $id, $organizerId);
-        }
+        $event['can_delete'] = canDeleteEventSafely($db, $id, $organizerId);
 
         unset($event['organizer_id']);
         jsonSuccess($event);
@@ -844,7 +827,7 @@ function syncEventTicketTypes(PDO $db, int $eventId, int $organizerId, array $it
     $stmtExisting = $db->prepare('
         SELECT id, name, organizer_id
         FROM ticket_types
-        WHERE event_id = ? AND (organizer_id = ? OR organizer_id IS NULL)
+        WHERE event_id = ? AND organizer_id = ?
         ORDER BY id ASC
     ');
     $stmtExisting->execute([$eventId, $organizerId]);

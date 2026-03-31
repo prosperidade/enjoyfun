@@ -138,18 +138,10 @@ class ProductService
             FROM public.sale_items si
             JOIN public.sales s ON s.id = si.sale_id
             WHERE si.product_id = ?
-              AND (s.organizer_id = ? OR (
-                    s.organizer_id IS NULL
-                    AND EXISTS (
-                        SELECT 1
-                        FROM public.products p_scope
-                        WHERE p_scope.id = ?
-                          AND p_scope.organizer_id = ?
-                    )
-              ))
+              AND s.organizer_id = ?
             LIMIT 1
         ");
-        $stmt->execute([$id, $organizerId, $id, $organizerId]);
+        $stmt->execute([$id, $organizerId]);
 
         return (bool)$stmt->fetchColumn();
     }

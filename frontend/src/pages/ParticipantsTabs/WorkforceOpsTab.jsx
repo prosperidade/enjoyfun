@@ -322,6 +322,13 @@ const buildManagerRows = (managers = [], roles = [], assignments = []) => {
 
 const buildRootHeadcountMap = (eventRoles = [], assignments = []) => {
   const counts = {};
+  const eventRolesById = eventRoles.reduce((acc, row) => {
+    const eventRoleId = Number(row?.id || row?.event_role_id || 0);
+    if (eventRoleId > 0) {
+      acc[eventRoleId] = row;
+    }
+    return acc;
+  }, {});
 
   const ensureBucket = (rootId, sector = "geral") => {
     if (!counts[rootId]) {
@@ -343,11 +350,24 @@ const buildRootHeadcountMap = (eventRoles = [], assignments = []) => {
   assignments.forEach((assignment) => {
     const rootId = Number(assignment?.root_manager_event_role_id || 0);
     if (rootId <= 0) return;
-    if (normalizeCostBucket(assignment?.cost_bucket, assignment?.role_name) === "managerial") {
+    const boundEventRole = eventRolesById[Number(assignment?.event_role_id || 0)] || null;
+    const normalizedCostBucket = normalizeCostBucket(
+      boundEventRole?.cost_bucket || assignment?.cost_bucket,
+      boundEventRole?.role_name || assignment?.role_name
+    );
+    if (normalizedCostBucket === "managerial") {
       return;
     }
 
-    const bucket = ensureBucket(rootId, normalizeSector(assignment?.sector || "") || "geral");
+    const bucket = ensureBucket(
+      rootId,
+      normalizeSector(
+        assignment?.sector ||
+          boundEventRole?.sector ||
+          boundEventRole?.role_sector ||
+          inferSectorFromRoleName(boundEventRole?.role_name || assignment?.role_name || "")
+      ) || "geral"
+    );
     bucket.operational_members_total += 1;
     bucket.planned_members_total += 1;
     bucket.filled_members_total += 1;
@@ -402,7 +422,7 @@ const buildManagerRowsFromEventTree = (eventRoles = [], assignments = []) => {
         qr_token: row?.leader_qr_token || null,
         role_id: Number(row?.role_id || 0),
         role_name: row?.role_name || "Cargo gerencial",
-        sector: normalizeSector(row?.sector || row?.role_sector || ""),
+        sector: normalizeSector(row?.sector || row?.role_sector || inferSectorFromRoleName(row?.role_name || "")),
         cost_bucket: normalizeCostBucket(row?.cost_bucket, row?.role_name),
         person_name:
           row?.leader_participant_name ||
@@ -420,7 +440,7 @@ const buildManagerRowsFromEventTree = (eventRoles = [], assignments = []) => {
         root_public_id: row?.root_public_id || row?.public_id || "",
         parent_event_role_id: Number(row?.parent_event_role_id || 0) || null,
         parent_public_id: row?.parent_public_id || "",
-        role_class: row?.role_class || "",
+        role_class: row?.role_class || inferRoleClassFromRoleName(row?.role_name, row?.cost_bucket),
         authority_level: row?.authority_level || "",
         leadership_positions_total: Number(rootHeadcount?.leadership_positions_total || 0),
         leadership_filled_total: Number(rootHeadcount?.leadership_filled_total || 0),
@@ -1632,6 +1652,11 @@ export default function WorkforceOpsTab({ eventId }) {
           managerRootsCount={Number(treeStatus?.manager_roots_count || managerRows.length || 0)}
           selectedManagerName={selectedManager?.person_name || selectedManager?.name || ""}
           selectedManagerRoleName={selectedManager?.role_name || ""}
+          selectedManagerEventRoleId={selectedManager?.event_role_id || null}
+          selectedManagerRootEventRoleId={
+            selectedManager?.root_event_role_id || selectedManager?.event_role_id || null
+          }
+          selectedManagerRoleClass={selectedManager?.role_class || ""}
           selectedManagerSector={selectedManagerSector}
           selectedManagerPlannedTeamSize={selectedManagerPlannedTeamSize}
           selectedManagerFilledTeamSize={selectedManagerFilledTeamSize}

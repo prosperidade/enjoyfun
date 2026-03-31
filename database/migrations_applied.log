@@ -13,3 +13,9 @@
 24/03/2026 11:53:48,00 - APLICADA: database\035_artist_logistics_module.sql 
 26/03/2026 12:55:33,98 - APLICADA: database\037_operational_offline_sync_expansion.sql 
 26/03/2026 21:37:31,32 - APLICADA: database\038_ai_orchestrator_foundation.sql 
+31/03/2026 13:51:46,86 - APLICADA: database\039_ai_agent_execution_history.sql 
+31/03/2026 13:51:47,36 - APLICADA: database\040_ai_memory_and_event_reports.sql 
+31/03/2026 13:51:47,72 - APLICADA: database\041_workforce_ai_integrity_hardening.sql 
+31/03/2026 16:42:34,67 - APLICADA: database\042_backfill_event_scoped_organizer_ids.sql 
+31/03/2026 17:32:46,35 - APLICADA: database\043_validate_not_valid_constraints_wave1.sql 
+31/03/2026 18:37:21,70 - APLICADA: database\044_participant_checkins_schema_contract.sql 

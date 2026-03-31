@@ -653,14 +653,11 @@ function listTicketTypes(array $query): void
                 tt.event_id,
                 tt.name,
                 COALESCE(tt.price, 0)::float AS price,
-                CASE
-                    WHEN tt.organizer_id IS NULL THEN 'legacy_null'
-                    ELSE 'organizer'
-                END AS scope_origin
+                'organizer' AS scope_origin
             FROM ticket_types tt
             INNER JOIN events e ON e.id = tt.event_id
             WHERE e.organizer_id = :org_id
-              AND (tt.organizer_id = :org_id OR tt.organizer_id IS NULL)
+              AND tt.organizer_id = :org_id
         ";
 
         if ($eventId) $sql .= ' AND tt.event_id = :event_id';
@@ -708,7 +705,7 @@ function ensureLegacyCommercialTicketType(PDO $db, int $eventId, int $organizerI
     $stmtTypes = $db->prepare('
         SELECT COUNT(*)
         FROM ticket_types
-        WHERE event_id = ? AND (organizer_id = ? OR organizer_id IS NULL)
+        WHERE event_id = ? AND organizer_id = ?
     ');
     $stmtTypes->execute([$eventId, $organizerId]);
     if ((int)$stmtTypes->fetchColumn() > 0) {
@@ -769,7 +766,7 @@ function legacyCommercialTicketTypeBackfillRequired(PDO $db, int $eventId, int $
     $stmtTypes = $db->prepare('
         SELECT COUNT(*)
         FROM ticket_types
-        WHERE event_id = ? AND (organizer_id = ? OR organizer_id IS NULL)
+        WHERE event_id = ? AND organizer_id = ?
     ');
     $stmtTypes->execute([$eventId, $organizerId]);
     if ((int)$stmtTypes->fetchColumn() > 0) {

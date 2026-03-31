@@ -1,4 +1,5 @@
 @echo off
+setlocal
 REM ============================================================================
 REM dump_schema.bat — EnjoyFun Daily Schema Dump
 REM Uso: cmd /c "database\dump_schema.bat"
@@ -7,19 +8,20 @@ REM ============================================================================
 
 set PGPASSWORD=070998
 set PGDUMP="C:\Program Files\PostgreSQL\18\bin\pg_dump.exe"
+set DBHOST=127.0.0.1
+set DBPORT=5432
 set DBNAME=enjoyfun
 set DBUSER=postgres
 set "OUTDIR=%~dp0"
-set "LOGFILE=%OUTDIR%dump_history.log"
+set "LOGFILE=%~dp0dump_history.log"
 
-for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd"') do set TODAY=%%i
-
-set DUMPFILE=%OUTDIR%\schema_dump_%TODAY%.sql
-set CURRENTFILE=%OUTDIR%\schema_current.sql
+set "TODAY=%date:~-4%%date:~3,2%%date:~0,2%"
+set "DUMPFILE=%~dp0schema_dump_%TODAY%.sql"
+set "CURRENTFILE=%~dp0schema_current.sql"
 
 echo [%date% %time%] Iniciando dump de schema...
 
-%PGDUMP% -U %DBUSER% -d %DBNAME% --schema-only --no-owner --no-privileges -f "%DUMPFILE%"
+%PGDUMP% -h %DBHOST% -p %DBPORT% -U %DBUSER% -d %DBNAME% --schema-only --no-owner --no-privileges -f "%DUMPFILE%"
 
 if %ERRORLEVEL% NEQ 0 (
     echo [ERRO] pg_dump falhou. Verifique conexão e credenciais.

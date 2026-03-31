@@ -16,7 +16,8 @@ Padronizar o bootstrap local mínimo do projeto e o primeiro smoke operacional.
 - `README.md`
 - `CLAUDE.md`
 - `docs/auditorias.md`
-- `docs/progresso9.md`
+- `docs/progresso17.md`
+- `docs/backlog_auditoria_sistema_2026_04_01.md`
 
 ## Bootstrap local
 
@@ -37,8 +38,19 @@ Padronizar o bootstrap local mínimo do projeto e o primeiro smoke operacional.
 psql enjoyfun < database/schema_current.sql
 ```
 
-5. Aplicar migrations pendentes conforme necessário
-6. Subir a API:
+5. Aplicar migrations pendentes sempre pelo script oficial:
+
+```bat
+database\apply_migration.bat database\NNN_nome.sql
+```
+
+6. Se houve mudanca estrutural fora do fluxo acima, regerar o baseline no mesmo dia:
+
+```bat
+database\dump_schema.bat
+```
+
+7. Subir a API:
 
 ```bash
 cd backend
@@ -51,6 +63,13 @@ php -d opcache.enable=0 -d opcache.enable_cli=0 -S localhost:8000 -t public rout
 cd frontend
 npm install
 npm run dev
+```
+
+Lint do frontend:
+
+```bash
+cd frontend
+npx eslint --config eslint.config.js src/...
 ```
 
 ## Verificações rápidas
@@ -80,6 +99,8 @@ Antes de mexer em frentes críticas, validar pelo menos:
 1. `cashless + sync offline`
 2. emissão em massa de cartões
 3. listagem de tickets/participants/parking no tenant correto
+4. check-in manual/scanner sem duplicar o mesmo participante no mesmo turno e persistindo `source_channel` em `participant_checkins`
+5. abrir o painel `Fila offline` no header e conferir se contadores, `last_error` e reenfileiramento em lote estao coerentes quando houver `failed`
 
 Referências vivas:
 
@@ -89,12 +110,26 @@ Referências vivas:
 ## Regras locais
 
 - não usar `schema_real.sql` como baseline
+- `schema_current.sql` precisa refletir o banco real sempre que houver alteracao estrutural aplicada
+- `database/apply_migration.bat` agora deve ser o caminho padrão para aplicar migration porque ele atualiza:
+  - `migrations_applied.log`
+  - `schema_dump_YYYYMMDD.sql`
+  - `schema_current.sql`
+  - `dump_history.log`
+- se alguma alteracao de banco for feita fora desse fluxo, rodar `database/dump_schema.bat` antes de encerrar a rodada
+- sempre que a rodada mexer em isolamento multi-tenant ou backfill de `organizer_id`, executar o relatorio `database/organizer_id_null_residue_report.sql`
+- encerrar a frente de `organizer_id IS NULL` apenas quando o relatorio estiver zerado ou deixar somente residuos explicitamente quarentenados
+- antes de validar wave de constraints `NOT VALID`, executar `database/not_valid_constraints_validation_report.sql`
+- aplicar a wave de validacao de constraints apenas em janela controlada, pelo script oficial de migration
+- encerrar a frente de `NOT VALID` somente quando o relatorio `database/not_valid_constraints_validation_report.sql` voltar vazio
+- quando houver falha de sincronizacao offline, usar o painel `Fila offline` do header para inspecionar `last_error`, diferenciar item em backoff de item terminal e reenfileirar o lote so depois de corrigir a causa
+- rodar o lint do frontend a partir de `frontend/` ou apontando explicitamente `frontend/eslint.config.js`; nao executar `eslint` do diretório raiz assumindo autodiscovery
 - não versionar `backend/.env`
-- não abrir frente nova antes de registrar o resultado no `docs/progresso9.md`
+- não abrir frente nova antes de registrar o resultado no `docs/progresso17.md`
 
 ## Quando algo divergir
 
 1. conferir `README.md`
 2. conferir `CLAUDE.md`
 3. conferir `docs/auditorias.md`
-4. registrar a divergência em `docs/progresso9.md`
+4. registrar a divergência em `docs/progresso17.md`

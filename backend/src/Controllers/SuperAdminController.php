@@ -3,16 +3,74 @@
  * Super Admin Controller — EnjoyFun 2.0 (White Label)
  */
 
+require_once BASE_PATH . '/src/Services/AIBillingService.php';
+
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     // Proteção: Somente admin entra aqui
     $user = requireAuth(['admin']);
 
     match (true) {
+        $method === 'GET'  && $id === 'billing' && $sub === 'stats' => getGlobalBillingStats($user),
         $method === 'POST' && $id === 'organizers' => createOrganizer($body),
         $method === 'GET'  && $id === 'organizers' => listOrganizers(),
         default => jsonError("Super Admin: Endpoint não encontrado", 404)
     };
+}
+
+function getGlobalBillingStats(array $user): void
+{
+    try {
+        $db = Database::getInstance();
+        $payload = \EnjoyFun\Services\AIBillingService::getBillingStats($db);
+
+        if (class_exists('AuditService')) {
+            AuditService::log(
+                'admin.billing.global_view',
+                'ai_usage_logs',
+                null,
+                null,
+                null,
+                $user,
+                'success',
+                [
+                    'metadata' => [
+                        'scope' => 'global',
+                        'route' => '/superadmin/billing/stats',
+                    ],
+                ]
+            );
+        }
+
+        jsonSuccess($payload);
+    } catch (Exception $e) {
+        if (str_contains(strtolower($e->getMessage()), 'relation "ai_usage_logs" does not exist')) {
+            if (class_exists('AuditService')) {
+                AuditService::log(
+                    'admin.billing.global_view',
+                    'ai_usage_logs',
+                    null,
+                    null,
+                    null,
+                    $user,
+                    'success',
+                    [
+                        'metadata' => [
+                            'scope' => 'global',
+                            'route' => '/superadmin/billing/stats',
+                            'ai_usage_logs_missing' => true,
+                        ],
+                    ]
+                );
+            }
+
+            jsonSuccess(\EnjoyFun\Services\AIBillingService::emptyBillingStats());
+        }
+
+        $ref = uniqid();
+        error_log("[SuperAdmin Billing] Error fetching billing stats (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao carregar estatísticas globais de uso (Ref: {$ref})", 500);
+    }
 }
 
 function createOrganizer(array $body): void

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { db } from "../../lib/db";
+import { createOfflineQueueRecord, db } from "../../lib/db";
 import api from "../../lib/api";
 import { useEventScope } from "../../context/EventScopeContext";
 import { readEventCatalogCache, writeEventCatalogCache } from "../../lib/eventCatalogCache";
@@ -483,7 +483,7 @@ export default function Scanner() {
       const isOfflineGuest = cached.type === "guest";
       const isOfflineParticipant = cached.type === "participant";
       const canonicalToken = String(cached?.token || tokenCandidates[0] || "").trim();
-      await db.offlineQueue.put({
+      await db.offlineQueue.put(createOfflineQueueRecord({
         offline_id: offlineId,
         status: 'pending',
         payload_type: isOfflineTicket
@@ -501,7 +501,7 @@ export default function Scanner() {
           event_id: numericEventId,
           entity_type: cached.type || null,
         },
-      });
+      }));
 
       setScanResult({
         type: "success",

@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { db } from "../../../lib/db";
-
-const LEGACY_QUEUE_PREFIX = "offline_sales_";
+import { createOfflineQueueRecord, db } from "../../../lib/db";
 
 function hasValidEventId(eventId) {
   return Number(eventId) > 0;
@@ -21,49 +19,11 @@ function createOfflineId() {
   return `offline-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function listLegacyQueueKeys() {
-  if (typeof window === "undefined" || !window.localStorage) {
-    return [];
-  }
-
-  const keys = [];
-  for (let index = 0; index < window.localStorage.length; index += 1) {
-    const key = window.localStorage.key(index);
-    if (key?.startsWith(LEGACY_QUEUE_PREFIX)) {
-      keys.push(key);
-    }
-  }
-
-  return keys;
-}
-
-function readLegacyQueue(key) {
-  if (typeof window === "undefined" || !window.localStorage) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(key) || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.error(`Nao foi possivel ler a fila offline legada ${key}.`, error);
-    return null;
-  }
-}
-
-function removeLegacyQueue(key) {
-  if (typeof window === "undefined" || !window.localStorage) {
-    return;
-  }
-
-  window.localStorage.removeItem(key);
-}
-
 export function usePosOfflineSync({ currentSector, syncOfflineData }) {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   const buildOfflineSaleItem = useCallback(
-    (payload, offlineId, createdOfflineAt = null, options = {}) => {
+    (payload, offlineId, createdOfflineAt = null) => {
       const normalizedEventId = Number(payload?.event_id);
       const normalizedOfflineId = offlineId || createOfflineId();
       const cardReference =
@@ -73,9 +33,8 @@ export function usePosOfflineSync({ currentSector, syncOfflineData }) {
         payload.customer_id ??
         null;
       const normalizedCardId = String(cardReference || "").trim();
-      const allowLegacyCardReference = Boolean(options?.allowLegacyCardReference);
 
-      if (!allowLegacyCardReference && !isCanonicalCardId(normalizedCardId)) {
+      if (!isCanonicalCardId(normalizedCardId)) {
         throw new Error(
           "Venda offline exige card_id canônico resolvido antes de entrar na fila local.",
         );
@@ -101,67 +60,6 @@ export function usePosOfflineSync({ currentSector, syncOfflineData }) {
     [currentSector],
   );
 
-  const migrateLegacyQueues = useCallback(async () => {
-    const legacyKeys = listLegacyQueueKeys();
-    if (legacyKeys.length === 0) {
-      return 0;
-    }
-
-    const migratedRecords = [];
-    const migratedKeys = [];
-
-    for (const key of legacyKeys) {
-      const fallbackSector = key.slice(LEGACY_QUEUE_PREFIX.length) || currentSector;
-      const rawQueue = readLegacyQueue(key);
-
-      if (rawQueue === null) {
-        continue;
-      }
-
-      if (rawQueue.length === 0) {
-        removeLegacyQueue(key);
-        continue;
-      }
-
-      const normalizedQueue = rawQueue
-        .map((item) => {
-          const rawPayload = item?.payload ?? item?.data ?? {};
-
-          return {
-            ...buildOfflineSaleItem(
-                {
-                  ...rawPayload,
-                  sector: rawPayload?.sector ?? item?.sector ?? fallbackSector,
-                },
-                item?.offline_id ?? createOfflineId(),
-                item?.created_offline_at ?? item?.created_at ?? null,
-                { allowLegacyCardReference: true },
-              ),
-              status: "pending",
-            };
-        })
-        .filter(Boolean);
-
-      if (normalizedQueue.length === 0) {
-        continue;
-      }
-
-      migratedRecords.push(...normalizedQueue);
-      migratedKeys.push(key);
-    }
-
-    if (migratedRecords.length === 0) {
-      return 0;
-    }
-
-    await db.transaction("rw", db.offlineQueue, async () => {
-      await db.offlineQueue.bulkPut(migratedRecords);
-    });
-
-    migratedKeys.forEach(removeLegacyQueue);
-    return migratedRecords.length;
-  }, [buildOfflineSaleItem, currentSector]);
-
   const enqueueOfflineSale = useCallback(
     async (payload, offlineId) => {
       if (!hasValidEventId(payload?.event_id)) {
@@ -170,10 +68,10 @@ export function usePosOfflineSync({ currentSector, syncOfflineData }) {
         );
       }
 
-      const record = {
+      const record = createOfflineQueueRecord({
         ...buildOfflineSaleItem(payload, offlineId),
         status: "pending",
-      };
+      });
 
       await db.offlineQueue.put(record);
       return record;
@@ -182,14 +80,13 @@ export function usePosOfflineSync({ currentSector, syncOfflineData }) {
   );
 
   const syncQueue = useCallback(async () => {
-    await migrateLegacyQueues();
     await syncOfflineData();
-  }, [migrateLegacyQueues, syncOfflineData]);
+  }, [syncOfflineData]);
 
   useEffect(() => {
     const handleOnline = () => {
       setIsOffline(false);
-      syncQueue();
+      void syncQueue();
     };
     const handleOffline = () => setIsOffline(true);
 
@@ -203,21 +100,12 @@ export function usePosOfflineSync({ currentSector, syncOfflineData }) {
   }, [syncQueue]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function bootstrapLegacyQueues() {
-      const migratedCount = await migrateLegacyQueues();
-      if (isMounted && migratedCount > 0 && navigator.onLine) {
-        await syncOfflineData();
-      }
+    if (!navigator.onLine) {
+      return;
     }
 
-    bootstrapLegacyQueues();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [migrateLegacyQueues, syncOfflineData]);
+    void syncOfflineData();
+  }, [syncOfflineData]);
 
   return {
     enqueueOfflineSale,

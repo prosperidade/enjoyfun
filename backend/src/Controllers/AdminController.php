@@ -36,40 +36,18 @@ function getDashboardStats(): void
 
 function getBillingStats(): void
 {
-    // Custo de IA mantido global (Pode ser isolado depois se você vender IA por tenant)
-    requireAuth();
+    $operator = requireAuth(['admin', 'organizer']);
+    $organizerId = (int)($operator['organizer_id'] ?? 0);
+    if ($organizerId <= 0) {
+        jsonError('Billing tenant-scoped exige organizer_id válido. Use a rota superadmin para visão global.', 403);
+    }
+
     try {
         $db = Database::getInstance();
-        $sql = "
-            SELECT 
-                COALESCE(SUM(total_tokens), 0) as total_tokens_used,
-                COALESCE(SUM(estimated_cost), 0) as total_cost_usd,
-                COALESCE(COUNT(id), 0) as total_generations,
-                agent_name
-            FROM ai_usage_logs
-            GROUP BY agent_name
-            ORDER BY total_cost_usd DESC
-        ";
-        
-        $stmt = $db->query($sql);
-        $agentStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $overallTokens = array_sum(array_column($agentStats, 'total_tokens_used'));
-        $overallCost   = array_sum(array_column($agentStats, 'total_cost_usd'));
-
-        jsonSuccess([
-            'overall' => [
-                'total_tokens' => $overallTokens,
-                'total_cost_usd' => round((float)$overallCost, 4)
-            ],
-            'by_agent' => $agentStats
-        ]);
+        jsonSuccess(\EnjoyFun\Services\AIBillingService::getBillingStats($db, $organizerId));
     } catch (Exception $e) {
         if (str_contains(strtolower($e->getMessage()), 'relation "ai_usage_logs" does not exist')) {
-            jsonSuccess([
-                'overall' => ['total_tokens' => 0, 'total_cost_usd' => 0.00],
-                'by_agent' => []
-            ]);
+            jsonSuccess(\EnjoyFun\Services\AIBillingService::emptyBillingStats());
         }
         $ref = uniqid();
         error_log("[Billing] Error fetching billing stats (Ref: {$ref}) - " . $e->getMessage());

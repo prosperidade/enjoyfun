@@ -596,12 +596,6 @@ function resolveOrganizerId(array $user): int
     return (int)($user['organizer_id'] ?? 0);
 }
 
-function legacyNullParticipantCategoriesExist(PDO $db): bool
-{
-    $stmt = $db->query("SELECT 1 FROM participant_categories WHERE organizer_id IS NULL LIMIT 1");
-    return (bool)$stmt->fetchColumn();
-}
-
 function listCategories(): void
 {
     $user = requireAuth(['admin', 'organizer', 'manager', 'staff']);
@@ -618,13 +612,6 @@ function listCategories(): void
     $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
     if (!empty($categories)) {
         jsonSuccess($categories);
-    }
-
-    if (legacyNullParticipantCategoriesExist($db)) {
-        jsonError(
-            'Base legada global detectada em participant_categories. GET /participants/categories não expõe mais organizer_id IS NULL porque POST/PUT/import aceitam apenas categorias do organizer. Cadastre ou migre categorias próprias do organizer.',
-            409
-        );
     }
 
     jsonError('Nenhuma categoria de participantes cadastrada para este organizador.', 422);
@@ -647,24 +634,57 @@ function backfillParticipantQrs(array $body): void
         jsonError('Evento não encontrado.', 404);
     }
 
-    $stmt = $db->prepare("
-        UPDATE event_participants ep
-        SET qr_token = 'PT_' || md5(random()::text || clock_timestamp()::text || ep.id::text)
-        FROM people p
-        WHERE ep.person_id = p.id
-          AND ep.event_id = :event_id
-          AND p.organizer_id = :organizer_id
-          AND (ep.qr_token IS NULL OR TRIM(ep.qr_token) = '')
-    ");
-    $stmt->execute([
-        ':event_id' => $eventId,
-        ':organizer_id' => $organizerId,
-    ]);
+    try {
+        $db->beginTransaction();
+
+        $stmtIds = $db->prepare("
+            SELECT ep.id
+            FROM event_participants ep
+            JOIN people p ON p.id = ep.person_id
+            WHERE ep.event_id = :event_id
+              AND p.organizer_id = :organizer_id
+              AND (ep.qr_token IS NULL OR TRIM(ep.qr_token) = '')
+            ORDER BY ep.id ASC
+        ");
+        $stmtIds->execute([
+            ':event_id' => $eventId,
+            ':organizer_id' => $organizerId,
+        ]);
+
+        $participantIds = array_map('intval', $stmtIds->fetchAll(PDO::FETCH_COLUMN));
+        $updated = 0;
+        $stmtUpdate = $db->prepare("
+            UPDATE event_participants
+            SET qr_token = :qr_token
+            WHERE id = :id
+              AND (qr_token IS NULL OR TRIM(qr_token) = '')
+        ");
+
+        foreach ($participantIds as $participantId) {
+            $stmtUpdate->execute([
+                ':qr_token' => participantGenerateQrToken(),
+                ':id' => $participantId,
+            ]);
+            $updated += $stmtUpdate->rowCount();
+        }
+
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        jsonError('Falha ao executar backfill de QR: ' . $e->getMessage(), 500);
+    }
 
     jsonSuccess([
         'event_id' => $eventId,
-        'updated' => $stmt->rowCount(),
+        'updated' => $updated,
     ], 'Backfill explícito de QR concluído.');
+}
+
+function participantGenerateQrToken(): string
+{
+    return 'PT_' . bin2hex(random_bytes(16));
 }
 
 function canBypassParticipantSectorAcl(array $user): bool

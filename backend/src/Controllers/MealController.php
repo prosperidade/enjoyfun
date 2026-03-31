@@ -1494,11 +1494,19 @@ function mealEnsureParticipantQrToken(PDO $db, int $participantId): void
 {
     $stmt = $db->prepare("
         UPDATE event_participants
-        SET qr_token = 'PT_' || md5(random()::text || clock_timestamp()::text || id::text)
-        WHERE id = ?
+        SET qr_token = :qr_token
+        WHERE id = :participant_id
           AND (qr_token IS NULL OR TRIM(qr_token) = '')
     ");
-    $stmt->execute([$participantId]);
+    $stmt->execute([
+        ':qr_token' => mealGenerateParticipantQrToken(),
+        ':participant_id' => $participantId,
+    ]);
+}
+
+function mealGenerateParticipantQrToken(): string
+{
+    return 'PT_' . bin2hex(random_bytes(16));
 }
 
 function mealNormalizeCostBucket(string $value, string $roleName = ''): string

@@ -3,6 +3,7 @@
 namespace EnjoyFun\Services;
 
 use PDO;
+use RuntimeException;
 
 final class AIMemoryStoreService
 {
@@ -10,6 +11,11 @@ final class AIMemoryStoreService
     {
         try {
             if (!self::tableExists($db, 'ai_agent_memories')) {
+                self::handlePersistenceFailure(
+                    new RuntimeException('Tabela public.ai_agent_memories ausente.'),
+                    $payload,
+                    'ai.memory.store_unavailable'
+                );
                 return;
             }
 
@@ -74,7 +80,7 @@ final class AIMemoryStoreService
                 ':metadata_json' => self::encodeJsonObject($payload['metadata'] ?? []),
             ]);
         } catch (\Throwable $e) {
-            error_log('AIMemoryStoreService::recordMemory error: ' . $e->getMessage());
+            self::handlePersistenceFailure($e, $payload, 'ai.memory.persist_failed');
         }
     }
 
@@ -509,5 +515,42 @@ final class AIMemoryStoreService
         $payload = is_array($value) ? $value : [];
         $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE);
         return is_string($encoded) ? $encoded : '{}';
+    }
+
+    private static function handlePersistenceFailure(\Throwable $e, array $payload, string $eventName): void
+    {
+        self::emitPersistenceLog($eventName, [
+            'organizer_id' => (int)($payload['organizer_id'] ?? 0),
+            'event_id' => self::nullablePositiveInt($payload['event_id'] ?? null),
+            'surface' => self::nullableText($payload['surface'] ?? null, 100),
+            'agent_key' => self::nullableText($payload['agent_key'] ?? null, 100),
+            'memory_type' => self::nullableText($payload['memory_type'] ?? null, 50),
+            'source_execution_id' => self::nullablePositiveInt($payload['source_execution_id'] ?? null),
+            'message' => self::nullableText($e->getMessage(), 400),
+        ]);
+
+        if (self::isAuditStrictModeEnabled()) {
+            throw new RuntimeException('Falha ao persistir memoria da IA.', 0, $e);
+        }
+    }
+
+    private static function emitPersistenceLog(string $eventName, array $payload): void
+    {
+        $context = ['event' => $eventName];
+        foreach ($payload as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+            $context[$key] = $value;
+        }
+
+        $encoded = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        error_log(is_string($encoded) ? $encoded : $eventName);
+    }
+
+    private static function isAuditStrictModeEnabled(): bool
+    {
+        $raw = strtolower(trim((string)(getenv('AI_AUDIT_STRICT') ?: '0')));
+        return in_array($raw, ['1', 'true', 'yes', 'on'], true);
     }
 }
