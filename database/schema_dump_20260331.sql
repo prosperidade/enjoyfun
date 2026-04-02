@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict qMCmbk4EOxPchVez83swZi7yIDQGIDqDvDtfLtMfzUT6O8fhFTZCOnG6vFsaoNJ
+\restrict y4UnJBvGcD6SKrnrOYvBvWgTiRi90YepBMy5xC2uEuDP7I6eLumI2GBOe3Lm4hk
 
 -- Dumped from database version 18.2
 -- Dumped by pg_dump version 18.2
@@ -297,6 +297,15 @@ CREATE TABLE public.ai_agent_executions (
     request_duration_ms integer DEFAULT 0 NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     completed_at timestamp without time zone,
+    approval_risk_level character varying(30) DEFAULT 'none'::character varying NOT NULL,
+    approval_scope_key character varying(64),
+    approval_scope_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    approval_requested_by_user_id integer,
+    approval_requested_at timestamp without time zone,
+    approval_decided_by_user_id integer,
+    approval_decided_at timestamp without time zone,
+    approval_decision_reason character varying(500),
+    CONSTRAINT chk_ai_agent_executions_approval_risk_level CHECK (((approval_risk_level)::text = ANY (ARRAY[('none'::character varying)::text, ('read'::character varying)::text, ('write'::character varying)::text, ('destructive'::character varying)::text]))),
     CONSTRAINT chk_ai_agent_executions_approval_status CHECK (((approval_status)::text = ANY (ARRAY[('not_required'::character varying)::text, ('pending'::character varying)::text, ('approved'::character varying)::text, ('rejected'::character varying)::text]))),
     CONSTRAINT chk_ai_agent_executions_execution_status CHECK (((execution_status)::text = ANY (ARRAY[('succeeded'::character varying)::text, ('failed'::character varying)::text, ('blocked'::character varying)::text, ('pending'::character varying)::text])))
 );
@@ -4274,6 +4283,13 @@ ALTER TABLE ONLY public.workforce_roles
 
 
 --
+-- Name: idx_ai_agent_exec_org_approval_status_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ai_agent_exec_org_approval_status_created_at ON public.ai_agent_executions USING btree (organizer_id, approval_status, created_at DESC);
+
+
+--
 -- Name: idx_ai_agent_exec_org_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4285,6 +4301,13 @@ CREATE INDEX idx_ai_agent_exec_org_created_at ON public.ai_agent_executions USIN
 --
 
 CREATE INDEX idx_ai_agent_exec_org_event_created_at ON public.ai_agent_executions USING btree (organizer_id, event_id, created_at DESC);
+
+
+--
+-- Name: idx_ai_agent_exec_org_scope_key_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ai_agent_exec_org_scope_key_created_at ON public.ai_agent_executions USING btree (organizer_id, approval_scope_key, created_at DESC) WHERE (approval_scope_key IS NOT NULL);
 
 
 --
@@ -4568,6 +4591,13 @@ CREATE INDEX idx_card_transactions_card_created_at ON public.card_transactions U
 
 
 --
+-- Name: idx_card_transactions_card_event_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_card_transactions_card_event_created_at ON public.card_transactions USING btree (card_id, event_id, created_at DESC) WHERE (event_id IS NOT NULL);
+
+
+--
 -- Name: idx_commissaries_event_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4740,6 +4770,13 @@ CREATE INDEX idx_messaging_webhook_events_organizer_created_at ON public.messagi
 --
 
 CREATE INDEX idx_messaging_webhook_events_provider_message_id ON public.messaging_webhook_events USING btree (provider_message_id);
+
+
+--
+-- Name: idx_offline_queue_pending_event_device_created_offline; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_offline_queue_pending_event_device_created_offline ON public.offline_queue USING btree (event_id, device_id, created_offline_at DESC) WHERE ((status)::text = 'pending'::text);
 
 
 --
@@ -4936,6 +4973,13 @@ CREATE INDEX idx_refresh_token ON public.refresh_tokens USING btree (token_hash)
 --
 
 CREATE INDEX idx_sales_event_status_created_at ON public.sales USING btree (event_id, status, created_at DESC);
+
+
+--
+-- Name: idx_sales_org_completed_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sales_org_completed_created_at ON public.sales USING btree (organizer_id, created_at DESC) WHERE ((status)::text = 'completed'::text);
 
 
 --
@@ -5842,6 +5886,22 @@ ALTER TABLE ONLY public.financial_import_rows
 
 
 --
+-- Name: ai_agent_executions fk_ai_agent_exec_approval_decided_by_user; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_agent_executions
+    ADD CONSTRAINT fk_ai_agent_exec_approval_decided_by_user FOREIGN KEY (approval_decided_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: ai_agent_executions fk_ai_agent_exec_approval_requested_by_user; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_agent_executions
+    ADD CONSTRAINT fk_ai_agent_exec_approval_requested_by_user FOREIGN KEY (approval_requested_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: ai_agent_memories fk_ai_agent_memories_source_execution; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6301,5 +6361,5 @@ ALTER TABLE ONLY public.user_roles
 -- PostgreSQL database dump complete
 --
 
-\unrestrict qMCmbk4EOxPchVez83swZi7yIDQGIDqDvDtfLtMfzUT6O8fhFTZCOnG6vFsaoNJ
+\unrestrict y4UnJBvGcD6SKrnrOYvBvWgTiRi90YepBMy5xC2uEuDP7I6eLumI2GBOe3Lm4hk
 

@@ -6,6 +6,7 @@ use PDO;
 
 require_once __DIR__ . '/../Helpers/WorkforceTreeHelper.php';
 require_once __DIR__ . '/MealsDomainService.php';
+require_once __DIR__ . '/WorkforceTreeUseCaseService.php';
 
 final class AIContextBuilderService
 {
@@ -383,21 +384,7 @@ final class AIContextBuilderService
     private static function buildWorkforceTreeStatusSafe(PDO $db, int $organizerId, int $eventId): array
     {
         try {
-            if (!function_exists('buildWorkforceTreeStatus')) {
-                return [
-                    'migration_ready' => false,
-                    'assignment_bindings_ready' => false,
-                    'tree_usable' => false,
-                    'tree_ready' => false,
-                    'source_preference' => 'legacy',
-                    'manager_roots_count' => 0,
-                    'managerial_child_roles_count' => 0,
-                    'root_sectors_count' => 0,
-                    'activation_blockers' => ['tree_helper_unavailable'],
-                ];
-            }
-
-            $status = \buildWorkforceTreeStatus($db, $organizerId, $eventId, true, 'all');
+            $status = WorkforceTreeUseCaseService::getStatus($db, $organizerId, $eventId, true, 'all');
             return is_array($status) ? $status : [];
         } catch (\Throwable $e) {
             return [

@@ -13,6 +13,9 @@ require_once __DIR__ . '/../Helpers/WorkforceAssignmentsManagerHelper.php';
 require_once __DIR__ . '/../Helpers/WorkforceImportHelper.php';
 require_once __DIR__ . '/../Helpers/WorkforceRolesEventRolesHelper.php';
 require_once __DIR__ . '/../Helpers/WorkforceTreeHelper.php';
+require_once BASE_PATH . '/src/Services/WorkforceTreeUseCaseService.php';
+
+use EnjoyFun\Services\WorkforceTreeUseCaseService;
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -132,13 +135,18 @@ function getTreeStatus(array $query): void
     $canBypassSector = canBypassSectorAcl($user);
     $userSector = resolveUserSector($db, $user);
 
-    $eventId = (int)($query['event_id'] ?? 0);
-    if ($eventId <= 0) {
-        jsonError('event_id é obrigatório para diagnosticar a árvore do Workforce.', 400);
+    try {
+        $status = WorkforceTreeUseCaseService::getStatus(
+            $db,
+            $organizerId,
+            (int)($query['event_id'] ?? 0),
+            $canBypassSector,
+            $userSector
+        );
+        jsonSuccess($status);
+    } catch (\Throwable $e) {
+        jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 500);
     }
-
-    $status = buildWorkforceTreeStatus($db, $organizerId, $eventId, $canBypassSector, $userSector);
-    jsonSuccess($status);
 }
 
 function backfillTree(array $body, array $query = []): void
@@ -147,34 +155,17 @@ function backfillTree(array $body, array $query = []): void
     $db = Database::getInstance();
     $organizerId = resolveOrganizerId($user);
 
-    $eventId = (int)($body['event_id'] ?? $query['event_id'] ?? 0);
-    if ($eventId <= 0) {
-        jsonError('event_id é obrigatório para executar o backfill da árvore do Workforce.', 400);
-    }
-
-    $sector = normalizeSector((string)($body['sector'] ?? $query['sector'] ?? ''));
-
-    ensureWorkforceEventRolesTable($db);
-    if (!workforceAssignmentsHaveEventRoleColumns($db)) {
-        jsonError(
-            'Readiness de ambiente inválida: `workforce_assignments` ainda não recebeu `event_role_id` e `root_manager_event_role_id`.',
-            409
-        );
-    }
-
     try {
-        $db->beginTransaction();
-        $result = runWorkforceTreeBackfill($db, $organizerId, $eventId, $sector);
-        $db->commit();
+        $result = WorkforceTreeUseCaseService::backfill(
+            $db,
+            $organizerId,
+            (int)($body['event_id'] ?? $query['event_id'] ?? 0),
+            normalizeSector((string)($body['sector'] ?? $query['sector'] ?? ''))
+        );
+        jsonSuccess($result, 'Backfill da árvore do Workforce executado com sucesso.');
     } catch (\Throwable $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
-        jsonError('Erro ao executar backfill da árvore do Workforce: ' . $e->getMessage(), 500);
+        jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 500);
     }
-
-    $result['status_after'] = buildWorkforceTreeStatus($db, $organizerId, $eventId, true, 'all');
-    jsonSuccess($result, 'Backfill da árvore do Workforce executado com sucesso.');
 }
 
 function sanitizeTree(array $body, array $query = []): void
@@ -183,28 +174,17 @@ function sanitizeTree(array $body, array $query = []): void
     $db = Database::getInstance();
     $organizerId = resolveOrganizerId($user);
 
-    $eventId = (int)($body['event_id'] ?? $query['event_id'] ?? 0);
-    if ($eventId <= 0) {
-        jsonError('event_id é obrigatório para executar o saneamento da árvore do Workforce.', 400);
-    }
-
-    $sector = normalizeSector((string)($body['sector'] ?? $query['sector'] ?? ''));
-
-    ensureWorkforceEventRolesTable($db);
-
     try {
-        $db->beginTransaction();
-        $result = runWorkforceTreeSanitization($db, $organizerId, $eventId, $sector);
-        $db->commit();
+        $result = WorkforceTreeUseCaseService::sanitize(
+            $db,
+            $organizerId,
+            (int)($body['event_id'] ?? $query['event_id'] ?? 0),
+            normalizeSector((string)($body['sector'] ?? $query['sector'] ?? ''))
+        );
+        jsonSuccess($result, 'Saneamento da árvore do Workforce executado com sucesso.');
     } catch (\Throwable $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
-        jsonError('Erro ao executar saneamento da árvore do Workforce: ' . $e->getMessage(), 500);
+        jsonError($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 500);
     }
-
-    $result['status_after'] = buildWorkforceTreeStatus($db, $organizerId, $eventId, true, 'all');
-    jsonSuccess($result, 'Saneamento da árvore do Workforce executado com sucesso.');
 }
 
 // ----------------------------------------------------

@@ -5,9 +5,11 @@ namespace EnjoyFun\Services;
 use PDO;
 use RuntimeException;
 
+require_once __DIR__ . '/AuditService.php';
+
 final class AIMemoryStoreService
 {
-    public static function recordMemory(PDO $db, array $payload): void
+    public static function recordMemory(PDO $db, array $payload): ?int
     {
         try {
             if (!self::tableExists($db, 'ai_agent_memories')) {
@@ -16,17 +18,17 @@ final class AIMemoryStoreService
                     $payload,
                     'ai.memory.store_unavailable'
                 );
-                return;
+                return null;
             }
 
             $organizerId = (int)($payload['organizer_id'] ?? 0);
             if ($organizerId <= 0) {
-                return;
+                return null;
             }
 
             $summary = self::nullableText($payload['summary'] ?? null, 2000);
             if ($summary === null) {
-                return;
+                return null;
             }
 
             $stmt = $db->prepare('
@@ -63,6 +65,7 @@ final class AIMemoryStoreService
                     NOW(),
                     NOW()
                 )
+                RETURNING id
             ');
             $stmt->execute([
                 ':organizer_id' => $organizerId,
@@ -79,8 +82,11 @@ final class AIMemoryStoreService
                 ':tags_json' => self::encodeJsonArray($payload['tags'] ?? []),
                 ':metadata_json' => self::encodeJsonObject($payload['metadata'] ?? []),
             ]);
+            $memoryId = (int)$stmt->fetchColumn();
+            return $memoryId > 0 ? $memoryId : null;
         } catch (\Throwable $e) {
             self::handlePersistenceFailure($e, $payload, 'ai.memory.persist_failed');
+            return null;
         }
     }
 
@@ -265,7 +271,10 @@ final class AIMemoryStoreService
             ]);
         }
 
-        return self::getReportById($db, $organizerId, $reportId);
+        $report = self::getReportById($db, $organizerId, $reportId);
+        self::writeQueuedReportAudit($payload, $organizerId, $eventId, $reportId, $blueprint);
+
+        return $report;
     }
 
     public static function listReports(PDO $db, int $organizerId, array $filters = []): array
@@ -552,5 +561,68 @@ final class AIMemoryStoreService
     {
         $raw = strtolower(trim((string)(getenv('AI_AUDIT_STRICT') ?: '0')));
         return in_array($raw, ['1', 'true', 'yes', 'on'], true);
+    }
+
+    private static function writeQueuedReportAudit(array $payload, int $organizerId, int $eventId, int $reportId, array $blueprint): void
+    {
+        if (!class_exists('\AuditService')) {
+            return;
+        }
+
+        $automationSource = self::nullableText($payload['automation_source'] ?? null, 60) ?? 'manual';
+        $auditUser = is_array($payload['audit_user'] ?? null)
+            ? $payload['audit_user']
+            : [
+                'id' => self::nullablePositiveInt($payload['generated_by_user_id'] ?? null),
+                'email' => self::nullableText($payload['requested_by'] ?? null, 255),
+                'organizer_id' => $organizerId,
+            ];
+
+        \AuditService::log(
+            \AuditService::AI_REPORT_QUEUED,
+            'ai_report',
+            $reportId,
+            null,
+            [
+                'report_type' => 'end_of_event',
+                'report_status' => 'queued',
+                'automation_source' => $automationSource,
+            ],
+            $auditUser,
+            'success',
+            [
+                'event_id' => $eventId,
+                'organizer_id' => $organizerId,
+                'entrypoint' => 'ai/reports/end-of-event',
+                'metadata' => array_filter([
+                    'automation_source' => $automationSource,
+                    'requested_by' => self::nullableText($payload['requested_by'] ?? null, 255),
+                    'generated_by_user_id' => self::nullablePositiveInt($payload['generated_by_user_id'] ?? null),
+                    'section_count' => count((array)($blueprint['sections'] ?? [])),
+                ], static fn(mixed $value): bool => $value !== null && $value !== ''),
+                'actor' => self::resolveReportAuditActor($payload, $automationSource),
+            ]
+        );
+    }
+
+    private static function resolveReportAuditActor(array $payload, string $automationSource): array
+    {
+        if (is_array($payload['audit_actor'] ?? null)) {
+            return $payload['audit_actor'];
+        }
+
+        if ($automationSource !== 'manual') {
+            return [
+                'type' => 'system',
+                'id' => 'ai.end_of_event_report',
+                'origin' => 'events.lifecycle',
+            ];
+        }
+
+        return [
+            'type' => 'human',
+            'id' => isset($payload['generated_by_user_id']) ? (string)(int)$payload['generated_by_user_id'] : null,
+            'origin' => 'http.ai_reports',
+        ];
     }
 }

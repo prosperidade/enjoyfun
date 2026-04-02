@@ -587,7 +587,7 @@ function issueTokens(PDO $db, array $user, array $context = []): array
     $expiry  = (int)(getenv('JWT_EXPIRY')  ?: 3600);
     $refresh = (int)(getenv('JWT_REFRESH') ?: 2592000);
 
-    // HS256: a chave simétrica é usada no HMAC via getenv('JWT_SECRET')
+    // RS256: a chave privada assina o access token; JWT_SECRET permanece para OTP e outros usos legados.
     $access = JWT::encode([
         'sub'          => $user['id'],
         'name'         => $user['name'],

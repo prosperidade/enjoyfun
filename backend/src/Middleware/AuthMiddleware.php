@@ -1,6 +1,6 @@
 <?php
 /**
- * EnjoyFun — Auth Middleware (HS256)
+ * EnjoyFun — Auth Middleware (RS256)
  * SaaS Multi-tenant Ready
  */
 

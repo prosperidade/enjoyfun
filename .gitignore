@@ -2,3 +2,4 @@
 /frontend/dist
 .env
 /secrets/
+*.pem

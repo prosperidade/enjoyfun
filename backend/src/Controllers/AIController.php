@@ -14,6 +14,8 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
     match (true) {
         $method === 'GET' && $id === 'blueprint' => getBlueprint(),
         $method === 'GET' && $id === 'executions' => listExecutions($query),
+        $method === 'POST' && $id === 'executions' && ctype_digit((string)$sub) && $subId === 'approve' => approveExecution((int)$sub, $body),
+        $method === 'POST' && $id === 'executions' && ctype_digit((string)$sub) && $subId === 'reject' => rejectExecution((int)$sub, $body),
         $method === 'GET' && $id === 'memories' => listMemories($query),
         $method === 'GET' && $id === 'reports' && $sub === null => listReports($query),
         $method === 'POST' && $id === 'reports' && $sub === 'end-of-event' => queueEndOfEventReport($body),
@@ -40,6 +42,26 @@ function getInsight(array $body): void
         $ref = uniqid();
         error_log("[AIController] Error generating insight (Ref: {$ref}) - " . $e->getMessage());
         jsonError("Erro interno ao gerar insight de IA (Ref: {$ref})", 500);
+    }
+
+    $outcome = strtolower(trim((string)($result['outcome'] ?? 'completed')));
+    if ($outcome === 'approval_required') {
+        jsonSuccess($result, 'Aprovação necessária antes de executar tools de escrita da IA.', 202);
+    }
+    if ($outcome === 'tool_runtime_pending') {
+        jsonSuccess($result, 'Tool calls recebidos, mas o runtime operacional de tools ainda não foi materializado nesta superfície.', 202);
+    }
+    if ($outcome === 'blocked') {
+        jsonError(
+            (string)($result['message'] ?? 'Execução de IA bloqueada pela policy do agente.'),
+            409,
+            [
+                'execution_id' => $result['execution_id'] ?? null,
+                'approval_status' => $result['approval_status'] ?? null,
+                'approval_scope_key' => $result['approval_scope_key'] ?? null,
+                'approval_risk_level' => $result['approval_risk_level'] ?? null,
+            ]
+        );
     }
 
     jsonSuccess($result, 'Insight gerado com sucesso.');
@@ -69,6 +91,62 @@ function listExecutions(array $query): void
     }
 
     jsonSuccess($data);
+}
+
+function approveExecution(int $executionId, array $body): void
+{
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido para aprovar execuções de IA.', 403);
+    }
+
+    try {
+        $data = \EnjoyFun\Services\AgentExecutionService::approveExecution(
+            Database::getInstance(),
+            $organizerId,
+            $executionId,
+            $operator,
+            $body
+        );
+    } catch (RuntimeException $e) {
+        $statusCode = (int)$e->getCode();
+        jsonError($e->getMessage(), $statusCode >= 400 ? $statusCode : 503);
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[AIController] Error approving execution (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao aprovar execução de IA (Ref: {$ref})", 500);
+    }
+
+    jsonSuccess($data, 'Execução de IA aprovada com sucesso.');
+}
+
+function rejectExecution(int $executionId, array $body): void
+{
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido para rejeitar execuções de IA.', 403);
+    }
+
+    try {
+        $data = \EnjoyFun\Services\AgentExecutionService::rejectExecution(
+            Database::getInstance(),
+            $organizerId,
+            $executionId,
+            $operator,
+            $body
+        );
+    } catch (RuntimeException $e) {
+        $statusCode = (int)$e->getCode();
+        jsonError($e->getMessage(), $statusCode >= 400 ? $statusCode : 503);
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[AIController] Error rejecting execution (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao rejeitar execução de IA (Ref: {$ref})", 500);
+    }
+
+    jsonSuccess($data, 'Execução de IA rejeitada com sucesso.');
 }
 
 function listMemories(array $query): void
@@ -139,6 +217,7 @@ function queueEndOfEventReport(array $body): void
                 'automation_source' => 'manual',
                 'generated_by_user_id' => isset($operator['id']) ? (int)$operator['id'] : null,
                 'requested_by' => $operator['email'] ?? $operator['name'] ?? null,
+                'audit_user' => $operator,
             ]
         );
     } catch (Throwable $e) {

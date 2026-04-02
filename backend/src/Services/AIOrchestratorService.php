@@ -7,10 +7,13 @@ use RuntimeException;
 
 require_once __DIR__ . '/AIBillingService.php';
 require_once __DIR__ . '/AgentExecutionService.php';
+require_once __DIR__ . '/AIToolApprovalPolicyService.php';
 require_once __DIR__ . '/AIContextBuilderService.php';
 require_once __DIR__ . '/AIProviderConfigService.php';
 require_once __DIR__ . '/AIMemoryStoreService.php';
 require_once __DIR__ . '/AIPromptCatalogService.php';
+require_once __DIR__ . '/AIToolRuntimeService.php';
+require_once __DIR__ . '/AuditService.php';
 
 final class AIOrchestratorService
 {
@@ -36,13 +39,14 @@ final class AIOrchestratorService
         $runtime = AIProviderConfigService::resolveRuntime($db, $organizerId, $effectiveProvider);
         $systemPrompt = AIPromptCatalogService::composeSystemPrompt($legacyConfig, $agentExecution, $surface);
         $prompt = AIPromptCatalogService::buildUserPrompt($surface, $context, $question);
+        $toolCatalog = AIToolRuntimeService::buildToolCatalog($context);
         $startedAt = gmdate('Y-m-d H:i:s');
 
         try {
-            $result = self::requestInsight($runtime, $systemPrompt, $prompt);
+            $result = self::requestInsight($runtime, $systemPrompt, $prompt, $toolCatalog);
         } catch (\Throwable $e) {
             try {
-                self::logExecution(
+                $executionId = self::logExecution(
                     $db,
                     $operator,
                     $organizerId,
@@ -56,10 +60,70 @@ final class AIOrchestratorService
                     'failed',
                     $e->getMessage()
                 );
+                self::writeExecutionAudit(
+                    $operator,
+                    $organizerId,
+                    $context,
+                    $agentExecution,
+                    $runtime,
+                    null,
+                    $executionId,
+                    \AuditService::AI_EXECUTION_FAILED,
+                    'failed',
+                    $e->getMessage()
+                );
             } catch (\Throwable $auditError) {
                 error_log('AIOrchestratorService::logExecution failure while handling request error: ' . $auditError->getMessage());
             }
             throw $e;
+        }
+
+        $approvalPolicy = AIToolApprovalPolicyService::resolveExecutionPolicy([
+            'organizer_id' => $organizerId,
+            'event_id' => isset($context['event_id']) ? (int)$context['event_id'] : null,
+            'requesting_user_id' => isset($operator['id']) ? (int)$operator['id'] : null,
+            'entrypoint' => 'ai/insight',
+            'surface' => $context['surface'] ?? null,
+            'agent_key' => $agentExecution['agent_key'] ?? null,
+            'approval_mode' => $agentExecution['approval_mode'] ?? null,
+            'tool_calls' => $result['tool_calls'] ?? [],
+        ]);
+        $result['tool_calls'] = $approvalPolicy['tool_calls'] ?? [];
+        $result['tool_results'] = [];
+
+        if (
+            ($result['tool_calls'] ?? []) !== []
+            && empty($approvalPolicy['approval_required'])
+            && empty($approvalPolicy['approval_denied'])
+        ) {
+            $toolRuntime = AIToolRuntimeService::executeReadOnlyTools(
+                $db,
+                $operator,
+                $context,
+                (array)($result['tool_calls'] ?? [])
+            );
+            $result['tool_calls'] = $toolRuntime['tool_calls'] ?? [];
+            $result['tool_results'] = $toolRuntime['tool_results'] ?? [];
+            $approvalPolicy['tool_calls'] = $result['tool_calls'];
+
+            if (!empty($toolRuntime['handled_all'])) {
+                $approvalPolicy['tool_runtime_pending'] = false;
+                $approvalPolicy['execution_status'] = 'succeeded';
+                $approvalPolicy['message'] = null;
+                if (trim((string)($result['insight'] ?? '')) === '') {
+                    $result = self::completeInsightAfterReadOnlyTools(
+                        $runtime,
+                        $systemPrompt,
+                        $prompt,
+                        $result,
+                        $toolRuntime
+                    );
+                }
+            } elseif (($toolRuntime['message'] ?? null) !== null) {
+                $approvalPolicy['tool_runtime_pending'] = true;
+                $approvalPolicy['execution_status'] = 'pending';
+                $approvalPolicy['message'] = $toolRuntime['message'];
+            }
         }
 
         self::logUsage($operator, $organizerId, $context, $result, $agentExecution);
@@ -74,12 +138,33 @@ final class AIOrchestratorService
             $prompt,
             $result,
             $startedAt,
-            'succeeded',
-            null
+            $approvalPolicy['execution_status'] ?? 'succeeded',
+            $approvalPolicy['message'] ?? null,
+            $approvalPolicy
         );
-        self::recordLearningMemory($db, $organizerId, $context, $agentExecution, $question, $result, $executionId);
+        self::writeExecutionAudit(
+            $operator,
+            $organizerId,
+            $context,
+            $agentExecution,
+            $runtime,
+            $result,
+            $executionId,
+            self::resolveExecutionAuditAction($approvalPolicy),
+            $approvalPolicy['execution_status'] ?? 'succeeded',
+            $approvalPolicy['message'] ?? null,
+            $approvalPolicy
+        );
+
+        if (!empty($approvalPolicy['approval_required']) || !empty($approvalPolicy['approval_denied']) || !empty($approvalPolicy['tool_runtime_pending'])) {
+            return self::buildNonTerminalResponse($result, $agentExecution, $approvalPolicy, $executionId);
+        }
+
+        $memoryId = self::recordLearningMemory($db, $organizerId, $context, $agentExecution, $question, $result, $executionId);
+        self::writeMemoryAudit($operator, $organizerId, $context, $agentExecution, $result, $executionId, $memoryId);
 
         $response = [
+            'outcome' => 'completed',
             'insight' => $result['insight'],
             'provider' => $result['provider'],
             'model' => $result['model'],
@@ -88,6 +173,11 @@ final class AIOrchestratorService
         if ($agentExecution !== null) {
             $response['agent_key'] = $agentExecution['agent_key'];
             $response['approval_mode'] = $agentExecution['approval_mode'];
+        }
+
+        $response['approval_status'] = $approvalPolicy['approval_status'] ?? 'not_required';
+        if (($result['tool_results'] ?? []) !== []) {
+            $response['tool_results'] = $result['tool_results'];
         }
 
         return $response;
@@ -256,7 +346,8 @@ final class AIOrchestratorService
         ?array $result,
         string $startedAt,
         string $executionStatus,
-        ?string $errorMessage
+        ?string $errorMessage,
+        array $approvalPolicy = []
     ): ?int
     {
         return AgentExecutionService::logExecution($db, [
@@ -268,8 +359,15 @@ final class AIOrchestratorService
             'agent_key' => $agentExecution['agent_key'] ?? null,
             'provider' => $result['provider'] ?? ($runtime['provider'] ?? null),
             'model' => $result['model'] ?? ($runtime['model'] ?? null),
-            'approval_mode' => $agentExecution['approval_mode'] ?? null,
-            'approval_status' => 'not_required',
+            'approval_mode' => $approvalPolicy['approval_mode'] ?? ($agentExecution['approval_mode'] ?? null),
+            'approval_status' => $approvalPolicy['approval_status'] ?? 'not_required',
+            'approval_risk_level' => $approvalPolicy['approval_risk_level'] ?? 'none',
+            'approval_scope_key' => $approvalPolicy['approval_scope_key'] ?? null,
+            'approval_scope' => $approvalPolicy['approval_scope'] ?? [],
+            'approval_requested_by_user_id' => $approvalPolicy['approval_requested_by_user_id'] ?? null,
+            'approval_requested_at' => !empty($approvalPolicy['approval_required']) ? $startedAt : null,
+            'approval_decided_at' => !empty($approvalPolicy['approval_denied']) ? gmdate('Y-m-d H:i:s') : null,
+            'approval_decision_reason' => !empty($approvalPolicy['approval_denied']) ? ($approvalPolicy['message'] ?? null) : null,
             'execution_status' => $executionStatus,
             'prompt_preview' => "Q: {$question}\n\n{$prompt}",
             'response_preview' => $result['insight'] ?? null,
@@ -282,6 +380,31 @@ final class AIOrchestratorService
         ]);
     }
 
+    private static function buildNonTerminalResponse(?array $result, ?array $agentExecution, array $approvalPolicy, ?int $executionId): array
+    {
+        $outcome = 'tool_runtime_pending';
+        if (!empty($approvalPolicy['approval_required'])) {
+            $outcome = 'approval_required';
+        } elseif (!empty($approvalPolicy['approval_denied'])) {
+            $outcome = 'blocked';
+        }
+
+        return array_filter([
+            'outcome' => $outcome,
+            'message' => $approvalPolicy['message'] ?? null,
+            'execution_id' => $executionId,
+            'provider' => $result['provider'] ?? null,
+            'model' => $result['model'] ?? null,
+            'agent_key' => $agentExecution['agent_key'] ?? null,
+            'approval_mode' => $approvalPolicy['approval_mode'] ?? ($agentExecution['approval_mode'] ?? null),
+            'approval_status' => $approvalPolicy['approval_status'] ?? 'not_required',
+            'approval_risk_level' => $approvalPolicy['approval_risk_level'] ?? 'none',
+            'approval_scope_key' => $approvalPolicy['approval_scope_key'] ?? null,
+            'tool_calls' => $approvalPolicy['tool_calls'] ?? [],
+            'tool_results' => ($result['tool_results'] ?? []) !== [] ? $result['tool_results'] : null,
+        ], static fn(mixed $value): bool => $value !== null);
+    }
+
     private static function recordLearningMemory(
         PDO $db,
         int $organizerId,
@@ -290,14 +413,14 @@ final class AIOrchestratorService
         string $question,
         array $result,
         ?int $executionId
-    ): void
+    ): ?int
     {
         $insight = trim((string)($result['insight'] ?? ''));
         if ($insight === '') {
-            return;
+            return null;
         }
 
-        AIMemoryStoreService::recordMemory($db, [
+        return AIMemoryStoreService::recordMemory($db, [
             'organizer_id' => $organizerId,
             'event_id' => isset($context['event_id']) ? (int)$context['event_id'] : null,
             'agent_key' => $agentExecution['agent_key'] ?? null,
@@ -322,16 +445,302 @@ final class AIOrchestratorService
         ]);
     }
 
-    private static function requestInsight(array $runtime, string $systemPrompt, string $prompt): array
+    private static function resolveExecutionAuditAction(array $approvalPolicy): string
+    {
+        if (!empty($approvalPolicy['approval_required'])) {
+            return \AuditService::AI_EXECUTION_APPROVAL_REQUESTED;
+        }
+        if (!empty($approvalPolicy['approval_denied'])) {
+            return \AuditService::AI_EXECUTION_BLOCKED;
+        }
+        if (!empty($approvalPolicy['tool_runtime_pending'])) {
+            return \AuditService::AI_EXECUTION_TOOL_RUNTIME_PENDING;
+        }
+
+        return \AuditService::AI_EXECUTION_COMPLETED;
+    }
+
+    private static function writeExecutionAudit(
+        array $operator,
+        int $organizerId,
+        array $context,
+        ?array $agentExecution,
+        array $runtime,
+        ?array $result,
+        ?int $executionId,
+        string $action,
+        string $executionStatus,
+        ?string $errorMessage,
+        array $approvalPolicy = []
+    ): void {
+        if (!class_exists('\AuditService')) {
+            return;
+        }
+
+        $provider = $result['provider'] ?? ($runtime['provider'] ?? null);
+        $model = $result['model'] ?? ($runtime['model'] ?? null);
+        $toolCalls = is_array($result['tool_calls'] ?? null) ? $result['tool_calls'] : [];
+        $toolNames = array_values(array_filter(array_map(
+            static fn(array $toolCall): ?string => isset($toolCall['tool_name']) ? trim((string)$toolCall['tool_name']) : null,
+            array_filter($toolCalls, 'is_array')
+        )));
+        $newValue = array_filter([
+            'execution_status' => $executionStatus,
+            'approval_status' => $approvalPolicy['approval_status'] ?? 'not_required',
+            'approval_risk_level' => $approvalPolicy['approval_risk_level'] ?? 'none',
+            'approval_scope_key' => $approvalPolicy['approval_scope_key'] ?? null,
+            'surface' => $context['surface'] ?? null,
+            'agent_key' => $agentExecution['agent_key'] ?? null,
+            'provider' => $provider,
+            'model' => $model,
+            'tool_call_count' => count($toolCalls),
+            'request_duration_ms' => isset($result['request_duration_ms']) ? (int)$result['request_duration_ms'] : null,
+            'error_message' => $errorMessage,
+        ], static fn(mixed $value): bool => $value !== null && $value !== '');
+
+        \AuditService::log(
+            $action,
+            'ai_execution',
+            $executionId,
+            null,
+            $newValue,
+            $operator,
+            $executionStatus === 'failed' || $executionStatus === 'blocked' ? 'failure' : 'success',
+            [
+                'event_id' => isset($context['event_id']) ? (int)$context['event_id'] : null,
+                'organizer_id' => $organizerId,
+                'entrypoint' => 'ai/insight',
+                'metadata' => array_filter([
+                    'surface' => $context['surface'] ?? null,
+                    'agent_key' => $agentExecution['agent_key'] ?? null,
+                    'approval_mode' => $approvalPolicy['approval_mode'] ?? ($agentExecution['approval_mode'] ?? null),
+                    'approval_status' => $approvalPolicy['approval_status'] ?? 'not_required',
+                    'approval_risk_level' => $approvalPolicy['approval_risk_level'] ?? 'none',
+                    'approval_scope_key' => $approvalPolicy['approval_scope_key'] ?? null,
+                    'tool_names' => $toolNames !== [] ? $toolNames : null,
+                    'tool_call_count' => count($toolCalls),
+                    'request_duration_ms' => isset($result['request_duration_ms']) ? (int)$result['request_duration_ms'] : null,
+                    'error_message' => $errorMessage,
+                ], static fn(mixed $value): bool => $value !== null && $value !== ''),
+                'actor' => self::buildAiAuditActor($agentExecution, $context, $executionId, $provider, $model),
+            ]
+        );
+    }
+
+    private static function writeMemoryAudit(
+        array $operator,
+        int $organizerId,
+        array $context,
+        ?array $agentExecution,
+        array $result,
+        ?int $executionId,
+        ?int $memoryId
+    ): void {
+        if ($memoryId === null || !class_exists('\AuditService')) {
+            return;
+        }
+
+        \AuditService::log(
+            \AuditService::AI_MEMORY_RECORDED,
+            'ai_memory',
+            $memoryId,
+            null,
+            array_filter([
+                'memory_type' => 'execution_summary',
+                'surface' => $context['surface'] ?? null,
+                'agent_key' => $agentExecution['agent_key'] ?? null,
+                'provider' => $result['provider'] ?? null,
+                'model' => $result['model'] ?? null,
+            ], static fn(mixed $value): bool => $value !== null && $value !== ''),
+            $operator,
+            'success',
+            [
+                'event_id' => isset($context['event_id']) ? (int)$context['event_id'] : null,
+                'organizer_id' => $organizerId,
+                'entrypoint' => 'ai/insight',
+                'metadata' => array_filter([
+                    'surface' => $context['surface'] ?? null,
+                    'agent_key' => $agentExecution['agent_key'] ?? null,
+                    'request_duration_ms' => isset($result['request_duration_ms']) ? (int)$result['request_duration_ms'] : null,
+                ], static fn(mixed $value): bool => $value !== null && $value !== ''),
+                'actor' => self::buildAiAuditActor(
+                    $agentExecution,
+                    $context,
+                    $executionId,
+                    $result['provider'] ?? null,
+                    $result['model'] ?? null
+                ),
+            ]
+        );
+    }
+
+    private static function buildAiAuditActor(
+        ?array $agentExecution,
+        array $context,
+        ?int $executionId,
+        ?string $provider,
+        ?string $model
+    ): array {
+        $surface = trim((string)($context['surface'] ?? 'general'));
+        $actorId = trim((string)($agentExecution['agent_key'] ?? ''));
+        if ($actorId === '') {
+            $actorId = 'legacy-insight:' . ($surface !== '' ? $surface : 'general');
+        }
+
+        return [
+            'type' => 'ai_agent',
+            'id' => $actorId,
+            'origin' => 'ai.orchestrator',
+            'source_execution_id' => $executionId,
+            'source_provider' => $provider,
+            'source_model' => $model,
+        ];
+    }
+
+    private static function completeInsightAfterReadOnlyTools(
+        array $runtime,
+        string $systemPrompt,
+        string $prompt,
+        array $result,
+        array $toolRuntime
+    ): array {
+        $fallbackInsight = AIToolRuntimeService::buildFallbackInsight($toolRuntime);
+        $toolResults = array_values(array_filter(
+            (array)($toolRuntime['tool_results'] ?? []),
+            'is_array'
+        ));
+
+        if ($toolResults === []) {
+            $result['insight'] = $fallbackInsight;
+            return $result;
+        }
+
+        try {
+            $followUp = self::requestInsight(
+                $runtime,
+                $systemPrompt,
+                self::buildToolFollowUpPrompt($prompt, $toolResults),
+                []
+            );
+        } catch (\Throwable $e) {
+            error_log('AIOrchestratorService::completeInsightAfterReadOnlyTools fallback: ' . $e->getMessage());
+            $result['insight'] = $fallbackInsight;
+            return $result;
+        }
+
+        $result['usage'] = self::mergeUsage(
+            (array)($result['usage'] ?? []),
+            (array)($followUp['usage'] ?? [])
+        );
+        $result['request_duration_ms'] = max(
+            0,
+            (int)($result['request_duration_ms'] ?? 0) + (int)($followUp['request_duration_ms'] ?? 0)
+        );
+
+        $followUpInsight = trim((string)($followUp['insight'] ?? ''));
+        $result['insight'] = $followUpInsight !== ''
+            ? $followUpInsight
+            : $fallbackInsight;
+
+        return $result;
+    }
+
+    private static function buildToolFollowUpPrompt(string $prompt, array $toolResults): string
+    {
+        $instructions = implode("\n", [
+            'Voce esta em uma segunda passada bounded apos executar tools internas read-only.',
+            'Responda a pergunta original usando apenas os resultados abaixo.',
+            'Nao proponha novas tool calls, nao invente dados e explicite lacunas quando faltarem evidencias.',
+            'Responda em portugues do Brasil, com foco operacional e objetivo.',
+        ]);
+
+        return implode("\n\n", [
+            $instructions,
+            'Prompt original:',
+            $prompt,
+            'Resultados das tools em JSON:',
+            self::encodeJsonFragment(self::buildToolResultSnapshot($toolResults)),
+        ]);
+    }
+
+    private static function buildToolResultSnapshot(array $toolResults): array
+    {
+        $snapshot = [];
+        foreach ($toolResults as $toolResult) {
+            if (!is_array($toolResult)) {
+                continue;
+            }
+
+            $snapshot[] = array_filter([
+                'tool_name' => self::nullableTrimmedString($toolResult['tool_name'] ?? null),
+                'status' => self::nullableTrimmedString($toolResult['status'] ?? null),
+                'error_message' => self::nullableTrimmedString($toolResult['error_message'] ?? null),
+                'result_preview' => is_array($toolResult['result_preview'] ?? null)
+                    ? self::trimToolResultValue($toolResult['result_preview'])
+                    : null,
+                'result' => array_key_exists('result', $toolResult)
+                    ? self::trimToolResultValue($toolResult['result'])
+                    : null,
+            ], static fn(mixed $value): bool => $value !== null && $value !== '');
+        }
+
+        return $snapshot;
+    }
+
+    private static function trimToolResultValue(mixed $value, int $depth = 0): mixed
+    {
+        if ($depth >= 4) {
+            return '[truncated-depth]';
+        }
+
+        if ($value === null || is_bool($value) || is_int($value) || is_float($value)) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            return self::truncateText($value, 1200);
+        }
+
+        if (!is_array($value)) {
+            return self::truncateText((string)$value, 1200);
+        }
+
+        $trimmed = [];
+        $count = 0;
+        foreach ($value as $key => $item) {
+            if ($count >= 20) {
+                $trimmed['_truncated_items'] = count($value) - 20;
+                break;
+            }
+
+            $normalizedKey = is_string($key) || is_int($key)
+                ? (string)$key
+                : 'item_' . $count;
+            $trimmed[$normalizedKey] = self::trimToolResultValue($item, $depth + 1);
+            $count++;
+        }
+
+        return $trimmed;
+    }
+
+    private static function mergeUsage(array $baseUsage, array $followUpUsage): array
+    {
+        return [
+            'prompt_tokens' => (int)($baseUsage['prompt_tokens'] ?? 0) + (int)($followUpUsage['prompt_tokens'] ?? 0),
+            'completion_tokens' => (int)($baseUsage['completion_tokens'] ?? 0) + (int)($followUpUsage['completion_tokens'] ?? 0),
+        ];
+    }
+
+    private static function requestInsight(array $runtime, string $systemPrompt, string $prompt, array $toolCatalog = []): array
     {
         return match ($runtime['provider'] ?? 'openai') {
-            'gemini' => self::requestGeminiInsight($runtime, $systemPrompt, $prompt),
-            'claude' => self::requestClaudeInsight($runtime, $systemPrompt, $prompt),
-            default => self::requestOpenAiInsight($runtime, $systemPrompt, $prompt),
+            'gemini' => self::requestGeminiInsight($runtime, $systemPrompt, $prompt, $toolCatalog),
+            'claude' => self::requestClaudeInsight($runtime, $systemPrompt, $prompt, $toolCatalog),
+            default => self::requestOpenAiInsight($runtime, $systemPrompt, $prompt, $toolCatalog),
         };
     }
 
-    private static function requestOpenAiInsight(array $runtime, string $systemPrompt, string $prompt): array
+    private static function requestOpenAiInsight(array $runtime, string $systemPrompt, string $prompt, array $toolCatalog = []): array
     {
         $apiKey = trim((string)($runtime['api_key'] ?? ''));
         if ($apiKey === '') {
@@ -340,14 +749,20 @@ final class AIOrchestratorService
 
         $model = trim((string)($runtime['model'] ?? 'gpt-4o-mini'));
         $baseUrl = rtrim((string)($runtime['base_url'] ?? 'https://api.openai.com/v1'), '/');
-        $payload = json_encode([
+        $payloadData = [
             'model' => $model,
             'messages' => [
                 ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user', 'content' => $prompt],
             ],
             'temperature' => 0.4,
-        ], JSON_UNESCAPED_UNICODE);
+        ];
+        $openAiTools = AIToolRuntimeService::buildOpenAiToolDefinitions($toolCatalog);
+        if ($openAiTools !== []) {
+            $payloadData['tools'] = $openAiTools;
+            $payloadData['tool_choice'] = 'auto';
+        }
+        $payload = json_encode($payloadData, JSON_UNESCAPED_UNICODE);
 
         $startMs = (int)round(microtime(true) * 1000);
         $response = self::executeJsonRequest(
@@ -362,15 +777,18 @@ final class AIOrchestratorService
         $endMs = (int)round(microtime(true) * 1000);
 
         $decoded = json_decode($response['body'], true);
-        $insight = $decoded['choices'][0]['message']['content'] ?? null;
-        if (!is_string($insight) || trim($insight) === '') {
+        $message = is_array($decoded['choices'][0]['message'] ?? null) ? $decoded['choices'][0]['message'] : [];
+        $toolCalls = self::extractOpenAiToolCalls($message);
+        $insight = self::flattenOpenAiContent($message['content'] ?? null);
+        if ($insight === '' && $toolCalls === []) {
             throw new RuntimeException('A IA não retornou uma resposta válida para sua pergunta.', 502);
         }
 
         return [
             'provider' => 'openai',
             'model' => $model,
-            'insight' => trim($insight),
+            'insight' => $insight,
+            'tool_calls' => $toolCalls,
             'usage' => [
                 'prompt_tokens' => (int)($decoded['usage']['prompt_tokens'] ?? 0),
                 'completion_tokens' => (int)($decoded['usage']['completion_tokens'] ?? 0),
@@ -379,7 +797,7 @@ final class AIOrchestratorService
         ];
     }
 
-    private static function requestGeminiInsight(array $runtime, string $systemPrompt, string $prompt): array
+    private static function requestGeminiInsight(array $runtime, string $systemPrompt, string $prompt, array $toolCatalog = []): array
     {
         $apiKey = trim((string)($runtime['api_key'] ?? ''));
         if ($apiKey === '') {
@@ -389,7 +807,7 @@ final class AIOrchestratorService
         $model = trim((string)($runtime['model'] ?? 'gemini-2.5-flash'));
         $baseUrl = rtrim((string)($runtime['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta'), '/');
         $url = $baseUrl . '/models/' . rawurlencode($model) . ':generateContent?key=' . rawurlencode($apiKey);
-        $payload = json_encode([
+        $payloadData = [
             'system_instruction' => [
                 'parts' => [['text' => $systemPrompt]],
             ],
@@ -400,15 +818,25 @@ final class AIOrchestratorService
                 'temperature' => 0.4,
                 'response_mime_type' => 'text/plain',
             ],
-        ], JSON_UNESCAPED_UNICODE);
+        ];
+        $geminiTools = AIToolRuntimeService::buildGeminiToolDefinitions($toolCatalog);
+        if ($geminiTools !== []) {
+            $payloadData['tools'] = $geminiTools;
+        }
+        $payload = json_encode($payloadData, JSON_UNESCAPED_UNICODE);
 
         $startMs = (int)round(microtime(true) * 1000);
         $response = self::executeJsonRequest($url, (string)$payload, ['Content-Type: application/json'], 'Gemini');
         $endMs = (int)round(microtime(true) * 1000);
 
         $decoded = json_decode($response['body'], true);
-        $insight = $decoded['candidates'][0]['content']['parts'][0]['text'] ?? null;
-        if (!is_string($insight) || trim($insight) === '') {
+        $parts = is_array($decoded['candidates'][0]['content']['parts'] ?? null) ? $decoded['candidates'][0]['content']['parts'] : [];
+        $toolCalls = self::extractGeminiToolCalls($parts);
+        $insight = trim(implode("\n\n", array_values(array_filter(array_map(
+            static fn(array $part): string => trim((string)($part['text'] ?? '')),
+            array_filter($parts, 'is_array')
+        )))));
+        if ($insight === '' && $toolCalls === []) {
             throw new RuntimeException('A IA não retornou uma resposta válida para sua pergunta.', 502);
         }
 
@@ -422,7 +850,8 @@ final class AIOrchestratorService
         return [
             'provider' => 'gemini',
             'model' => $model,
-            'insight' => trim($insight),
+            'insight' => $insight,
+            'tool_calls' => $toolCalls,
             'usage' => [
                 'prompt_tokens' => $promptTokens,
                 'completion_tokens' => $completionTokens,
@@ -431,7 +860,7 @@ final class AIOrchestratorService
         ];
     }
 
-    private static function requestClaudeInsight(array $runtime, string $systemPrompt, string $prompt): array
+    private static function requestClaudeInsight(array $runtime, string $systemPrompt, string $prompt, array $toolCatalog = []): array
     {
         $apiKey = trim((string)($runtime['api_key'] ?? ''));
         if ($apiKey === '') {
@@ -449,7 +878,7 @@ final class AIOrchestratorService
             }
         }
 
-        $payload = json_encode([
+        $payloadData = [
             'model' => $model,
             'system' => $systemPrompt,
             'messages' => [
@@ -457,7 +886,12 @@ final class AIOrchestratorService
             ],
             'max_tokens' => 800,
             'temperature' => 0.4,
-        ], JSON_UNESCAPED_UNICODE);
+        ];
+        $claudeTools = AIToolRuntimeService::buildClaudeToolDefinitions($toolCatalog);
+        if ($claudeTools !== []) {
+            $payloadData['tools'] = $claudeTools;
+        }
+        $payload = json_encode($payloadData, JSON_UNESCAPED_UNICODE);
 
         $startMs = (int)round(microtime(true) * 1000);
         $response = self::executeJsonRequest(
@@ -475,7 +909,21 @@ final class AIOrchestratorService
         $decoded = json_decode($response['body'], true);
         $blocks = is_array($decoded['content'] ?? null) ? $decoded['content'] : [];
         $parts = [];
+        $toolCalls = [];
         foreach ($blocks as $block) {
+            if (!is_array($block)) {
+                continue;
+            }
+
+            if (($block['type'] ?? null) === 'tool_use') {
+                $toolCalls[] = [
+                    'id' => $block['id'] ?? null,
+                    'tool_name' => $block['name'] ?? null,
+                    'arguments' => is_array($block['input'] ?? null) ? $block['input'] : [],
+                ];
+                continue;
+            }
+
             $text = trim((string)($block['text'] ?? ''));
             if ($text !== '') {
                 $parts[] = $text;
@@ -483,7 +931,7 @@ final class AIOrchestratorService
         }
 
         $insight = trim(implode("\n\n", $parts));
-        if ($insight === '') {
+        if ($insight === '' && $toolCalls === []) {
             throw new RuntimeException('A IA não retornou uma resposta válida para sua pergunta.', 502);
         }
 
@@ -491,12 +939,78 @@ final class AIOrchestratorService
             'provider' => 'claude',
             'model' => $model,
             'insight' => $insight,
+            'tool_calls' => $toolCalls,
             'usage' => [
                 'prompt_tokens' => (int)($decoded['usage']['input_tokens'] ?? 0),
                 'completion_tokens' => (int)($decoded['usage']['output_tokens'] ?? 0),
             ],
             'request_duration_ms' => max(0, $endMs - $startMs),
         ];
+    }
+
+    private static function flattenOpenAiContent(mixed $content): string
+    {
+        if (is_string($content)) {
+            return trim($content);
+        }
+
+        if (!is_array($content)) {
+            return '';
+        }
+
+        $parts = [];
+        foreach ($content as $chunk) {
+            if (!is_array($chunk)) {
+                continue;
+            }
+
+            $type = strtolower(trim((string)($chunk['type'] ?? '')));
+            if ($type === 'text') {
+                $text = trim((string)($chunk['text'] ?? ''));
+                if ($text !== '') {
+                    $parts[] = $text;
+                }
+            }
+        }
+
+        return trim(implode("\n\n", $parts));
+    }
+
+    private static function extractOpenAiToolCalls(array $message): array
+    {
+        $toolCalls = is_array($message['tool_calls'] ?? null) ? $message['tool_calls'] : [];
+        $normalized = [];
+        foreach ($toolCalls as $toolCall) {
+            if (!is_array($toolCall)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'id' => $toolCall['id'] ?? null,
+                'tool_name' => $toolCall['function']['name'] ?? ($toolCall['name'] ?? null),
+                'arguments' => $toolCall['function']['arguments'] ?? ($toolCall['arguments'] ?? []),
+                'type' => $toolCall['type'] ?? null,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    private static function extractGeminiToolCalls(array $parts): array
+    {
+        $toolCalls = [];
+        foreach ($parts as $part) {
+            if (!is_array($part) || !is_array($part['functionCall'] ?? null)) {
+                continue;
+            }
+
+            $toolCalls[] = [
+                'tool_name' => $part['functionCall']['name'] ?? null,
+                'arguments' => is_array($part['functionCall']['args'] ?? null) ? $part['functionCall']['args'] : [],
+            ];
+        }
+
+        return $toolCalls;
     }
 
     private static function executeJsonRequest(string $url, string $payload, array $headers, string $providerLabel): array
@@ -655,5 +1169,23 @@ final class AIOrchestratorService
     {
         $trimmed = trim((string)$value);
         return $trimmed !== '' ? $trimmed : null;
+    }
+
+    private static function truncateText(string $value, int $limit): string
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return '';
+        }
+
+        if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+            return mb_strlen($trimmed) > $limit
+                ? rtrim(mb_substr($trimmed, 0, max(1, $limit - 3))) . '...'
+                : $trimmed;
+        }
+
+        return strlen($trimmed) > $limit
+            ? rtrim(substr($trimmed, 0, max(1, $limit - 3))) . '...'
+            : $trimmed;
     }
 }

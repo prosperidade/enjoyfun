@@ -19,3 +19,7 @@
 31/03/2026 16:42:34,67 - APLICADA: database\042_backfill_event_scoped_organizer_ids.sql 
 31/03/2026 17:32:46,35 - APLICADA: database\043_validate_not_valid_constraints_wave1.sql 
 31/03/2026 18:37:21,70 - APLICADA: database\044_participant_checkins_schema_contract.sql 
+31/03/2026 21:16:15,41 - APLICADA: database\045_cashless_sync_operational_indexes.sql 
+31/03/2026 22:59:38,79 - APLICADA: database\046_ai_tool_approval_enforcement.sql 
+01/04/2026  1:33:08,38 - APLICADA: database\047_audit_log_actor_enrichment.sql 
+01/04/2026  2:12:17,75 - APLICADA: database\048_ai_tenant_isolation_hardening.sql 

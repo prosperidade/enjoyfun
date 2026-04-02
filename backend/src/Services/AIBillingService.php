@@ -4,6 +4,7 @@ namespace EnjoyFun\Services;
 use Database;
 use PDO;
 use Exception;
+use InvalidArgumentException;
 
 /**
  * AI Billing Service
@@ -28,13 +29,19 @@ class AIBillingService
         try {
             $db = Database::getInstance();
 
-            $userId           = $payload['user_id'] ?? null;
-            $eventId          = $payload['event_id'] ?? null;
-            $organizerId      = $payload['organizer_id'] ?? null;
+            $userId           = self::nullablePositiveInt($payload['user_id'] ?? null);
+            $eventId          = self::nullablePositiveInt($payload['event_id'] ?? null);
+            $organizerId      = self::resolveOrganizerScope($db, $payload['organizer_id'] ?? null, $eventId);
             $agentName        = $payload['agent_name'] ?? 'general';
             $promptTokens     = (int)($payload['prompt_tokens'] ?? 0);
             $completionTokens = (int)($payload['completion_tokens'] ?? 0);
             $durationMs       = (int)($payload['request_duration_ms'] ?? 0);
+
+            if ($organizerId === null) {
+                throw new InvalidArgumentException('AIBillingService requer organizer_id valido ou event_id com organizer resolvivel.');
+            }
+
+            self::assertUserScope($db, $userId, $organizerId);
 
             $totalTokens = $promptTokens + $completionTokens;
             $cost = self::calculateCost($promptTokens, $completionTokens);
@@ -131,5 +138,66 @@ class AIBillingService
         $costPrompt = ($prompt / 1000) * self::COST_PER_1K_PROMPT;
         $costComp   = ($completion / 1000) * self::COST_PER_1K_COMPLETION;
         return round($costPrompt + $costComp, 4);
+    }
+
+    private static function resolveOrganizerScope(PDO $db, mixed $organizerId, ?int $eventId): ?int
+    {
+        $normalizedOrganizerId = self::nullablePositiveInt($organizerId);
+        $eventOrganizerId = self::resolveEventOrganizerId($db, $eventId);
+
+        if ($normalizedOrganizerId === null) {
+            return $eventOrganizerId;
+        }
+
+        if ($eventOrganizerId !== null && $normalizedOrganizerId !== $eventOrganizerId) {
+            throw new InvalidArgumentException(sprintf(
+                'AIBillingService recebeu organizer_id %d divergente do event_id %d (organizer_id %d).',
+                $normalizedOrganizerId,
+                (int)$eventId,
+                $eventOrganizerId
+            ));
+        }
+
+        return $normalizedOrganizerId;
+    }
+
+    private static function resolveEventOrganizerId(PDO $db, ?int $eventId): ?int
+    {
+        if ($eventId === null) {
+            return null;
+        }
+
+        $stmt = $db->prepare('SELECT organizer_id FROM public.events WHERE id = ? LIMIT 1');
+        $stmt->execute([$eventId]);
+        return self::nullablePositiveInt($stmt->fetchColumn());
+    }
+
+    private static function assertUserScope(PDO $db, ?int $userId, int $organizerId): void
+    {
+        if ($userId === null) {
+            return;
+        }
+
+        $stmt = $db->prepare('SELECT COALESCE(organizer_id, id) FROM public.users WHERE id = ? LIMIT 1');
+        $stmt->execute([$userId]);
+        $userScopeOrganizerId = self::nullablePositiveInt($stmt->fetchColumn());
+        if ($userScopeOrganizerId === null) {
+            throw new InvalidArgumentException(sprintf('AIBillingService recebeu user_id %d inexistente.', $userId));
+        }
+
+        if ($userScopeOrganizerId !== $organizerId) {
+            throw new InvalidArgumentException(sprintf(
+                'AIBillingService recebeu user_id %d fora do organizer_id %d (scope %d).',
+                $userId,
+                $organizerId,
+                $userScopeOrganizerId
+            ));
+        }
+    }
+
+    private static function nullablePositiveInt(mixed $value): ?int
+    {
+        $normalized = (int)$value;
+        return $normalized > 0 ? $normalized : null;
     }
 }
