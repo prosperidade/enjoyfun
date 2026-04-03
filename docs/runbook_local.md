@@ -16,10 +16,14 @@ Padronizar o bootstrap local mínimo do projeto e o primeiro smoke operacional.
 - `README.md`
 - `CLAUDE.md`
 - `docs/auditorias.md`
-- `docs/progresso17.md`
+- `docs/progresso18.md`
 - `docs/backlog_auditoria_sistema_2026_04_01.md`
 - `docs/adr_auth_jwt_strategy_v1.md`
 - `docs/plano_migracao_jwt_assimetrico_v1.md`
+- `docs/definition_of_ready_ambiente_v1.md`
+- `database/migration_history_registry.json`
+- `database/drift_replay_manifest.json`
+- `.github/workflows/governance.yml`
 
 ## Bootstrap local
 
@@ -116,6 +120,48 @@ Referências vivas:
 - `docs/qa/smoke_operacional_core.md`
 - `docs/qa/contratos_minimos_api.md`
 
+## Gate de governanca da Sprint 1
+
+Quando a rodada tocar em `migration`, `baseline`, `runbook` de banco ou gate de release, rodar tambem:
+
+```bash
+node scripts/ci/check_database_governance.mjs
+```
+
+Esse check valida localmente o mesmo contrato base publicado no workflow versionado `.github/workflows/governance.yml`:
+
+- existencia dos artefatos canonicos de schema/governanca
+- alinhamento do topo entre migrations versionadas e `migrations_applied.log`
+- permanencia do fluxo oficial em `apply_migration.bat` e `dump_schema.bat`
+- referencias obrigatorias no `runbook`
+
+Quando a rodada tocar no topo do schema, rodar tambem o replay suportado:
+
+```bash
+node scripts/ci/check_schema_drift_replay.mjs
+```
+
+Variaveis esperadas pelo comando:
+
+- `PGHOST`
+- `PGPORT`
+- `PGUSER`
+- `PGPASSWORD`
+- opcionalmente `PGADMIN_DB`, `PSQL_BIN` e `DRIFT_REPLAY_MANIFEST_PATH`
+
+Contrato atual do replay:
+
+- `database/migration_history_registry.json` documenta:
+  - gap reservado de numeracao (`033`)
+  - lacunas historicas do `migrations_applied.log`
+  - excecoes em que uma migration foi apenas versionada, aplicada fora do fluxo oficial, subsumida por corte posterior ou nao materializada no baseline local
+- manifesto versionado em `database/drift_replay_manifest.json`
+- seed honesto em `database/schema_dump_20260331.sql`
+- replay suportado atual da janela `039..048`
+- comparacao por fingerprint do catalogo PostgreSQL, sem depender de `pg_dump` para o diff
+- `DRIFT_REPLAY_MANIFEST_PATH` existe apenas para ensaio de janelas candidatas; nao alterar o workflow oficial sem promover antes o manifesto versionado
+- qualquer tentativa de empurrar o replay para antes de `039` precisa primeiro reconciliar a divergencia da `036_artist_logistics_bigint_keys.sql`, porque o baseline vivo ainda mantem colunas do modulo de artistas em `INTEGER`
+
 ## Regras locais
 
 - não usar `schema_real.sql` como baseline
@@ -136,12 +182,15 @@ Referências vivas:
 - payloads enviados para `POST /sync` precisam carregar `client_schema_version` conforme o tipo; incompatibilidade de contrato deve voltar `error_code = offline_sync_upgrade_required`
 - em rodada de indice operacional, registrar `EXPLAIN (ANALYZE, BUFFERS)` das consultas reais; se a base local for pequena demais para o planner usar o indice naturalmente, documentar isso e usar verificacao controlada de elegibilidade antes de encerrar a frente
 - em rodada de aprovacao de tools de IA, nao aceitar `approval_mode` apenas como configuracao visual: `tool_calls` de escrita precisam cair em `pending` ou `rejected`, com `approval_scope_key` persistido antes de fechar a rodada
+- em rodada de governanca de banco ou release, rodar `node scripts/ci/check_database_governance.mjs` antes de encerrar a frente
+- em rodada que altere o topo do schema ou a janela suportada de replay, rodar `node scripts/ci/check_schema_drift_replay.mjs` antes de encerrar a frente
 - não versionar `backend/.env`
-- não abrir frente nova antes de registrar o resultado no `docs/progresso17.md`
+- nao abrir sprint, subtarefa de sprint ou frente nova antes de registrar objetivo e resultado no `docs/progresso18.md`
+- sempre atualizar `docs/runbook_local.md` na mesma rodada quando a mudanca alterar bootstrap, smoke, validacao, gate tecnico, rotina operacional ou criterio de encerramento
 
 ## Quando algo divergir
 
 1. conferir `README.md`
 2. conferir `CLAUDE.md`
 3. conferir `docs/auditorias.md`
-4. registrar a divergência em `docs/progresso17.md`
+4. registrar a divergencia em `docs/progresso18.md`

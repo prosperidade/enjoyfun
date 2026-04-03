@@ -51,7 +51,6 @@ export function usePosOfflineSync({ currentSector, syncOfflineData }) {
           card_reference_kind: isCanonicalCardId(normalizedCardId)
             ? "card_id"
             : "legacy_reference",
-          client_schema_version: 2,
         },
         created_offline_at: createdOfflineAt ?? new Date().toISOString(),
         sector: payload.sector ?? currentSector,

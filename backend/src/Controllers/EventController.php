@@ -142,6 +142,8 @@ function createEvent(array $body): void
         if ($payload['status'] === 'finished') {
             \EnjoyFun\Services\AIMemoryStoreService::queueEndOfEventReport($db, $organizerId, $id, [
                 'automation_source' => 'event_finished',
+                'generated_by_user_id' => isset($user['id']) ? (int)$user['id'] : null,
+                'requested_by' => $user['email'] ?? $user['name'] ?? null,
                 'summary_markdown' => 'Evento criado ja finalizado. Relatorio automatico de fim de evento enfileirado.',
                 'event_snapshot' => [
                     'name' => $payload['name'],
@@ -149,6 +151,7 @@ function createEvent(array $body): void
                     'starts_at' => $payload['starts_at'],
                     'ends_at' => $payload['ends_at'],
                 ],
+                'audit_user' => $user,
             ]);
         }
         $db->commit();
@@ -257,6 +260,7 @@ function updateEvent(int $id, array $body): void
                     'starts_at' => $payload['starts_at'],
                     'ends_at' => $payload['ends_at'],
                 ],
+                'audit_user' => $user,
             ]);
         }
         $db->commit();

@@ -37,8 +37,18 @@ CREATE TABLE IF NOT EXISTS public.event_cost_categories (
     updated_at     TIMESTAMP     NOT NULL DEFAULT NOW()
 );
 
-ALTER TABLE public.event_cost_categories
-    ADD CONSTRAINT uq_cost_category_org_name UNIQUE (organizer_id, name);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'uq_cost_category_org_name'
+          AND conrelid = 'public.event_cost_categories'::regclass
+    ) THEN
+        ALTER TABLE public.event_cost_categories
+            ADD CONSTRAINT uq_cost_category_org_name UNIQUE (organizer_id, name);
+    END IF;
+END $$;
 
 -- Índice de busca por organizer
 CREATE INDEX IF NOT EXISTS idx_cost_categories_organizer
@@ -62,8 +72,18 @@ CREATE TABLE IF NOT EXISTS public.event_cost_centers (
     CONSTRAINT chk_cost_center_budget_limit CHECK (budget_limit IS NULL OR budget_limit >= 0)
 );
 
-ALTER TABLE public.event_cost_centers
-    ADD CONSTRAINT uq_cost_center_event_name UNIQUE (event_id, name);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'uq_cost_center_event_name'
+          AND conrelid = 'public.event_cost_centers'::regclass
+    ) THEN
+        ALTER TABLE public.event_cost_centers
+            ADD CONSTRAINT uq_cost_center_event_name UNIQUE (event_id, name);
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_cost_centers_event
     ON public.event_cost_centers (organizer_id, event_id)
@@ -86,8 +106,18 @@ CREATE TABLE IF NOT EXISTS public.event_budgets (
 );
 
 -- 1 orçamento principal por evento
-ALTER TABLE public.event_budgets
-    ADD CONSTRAINT uq_event_budget_event UNIQUE (event_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'uq_event_budget_event'
+          AND conrelid = 'public.event_budgets'::regclass
+    ) THEN
+        ALTER TABLE public.event_budgets
+            ADD CONSTRAINT uq_event_budget_event UNIQUE (event_id);
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_event_budgets_organizer
     ON public.event_budgets (organizer_id, event_id);
@@ -110,8 +140,18 @@ CREATE TABLE IF NOT EXISTS public.event_budget_lines (
     CONSTRAINT chk_budget_line_amount CHECK (budgeted_amount >= 0)
 );
 
-ALTER TABLE public.event_budget_lines
-    ADD CONSTRAINT uq_budget_line_unique UNIQUE (budget_id, category_id, cost_center_id, description);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'uq_budget_line_unique'
+          AND conrelid = 'public.event_budget_lines'::regclass
+    ) THEN
+        ALTER TABLE public.event_budget_lines
+            ADD CONSTRAINT uq_budget_line_unique UNIQUE (budget_id, category_id, cost_center_id, description);
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_budget_lines_budget
     ON public.event_budget_lines (budget_id);

@@ -72,6 +72,18 @@ const OFFLINE_QUEUE_RETRY_POLICIES = Object.freeze({
   },
 });
 
+const OFFLINE_QUEUE_SCHEMA_VERSIONS = Object.freeze({
+  sale: 2,
+  meal: 1,
+  scanner_process: 1,
+  ticket_validate: 1,
+  guest_validate: 1,
+  participant_validate: 1,
+  parking_entry: 1,
+  parking_exit: 1,
+  parking_validate: 1,
+});
+
 function normalizeOfflineQueueId(rawId) {
   return String(rawId || '').trim();
 }
@@ -106,9 +118,34 @@ function buildErrorMessageMap(errors = []) {
   );
 }
 
+function normalizeOfflineQueuePayload(payloadType, payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return payload;
+  }
+
+  const schemaVersion = getOfflineQueueSchemaVersion(payloadType);
+  const normalizedPayload = { ...payload };
+
+  if (!schemaVersion) {
+    return normalizedPayload;
+  }
+
+  const existingVersion = Number(normalizedPayload?.client_schema_version || 0);
+  normalizedPayload.client_schema_version = existingVersion > 0
+    ? existingVersion
+    : schemaVersion;
+
+  return normalizedPayload;
+}
+
 export function getOfflineQueueRetryPolicy(payloadType) {
   const normalizedType = String(payloadType || '').trim();
   return OFFLINE_QUEUE_RETRY_POLICIES[normalizedType] || DEFAULT_RETRY_POLICY;
+}
+
+export function getOfflineQueueSchemaVersion(payloadType) {
+  const normalizedType = String(payloadType || '').trim();
+  return OFFLINE_QUEUE_SCHEMA_VERSIONS[normalizedType] || null;
 }
 
 export function createOfflineQueueRecord(record = {}) {
@@ -124,6 +161,7 @@ export function createOfflineQueueRecord(record = {}) {
   return {
     ...record,
     payload_type: payloadType,
+    payload: normalizeOfflineQueuePayload(payloadType, record?.payload ?? record?.data ?? null),
     status,
     created_offline_at: createdOfflineAt,
     sync_attempts: normalizeOfflineAttempts(record?.sync_attempts),
@@ -250,6 +288,10 @@ export async function scheduleOfflineQueueRetries(offlineIds = [], errors = []) 
 }
 
 export function isOfflineQueueTransientError(error) {
+  if (error?.offlineSyncTerminal === true) {
+    return false;
+  }
+
   const status = Number(error?.response?.status || 0);
   const code = String(error?.code || '').trim().toUpperCase();
 

@@ -93,7 +93,7 @@ class DashboardDomainService
                 FROM offline_queue oq
                 INNER JOIN events e ON e.id = oq.event_id
                 WHERE e.organizer_id = :org_id
-                  AND LOWER(COALESCE(oq.status, 'pending')) = 'pending'
+                  AND oq.status = 'pending'
                   " . ($eventId ? " AND oq.event_id = :event_id" : "") . "
             ");
             $stmtOffline->bindValue(':org_id', $organizerId, PDO::PARAM_INT);

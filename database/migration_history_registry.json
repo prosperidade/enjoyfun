@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "reserved_numbers": [
+    {
+      "number": "033",
+      "status": "reserved_gap",
+      "reason": "Slot historico nunca materializado no repositorio. O numero fica reservado para preservar a cronologia documental sem renumeracao retroativa."
+    }
+  ],
+  "log_gap_registry": [
+    {
+      "migration": "014_participant_meals_domain_hardening.sql",
+      "status": "versioned_only",
+      "reason": "A migration foi deixada apenas versionada na rodada de Meals; o diario registrou que ela nao seria aplicada automaticamente naquele corte."
+    },
+    {
+      "migration": "015_participant_meals_operational_day_reconciliation.sql",
+      "status": "applied_outside_official_log",
+      "reason": "A reconciliacao foi aplicada localmente em validacao dirigida, mas sem append no migrations_applied.log pelo fluxo oficial."
+    },
+    {
+      "migration": "016_participant_meals_outside_operational_day_review.sql",
+      "status": "read_only_review_script",
+      "reason": "Artefato SQL de revisao manual, explicitamente somente leitura; nao deve gerar entrada de migration aplicada."
+    },
+    {
+      "migration": "017_participant_meals_outside_operational_day_quarantine.sql",
+      "status": "applied_outside_official_log",
+      "reason": "Script de quarentena executado em validacao controlada/local, sem passar pelo fluxo oficial append-only."
+    },
+    {
+      "migration": "018_messaging_outbox_and_history.sql",
+      "status": "baseline_materialized_without_log",
+      "reason": "A frente de mensageria foi formalizada no baseline, mas o log local append-only nao preserva entrada oficial dessa materializacao historica."
+    },
+    {
+      "migration": "019_participant_checkins_presence_hardening.sql",
+      "status": "subsumed_by_later_contract",
+      "reason": "O contrato local de participant_checkins foi consolidado depois pela 044, que subsumiu a 019 no baseline atual."
+    },
+    {
+      "migration": "020_events_event_timezone.sql",
+      "status": "versioned_pending_rollout",
+      "reason": "A migration foi aberta/versionada, mas o baseline local atual nao materializa event_timezone como contrato vivo."
+    },
+    {
+      "migration": "029_payment_gateways_hardening.sql",
+      "status": "versioned_pending_rollout",
+      "reason": "Foi aberta como reconciliacao financeira, mas o baseline local atual nao materializa is_primary/environment em organizer_payment_gateways."
+    },
+    {
+      "migration": "030_operational_context_hardening.sql",
+      "status": "intentionally_not_materialized_locally",
+      "reason": "A trilha local fechou o BKL-013 sem materializar organizer_id/user_id em offline_queue; o proprio progresso17 registra que essa proposta antiga nao entrou no schema vivo."
+    },
+    {
+      "migration": "031_messaging_webhook_secret.sql",
+      "status": "versioned_pending_rollout",
+      "reason": "Foi aberta para rollout compativel de segredo dedicado, mas o baseline local atual nao materializa wa_webhook_secret."
+    },
+    {
+      "migration": "032_refresh_tokens_session_tracking.sql",
+      "status": "versioned_pending_rollout",
+      "reason": "Foi aberta para trilha de sessao/dispositivo, mas o baseline local atual ainda nao materializa esse contrato expandido em refresh_tokens."
+    },
+    {
+      "migration": "036_artist_logistics_bigint_keys.sql",
+      "status": "versioned_pending_rollout",
+      "reason": "A migration propoe convergencia para BIGINT no modulo de artistas, mas o baseline local atual ainda mantem organizer_id/event_id como INTEGER; a trilha versionada existe, porem nao esta materializada no schema vivo."
+    }
+  ]
+}

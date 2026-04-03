@@ -6,6 +6,50 @@
  * Endpoint: POST /api/sync
  */
 
+const OFFLINE_SYNC_UPGRADE_REQUIRED_CODE = 426;
+const OFFLINE_SYNC_PAYLOAD_CONTRACTS = [
+    'sale' => [
+        'current_version' => 2,
+        'supported_versions' => [2],
+        'upgrade_hint' => 'Atualize o aplicativo do PDV antes de sincronizar este lote.',
+    ],
+    'meal' => [
+        'current_version' => 1,
+        'supported_versions' => [1],
+        'upgrade_hint' => 'Atualize o aplicativo do Meals antes de sincronizar este lote.',
+    ],
+    'ticket_validate' => [
+        'current_version' => 1,
+        'supported_versions' => [1],
+        'upgrade_hint' => 'Atualize o aplicativo do scanner antes de sincronizar este lote.',
+    ],
+    'guest_validate' => [
+        'current_version' => 1,
+        'supported_versions' => [1],
+        'upgrade_hint' => 'Atualize o aplicativo do scanner antes de sincronizar este lote.',
+    ],
+    'participant_validate' => [
+        'current_version' => 1,
+        'supported_versions' => [1],
+        'upgrade_hint' => 'Atualize o aplicativo do scanner antes de sincronizar este lote.',
+    ],
+    'parking_entry' => [
+        'current_version' => 1,
+        'supported_versions' => [1],
+        'upgrade_hint' => 'Atualize o aplicativo do parking antes de sincronizar este lote.',
+    ],
+    'parking_exit' => [
+        'current_version' => 1,
+        'supported_versions' => [1],
+        'upgrade_hint' => 'Atualize o aplicativo do parking antes de sincronizar este lote.',
+    ],
+    'parking_validate' => [
+        'current_version' => 1,
+        'supported_versions' => [1],
+        'upgrade_hint' => 'Atualize o aplicativo do parking antes de sincronizar este lote.',
+    ],
+];
+
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     $operator = requireAuth(['admin', 'organizer', 'manager', 'staff', 'bartender', 'parking_staff']);
@@ -45,23 +89,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         try {
             $db->beginTransaction();
 
-            if ($type === 'sale') {
-                $payload = normalizeOfflineSalePayload($payload, $item);
-            } elseif ($type === 'meal') {
-                $payload = normalizeOfflineMealPayload($payload, $item);
-            } elseif ($type === 'ticket_validate') {
-                $payload = normalizeOfflineTicketValidationPayload($payload, $item);
-            } elseif ($type === 'guest_validate') {
-                $payload = normalizeOfflineGuestValidationPayload($payload, $item);
-            } elseif ($type === 'participant_validate') {
-                $payload = normalizeOfflineParticipantValidationPayload($payload, $item);
-            } elseif ($type === 'parking_entry') {
-                $payload = normalizeOfflineParkingEntryPayload($payload, $item);
-            } elseif ($type === 'parking_exit') {
-                $payload = normalizeOfflineParkingExitPayload($payload, $item);
-            } elseif ($type === 'parking_validate') {
-                $payload = normalizeOfflineParkingValidationPayload($payload, $item);
-            }
+            $payload = normalizeOfflineSyncPayloadByType($type, is_array($payload) ? $payload : [], $item);
 
             authorizeOfflineSyncPayload($db, $operator, $type, $payload);
 
@@ -125,7 +153,8 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
             $failedIds[] = $offlineId;
             $errors[] = [
                 'offline_id' => $offlineId,
-                'error'      => $e->getMessage()
+                'error'      => $e->getMessage(),
+                'error_code' => resolveOfflineSyncErrorCode($e),
             ];
             // Logar silenciosamente e continuar os próximos
             error_log("EnjoyFun Offline Sync Error (ID $offlineId): " . $e->getMessage());
@@ -158,6 +187,93 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         'deduplicated_ids' => $deduplicatedIds,
         'failed_ids' => [],
     ], "$processedCount itens reconciliados com sucesso.");
+}
+
+function resolveOfflineSyncPayloadContract(string $type): ?array
+{
+    return OFFLINE_SYNC_PAYLOAD_CONTRACTS[$type] ?? null;
+}
+
+function resolveOfflineSyncPayloadSchemaVersion(array $payload, array $item): ?int
+{
+    $rawVersion = $payload['client_schema_version'] ?? $item['client_schema_version'] ?? null;
+    if ($rawVersion === null || $rawVersion === '') {
+        return null;
+    }
+
+    $version = (int)$rawVersion;
+    return $version > 0 ? $version : null;
+}
+
+function assertOfflineSyncPayloadSchemaVersion(string $type, array $payload, array $item): ?int
+{
+    $contract = resolveOfflineSyncPayloadContract($type);
+    if ($contract === null) {
+        return null;
+    }
+
+    $version = resolveOfflineSyncPayloadSchemaVersion($payload, $item);
+    $supportedVersions = array_map(
+        static fn ($entry) => (int)$entry,
+        $contract['supported_versions'] ?? []
+    );
+    $currentVersion = (int)($contract['current_version'] ?? 1);
+    $upgradeHint = trim((string)($contract['upgrade_hint'] ?? 'Atualize o aplicativo antes de reenfileirar este lote.'));
+    $supportedLabel = implode(', ', $supportedVersions);
+
+    if ($version === null) {
+        throw new Exception(
+            "Payload offline '{$type}' sem client_schema_version. Versão exigida: {$currentVersion}. {$upgradeHint}",
+            OFFLINE_SYNC_UPGRADE_REQUIRED_CODE
+        );
+    }
+
+    if (!in_array($version, $supportedVersions, true)) {
+        throw new Exception(
+            "Payload offline '{$type}' na versão {$version} não é suportado. Versões aceitas: {$supportedLabel}. {$upgradeHint}",
+            OFFLINE_SYNC_UPGRADE_REQUIRED_CODE
+        );
+    }
+
+    return $version;
+}
+
+function normalizeOfflineSyncPayloadByType(string $type, array $payload, array $item): array
+{
+    $clientSchemaVersion = assertOfflineSyncPayloadSchemaVersion($type, $payload, $item);
+
+    if ($type === 'sale') {
+        $normalized = normalizeOfflineSalePayload($payload, $item);
+    } elseif ($type === 'meal') {
+        $normalized = normalizeOfflineMealPayload($payload, $item);
+    } elseif ($type === 'ticket_validate') {
+        $normalized = normalizeOfflineTicketValidationPayload($payload, $item);
+    } elseif ($type === 'guest_validate') {
+        $normalized = normalizeOfflineGuestValidationPayload($payload, $item);
+    } elseif ($type === 'participant_validate') {
+        $normalized = normalizeOfflineParticipantValidationPayload($payload, $item);
+    } elseif ($type === 'parking_entry') {
+        $normalized = normalizeOfflineParkingEntryPayload($payload, $item);
+    } elseif ($type === 'parking_exit') {
+        $normalized = normalizeOfflineParkingExitPayload($payload, $item);
+    } elseif ($type === 'parking_validate') {
+        $normalized = normalizeOfflineParkingValidationPayload($payload, $item);
+    } else {
+        return $payload;
+    }
+
+    if ($clientSchemaVersion !== null) {
+        $normalized['client_schema_version'] = $clientSchemaVersion;
+    }
+
+    return $normalized;
+}
+
+function resolveOfflineSyncErrorCode(Throwable $error): string
+{
+    return (int)$error->getCode() === OFFLINE_SYNC_UPGRADE_REQUIRED_CODE
+        ? 'offline_sync_upgrade_required'
+        : 'offline_sync_processing_error';
 }
 
 /**

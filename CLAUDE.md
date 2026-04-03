@@ -217,9 +217,9 @@ enjoyfun/
 │       └── AuthMiddleware.php         ✅ Retorna id/sub/name/email/role/sector/organizer_id
 │
 ├── database/
-│   ├── schema_current.sql             ✅ Baseline oficial (dump 20260316)
-│   ├── 001–028_*.sql                  ✅ 28 migrations documentadas
-│   └── migrations_applied.log         ✅ Log append-only
+│   ├── schema_current.sql             ✅ Baseline oficial reconciliado no topo atual
+│   ├── 001–048_*.sql                  ✅ Trilha versionada com exceções históricas documentadas
+│   └── migrations_applied.log         ✅ Log append-only alinhado no topo com a `048`
 │
 └── docs/
     ├── EnjoyFun_Blueprint_V5.md       ⚠️ Parcialmente desatualizado

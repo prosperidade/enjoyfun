@@ -42,14 +42,19 @@ async function dispatchThroughSync(item) {
   const { data } = await api.post('/sync', { items: [normalizedItem] });
 
   if (!data?.success) {
-    throw new Error('Nao foi possivel concluir o replay offline.');
+    const error = new Error('Nao foi possivel concluir o replay offline.');
+    error.offlineSyncTerminal = true;
+    throw error;
   }
 
   const failedIds = Array.isArray(data?.data?.failed_ids) ? data.data.failed_ids : [];
   if (failedIds.includes(item.offline_id)) {
     const errors = Array.isArray(data?.data?.errors) ? data.data.errors : [];
     const matched = errors.find((entry) => entry?.offline_id === item.offline_id);
-    throw new Error(matched?.error || 'Replay offline rejeitado pelo backend.');
+    const error = new Error(matched?.error || 'Replay offline rejeitado pelo backend.');
+    error.offlineSyncTerminal = true;
+    error.offlineSyncErrorCode = matched?.error_code || null;
+    throw error;
   }
 
   return data;

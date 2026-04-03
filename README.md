@@ -118,14 +118,23 @@ FEATURE_WORKFORCE_BULK_CARD_ISSUANCE=true
 
 ### Estado das migrations
 
-| Migration | Status |
-|-----------|--------|
-| 001–005 | Aplicadas e refletidas no baseline |
-| 006 | Reconciliada no baseline pela trilha dedicada de hardening financeiro |
-| 007–008 | Aplicadas e refletidas |
-| 009 | Não aplicada — escopo reduzido ao seguro |
-| 010–028 | Aplicadas — última em 20/03/2026 |
-| 029–032 | Versionadas no repo — aplicar conforme `docs/progresso10.md` |
+| Faixa | Status |
+|-------|--------|
+| `001–013` | trilha histórica materializada no baseline canônico atual |
+| `014–020` | histórico misto entre versionamento, aplicação dirigida e artefatos de revisão; consultar `database/migration_history_registry.json` |
+| `021–028` | materializadas no baseline atual |
+| `029–032` | versionadas com rollout heterogêneo; consultar `docs/progresso10.md` e `database/migration_history_registry.json` |
+| `033` | número reservado intencionalmente |
+| `034–048` | topo atual do schema; baseline, replay suportado e log estão reconciliados até `048` |
+
+### Replay suportado de drift
+
+- manifesto: `database/drift_replay_manifest.json`
+- janela suportada atual: seed `2026-03-31` + replay idempotente `039–048`
+- fingerprint estrutural: `scripts/ci/schema_fingerprint.sql`
+- verificação local/CI: `node scripts/ci/check_schema_drift_replay.mjs`
+- ensaio de janela candidata: `DRIFT_REPLAY_MANIFEST_PATH=<arquivo.json> node scripts/ci/check_schema_drift_replay.mjs`
+- exceções históricas do log e da numeração: `database/migration_history_registry.json`
 
 ### Fluxo diário de schema
 

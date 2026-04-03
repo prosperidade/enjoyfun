@@ -268,6 +268,7 @@ async function main() {
             offline_id: offlineId,
             payload_type: "sale",
             payload: {
+              client_schema_version: 2,
               event_id: event.id,
               sector: "invalid_sector",
               total_amount: 10,

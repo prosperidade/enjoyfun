@@ -245,11 +245,30 @@ function createMarkers(eventId) {
 }
 
 function buildOfflineItem(prefix, type, payload) {
+  const schemaVersionByType = {
+    sale: 2,
+    meal: 1,
+    ticket_validate: 1,
+    guest_validate: 1,
+    participant_validate: 1,
+    parking_entry: 1,
+    parking_exit: 1,
+    parking_validate: 1,
+  };
+  const schemaVersion = schemaVersionByType[type] || null;
+
   return {
     offline_id: `${prefix}-${type}-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
     payload_type: type,
     created_offline_at: new Date().toISOString(),
-    payload,
+    payload: schemaVersion
+      ? {
+          ...payload,
+          client_schema_version: Number(payload?.client_schema_version || 0) > 0
+            ? Number(payload.client_schema_version)
+            : schemaVersion,
+        }
+      : payload,
   };
 }
 

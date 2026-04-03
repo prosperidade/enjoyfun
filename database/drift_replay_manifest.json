@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "target_baseline": "database/schema_current.sql",
+  "supported_replay_window": {
+    "id": "seed_20260331_replay_039_048",
+    "seed_dump": "database/schema_dump_20260331.sql",
+    "reason": "As migrations versionadas nao formam um bootstrap completo desde zero. O replay suportado parte do snapshot reconciliado de 2026-03-31 e valida de forma idempotente a janela 039..048, cobrindo os endurecimentos finais de IA, workforce, check-in, auditoria e tenant scope.",
+    "migrations": [
+      "database/039_ai_agent_execution_history.sql",
+      "database/040_ai_memory_and_event_reports.sql",
+      "database/041_workforce_ai_integrity_hardening.sql",
+      "database/042_backfill_event_scoped_organizer_ids.sql",
+      "database/043_validate_not_valid_constraints_wave1.sql",
+      "database/044_participant_checkins_schema_contract.sql",
+      "database/045_cashless_sync_operational_indexes.sql",
+      "database/046_ai_tool_approval_enforcement.sql",
+      "database/047_audit_log_actor_enrichment.sql",
+      "database/048_ai_tenant_isolation_hardening.sql"
+    ]
+  }
+}
