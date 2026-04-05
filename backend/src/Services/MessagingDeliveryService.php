@@ -77,43 +77,91 @@ class MessagingDeliveryService
         return self::$tableCache[$tableName];
     }
 
+    /**
+     * H19: Idempotent delivery creation.
+     * If a correlation_id is provided and a delivery with the same correlation_id
+     * already exists, returns the existing delivery ID instead of creating a duplicate.
+     * The UNIQUE index on correlation_id (ux_message_deliveries_correlation_id) enforces this at DB level.
+     */
     public static function createDelivery(PDO $db, array $payload): ?int
     {
         if (!self::ensureSchema($db)) {
             return null;
         }
 
+        $correlationId = self::buildCorrelationId((string)($payload['correlation_id'] ?? ''));
+
+        // H19: Check for existing delivery with the same correlation_id (idempotency)
+        $existingId = self::findDeliveryByCorrelationId($db, $correlationId);
+        if ($existingId !== null) {
+            return $existingId;
+        }
+
+        try {
+            $stmt = $db->prepare("
+                INSERT INTO public.message_deliveries (
+                    organizer_id, event_id, channel, direction, provider, origin, correlation_id,
+                    recipient_name, recipient_phone, recipient_email, subject, content_preview,
+                    status, request_payload, created_at, updated_at
+                ) VALUES (
+                    :organizer_id, :event_id, :channel, :direction, :provider, :origin, :correlation_id,
+                    :recipient_name, :recipient_phone, :recipient_email, :subject, :content_preview,
+                    :status, :request_payload, NOW(), NOW()
+                )
+                RETURNING id
+            ");
+
+            $stmt->execute([
+                ':organizer_id' => (int)($payload['organizer_id'] ?? 0),
+                ':event_id' => self::nullableInt($payload['event_id'] ?? null),
+                ':channel' => self::normalizeChannel((string)($payload['channel'] ?? 'unknown')),
+                ':direction' => self::normalizeDirection((string)($payload['direction'] ?? 'out')),
+                ':provider' => self::nullableString($payload['provider'] ?? null),
+                ':origin' => self::nullableString($payload['origin'] ?? 'manual') ?? 'manual',
+                ':correlation_id' => $correlationId,
+                ':recipient_name' => self::nullableString($payload['recipient_name'] ?? null),
+                ':recipient_phone' => self::normalizePhone($payload['recipient_phone'] ?? null),
+                ':recipient_email' => self::normalizeEmail($payload['recipient_email'] ?? null),
+                ':subject' => self::nullableString($payload['subject'] ?? null),
+                ':content_preview' => self::buildContentPreview((string)($payload['content'] ?? ''), 600),
+                ':status' => self::normalizeDeliveryStatus((string)($payload['status'] ?? 'queued')),
+                ':request_payload' => self::encodeJson(self::sanitizePayload($payload['request_payload'] ?? [])),
+            ]);
+
+            return (int)($stmt->fetchColumn() ?: 0);
+        } catch (\PDOException $e) {
+            // Handle race condition: unique constraint violation on correlation_id
+            if (str_contains($e->getMessage(), 'ux_message_deliveries_correlation_id')
+                || str_contains($e->getMessage(), 'duplicate key')
+            ) {
+                $existingId = self::findDeliveryByCorrelationId($db, $correlationId);
+                if ($existingId !== null) {
+                    return $existingId;
+                }
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * H19: Look up an existing delivery by correlation_id for idempotency.
+     */
+    private static function findDeliveryByCorrelationId(PDO $db, string $correlationId): ?int
+    {
         $stmt = $db->prepare("
-            INSERT INTO public.message_deliveries (
-                organizer_id, event_id, channel, direction, provider, origin, correlation_id,
-                recipient_name, recipient_phone, recipient_email, subject, content_preview,
-                status, request_payload, created_at, updated_at
-            ) VALUES (
-                :organizer_id, :event_id, :channel, :direction, :provider, :origin, :correlation_id,
-                :recipient_name, :recipient_phone, :recipient_email, :subject, :content_preview,
-                :status, :request_payload, NOW(), NOW()
-            )
-            RETURNING id
+            SELECT id FROM public.message_deliveries
+            WHERE correlation_id = :correlation_id
+            LIMIT 1
         ");
+        $stmt->execute([':correlation_id' => $correlationId]);
+        $id = $stmt->fetchColumn();
 
-        $stmt->execute([
-            ':organizer_id' => (int)($payload['organizer_id'] ?? 0),
-            ':event_id' => self::nullableInt($payload['event_id'] ?? null),
-            ':channel' => self::normalizeChannel((string)($payload['channel'] ?? 'unknown')),
-            ':direction' => self::normalizeDirection((string)($payload['direction'] ?? 'out')),
-            ':provider' => self::nullableString($payload['provider'] ?? null),
-            ':origin' => self::nullableString($payload['origin'] ?? 'manual') ?? 'manual',
-            ':correlation_id' => self::buildCorrelationId((string)($payload['correlation_id'] ?? '')),
-            ':recipient_name' => self::nullableString($payload['recipient_name'] ?? null),
-            ':recipient_phone' => self::normalizePhone($payload['recipient_phone'] ?? null),
-            ':recipient_email' => self::normalizeEmail($payload['recipient_email'] ?? null),
-            ':subject' => self::nullableString($payload['subject'] ?? null),
-            ':content_preview' => self::buildContentPreview((string)($payload['content'] ?? ''), 600),
-            ':status' => self::normalizeDeliveryStatus((string)($payload['status'] ?? 'queued')),
-            ':request_payload' => self::encodeJson(self::sanitizePayload($payload['request_payload'] ?? [])),
-        ]);
+        if ($id === false) {
+            return null;
+        }
 
-        return (int)($stmt->fetchColumn() ?: 0);
+        $resolved = (int)$id;
+        return $resolved > 0 ? $resolved : null;
     }
 
     public static function markSent(PDO $db, ?int $deliveryId, array $payload = []): void

@@ -35,6 +35,9 @@ class AuditService
     const AI_EXECUTION_REJECTED           = 'ai.execution.rejected';
     const AI_MEMORY_RECORDED              = 'ai.memory.recorded';
     const AI_REPORT_QUEUED                = 'ai.report.queued';
+    const WEBHOOK_REJECTED                = 'webhook.rejected';
+    const WEBHOOK_VALIDATED               = 'webhook.validated';
+    const MESSAGING_RATE_LIMITED          = 'messaging.rate_limited';
 
     public static function log(
         string $action,

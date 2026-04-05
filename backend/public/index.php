@@ -41,8 +41,10 @@ function resolveAllowedCorsOrigins(): array
         return [
             'http://localhost:3000',
             'http://localhost:3001',
+            'http://localhost:3003',
             'http://127.0.0.1:3000',
             'http://127.0.0.1:3001',
+            'http://127.0.0.1:3003',
         ];
     }
 
@@ -402,6 +404,7 @@ initializeCurrentRequestContext($method, $uri, $resource, $id, $sub, $subId, $_G
         'organizer-finance' => BASE_PATH . '/src/Controllers/OrganizerFinanceController.php',
         'event-finance'     => BASE_PATH . '/src/Controllers/EventFinanceDispatcher.php',
         'ai'       => BASE_PATH . '/src/Controllers/AIController.php',
+        'payments' => BASE_PATH . '/src/Controllers/PaymentWebhookController.php',
     ];
 
 if ($resource === '' || $resource === 'ping') {
@@ -427,16 +430,40 @@ try {
     }
 } catch (\Throwable $e) {
     $correlationId = generateCorrelationId();
-    error_log(sprintf(
-        '[API][%s] %s /%s failed: %s in %s:%d',
-        $correlationId,
-        $method,
-        $uri,
-        $e->getMessage(),
-        $e->getFile(),
-        $e->getLine()
-    ));
-    jsonError('Erro Interno Backend: ' . $e->getMessage() . ' (Linha ' . $e->getLine() . ')', 500, [
+    $GLOBALS['ENJOYFUN_CORRELATION_ID'] = $correlationId;
+
+    $actor = $GLOBALS['ENJOYFUN_REQUEST_CONTEXT']['actor'] ?? null;
+    $logEntry = [
+        'timestamp' => date('c'),
+        'level' => 'error',
         'correlation_id' => $correlationId,
-    ]);
+        'message' => $e->getMessage(),
+        'method' => $method,
+        'uri' => '/' . $uri,
+        'file' => $e->getFile(),
+        'line' => $e->getLine(),
+    ];
+    if (is_array($actor)) {
+        if (!empty($actor['id'])) {
+            $logEntry['user_id'] = (int)$actor['id'];
+        }
+        if (!empty($actor['organizer_id'])) {
+            $logEntry['organizer_id'] = (int)$actor['organizer_id'];
+        }
+    }
+    $appEnv = strtolower(trim((string)($_ENV['APP_ENV'] ?? 'production')));
+    if ($appEnv === 'development') {
+        $logEntry['trace'] = $e->getTraceAsString();
+    }
+    error_log(json_encode($logEntry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+    if ($appEnv === 'development') {
+        jsonError('Erro Interno Backend: ' . $e->getMessage() . ' (Linha ' . $e->getLine() . ')', 500, [
+            'correlation_id' => $correlationId,
+        ]);
+    } else {
+        jsonError('Erro interno do servidor. Use o correlation_id para suporte.', 500, [
+            'correlation_id' => $correlationId,
+        ]);
+    }
 }

@@ -176,7 +176,7 @@ export default function Scanner() {
     if (eventId) {
       db.scannerCache.where("event_id").equals(parseFloat(eventId)).count().then(count => {
         setOfflineCount(count);
-      }).catch(err => console.log('DB count err', err));
+      }).catch(() => { /* DB count error — silent in production */ });
     }
   }, [eventId, modeLocked, requestedMode]);
 

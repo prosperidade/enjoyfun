@@ -35,6 +35,7 @@ import ArtistImport from "./pages/ArtistImport";
 import CustomerLogin from "./pages/CustomerApp/CustomerLogin";
 import CustomerDashboard from "./pages/CustomerApp/CustomerDashboard";
 import CustomerRecharge from "./pages/CustomerApp/CustomerRecharge";
+import CustomerPrivateRoute from "./components/CustomerPrivateRoute";
 
 // Módulo Financeiro do Evento
 import EventFinanceDashboard from "./pages/EventFinanceDashboard";
@@ -86,10 +87,13 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
 
-          {/* ── Rotas Públicas do Cliente (WebApp Mobile) ───────────── */}
-          <Route path="/app/:slug"          element={<CustomerLogin />} />
-          <Route path="/app/:slug/home"     element={<CustomerDashboard />} />
-          <Route path="/app/:slug/recharge" element={<CustomerRecharge />} />
+          {/* ── Customer App (WebApp Mobile) ────────────────────────── */}
+          <Route path="/app/:slug" element={<CustomerLogin />} />
+          {/* H14 — Customer pages protected by auth guard */}
+          <Route path="/app/:slug" element={<CustomerPrivateRoute />}>
+            <Route path="home"     element={<CustomerDashboard />} />
+            <Route path="recharge" element={<CustomerRecharge />} />
+          </Route>
           <Route path="/invite" element={<GuestTicket />} />
 
           <Route element={<PrivateRoute />}>

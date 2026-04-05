@@ -7,6 +7,89 @@
 require_once BASE_PATH . '/src/Services/OrganizerMessagingConfigService.php';
 require_once BASE_PATH . '/src/Services/EventLookupService.php';
 
+// ─────────────────────────────────────────────────────────────
+// H04: DB-based rate limiting for auth endpoints
+// ─────────────────────────────────────────────────────────────
+function authEnsureRateLimitTable(PDO $db): void
+{
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS auth_rate_limits (
+            id BIGSERIAL PRIMARY KEY,
+            rate_key VARCHAR(255) NOT NULL,
+            attempted_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+    ");
+
+    // Best-effort index creation (ignore if already exists)
+    try {
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_auth_rate_limits_key_time ON auth_rate_limits (rate_key, attempted_at)");
+    } catch (\Throwable $e) {
+        // Index may already exist; safe to ignore
+    }
+
+    $checked = true;
+}
+
+/**
+ * Check and enforce rate limit. Returns true if request is allowed, false if blocked.
+ * Tracks attempts by a composite key (IP + action, or phone/email + action).
+ *
+ * @param PDO    $db          Database connection
+ * @param string $action      Action identifier (e.g. 'login', 'otp_request', 'otp_verify')
+ * @param string $identifier  The subject being rate-limited (IP, phone, email)
+ * @param int    $maxAttempts Maximum attempts allowed in the window (default: 5)
+ * @param int    $windowSecs  Time window in seconds (default: 900 = 15 minutes)
+ */
+function authCheckRateLimit(PDO $db, string $action, string $identifier, int $maxAttempts = 5, int $windowSecs = 900): bool
+{
+    authEnsureRateLimitTable($db);
+
+    $rateKey = $action . ':' . strtolower(trim($identifier));
+    $windowStart = date('Y-m-d H:i:s', time() - $windowSecs);
+
+    // Count recent attempts
+    $stmt = $db->prepare("SELECT COUNT(*)::int FROM auth_rate_limits WHERE rate_key = ? AND attempted_at > ?");
+    $stmt->execute([$rateKey, $windowStart]);
+    $count = (int)$stmt->fetchColumn();
+
+    return $count < $maxAttempts;
+}
+
+/**
+ * Record an auth attempt for rate limiting purposes.
+ */
+function authRecordAttempt(PDO $db, string $action, string $identifier): void
+{
+    authEnsureRateLimitTable($db);
+
+    $rateKey = $action . ':' . strtolower(trim($identifier));
+
+    $db->prepare("INSERT INTO auth_rate_limits (rate_key, attempted_at) VALUES (?, NOW())")->execute([$rateKey]);
+
+    // Periodic cleanup: remove entries older than 1 hour (probabilistic, ~5% of requests)
+    if (random_int(1, 20) === 1) {
+        $cutoff = date('Y-m-d H:i:s', time() - 3600);
+        $db->prepare("DELETE FROM auth_rate_limits WHERE attempted_at < ?")->execute([$cutoff]);
+    }
+}
+
+/**
+ * Enforce rate limit — calls jsonError and exits if limit is exceeded.
+ */
+function authEnforceRateLimit(PDO $db, string $action, string $identifier, int $maxAttempts = 5, int $windowSecs = 900): void
+{
+    if (!authCheckRateLimit($db, $action, $identifier, $maxAttempts, $windowSecs)) {
+        $retryAfter = $windowSecs;
+        header("Retry-After: {$retryAfter}");
+        jsonError('Muitas tentativas. Tente novamente em alguns minutos.', 429);
+    }
+}
+
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     match (true) {
@@ -35,6 +118,14 @@ function login(array $body): void
     }
 
     $db   = Database::getInstance();
+
+    // H04: Rate limit login by IP and by email (5 attempts per 15 min each)
+    $clientIp = authClientIp();
+    if ($clientIp !== '') {
+        authEnforceRateLimit($db, 'login_ip', $clientIp);
+    }
+    authEnforceRateLimit($db, 'login_email', $email);
+
     $stmt = $db->prepare('SELECT * FROM users WHERE email = ? AND is_active = TRUE LIMIT 1');
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -42,6 +133,12 @@ function login(array $body): void
     $passwordOk = $user && password_verify($password, $user['password'] ?? '');
 
     if (!$user || !$passwordOk) {
+        // Record failed attempt for rate limiting
+        if ($clientIp !== '') {
+            authRecordAttempt($db, 'login_ip', $clientIp);
+        }
+        authRecordAttempt($db, 'login_email', $email);
+
         error_log("[AUTH][{$correlationId}] Falha de login.");
         AuditService::logFailure(
             AuditService::USER_LOGIN_FAILED,
@@ -125,12 +222,8 @@ function refresh(array $body): void
 
     $hash = hash('sha256', $raw);
     $db   = Database::getInstance();
-    $schema = authRefreshTokenSchema($db);
-    $query = 'SELECT * FROM refresh_tokens WHERE token_hash = ? AND expires_at > NOW()';
-    if (!empty($schema['tracking'])) {
-        $query .= ' AND revoked_at IS NULL';
-    }
-    $query .= ' ORDER BY id DESC LIMIT 1';
+    // H02: Revoked tokens are now hard-deleted, so no need to check revoked_at.
+    $query = 'SELECT * FROM refresh_tokens WHERE token_hash = ? AND expires_at > NOW() ORDER BY id DESC LIMIT 1';
     $stmt = $db->prepare($query);
     $stmt->execute([$hash]);
     $stored = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -179,17 +272,8 @@ function doLogout(array $body): void
     if ($raw) {
         $hash = hash('sha256', $raw);
         $db = Database::getInstance();
-        $schema = authRefreshTokenSchema($db);
-        if (!empty($schema['tracking'])) {
-            $db->prepare('
-                UPDATE refresh_tokens
-                SET revoked_at = COALESCE(revoked_at, NOW()),
-                    last_used_at = CASE WHEN last_used_at IS NULL THEN NOW() ELSE last_used_at END
-                WHERE token_hash = ? AND revoked_at IS NULL
-            ')->execute([$hash]);
-        } else {
-            $db->prepare('DELETE FROM refresh_tokens WHERE token_hash = ?')->execute([$hash]);
-        }
+        // H02: Hard DELETE to prevent race conditions on revoked tokens.
+        $db->prepare('DELETE FROM refresh_tokens WHERE token_hash = ?')->execute([$hash]);
     }
     authClearAccessCookie();
     authClearRefreshCookie();
@@ -352,35 +436,30 @@ function otpMatchesStoredCode(string $identifier, string $plainCode, string $sto
 
 function resolveCustomerAuthScope(PDO $db, array $body): array
 {
-    $organizerId = (int)($body['organizer_id'] ?? 0);
     $eventId = (int)($body['event_id'] ?? 0);
     $eventSlug = trim((string)($body['event_slug'] ?? $body['slug'] ?? ''));
 
-    if ($eventId > 0 || $eventSlug !== '') {
-        $event = EventLookupService::resolvePublicEvent(
-            $db,
-            $eventId > 0 ? $eventId : null,
-            $eventSlug !== '' ? $eventSlug : null
-        );
-        if (!$event) {
-            throw new RuntimeException('Evento inválido para autenticação do cliente.', 404);
-        }
-
-        return [
-            'organizer_id' => (int)($event['organizer_id'] ?? 0),
-            'event_id' => (int)($event['id'] ?? 0),
-            'event_slug' => (string)($event['slug'] ?? ''),
-        ];
+    // C02 FIX: organizer_id is NEVER accepted from the request body.
+    // It MUST be derived from event_id or event_slug via EventLookupService.
+    // This prevents cross-tenant OTP attacks where an attacker requests an OTP
+    // on their own phone but provides another tenant's organizer_id.
+    if ($eventId <= 0 && $eventSlug === '') {
+        throw new RuntimeException('event_id ou event_slug é obrigatório para autenticação do cliente.', 422);
     }
 
-    if ($organizerId <= 0) {
-        throw new RuntimeException('Identificador e organizer_id/evento são obrigatórios.', 422);
+    $event = EventLookupService::resolvePublicEvent(
+        $db,
+        $eventId > 0 ? $eventId : null,
+        $eventSlug !== '' ? $eventSlug : null
+    );
+    if (!$event) {
+        throw new RuntimeException('Evento inválido para autenticação do cliente.', 404);
     }
 
     return [
-        'organizer_id' => $organizerId,
-        'event_id' => null,
-        'event_slug' => null,
+        'organizer_id' => (int)($event['organizer_id'] ?? 0),
+        'event_id' => (int)($event['id'] ?? 0),
+        'event_slug' => (string)($event['slug'] ?? ''),
     ];
 }
 
@@ -409,13 +488,24 @@ function requestAccessCode(array $body): void
         jsonError('Identificador é obrigatório.', 422);
     }
 
+    // H04: Rate limit OTP requests by identifier and by IP (5 per 15 min)
+    $db = Database::getInstance();
+    $clientIp = authClientIp();
+    authEnforceRateLimit($db, 'otp_request', $identifier, 5, 900);
+    if ($clientIp !== '') {
+        authEnforceRateLimit($db, 'otp_request_ip', $clientIp, 10, 900);
+    }
+    authRecordAttempt($db, 'otp_request', $identifier);
+    if ($clientIp !== '') {
+        authRecordAttempt($db, 'otp_request_ip', $clientIp);
+    }
+
     $otp = (string) random_int(100000, 999999);
     $otpHash = hashOtpCode($identifier, $otp);
     $expiresAt = date('Y-m-d H:i:s', time() + 600);
     $otpId = null;
 
     try {
-        $db = Database::getInstance();
         $scope = resolveCustomerAuthScope($db, $body);
         $organizerId = (int)($scope['organizer_id'] ?? 0);
         if ($organizerId <= 0) {
@@ -469,6 +559,18 @@ function verifyAccessCode(array $body): void
 
     try {
         $db = Database::getInstance();
+
+        // H04: Rate limit OTP verification by identifier and IP (5 per 15 min)
+        $clientIp = authClientIp();
+        authEnforceRateLimit($db, 'otp_verify', $identifier, 5, 900);
+        if ($clientIp !== '') {
+            authEnforceRateLimit($db, 'otp_verify_ip', $clientIp, 10, 900);
+        }
+        authRecordAttempt($db, 'otp_verify', $identifier);
+        if ($clientIp !== '') {
+            authRecordAttempt($db, 'otp_verify_ip', $clientIp);
+        }
+
         $scope = resolveCustomerAuthScope($db, $body);
         $organizerId = (int)($scope['organizer_id'] ?? 0);
         if ($organizerId <= 0) {
@@ -735,17 +837,8 @@ function authRevokeRefreshToken(PDO $db, int $refreshTokenId): void
         return;
     }
 
-    $schema = authRefreshTokenSchema($db);
-    if (!empty($schema['tracking'])) {
-        $db->prepare('
-            UPDATE refresh_tokens
-            SET revoked_at = COALESCE(revoked_at, NOW()),
-                last_used_at = CASE WHEN last_used_at IS NULL THEN NOW() ELSE last_used_at END
-            WHERE id = ?
-        ')->execute([$refreshTokenId]);
-        return;
-    }
-
+    // H02: Hard DELETE to prevent race conditions where a revoked token
+    // could be reused before the soft-delete flag is checked.
     $db->prepare('DELETE FROM refresh_tokens WHERE id = ?')->execute([$refreshTokenId]);
 }
 
@@ -810,13 +903,20 @@ function authRefreshTokenFromCookie(): string
 
 function authRefreshCookieSameSite(): string
 {
-    $sameSite = trim((string)(getenv('AUTH_COOKIE_SAMESITE') ?: 'Lax'));
+    // M03: Default to Strict for CSRF protection; override via env if needed
+    $sameSite = trim((string)(getenv('AUTH_COOKIE_SAMESITE') ?: 'Strict'));
     $sameSite = ucfirst(strtolower($sameSite));
-    return in_array($sameSite, ['Lax', 'Strict', 'None'], true) ? $sameSite : 'Lax';
+    return in_array($sameSite, ['Lax', 'Strict', 'None'], true) ? $sameSite : 'Strict';
 }
 
 function authCookieIsSecure(): bool
 {
+    // M03: In production, always set Secure flag (assumes TLS termination at proxy)
+    $appEnv = strtolower(trim((string)(getenv('APP_ENV') ?: $_ENV['APP_ENV'] ?? 'production')));
+    if ($appEnv !== 'development') {
+        return true;
+    }
+
     if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== '' && $_SERVER['HTTPS'] !== 'off') {
         return true;
     }

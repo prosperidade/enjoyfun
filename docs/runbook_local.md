@@ -24,6 +24,11 @@ Padronizar o bootstrap local mínimo do projeto e o primeiro smoke operacional.
 - `database/migration_history_registry.json`
 - `database/drift_replay_manifest.json`
 - `.github/workflows/governance.yml`
+- `scripts/rotate_credentials.sh`
+- `scripts/apply_migrations.sh`
+- `tests/smoke_test.sh`
+- `tests/validate_schema.sql`
+- `tests/security_scan.sh`
 
 ## Bootstrap local
 
@@ -60,7 +65,7 @@ database\dump_schema.bat
 
 ```bash
 cd backend
-php -d opcache.enable=0 -d opcache.enable_cli=0 -S localhost:8000 -t public router_dev.php
+php -d opcache.enable=0 -d opcache.enable_cli=0 -S localhost:8080 -t public router_dev.php
 ```
 
 ### 2. Frontend
@@ -70,6 +75,10 @@ cd frontend
 npm install
 npm run dev
 ```
+
+Acesso local padrao: `http://localhost:3003`
+
+Se a API local estiver em outra porta, ajustar `frontend/.env` em `VITE_BACKEND_URL`.
 
 Lint do frontend:
 
@@ -187,6 +196,138 @@ Contrato atual do replay:
 - não versionar `backend/.env`
 - nao abrir sprint, subtarefa de sprint ou frente nova antes de registrar objetivo e resultado no `docs/progresso18.md`
 - sempre atualizar `docs/runbook_local.md` na mesma rodada quando a mudanca alterar bootstrap, smoke, validacao, gate tecnico, rotina operacional ou criterio de encerramento
+
+## Rotacao de credenciais
+
+Quando for necessario rotacionar credenciais (troca de ambiente, vazamento, onboarding de novo dev):
+
+```bash
+bash scripts/rotate_credentials.sh
+```
+
+O script gera automaticamente:
+- `JWT_SECRET` (256-bit hex)
+- `DB_PASS` (24 chars alfanumericos)
+- `OTP_PEPPER` (128-bit hex)
+- `SENSITIVE_DATA_KEY` (256-bit hex)
+- `FINANCE_CREDENTIALS_KEY` (256-bit hex)
+
+Apos gerar, copiar os valores para `backend/.env` e executar:
+
+```sql
+ALTER USER postgres PASSWORD '<novo_DB_PASS>';
+```
+
+**API keys externas** precisam ser rotacionadas manualmente nos consoles dos providers:
+
+### Gemini (Google)
+
+1. Acessar https://aistudio.google.com/apikey
+2. Login com a conta Google que criou a key
+3. Clicar em **"Create API Key"** e copiar a nova key
+4. Na key antiga clicar nos 3 pontos e selecionar **"Delete API key"**
+5. Atualizar `backend/.env`:
+```
+GEMINI_API_KEY=<nova_key>
+```
+
+### OpenAI
+
+1. Acessar https://platform.openai.com/api-keys
+2. Login com a conta que criou a key
+3. Clicar em **"Create new secret key"**, nomear (ex: "EnjoyFun Prod 2026-04") e copiar
+4. Na key antiga clicar no icone de lixeira e confirmar
+5. Atualizar `backend/.env`:
+```
+OPENAI_API_KEY=<nova_key>
+```
+
+**Importante:** sempre copiar a nova key ANTES de deletar a antiga. A OpenAI so mostra a key completa no momento da criacao.
+
+### Asaas (quando configurado)
+
+1. Acessar https://www.asaas.com → area do desenvolvedor
+2. Gerar nova API key
+3. Atualizar `backend/.env`:
+```
+ASAAS_API_KEY=<nova_key>
+ASAAS_WEBHOOK_TOKEN=<novo_token>
+```
+
+**Impacto da troca do `JWT_SECRET`:** todas as sessoes ativas sao invalidadas. Usuarios precisam fazer login novamente.
+
+## Aplicacao de migrations pendentes (alternativa ao `apply_migration.bat`)
+
+Para aplicar um lote de migrations de uma vez:
+
+```bash
+bash scripts/apply_migrations.sh enjoyfun postgres 127.0.0.1 5432
+```
+
+O script testa conectividade, aplica em ordem, detecta re-aplicacao e atualiza `migrations_applied.log`.
+
+Para aplicar uma migration individual, continuar usando o fluxo oficial:
+
+```bat
+database\apply_migration.bat database\NNN_nome.sql
+```
+
+## Checklist pre-producao
+
+### CRITICO — `pg_hba.conf`
+
+O `pg_hba.conf` do PostgreSQL local esta configurado como `trust`, o que significa que **qualquer senha e aceita em localhost** — o banco ignora a autenticacao.
+
+**Antes de qualquer deploy em producao:**
+
+1. Localizar o arquivo:
+```bash
+psql -U postgres -c "SHOW hba_file;"
+```
+
+2. Alterar as linhas de `host` de `trust` para `scram-sha-256`:
+```
+# ANTES (dev local — aceita qualquer senha)
+host   all   all   127.0.0.1/32   trust
+
+# DEPOIS (producao — exige senha correta)
+host   all   all   127.0.0.1/32   scram-sha-256
+```
+
+3. Recarregar a configuracao:
+```bash
+psql -U postgres -c "SELECT pg_reload_conf();"
+```
+
+4. Testar que a conexao so funciona com a senha correta.
+
+**Nota:** no deploy via Docker (`docker-compose.yml` ja criado), o container PostgreSQL usa `scram-sha-256` por padrao. Essa alteracao e necessaria apenas para PostgreSQL instalado diretamente na maquina.
+
+### Demais itens pre-producao
+
+- [ ] `pg_hba.conf` alterado para `scram-sha-256`
+- [ ] Credenciais rotacionadas (`scripts/rotate_credentials.sh`)
+- [ ] API keys externas rotacionadas nos consoles (Gemini, OpenAI, Asaas)
+- [ ] Migrations 049-053 aplicadas (`scripts/apply_migrations.sh`)
+- [ ] `APP_ENV=production` no `.env` de producao (ativa HMAC obrigatorio, error sanitization, cookie Secure)
+- [ ] HTTPS configurado (Nginx + Cloudflare ou cert local)
+- [ ] `.env` **nunca** versionado (verificar `.gitignore`)
+- [ ] Smoke test executado (`bash tests/smoke_test.sh http://host:porta`)
+- [ ] Schema validado (`psql -f tests/validate_schema.sql`)
+- [ ] Security scan executado (`bash tests/security_scan.sh`)
+
+## Smoke tests automatizados
+
+```bash
+# Smoke test E2E (requer servidor rodando)
+bash tests/smoke_test.sh http://localhost:8080 admin@enjoyfun.com senha
+
+# Validacao de schema (requer acesso ao banco)
+psql -U postgres -d enjoyfun -f tests/validate_schema.sql
+
+# Scan estatico de seguranca (nao requer servidor)
+bash tests/security_scan.sh
+```
 
 ## Quando algo divergir
 

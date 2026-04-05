@@ -112,10 +112,17 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
-    const refresh = getRefreshToken();
-    await logoutApi(refresh);
-    clearSession();
-    setUser(null);
+    // H12 — Robust logout: always clear local state and redirect,
+    // even if the server-side logout call fails (network error, 5xx, etc.).
+    try {
+      const refresh = getRefreshToken();
+      await logoutApi(refresh);
+    } catch {
+      // Intentionally ignored — local cleanup proceeds regardless.
+    } finally {
+      clearSession();
+      setUser(null);
+    }
   }, []);
 
   // ── Role helpers ─────────────────────────────────────────────────────────

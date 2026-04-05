@@ -1,0 +1,9 @@
+# Backend Docker Ignore
+.env
+*.pem
+*.md
+.git
+.vscode
+Dockerfile
+logs/
+*.log

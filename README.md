@@ -68,7 +68,7 @@ psql enjoyfun < database/NNN_nome.sql
 
 # 5. Suba o servidor PHP local sem drift de OPcache
 cd backend
-php -d opcache.enable=0 -d opcache.enable_cli=0 -S localhost:8000 -t public router_dev.php
+php -d opcache.enable=0 -d opcache.enable_cli=0 -S localhost:8080 -t public router_dev.php
 ```
 
 ### Frontend
@@ -77,8 +77,10 @@ php -d opcache.enable=0 -d opcache.enable_cli=0 -S localhost:8000 -t public rout
 cd frontend
 npm install
 npm run dev
-# Acesso: http://localhost:3000
+# Acesso: http://localhost:3003
 ```
+
+Se a API local estiver em outra porta, ajuste `frontend/.env` (`VITE_BACKEND_URL`).
 
 ### Variáveis de ambiente necessárias (backend/.env)
 
@@ -98,7 +100,7 @@ OPENAI_MODEL=gpt-4o-mini
 
 # Ambiente
 APP_ENV=development
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:3003
 
 # Features
 FEATURE_WORKFORCE_BULK_CARD_ISSUANCE=true

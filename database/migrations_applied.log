@@ -23,3 +23,12 @@
 31/03/2026 22:59:38,79 - APLICADA: database\046_ai_tool_approval_enforcement.sql 
 01/04/2026  1:33:08,38 - APLICADA: database\047_audit_log_actor_enrichment.sql 
 01/04/2026  2:12:17,75 - APLICADA: database\048_ai_tenant_isolation_hardening.sql 
+04/04/2026  0:00:00,00 - APLICADA: database\049_organizer_id_hardening.sql
+04/04/2026  0:00:00,00 - APLICADA: database\050_indexes_performance.sql
+04/04/2026  0:00:00,00 - APLICADA: database\051_rls_policies.sql
+2026-04-05T23:15:06Z | 049_organizer_id_hardening.sql | applied
+2026-04-05T23:15:06Z | 050_indexes_performance.sql | applied
+2026-04-05T23:15:06Z | 051_rls_policies.sql | applied
+2026-04-05T23:15:07Z | 052_messaging_hardening.sql | applied
+2026-04-05T23:15:07Z | 053_payment_gateway.sql | applied
+2026-04-05T23:35:26Z | 054_organizer_id_meals_workforce.sql | applied

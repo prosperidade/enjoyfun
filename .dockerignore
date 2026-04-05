@@ -1,0 +1,51 @@
+# ==============================================================================
+# EnjoyFun — Docker Ignore
+# ==============================================================================
+
+# Version control
+.git
+.gitignore
+
+# Environment and secrets
+.env
+backend/.env
+*.pem
+
+# Documentation (not needed in images)
+*.md
+docs/
+auditoriaclaude*.md
+
+# IDE and editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node modules (rebuilt in build stage)
+node_modules/
+frontend/node_modules/
+
+# Build artifacts
+frontend/dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker files (avoid recursive context)
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile
+
+# Test and QA
+*.test.js
+*.spec.js
+__tests__/
+coverage/
+
+# Logs
+*.log
+logs/

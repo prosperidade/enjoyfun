@@ -25,7 +25,7 @@ Gateways suportados e documentados neste aceite:
 2. Usuário válido para autenticação (perfil `admin` ou `organizer` para fluxo financeiro).
 3. Banco com migrations recentes aplicadas para camada financeira.
 4. Definir variáveis da coleção:
-   - `base_url` (ex.: `http://localhost:8000/api`)
+   - `base_url` (ex.: `http://localhost:8080/api`)
    - `auth_email`
    - `auth_password`
    - `gateway_provider` (`mercadopago`, `pagseguro`, `asaas`, `pagarme`)

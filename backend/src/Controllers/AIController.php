@@ -8,6 +8,8 @@ require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/src/Services/AgentExecutionService.php';
 require_once BASE_PATH . '/src/Services/AIMemoryStoreService.php';
 require_once BASE_PATH . '/src/Services/AIOrchestratorService.php';
+require_once BASE_PATH . '/src/Services/AIRateLimitService.php';
+require_once BASE_PATH . '/src/Services/AIBillingService.php';
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -27,11 +29,24 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 function getInsight(array $body): void
 {
     $operator = requireAuth(['admin', 'organizer', 'manager', 'bartender', 'staff']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido para gerar insights de IA.', 403);
+    }
+
+    // H16: Rate limiting per organizer (60 req/hour)
+    $db = Database::getInstance();
+    \EnjoyFun\Services\AIRateLimitService::enforce($db, $organizerId);
+
+    // M20: Spending cap per organizer (R$500/month default)
+    \EnjoyFun\Services\AIBillingService::enforceSpendingCap($db, $organizerId);
+
     $payload = aiNormalizeInsightPayload($body);
 
     try {
         $result = \EnjoyFun\Services\AIOrchestratorService::generateInsight(
-            Database::getInstance(),
+            $db,
             $operator,
             $payload
         );

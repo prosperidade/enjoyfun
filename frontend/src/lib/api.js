@@ -8,11 +8,19 @@ const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  // withCredentials sends HttpOnly cookies when the backend sets them (C06).
+  // Token reads from sessionStorage (session.js) remain as fallback until
+  // full cookie migration is complete and will be removed then.
   withCredentials: true,
 });
 
 let refreshRequest = null;
 let cachedDeviceId = null;
+
+// H15 — Client-side rate limiting: force logout after MAX_REFRESH_FAILURES
+// consecutive failed refresh attempts to prevent infinite retry loops.
+const MAX_REFRESH_FAILURES = 3;
+let consecutiveRefreshFailures = 0;
 
 function createDeviceId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -74,6 +82,13 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !original?._retry && !isRefreshRequest) {
       original._retry = true;
 
+      // H15 — Bail out immediately when too many consecutive refreshes failed.
+      if (consecutiveRefreshFailures >= MAX_REFRESH_FAILURES) {
+        clearSession();
+        redirectToLogin();
+        return Promise.reject(error);
+      }
+
       const { refreshToken, refreshTransport } = getSessionSnapshot();
       if (!refreshToken && refreshTransport !== 'cookie') {
         clearSession();
@@ -81,6 +96,8 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
 
+      // H11 — Mutex: only the first 401 fires a refresh request.
+      // Subsequent 401s reuse the same promise until it settles.
       refreshRequest ||= axios
         .post(
           `${BASE_URL}/auth/refresh`,
@@ -99,7 +116,12 @@ api.interceptors.response.use(
             throw new Error('Refresh inválido.');
           }
           persistSession(result);
+          consecutiveRefreshFailures = 0; // H15 — reset on success
           return result.access_transport === 'cookie' ? '' : result.access_token;
+        })
+        .catch((err) => {
+          consecutiveRefreshFailures += 1; // H15 — track failure
+          throw err;
         })
         .finally(() => {
           refreshRequest = null;

@@ -1493,7 +1493,8 @@ CREATE TABLE public.event_days (
     date date NOT NULL,
     starts_at timestamp without time zone NOT NULL,
     ends_at timestamp without time zone NOT NULL,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    organizer_id integer NOT NULL
 );
 
 
@@ -1533,6 +1534,7 @@ CREATE TABLE public.event_meal_services (
     is_active boolean DEFAULT true NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    organizer_id integer NOT NULL,
     CONSTRAINT chk_ems_service_code CHECK (((service_code)::text = ANY ((ARRAY['breakfast'::character varying, 'lunch'::character varying, 'afternoon_snack'::character varying, 'dinner'::character varying, 'supper'::character varying, 'extra'::character varying])::text[])))
 );
 
@@ -1569,7 +1571,8 @@ CREATE TABLE public.event_participants (
     status character varying(50) DEFAULT 'expected'::character varying,
     qr_token character varying(255),
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    organizer_id integer NOT NULL
 );
 
 
@@ -1727,7 +1730,8 @@ CREATE TABLE public.event_shifts (
     name character varying(100) NOT NULL,
     starts_at timestamp without time zone NOT NULL,
     ends_at timestamp without time zone NOT NULL,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    organizer_id integer NOT NULL
 );
 
 
@@ -1771,7 +1775,7 @@ CREATE TABLE public.events (
     event_date date,
     location text,
     is_active boolean DEFAULT true,
-    organizer_id integer
+    organizer_id integer NOT NULL
 );
 
 
@@ -2286,7 +2290,8 @@ CREATE TABLE public.otp_codes (
     identifier character varying(255) NOT NULL,
     code character varying(128) NOT NULL,
     expires_at timestamp without time zone NOT NULL,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    organizer_id integer
 );
 
 
@@ -2330,7 +2335,7 @@ CREATE TABLE public.parking_records (
     notes text,
     fee_paid numeric(10,2) DEFAULT 0.00,
     totp_secret character varying(64),
-    organizer_id integer
+    organizer_id integer NOT NULL
 );
 
 
@@ -2594,7 +2599,7 @@ CREATE TABLE public.products (
     vendor_id integer,
     sector character varying(50) DEFAULT 'bar'::character varying,
     low_stock_threshold integer DEFAULT 5,
-    organizer_id integer
+    organizer_id integer NOT NULL
 );
 
 
@@ -2627,7 +2632,8 @@ CREATE TABLE public.refresh_tokens (
     user_id bigint NOT NULL,
     token_hash character varying(255) NOT NULL,
     expires_at timestamp without time zone NOT NULL,
-    created_at timestamp without time zone DEFAULT now() NOT NULL
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    organizer_id integer
 );
 
 
@@ -2732,7 +2738,7 @@ CREATE TABLE public.sales (
     app_commission numeric(10,2) DEFAULT 0.00,
     vendor_payout numeric(10,2) DEFAULT 0.00,
     sector character varying(50),
-    organizer_id integer,
+    organizer_id integer NOT NULL,
     operator_id integer
 );
 
@@ -2974,7 +2980,7 @@ CREATE TABLE public.tickets (
     holder_email character varying(150),
     holder_phone character varying(30),
     purchased_at timestamp without time zone DEFAULT now(),
-    organizer_id integer,
+    organizer_id integer NOT NULL,
     ticket_batch_id integer,
     commissary_id integer
 );
@@ -3061,7 +3067,8 @@ CREATE TABLE public.vendors (
     sector character varying(50) NOT NULL,
     commission_rate numeric(5,2) DEFAULT 10.00,
     manager_id integer,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    organizer_id integer
 );
 
 

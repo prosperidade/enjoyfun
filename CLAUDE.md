@@ -1,6 +1,6 @@
 # CLAUDE.md — EnjoyFun Platform
 ## Guia Completo para IA: Arquitetura, Estado Real e Visão de Negócio
-### Atualizado: 2026-03-22
+### Atualizado: 2026-04-04
 
 ---
 
@@ -35,17 +35,13 @@ super_admin / admin (André)
 
 ---
 
-## 🔐 SEGURANÇA — ESTADO REAL (2026-03-22)
+## 🔐 SEGURANÇA — ESTADO REAL (2026-04-04)
 
-### ⚠️ ATENÇÃO — AÇÃO URGENTE NECESSÁRIA
+### ✅ RESOLVIDO — .env e credenciais
 
-O arquivo `.env` com credenciais reais está versionado no repositório. **Antes de qualquer outra tarefa:**
-
-1. Revogar `GEMINI_API_KEY` e `OPENAI_API_KEY` no console dos providers
-2. Trocar `JWT_SECRET` (invalidará todas as sessões ativas — aceitável)
-3. Trocar senha do banco `DB_PASS`
-4. Adicionar `.env` ao `.gitignore`
-5. Usar apenas variáveis de ambiente do servidor em produção
+- `.gitignore` corrigido: `.env` devidamente excluido do versionamento
+- `backend/.env.example` criado com placeholders seguros
+- **Ainda necessario:** revogar e rotacionar credenciais que ja foram expostas no historico do Git (GEMINI_API_KEY, OPENAI_API_KEY, JWT_SECRET, DB_PASS)
 
 ### ✅ IMPLEMENTADO E FUNCIONANDO
 
@@ -54,7 +50,7 @@ O arquivo `.env` com credenciais reais está versionado no repositório. **Antes
 | **JWT HS256** | `backend/src/Helpers/JWT.php` | HS256 com `JWT_SECRET` — decisão oficial (ADR registrado). RS256 é plano futuro |
 | **organizer_id no JWT** | `backend/src/Controllers/AuthController.php` | Isolamento multi-tenant no próprio token |
 | **Auth Middleware completo** | `backend/src/Middleware/AuthMiddleware.php` | Valida HS256, extrai `id`, `sub`, `name`, `email`, `role`, `sector`, `organizer_id` |
-| **Refresh Tokens** | `backend/src/Controllers/AuthController.php` | Hash SHA-256, expiração configurável |
+| **Refresh Tokens (hard-delete)** | `backend/src/Controllers/AuthController.php` | Hash SHA-256, expiração configurável, revogação por DELETE real (não soft-delete) |
 | **Audit Log imutável** | `database/schema_current.sql` | Trigger bloqueia UPDATE e DELETE |
 | **AuditService alinhado** | `backend/src/Services/AuditService.php` | Lê `id` com fallback `sub`, grava `email`, `organizer_id` |
 | **WalletSecurityService** | `backend/src/Services/WalletSecurityService.php` | FOR UPDATE lock, idempotência, double spending bloqueado |
@@ -66,17 +62,27 @@ O arquivo `.env` com credenciais reais está versionado no repositório. **Antes
 | **organizer_id em todas as rotas críticas** | Todos os controllers | TicketController, ParkingController, GuestController, WorkforceController — todos blindados |
 | **Telemetria de API** | `backend/public/index.php` | observeApiRequestTelemetry() em endpoints críticos |
 | **Correlação de erros** | `backend/public/index.php` | `generateCorrelationId()` em todo catch global |
-| **Sync offline idempotente** | `backend/src/Controllers/SyncController.php` | FOR UPDATE SKIP LOCKED, event_id obrigatório, deduplicação |
+| **Sync offline idempotente (hardened)** | `backend/src/Controllers/SyncController.php` | NOWAIT, batch dedup, size limits, event_id obrigatório |
 | **Sessão em sessionStorage** | `frontend/src/lib/session.js` | Migração automática de localStorage → sessionStorage |
+| **Rate limiting (DB-based)** | `backend/src/Services/AIRateLimitService.php` | Proteção contra brute force em auth, AI e messaging |
+| **Error sanitization** | `backend/public/index.php` | Sem stack traces em produção |
+| **IDOR fix (Customer)** | `resolveCustomerAuthScope()` | organizer_id nunca aceito do body |
+| **Input validation (checkout)** | SalesDomainService | qty <= 1000, max 100 items por checkout |
+| **Cookie flags** | Backend | Secure, HttpOnly, SameSite=Strict em produção |
+| **HMAC-SHA256 offline** | `frontend/src/lib/hmac.js` | Integridade de payloads offline |
+| **AI prompt sanitization** | `backend/src/Services/AIPromptSanitizer.php` | Proteção contra prompt injection + PII scrubbing |
+| **AI spending caps** | `backend/src/Services/AIBillingService.php` | Limite de gasto por organizador |
+| **Webhook timestamp validation** | `backend/src/Controllers/PaymentWebhookController.php` | Rejeita webhooks com timestamp fora da janela |
+| **Messaging idempotency** | `backend/src/Controllers/MessagingController.php` | Deduplicação via correlation_id |
+| **RLS policies** | `database/051_rls_policies.sql` | Row-Level Security em 15 tabelas |
 
 ### 🟡 PENDÊNCIAS DE SEGURANÇA (pré-produção)
 
 | Recurso | Quando fazer | Risco |
 |---------|-------------|-------|
-| **Sessão via cookie HttpOnly** | Antes de produção | sessionStorage ainda vulnerável a XSS |
-| **Redis rate limiting** | Pré-produção | Sem proteção contra brute force |
+| **Rotacionar credenciais expostas** | AGORA | Credenciais no historico do Git |
+| **Redis rate limiting** | Pré-produção | Rate limiting atual é DB-based, Redis é mais performante |
 | **Cloudflare WAF** | No deploy | Sem proteção de edge |
-| **Credenciais em .env versionado** | AGORA | Credenciais reais expostas |
 | **RS256 pleno** | Trilha V4 | HS256 funcional, RS256 é evolução planejada |
 
 ---
@@ -85,7 +91,7 @@ O arquivo `.env` com credenciais reais está versionado no repositório. **Antes
 
 **PostgreSQL 18.2 | DB: `enjoyfun` | host: 127.0.0.1:5432 | user: postgres**
 
-### Migrations versionadas até 032
+### Migrations versionadas até 053
 
 | Faixa | Conteúdo |
 |-------|---------|
@@ -99,14 +105,23 @@ O arquivo `.env` com credenciais reais está versionado no repositório. **Antes
 | 021–024 | Event meal services alignment, workforce assignment identity, qr_token hardening, external meal validity |
 | 025–028 | Cashless offline hardening, event-scoped card assignments, OTP storage, bulk card issuance foundation |
 | 029–032 | Reconcile financeiro/banco, webhook secret, refresh token tracking |
+| 033 | Gap reservado (historico documentado) |
+| 034–038 | Event finance, artist logistics, offline queue, cashless hardening |
+| 039–048 | AI execution/memory, workforce integrity, organizer_id backfill, cashless indices, AI approval/isolation |
+| 049 | organizer_id hardening (NOT NULL, FKs, novas colunas) |
+| 050 | Performance indexes |
+| 051 | RLS policies em 15 tabelas |
+| 052 | Messaging hardening |
+| 053 | Payment gateway tables |
 
 **Pendências de banco:**
 - Migration `009`: não aplicada (escopo reduzido ao seguro)
-- Aplicar `029`–`032` nos ambientes ativos
-- Revisar `audit_log` para índice composto dedicado, sem misturar com a rodada atual
+- Aplicar migrations recentes nos ambientes ativos conforme janela de manutenção
+- Revisar `audit_log` para índice composto dedicado
+- Drift replay suportado: janela `039..048` provada; `034..038` com divergência pendente de reconciliação
 
 ### Tabelas com `organizer_id` (multi-tenant ativo):
-`events` · `products` · `sales` · `tickets` · `ticket_types` · `digital_cards` · `parking_records` · `users` · `guests` · `event_participants` · `workforce_assignments` · `workforce_roles` · `workforce_event_roles` · `participant_meals` · `ai_usage_logs` · `audit_log` · `card_issue_batches`
+`events` · `products` · `sales` · `tickets` · `ticket_types` · `digital_cards` · `parking_records` · `users` · `guests` · `event_participants` · `event_days` · `event_shifts` · `event_meal_services` · `workforce_assignments` · `workforce_roles` · `workforce_event_roles` · `participant_meals` · `ai_usage_logs` · `audit_log` · `card_issue_batches` · `refresh_tokens` · `vendors`
 
 ### Regra de Ouro — NUNCA violar:
 ```sql
@@ -117,7 +132,7 @@ SELECT * FROM events WHERE organizer_id = {jwt.organizer_id} AND id = ?
 
 ---
 
-## 📁 ESTRUTURA DO PROJETO (ESTADO REAL 2026-03-22)
+## 📁 ESTRUTURA DO PROJETO (ESTADO REAL 2026-04-04)
 
 ```
 enjoyfun/
@@ -146,7 +161,10 @@ enjoyfun/
 │   ├── lib/
 │   │   ├── session.js                 ✅ sessionStorage (migração de localStorage)
 │   │   ├── db.js                      ✅ Dexie offline (v2 com mealsContext)
+│   │   ├── hmac.js                    ✅ HMAC-SHA256 para payloads offline
 │   │   └── operationalTelemetry.js    ✅
+│   ├── components/
+│   │   └── CustomerPrivateRoute.jsx   ✅ Guard de rotas customer
 │   └── context/AuthContext.jsx        ✅ Bootstrap automático + refresh
 │
 ├── backend/src/
@@ -160,7 +178,7 @@ enjoyfun/
 │   │   ├── BarController.php          ✅
 │   │   ├── FoodController.php         ✅
 │   │   ├── ShopController.php         ✅
-│   │   ├── SyncController.php         ✅ event_id obrigatório + idempotência
+│   │   ├── SyncController.php         ✅ NOWAIT + batch dedup + size limits
 │   │   ├── ParkingController.php      ✅ organizer_id blindado via JOIN
 │   │   ├── ParticipantController.php  ✅
 │   │   ├── ParticipantCheckinController.php ✅
@@ -179,7 +197,8 @@ enjoyfun/
 │   │   ├── OrganizerMessagingSettingsController.php ✅
 │   │   ├── OrganizerFinanceController.php ✅
 │   │   ├── SuperAdminController.php   ✅
-│   │   └── HealthController.php       ✅
+│   │   ├── PaymentWebhookController.php ✅ Webhook com timestamp validation
+│   │   └── HealthController.php       ✅ Deep check + métricas (não mais dummy)
 │   ├── Services/
 │   │   ├── WalletSecurityService.php  ✅ FOR UPDATE lock
 │   │   ├── SalesDomainService.php     ✅ Checkout centralizado
@@ -193,7 +212,9 @@ enjoyfun/
 │   │   ├── CardIssuanceService.php    ✅ (migration 028)
 │   │   ├── SalesReportService.php     ✅
 │   │   ├── MessagingDeliveryService.php ✅
-│   │   ├── PaymentGatewayService.php  🟡 Estrutura presente, gateways reais ausentes
+│   │   ├── PaymentGatewayService.php  🟡 Fundação Asaas presente, integrações completas pendentes
+│   │   ├── AIRateLimitService.php     ✅ Rate limiting DB-based para auth/AI/messaging
+│   │   ├── AIPromptSanitizer.php      ✅ Prompt injection + PII scrubbing
 │   │   ├── SecretCryptoService.php    ✅ pgcrypto wrapper
 │   │   ├── EmailService.php           ✅
 │   │   ├── EventLookupService.php     ✅
@@ -218,8 +239,16 @@ enjoyfun/
 │
 ├── database/
 │   ├── schema_current.sql             ✅ Baseline oficial reconciliado no topo atual
-│   ├── 001–048_*.sql                  ✅ Trilha versionada com exceções históricas documentadas
-│   └── migrations_applied.log         ✅ Log append-only alinhado no topo com a `048`
+│   ├── 001–053_*.sql                  ✅ Trilha versionada com exceções históricas documentadas
+│   ├── migrations_applied.log         ✅ Log append-only
+│   ├── drift_replay_manifest.json     ✅ Janela suportada de replay (039..048)
+│   └── migration_history_registry.json ✅ Exceções históricas classificadas
+│
+├── tests/                             ✅ Diretório de testes
+│
+├── Dockerfile                         ✅ Build backend + frontend
+├── docker-compose.yml                 ✅ Orquestração local/deploy
+├── nginx/default.conf                 ✅ Configuração Nginx
 │
 └── docs/
     ├── EnjoyFun_Blueprint_V5.md       ⚠️ Parcialmente desatualizado
@@ -230,6 +259,7 @@ enjoyfun/
     ├── auth_strategy.md               ✅ Resumo operacional do Auth/JWT
     ├── cardsemassa.md                 ✅ Frente específica de cartões em massa
     ├── diagnostico.md                 ✅ Diagnóstico técnico corrente
+    ├── definition_of_ready_ambiente_v1.md ✅ Gate de ambiente
     ├── enjoyfun_hardening_sistema_atual.md ✅ Referência de hardening
     ├── enjoyfun_participants_workforce_v_1.md ✅ Especificação de domínio
     ├── enjoyfun_trilha_v4_arquitetura_alvo.md ✅ Norte de longo prazo
@@ -237,35 +267,38 @@ enjoyfun/
     ├── enjoyfun_checklist_revisao_pr_v_1.md ✅ Checklist de revisão
     ├── runbook_local.md               ✅ Bootstrap local padronizado
     ├── progresso1..9.md               ✅ Histórico de pesquisa
-    ├── progresso10.md                 ✅ Diário ativo
+    ├── progresso10.md                 ✅ Diário de rodadas anteriores
+    ├── progresso18.md                 ✅ Diário ativo (Sprint 1 governance)
     └── qa/                            ✅ Playbooks e coleções Postman
 ```
 
 ---
 
-## 🗺️ ESTADO DOS MÓDULOS (2026-03-22)
+## 🗺️ ESTADO DOS MÓDULOS (2026-04-04)
 
 | Módulo | Estado Funcional | Pendências |
 |--------|-----------------|-----------|
-| Auth / JWT | ✅ Encerrado | Plano V4: RS256, cookie HttpOnly |
+| Auth / JWT | ✅ Encerrado | Plano V4: RS256 |
 | Eventos | ✅ Encerrado | — |
 | Ingressos | ✅ Encerrado | — |
 | PDV (Bar/Food/Shop) | ✅ Encerrado funcional | Refatoração (consolidar em POSController) |
 | Cashless / Cartões | ✅ Encerrado | Smoke do fluxo completo pendente |
 | Estacionamento | ✅ Encerrado | — |
-| Sync Offline | ✅ Encerrado | Smoke E2E pendente (smoke_cashless_offline) |
+| Sync Offline | ✅ Hardened | NOWAIT, batch dedup, size limits. Smoke E2E pendente |
 | ParticipantsHub | ✅ Encerrado | Testes de contrato e telemetria |
 | Workforce | ✅ Encerrado funcional | Refatoração em andamento (1578 linhas) |
 | Meals Control | ✅ Encerrado | Migration 014 pendente de aplicação em janela controlada |
 | Card Issuance em Massa | 🟡 Novo (migration 028) | Smoke ponta a ponta pendente |
 | White Label (Branding) | 🟡 Parcial | CSS vars dinâmicos, subdomínio ausente |
-| Channels / Mensageria | 🟡 Parcial | Webhook forte e retry/replay pendentes |
+| Channels / Mensageria | 🟡 Hardened | Idempotência via correlation_id. Retry/replay pendentes |
 | Analytics v1 | ✅ Encerrado | Snapshots materializados na V4 |
 | Dashboard | ✅ Funcional | — |
-| IA (insights setoriais) | ✅ Funcional | — |
+| IA (insights setoriais) | ✅ Hardened | Rate limiting, prompt sanitization, PII scrub, spending caps |
+| Health Check | ✅ Real | Deep check + métricas (não mais dummy) |
 | Agents Hub | 🔴 Pendente | ADR aceito, implementação não iniciada |
 | Embedded Support Bot | 🔴 Pendente | ADR aceito, implementação não iniciada |
-| Gateways de Pagamento | 🔴 Pendente | Estrutura presente, integrações reais ausentes |
+| Gateways de Pagamento | 🟡 Fundação | Asaas integration foundation + webhook controller + migration 053 |
+| Docker / Deploy | 🟡 Presente | Dockerfile, docker-compose.yml, nginx/default.conf |
 | Logística de Artistas | 🔴 Pendente | ADR não escrito ainda |
 | Controle de Custos | 🔴 Pendente | ADR não escrito ainda |
 | Customer App / PWA | 🟡 Base presente | Service Worker, push, gateway de recarga ausentes |
@@ -276,14 +309,29 @@ enjoyfun/
 ## 🚧 ROADMAP — PRÓXIMOS PASSOS
 
 ### P0 — AGORA (segurança e estabilização)
-- [ ] Revogar e rotacionar credenciais expostas no `.env`
-- [ ] Adicionar `.env` ao `.gitignore`
+- [x] Adicionar `.env` ao `.gitignore` (Audit #7)
+- [x] Rate limiting DB-based para auth/AI/messaging (Audit #7)
+- [x] Error sanitization — sem stack traces em produção (Audit #7)
+- [x] IDOR fix: `resolveCustomerAuthScope()` (Audit #7)
+- [x] Input validation no checkout (Audit #7)
+- [x] Cookie flags: Secure, HttpOnly, SameSite=Strict (Audit #7)
+- [x] HMAC-SHA256 para payloads offline (Audit #7)
+- [x] AI prompt sanitization + PII scrubbing (Audit #7)
+- [x] AI spending caps por organizer (Audit #7)
+- [x] Refresh tokens hard-deleted (Audit #7)
+- [x] Webhook timestamp validation (Audit #7)
+- [x] Messaging idempotency via correlation_id (Audit #7)
+- [x] RLS policies em 15 tabelas — migration 051 (Audit #7)
+- [x] Health check real com deep check + métricas (Audit #7)
+- [x] `docs/runbook_local.md` criado
+- [ ] Revogar e rotacionar credenciais expostas no historico Git
 - [ ] Smoke test E2E cashless + sync offline
 - [ ] Smoke test emissão em massa de cartões (migration 028)
-- [x] `docs/runbook_local.md` criado
 
 ### P1 — Próximo sprint (hardening e fechamento)
-- [ ] Migration `029`: índices compostos + campos faltantes da migration 006
+- [x] Migrations 049–053 criadas (organizer_id hardening, indexes, RLS, messaging, payment) (Audit #7)
+- [x] Docker/deploy foundation: Dockerfile, docker-compose.yml, nginx config (Audit #7)
+- [ ] Aplicar migrations 049–053 nos ambientes ativos
 - [ ] Aplicar `014_participant_meals_domain_hardening.sql` em janela controlada
 - [ ] Revisar `pendencias.md` e manter apenas residual vivo
 - [ ] Testes de contrato de API para endpoints críticos (participants/workforce/sync)
@@ -292,9 +340,9 @@ enjoyfun/
 ### P2 — Expansão de produto
 - [ ] **Agents Hub**: `AIOrchestratorService` + adapters por provider + UI dedicada
 - [ ] **Embedded Support Bot**: `/ai/assist` contextual em todas as superfícies
-- [ ] **Logística de Artistas**: ADR + migration 029/030 + UI no ParticipantsHub
+- [ ] **Logística de Artistas**: ADR + migrations + UI no ParticipantsHub
 - [ ] **Controle de Custos do Evento**: `event_cost_items` + `event_budget` + dashboard financeiro
-- [ ] **Gateways de Pagamento**: Asaas + Mercado Pago + Pagar.me com split 1%/99%
+- [ ] **Gateways de Pagamento**: completar Asaas + Mercado Pago + Pagar.me com split 1%/99%
 
 ### P3 — White Label completo
 - [ ] Subdomínio por organizador
@@ -303,8 +351,7 @@ enjoyfun/
 - [ ] Login por código via WhatsApp no app do participante
 
 ### P4 — Infraestrutura enterprise (Trilha V4)
-- [ ] Cookie HttpOnly para access token (migrar de sessionStorage)
-- [ ] Redis rate limiting por organizer/endpoint
+- [ ] Redis rate limiting (substituir DB-based atual)
 - [ ] Cloudflare WAF
 - [ ] RS256 JWT (suporte dual com `kid`)
 - [ ] Vault para gestão de segredos
@@ -328,8 +375,8 @@ enjoyfun/
 | IA | OpenAI GPT-4o-mini + Gemini 2.5 Flash | ✅ |
 | WhatsApp | Evolution API | ✅ |
 | Email | Resend (configurável por tenant) | 🟡 |
-| Gateways | Asaas + MercadoPago + Pagar.me | ❌ |
-| Infra | Nginx + Cloudflare | ❌ no deploy |
+| Gateways | Asaas (fundação) + MercadoPago + Pagar.me | 🟡 |
+| Infra | Nginx + Docker + Cloudflare | 🟡 Docker presente, Cloudflare pendente |
 | Auditoria | Audit Log append-only (trigger imutável) | ✅ |
 
 ---
@@ -343,14 +390,18 @@ Arquivos críticos de referência:
 - CLAUDE.md (este arquivo — leia sempre primeiro)
 - database/schema_current.sql (baseline oficial do banco)
 - database/migrations_applied.log (histórico de migrations)
+- database/drift_replay_manifest.json (janela suportada de replay)
 - backend/src/Helpers/JWT.php (HS256 — decisão oficial por ADR)
 - backend/src/Middleware/AuthMiddleware.php
 - backend/src/Services/AuditService.php
 - backend/src/Services/WalletSecurityService.php (padrão de transação cashless)
+- backend/src/Services/AIRateLimitService.php (rate limiting)
+- backend/src/Services/AIPromptSanitizer.php (prompt injection + PII)
 - docs/adr_auth_jwt_strategy_v1.md
 - docs/adr_ai_multiagentes_strategy_v1.md
 - docs/adr_cashless_card_issuance_strategy_v1.md
 - docs/enjoyfun_trilha_v4_arquitetura_alvo.md
+- docs/definition_of_ready_ambiente_v1.md
 
 REGRAS INVIOLÁVEIS:
 1. organizer_id vem SEMPRE do JWT — nunca do body da requisição
@@ -383,11 +434,11 @@ REGRAS INVIOLÁVEIS:
 |-----------|---------|
 | `pendencias.md` | Seção 3.2 (POS) pendente de smoke confirmado |
 | `docs/diagnostico.md` | Deve continuar alinhado com o estado real do código |
-| `docs/progresso10.md` | Passa a ser o diário ativo da rodada |
+| `docs/progresso18.md` | Diário ativo da rodada (Sprint 1 governance + Audit #7) |
 
 Auditorias técnicas agora entram por `docs/auditorias.md`; os arquivos antigos ficam apenas como arquivo externo fora da operação do repo.
 
 ---
 
 *EnjoyFun Platform v2.0 — SaaS White Label Multi-tenant*
-*Atualizado: 2026-03-22 — Baseado em leitura completa de código, banco e documentação*
+*Atualizado: 2026-04-04 — Baseado em leitura completa de código, banco e documentação + Auditoria Claude #7*

@@ -411,20 +411,32 @@ function deleteParticipant(int $id): void
     try {
         $db->beginTransaction();
 
+        // H03 FIX: scope child-table deletes via subquery to prevent cross-tenant IDOR
+        $scopedSubquery = "SELECT ep.id FROM event_participants ep JOIN events e ON e.id = ep.event_id WHERE ep.id = ? AND e.organizer_id = ?";
+
         if ($hasAssignments) {
-            $db->prepare("DELETE FROM workforce_assignments WHERE participant_id = ?")->execute([$id]);
+            $db->prepare("DELETE FROM workforce_assignments WHERE participant_id IN ({$scopedSubquery})")->execute([$id, $organizerId]);
         }
         if ($hasMemberSettings) {
-            $db->prepare("DELETE FROM workforce_member_settings WHERE participant_id = ?")->execute([$id]);
+            $db->prepare("DELETE FROM workforce_member_settings WHERE participant_id IN ({$scopedSubquery})")->execute([$id, $organizerId]);
         }
         if ($hasCheckins) {
-            $db->prepare("DELETE FROM participant_checkins WHERE participant_id = ?")->execute([$id]);
+            $db->prepare("DELETE FROM participant_checkins WHERE participant_id IN ({$scopedSubquery})")->execute([$id, $organizerId]);
         }
         if ($hasMeals) {
-            $db->prepare("DELETE FROM participant_meals WHERE participant_id = ?")->execute([$id]);
+            $db->prepare("DELETE FROM participant_meals WHERE participant_id IN ({$scopedSubquery})")->execute([$id, $organizerId]);
         }
 
-        $db->prepare("DELETE FROM event_participants WHERE id = ?")->execute([$id]);
+        // H03 FIX: include organizer_id filter in the actual DELETE for defense-in-depth
+        $delStmt = $db->prepare("
+            DELETE FROM event_participants
+            WHERE id = ?
+              AND event_id IN (SELECT id FROM events WHERE organizer_id = ?)
+        ");
+        $delStmt->execute([$id, $organizerId]);
+        if ($delStmt->rowCount() <= 0) {
+            throw new RuntimeException('Participante não encontrado ou acesso negado.', 404);
+        }
         $db->commit();
     } catch (\Throwable $e) {
         if ($db->inTransaction()) {
@@ -493,19 +505,21 @@ function bulkDeleteParticipants(array $body): void
         WHERE wa.participant_id = ? AND LOWER(COALESCE(wa.sector, '')) = ?
         LIMIT 1
     ");
+    // H03 FIX: scope all deletes via subquery to enforce organizer_id at the SQL level
+    $scopedSubquery = "SELECT ep.id FROM event_participants ep JOIN events e ON e.id = ep.event_id WHERE ep.id = ? AND e.organizer_id = ?";
     $stmtDelAssignments = $hasAssignments
-        ? $db->prepare("DELETE FROM workforce_assignments WHERE participant_id = ?")
+        ? $db->prepare("DELETE FROM workforce_assignments WHERE participant_id IN ({$scopedSubquery})")
         : null;
     $stmtDelMemberSettings = $hasMemberSettings
-        ? $db->prepare("DELETE FROM workforce_member_settings WHERE participant_id = ?")
+        ? $db->prepare("DELETE FROM workforce_member_settings WHERE participant_id IN ({$scopedSubquery})")
         : null;
     $stmtDelCheckins = $hasCheckins
-        ? $db->prepare("DELETE FROM participant_checkins WHERE participant_id = ?")
+        ? $db->prepare("DELETE FROM participant_checkins WHERE participant_id IN ({$scopedSubquery})")
         : null;
     $stmtDelMeals = $hasMeals
-        ? $db->prepare("DELETE FROM participant_meals WHERE participant_id = ?")
+        ? $db->prepare("DELETE FROM participant_meals WHERE participant_id IN ({$scopedSubquery})")
         : null;
-    $stmtDelParticipant = $db->prepare("DELETE FROM event_participants WHERE id = ?");
+    $stmtDelParticipant = $db->prepare("DELETE FROM event_participants WHERE id = ? AND event_id IN (SELECT id FROM events WHERE organizer_id = ?)");
 
     $deleted = 0;
     $notFound = [];
@@ -535,13 +549,13 @@ function bulkDeleteParticipants(array $body): void
         try {
             $db->beginTransaction();
 
-            // Cleanup explícito de dependências para evitar resíduos órfãos.
-            if ($stmtDelAssignments) $stmtDelAssignments->execute([$participantId]);
-            if ($stmtDelMemberSettings) $stmtDelMemberSettings->execute([$participantId]);
-            if ($stmtDelCheckins) $stmtDelCheckins->execute([$participantId]);
-            if ($stmtDelMeals) $stmtDelMeals->execute([$participantId]);
+            // H03 FIX: all deletes now scoped by organizer_id for defense-in-depth
+            if ($stmtDelAssignments) $stmtDelAssignments->execute([$participantId, $organizerId]);
+            if ($stmtDelMemberSettings) $stmtDelMemberSettings->execute([$participantId, $organizerId]);
+            if ($stmtDelCheckins) $stmtDelCheckins->execute([$participantId, $organizerId]);
+            if ($stmtDelMeals) $stmtDelMeals->execute([$participantId, $organizerId]);
 
-            $stmtDelParticipant->execute([$participantId]);
+            $stmtDelParticipant->execute([$participantId, $organizerId]);
             $db->commit();
 
             $deleted++;

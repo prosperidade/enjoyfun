@@ -38,6 +38,11 @@ class SalesDomainService
             throw new Exception("Carrinho vazio.", 422);
         }
 
+        // H05: Input validation — prevent negative charge attacks and oversized transactions
+        if (count($items) > 100) {
+            throw new Exception("Máximo de 100 itens por transação.", 422);
+        }
+
         $cardId = $cardId !== null ? trim($cardId) : null;
         if ($cardId === null || $cardId === '') {
             throw new Exception("Checkout exige card_id canônico.", 422);
@@ -89,7 +94,7 @@ class SalesDomainService
                 }
 
                 $price = (float)($product['price'] ?? 0);
-                if ($price <= 0) {
+                if ($price <= 0 || !is_finite($price)) {
                     throw new Exception("Produto com preço inválido: " . $productId, 422);
                 }
 
@@ -312,6 +317,11 @@ class SalesDomainService
             $quantity = (int)($item['quantity'] ?? 0);
             if ($productId <= 0 || $quantity <= 0) {
                 throw new Exception("Item de checkout inválido.", 422);
+            }
+
+            // H05: Reject quantities that are unreasonably large (prevents abuse)
+            if ($quantity > 1000) {
+                throw new Exception("Quantidade máxima por item é 1000.", 422);
             }
 
             $normalized[] = [

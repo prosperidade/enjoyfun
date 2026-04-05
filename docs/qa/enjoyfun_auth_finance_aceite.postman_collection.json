@@ -7,7 +7,7 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "http://localhost:8000/api"
+      "value": "http://localhost:8080/api"
     },
     {
       "key": "auth_email",

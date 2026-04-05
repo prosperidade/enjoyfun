@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createOfflineQueueRecord, db } from "../../../lib/db";
+import { signPayload } from "../../../lib/hmac";
+import { getAccessToken } from "../../../lib/session";
 
 function hasValidEventId(eventId) {
   return Number(eventId) > 0;
@@ -67,8 +69,23 @@ export function usePosOfflineSync({ currentSector, syncOfflineData }) {
         );
       }
 
+      const item = buildOfflineSaleItem(payload, offlineId);
+
+      // HMAC-SHA256 signing (C07) — integrity proof for offline payloads
+      let hmac = null;
+      try {
+        const token = getAccessToken();
+        if (token) {
+          hmac = await signPayload(item.payload, token);
+        }
+      } catch {
+        // HMAC signing is best-effort; the sale must still be queued even if
+        // Web Crypto is unavailable (e.g. non-secure context in dev).
+      }
+
       const record = createOfflineQueueRecord({
-        ...buildOfflineSaleItem(payload, offlineId),
+        ...item,
+        hmac: hmac || null,
         status: "pending",
       });
 

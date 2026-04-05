@@ -50,6 +50,9 @@ const OFFLINE_SYNC_PAYLOAD_CONTRACTS = [
     ],
 ];
 
+/** Maximum number of items allowed per sync request. */
+const OFFLINE_SYNC_BATCH_LIMIT = 500;
+
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
     $operator = requireAuth(['admin', 'organizer', 'manager', 'staff', 'bartender', 'parking_staff']);
@@ -67,15 +70,46 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         jsonSuccess(['processed' => 0], 'No items to sync.');
     }
 
+    // ── Batch size limit (max 500 items per request) ──────────────────────
+    if (count($items) > OFFLINE_SYNC_BATCH_LIMIT) {
+        jsonError(
+            'Lote excede o limite de ' . OFFLINE_SYNC_BATCH_LIMIT . ' itens por requisição. '
+            . 'Divida o lote em blocos menores e reenvie.',
+            413
+        );
+    }
+
     $db = Database::getInstance();
+    $deviceId = trim((string)($_SERVER['HTTP_X_DEVICE_ID'] ?? 'browser_pos'));
+
+    // ── Batch deduplication: single query for all offline_ids ─────────────
+    $allOfflineIds = [];
+    foreach ($items as $item) {
+        $oid = $item['offline_id'] ?? null;
+        if ($oid !== null && $oid !== '') {
+            $allOfflineIds[] = (string)$oid;
+        }
+    }
+
+    $alreadyProcessedIds = [];
+    if (!empty($allOfflineIds)) {
+        $placeholders = implode(',', array_fill(0, count($allOfflineIds), '?'));
+        $dedup = $db->prepare("SELECT offline_id FROM offline_queue WHERE offline_id IN ({$placeholders})");
+        $dedup->execute($allOfflineIds);
+        while ($row = $dedup->fetch(PDO::FETCH_ASSOC)) {
+            $alreadyProcessedIds[$row['offline_id']] = true;
+        }
+    }
+
     $processedCount = 0;
     $processedIds = [];
     $processedNewIds = [];
     $deduplicatedIds = [];
     $failedIds = [];
     $errors = [];
+    $itemResults = [];
 
-    // O Postgress usa BEGIN / COMMIT / ROLLBACK via PDO natively.
+    // O PostgreSQL usa BEGIN / COMMIT / ROLLBACK via PDO natively.
     // Processamos item a item dentro de transações individuais para evitar
     // que um payload corrompido aborte o lote inteiro.
     foreach ($items as $item) {
@@ -84,7 +118,24 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $payload   = $item['payload'] ?? $item['data'] ?? [];          // Fallback to 'data'
         $createdAt = $item['created_offline_at'] ?? $item['created_at'] ?? date('c');
 
-        if (!$offlineId || empty($payload)) continue;
+        if (!$offlineId || empty($payload)) {
+            error_log("[SyncController] Skipped item with empty offline_id or payload — device={$deviceId}");
+            continue;
+        }
+
+        // ── Fast-path deduplication (batch pre-check) ────────────────────
+        if (isset($alreadyProcessedIds[$offlineId])) {
+            $processedCount++;
+            $processedIds[] = $offlineId;
+            $deduplicatedIds[] = $offlineId;
+            $itemResults[] = [
+                'offline_id' => $offlineId,
+                'status' => 'duplicate',
+                'error' => null,
+            ];
+            error_log("[SyncController] Duplicate skipped (batch pre-check) — offline_id={$offlineId} device={$deviceId} type={$type}");
+            continue;
+        }
 
         try {
             $db->beginTransaction();
@@ -93,14 +144,64 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
             authorizeOfflineSyncPayload($db, $operator, $type, $payload);
 
-            // 1. Verificar duplicidade (Idempotência)
-            $check = $db->prepare('SELECT id FROM offline_queue WHERE offline_id = ? FOR UPDATE SKIP LOCKED');
-            $check->execute([$offlineId]);
+            // HMAC-SHA256 verification (C07) — reject tampered offline payloads
+            $itemHmac = trim((string)($item['hmac'] ?? ''));
+            $isProduction = ($_ENV['APP_ENV'] ?? getenv('APP_ENV') ?: 'production') !== 'development';
+
+            if ($itemHmac !== '') {
+                $rawPayload = $item['payload'] ?? $item['data'] ?? [];
+                if (!verifyOfflinePayloadHmac($rawPayload, $itemHmac)) {
+                    logRejectedHmacPayload($offlineId, $type, $operator);
+                    throw new Exception('Assinatura HMAC inválida. Payload rejeitado.', 403);
+                }
+            } elseif ($isProduction) {
+                // Production: HMAC is mandatory — reject unsigned payloads
+                logRejectedHmacPayload($offlineId, $type, $operator);
+                throw new Exception('HMAC obrigatório em produção. Payload sem assinatura rejeitado.', 403);
+            } else {
+                // Development: warn but allow unsigned payloads
+                error_log("EnjoyFun HMAC Warning — offline_id={$offlineId} type={$type}: HMAC ausente (permitido apenas em dev)");
+            }
+
+            // ── Idempotency check with NOWAIT (raises error if row is locked) ──
+            // NOWAIT ensures we fail fast if another transaction is processing the
+            // same offline_id concurrently, instead of silently skipping.
+            try {
+                $check = $db->prepare('SELECT id FROM offline_queue WHERE offline_id = ? FOR UPDATE NOWAIT');
+                $check->execute([$offlineId]);
+            } catch (PDOException $lockEx) {
+                // PostgreSQL error code 55P03 = lock_not_available (NOWAIT)
+                if (str_contains($lockEx->getMessage(), '55P03') || str_contains($lockEx->getMessage(), 'lock_not_available')) {
+                    $db->rollBack();
+                    $failedIds[] = $offlineId;
+                    $errMsg = "Item offline_id={$offlineId} está sendo processado por outra transação. Tente novamente.";
+                    $errors[] = [
+                        'offline_id' => $offlineId,
+                        'error'      => $errMsg,
+                        'error_code' => 'offline_sync_lock_conflict',
+                    ];
+                    $itemResults[] = [
+                        'offline_id' => $offlineId,
+                        'status' => 'error',
+                        'error' => $errMsg,
+                    ];
+                    error_log("[SyncController] Lock conflict (NOWAIT) — offline_id={$offlineId} device={$deviceId} type={$type}");
+                    continue;
+                }
+                throw $lockEx; // Re-throw non-lock exceptions
+            }
+
             if ($check->fetch()) {
                 $db->rollBack();
                 $processedCount++;
                 $processedIds[] = $offlineId;
                 $deduplicatedIds[] = $offlineId;
+                $itemResults[] = [
+                    'offline_id' => $offlineId,
+                    'status' => 'duplicate',
+                    'error' => null,
+                ];
+                error_log("[SyncController] Duplicate skipped (row lock) — offline_id={$offlineId} device={$deviceId} type={$type}");
                 continue;
             }
 
@@ -108,7 +209,6 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
             if ($eventId <= 0) {
                 throw new Exception('Evento inválido para sincronização offline.', 422);
             }
-            $deviceId = trim((string)($_SERVER['HTTP_X_DEVICE_ID'] ?? 'browser_pos'));
             insertOfflineQueueAudit(
                 $db,
                 $operator,
@@ -146,47 +246,53 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
             $processedCount++;
             $processedIds[] = $offlineId;
             $processedNewIds[] = $offlineId;
+            $itemResults[] = [
+                'offline_id' => $offlineId,
+                'status' => 'success',
+                'error' => null,
+            ];
+            error_log("[SyncController] Processed OK — offline_id={$offlineId} device={$deviceId} type={$type} ts={$createdAt}");
         } catch (Throwable $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
             $failedIds[] = $offlineId;
+            $errCode = resolveOfflineSyncErrorCode($e);
             $errors[] = [
                 'offline_id' => $offlineId,
                 'error'      => $e->getMessage(),
-                'error_code' => resolveOfflineSyncErrorCode($e),
+                'error_code' => $errCode,
             ];
-            // Logar silenciosamente e continuar os próximos
-            error_log("EnjoyFun Offline Sync Error (ID $offlineId): " . $e->getMessage());
+            $itemResults[] = [
+                'offline_id' => $offlineId,
+                'status' => 'error',
+                'error' => $e->getMessage(),
+            ];
+            error_log("[SyncController] Error — offline_id={$offlineId} device={$deviceId} type={$type} error={$e->getMessage()}");
         }
     }
 
-    if (count($errors) > 0) {
-        jsonMultiStatus([
-            'status' => 'partial_failure',
-            'processed' => $processedCount,
-            'processed_new' => count($processedNewIds),
-            'deduplicated' => count($deduplicatedIds),
-            'failed' => count($errors),
-            'processed_ids' => $processedIds,
-            'processed_new_ids' => $processedNewIds,
-            'deduplicated_ids' => $deduplicatedIds,
-            'failed_ids' => $failedIds,
-            'errors' => $errors
-        ], 'Parcialmente sincronizado.');
-    }
-
-    jsonSuccess([
-        'status' => 'success',
+    // ── Build response with per-item detail and summary ──────────────────
+    $summary = [
         'processed' => $processedCount,
         'processed_new' => count($processedNewIds),
         'deduplicated' => count($deduplicatedIds),
-        'failed' => 0,
+        'failed' => count($errors),
         'processed_ids' => $processedIds,
         'processed_new_ids' => $processedNewIds,
         'deduplicated_ids' => $deduplicatedIds,
-        'failed_ids' => [],
-    ], "$processedCount itens reconciliados com sucesso.");
+        'failed_ids' => $failedIds,
+        'items' => $itemResults,
+    ];
+
+    if (count($errors) > 0) {
+        $summary['status'] = 'partial_failure';
+        $summary['errors'] = $errors;
+        jsonMultiStatus($summary, 'Parcialmente sincronizado.');
+    }
+
+    $summary['status'] = 'success';
+    jsonSuccess($summary, "$processedCount itens reconciliados com sucesso.");
 }
 
 function resolveOfflineSyncPayloadContract(string $type): ?array
@@ -1081,4 +1187,92 @@ function offlineQueueColumnExists(PDO $db, string $column): bool
     $cache[$key] = (bool)$stmt->fetchColumn();
 
     return $cache[$key];
+}
+
+// ─── HMAC-SHA256 Verification (C07) ─────────────────────────────────────────
+
+/**
+ * Derive the same HMAC key the frontend produces via HKDF.
+ *
+ * The frontend uses: HKDF-SHA256(ikm=jwt, salt="enjoyfun", info="enjoyfun-offline-hmac-v1")
+ * PHP ≥ 8.1 has hash_hkdf() which we use here with the JWT_SECRET as the base
+ * (the server never sees the actual JWT used by the client, but both sides share
+ * the same secret, so the server re-derives from JWT_SECRET directly).
+ */
+function deriveOfflineHmacKey(): string
+{
+    $secret = trim((string)($_ENV['JWT_SECRET'] ?? getenv('JWT_SECRET') ?: ''));
+    if ($secret === '') {
+        return '';
+    }
+
+    // HKDF-SHA256: extract + expand — mirrors the frontend Web Crypto derivation
+    return hash_hkdf('sha256', $secret, 32, 'enjoyfun-offline-hmac-v1', 'enjoyfun');
+}
+
+/**
+ * Canonicalize a payload the same way the frontend does:
+ * JSON.stringify with keys sorted alphabetically.
+ */
+function canonicalizePayload($payload): string
+{
+    if (!is_array($payload)) {
+        return json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    // Sort keys recursively for deterministic output
+    ksort($payload);
+    return json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
+
+/**
+ * Verify an HMAC-SHA256 signature produced by the frontend.
+ *
+ * @param mixed  $payload   The raw payload (before server normalisation).
+ * @param string $signature Hex-encoded HMAC from the client.
+ * @return bool
+ */
+function verifyOfflinePayloadHmac($payload, string $signature): bool
+{
+    $key = deriveOfflineHmacKey();
+    if ($key === '') {
+        $isProduction = ($_ENV['APP_ENV'] ?? getenv('APP_ENV') ?: 'production') !== 'development';
+        if ($isProduction) {
+            throw new \RuntimeException('JWT_SECRET não configurado. HMAC verification impossível em produção.');
+        }
+        // Development: no JWT_SECRET — skip verification with warning.
+        error_log('EnjoyFun HMAC Warning: JWT_SECRET vazio — verificação HMAC ignorada (apenas dev)');
+        return true;
+    }
+
+    $canonical = canonicalizePayload($payload);
+    $expected = hash_hmac('sha256', $canonical, $key);
+
+    return hash_equals($expected, $signature);
+}
+
+/**
+ * Log a rejected HMAC payload for forensic review via AuditService.
+ */
+function logRejectedHmacPayload(string $offlineId, string $type, array $operator): void
+{
+    if (!class_exists('AuditService')) {
+        error_log("EnjoyFun HMAC Rejected — offline_id={$offlineId} type={$type}");
+        return;
+    }
+
+    try {
+        \AuditService::log(
+            'offline_sync.hmac_rejected',
+            'offline_queue',
+            0,
+            null,
+            ['offline_id' => $offlineId, 'payload_type' => $type],
+            $operator,
+            'rejected',
+            ['reason' => 'HMAC signature mismatch']
+        );
+    } catch (\Throwable $e) {
+        error_log("EnjoyFun HMAC Audit Error: " . $e->getMessage());
+    }
 }

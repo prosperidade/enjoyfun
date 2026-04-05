@@ -38,8 +38,6 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     if (e?.preventDefault) e.preventDefault();
-    console.log('[Login] handle submit disparado', tab, form.email);
-    
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
@@ -53,8 +51,6 @@ export default function Login() {
         toast.success('Conta criada! Bem-vindo ao EnjoyFun! 🚀');
       }
     } catch (err) {
-      console.error('[Login] Erro:', err);
-      console.log('RESPOSTA COMPLETA DA API (ERRO):', err?.response?.data || err?.response || err);
       const msg = err?.response?.data?.message || 'Ocorreu um erro. Tente novamente.';
       toast.error(msg);
       if (err?.response?.data?.errors) setErrors(err.response.data.errors);
@@ -235,8 +231,8 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Demo credentials */}
-          {tab === 'login' && (
+          {/* Demo credentials — only visible in development builds */}
+          {import.meta.env.DEV && tab === 'login' && (
             <button
               type="button"
               onClick={() => setForm(f => ({ ...f, email: 'admin@enjoyfun.com', password: 'password' }))}

@@ -1,0 +1,114 @@
+# ==============================================================================
+# EnjoyFun Platform — Docker Compose
+# ==============================================================================
+# Usage:
+#   cp backend/.env.example backend/.env   # fill in real values
+#   docker compose up -d
+# ==============================================================================
+
+services:
+  # ---------- PostgreSQL ------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-enjoyfun}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:?Set DB_PASS in .env}
+    ports:
+      - "${DB_PORT_EXTERNAL:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_DATABASE:-enjoyfun}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - enjoyfun
+
+  # ---------- Backend (PHP-FPM) -----------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_DATABASE:-enjoyfun}
+      DB_DATABASE: ${DB_DATABASE:-enjoyfun}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:?Set DB_PASS in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRY: ${JWT_EXPIRY:-3600}
+      JWT_REFRESH: ${JWT_REFRESH:-2592000}
+      APP_ENV: ${APP_ENV:-production}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      FEATURE_WORKFORCE_BULK_CARD_ISSUANCE: ${FEATURE_WORKFORCE_BULK_CARD_ISSUANCE:-true}
+    volumes:
+      - backend_logs:/var/www/backend/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm -t 2>/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - enjoyfun
+
+  # ---------- Frontend (Nginx serving Vite build) -----------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - enjoyfun
+
+  # ---------- Nginx Reverse Proxy ---------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-80}:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./backend/public:/var/www/backend/public:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:80/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - enjoyfun
+
+volumes:
+  pgdata:
+    driver: local
+  backend_logs:
+    driver: local
+
+networks:
+  enjoyfun:
+    driver: bridge

@@ -21,6 +21,18 @@ class AIBillingService
     private const COST_PER_1K_COMPLETION = 0.0020; // $0.0020 / 1k tokens
 
     /**
+     * Default monthly spending cap per organizer in BRL.
+     * Can be overridden via AI_SPENDING_CAP_BRL env var.
+     */
+    private const DEFAULT_SPENDING_CAP_BRL = 500.00;
+
+    /**
+     * Approximate USD to BRL conversion factor for cost comparison.
+     * Costs in ai_usage_logs are stored in USD; cap is in BRL.
+     */
+    private const USD_TO_BRL = 5.0;
+
+    /**
      * Registra o log e o custo estimado de uma requisição de IA.
      * Envolvido num log silencioso (se der erro, o app não crasha).
      */
@@ -131,6 +143,63 @@ class AIBillingService
             ],
             'by_agent' => [],
         ];
+    }
+
+    /**
+     * Check if the organizer has exceeded their monthly spending cap.
+     *
+     * @return array{exceeded: bool, current_brl: float, cap_brl: float, current_usd: float}
+     */
+    public static function checkSpendingCap(?PDO $db = null, int $organizerId = 0): array
+    {
+        $db ??= Database::getInstance();
+        $capBrl = self::getSpendingCapBrl();
+
+        $stmt = $db->prepare('
+            SELECT COALESCE(SUM(estimated_cost), 0) AS total_cost_usd
+            FROM ai_usage_logs
+            WHERE organizer_id = :organizer_id
+              AND created_at >= date_trunc(\'month\', NOW())
+        ');
+        $stmt->execute([':organizer_id' => $organizerId]);
+        $totalUsd = (float)($stmt->fetchColumn() ?: 0);
+        $totalBrl = $totalUsd * self::USD_TO_BRL;
+
+        return [
+            'exceeded' => $totalBrl >= $capBrl,
+            'current_brl' => round($totalBrl, 2),
+            'cap_brl' => $capBrl,
+            'current_usd' => round($totalUsd, 4),
+        ];
+    }
+
+    /**
+     * Enforce spending cap — calls jsonError(402) if exceeded.
+     * Must be called before processing an AI request.
+     */
+    public static function enforceSpendingCap(?PDO $db = null, int $organizerId = 0): void
+    {
+        $result = self::checkSpendingCap($db, $organizerId);
+        if ($result['exceeded']) {
+            \jsonError(
+                sprintf(
+                    'Limite de gastos com IA excedido para este mês (R$%.2f / R$%.2f). Contate o administrador para aumentar o limite.',
+                    $result['current_brl'],
+                    $result['cap_brl']
+                ),
+                402
+            );
+        }
+    }
+
+    private static function getSpendingCapBrl(): float
+    {
+        $envCap = getenv('AI_SPENDING_CAP_BRL');
+        if ($envCap !== false && is_numeric($envCap) && (float)$envCap > 0) {
+            return (float)$envCap;
+        }
+
+        return self::DEFAULT_SPENDING_CAP_BRL;
     }
 
     private static function calculateCost(int $prompt, int $completion): float

@@ -8,6 +8,7 @@
 require_once BASE_PATH . '/src/Services/EmailService.php';
 require_once BASE_PATH . '/src/Services/MessagingDeliveryService.php';
 require_once BASE_PATH . '/src/Services/OrganizerMessagingConfigService.php';
+require_once BASE_PATH . '/src/Services/AuditService.php';
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -25,6 +26,9 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         // New messaging routes
         $method === 'POST' && $id === 'email'   => sendManualEmail($body),
         $method === 'POST' && $id === 'bulk-whatsapp' => sendBulkWhatsApp($body),
+
+        // M22: Cleanup old webhook events (admin-only, callable via cron)
+        $method === 'POST' && $id === 'cleanup' => runMessagingCleanup($body),
 
         default => jsonError("Rota não encontrada: {$method} /{$id}", 404),
     };
@@ -46,6 +50,34 @@ function sendBulkWhatsApp(array $body): void
     $db = Database::getInstance();
     messagingEnsureReady($db);
     $orgId = resolveOrgId($user);
+
+    // M21: Rate limiting — check if sending all recipients would exceed limit
+    messagingEnsureRateLimitTable($db);
+    $cutoff = date('Y-m-d H:i:s', strtotime('-1 hour'));
+    $stmt = $db->prepare("SELECT COUNT(*)::int FROM messaging_rate_limits WHERE organizer_id = ? AND attempted_at > ?");
+    $stmt->execute([$orgId, $cutoff]);
+    $currentCount = (int)$stmt->fetchColumn();
+    $maxPerHour = 100;
+    $recipientCount = count($recipients);
+
+    if ($currentCount + $recipientCount > $maxPerHour) {
+        $remaining = max(0, $maxPerHour - $currentCount);
+        try {
+            \AuditService::log(
+                \AuditService::MESSAGING_RATE_LIMITED,
+                'organizer',
+                $orgId,
+                null,
+                ['max_per_hour' => $maxPerHour, 'current' => $currentCount, 'requested' => $recipientCount],
+                null,
+                'blocked',
+                ['organizer_id' => $orgId]
+            );
+        } catch (\Throwable $e) {
+            error_log('[MessagingController] Failed to audit rate limit: ' . $e->getMessage());
+        }
+        jsonError("Limite de mensagens excedido. Restam {$remaining} de {$maxPerHour} mensagens/hora.", 429);
+    }
 
     // Load WhatsApp Config
     $cfg = \EnjoyFun\Services\OrganizerMessagingConfigService::load($db, $orgId);
@@ -95,6 +127,7 @@ function sendBulkWhatsApp(array $body): void
             'status' => 'queued',
             'request_payload' => $requestPayload,
         ]);
+        messagingRecordAttempt($db, $orgId);
 
         $payload = json_encode($requestPayload);
 
@@ -177,6 +210,10 @@ function sendWhatsAppMessage(array $body): void
     $db    = Database::getInstance();
     messagingEnsureReady($db);
     $orgId = resolveOrgId($user);
+
+    // M21: Rate limiting — 100 messages/hour per organizer
+    messagingEnforceRateLimit($db, $orgId);
+    messagingRecordAttempt($db, $orgId);
 
     $cfg = \EnjoyFun\Services\OrganizerMessagingConfigService::load($db, $orgId);
 
@@ -264,6 +301,10 @@ function sendManualEmail(array $body): void
     messagingEnsureReady($db);
     $orgId = resolveOrgId($user);
 
+    // M21: Rate limiting — 100 messages/hour per organizer
+    messagingEnforceRateLimit($db, $orgId);
+    messagingRecordAttempt($db, $orgId);
+
     $cfg = \EnjoyFun\Services\OrganizerMessagingConfigService::load($db, $orgId);
 
     $apiKey = $cfg['resend_api_key'] ?? getenv('RESEND_API_KEY') ?: '';
@@ -320,9 +361,69 @@ function ingestMessagingWebhook(array $body, array $query): void
 
     $headers = messagingRequestHeaders();
     $rawBody = (string)($GLOBALS['ENJOYFUN_RAW_BODY'] ?? '');
+
+    // H18: Timestamp validation — reject stale webhooks (±5 min tolerance)
+    $timestampRejection = messagingValidateWebhookTimestamp($body, $headers);
+    if ($timestampRejection !== null) {
+        try {
+            \AuditService::log(
+                \AuditService::WEBHOOK_REJECTED,
+                'webhook',
+                null,
+                null,
+                ['reason' => $timestampRejection, 'provider' => $provider, 'organizer_id' => $organizerId],
+                null,
+                'rejected',
+                ['organizer_id' => $organizerId]
+            );
+        } catch (\Throwable $e) {
+            error_log('[MessagingController] Failed to audit stale webhook: ' . $e->getMessage());
+        }
+        error_log("[MessagingWebhook] Rejected stale webhook for organizer {$organizerId}: {$timestampRejection}");
+        jsonError("Webhook rejeitado: timestamp fora da janela permitida ({$timestampRejection}).", 403);
+    }
+
+    // Auth validation with forensic logging of which secret matched
     $acceptedSecrets = messagingResolveWebhookSecrets($db, $organizerId);
-    if (!messagingWebhookAuthorized($headers, $query, $rawBody, $acceptedSecrets)) {
+    $authResult = messagingWebhookAuthorizedDetailed($headers, $query, $rawBody, $acceptedSecrets);
+
+    if (!$authResult['authorized']) {
+        try {
+            \AuditService::log(
+                \AuditService::WEBHOOK_REJECTED,
+                'webhook',
+                null,
+                null,
+                ['reason' => 'unauthorized', 'provider' => $provider, 'organizer_id' => $organizerId],
+                null,
+                'rejected',
+                ['organizer_id' => $organizerId]
+            );
+        } catch (\Throwable $e) {
+            error_log('[MessagingController] Failed to audit unauthorized webhook: ' . $e->getMessage());
+        }
         jsonError('Webhook de mensageria não autorizado.', 401);
+    }
+
+    // Log which secret validated (forensics — H18/secret rotation support)
+    try {
+        \AuditService::log(
+            \AuditService::WEBHOOK_VALIDATED,
+            'webhook',
+            null,
+            null,
+            [
+                'provider' => $provider,
+                'organizer_id' => $organizerId,
+                'matched_secret_index' => $authResult['matched_secret_index'],
+                'match_method' => $authResult['match_method'],
+            ],
+            null,
+            'success',
+            ['organizer_id' => $organizerId]
+        );
+    } catch (\Throwable $e) {
+        error_log('[MessagingController] Failed to audit webhook validation: ' . $e->getMessage());
     }
 
     $result = \EnjoyFun\Services\MessagingDeliveryService::captureWebhookEvent($db, $body, [
@@ -330,6 +431,21 @@ function ingestMessagingWebhook(array $body, array $query): void
     ]);
 
     jsonSuccess($result, 'webhook recebido');
+}
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/messaging/cleanup — M22: Delete old webhook events
+// ─────────────────────────────────────────────────────────────
+function runMessagingCleanup(array $body): void
+{
+    requireAuth(['admin']);
+    $db = Database::getInstance();
+    messagingEnsureReady($db);
+
+    $retentionDays = isset($body['retention_days']) ? max(30, (int)$body['retention_days']) : 90;
+    $result = messagingCleanupOldWebhookEvents($db, $retentionDays);
+
+    jsonSuccess($result, 'Limpeza de mensageria concluída.');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -410,17 +526,23 @@ function messagingResolveWebhookSecrets(PDO $db, int $organizerId): array
     return array_values(array_unique($secrets));
 }
 
-function messagingWebhookAuthorized(array $headers, array $query, string $rawBody, array $acceptedSecrets): bool
+/**
+ * Validates webhook authorization and returns which secret matched (for forensics).
+ * Returns ['authorized' => bool, 'matched_secret_index' => int|null, 'match_method' => string|null]
+ */
+function messagingWebhookAuthorizedDetailed(array $headers, array $query, string $rawBody, array $acceptedSecrets): array
 {
+    $result = ['authorized' => false, 'matched_secret_index' => null, 'match_method' => null];
+
     if ($acceptedSecrets === []) {
-        return false;
+        return $result;
     }
 
     $directCandidates = [];
     foreach (['x-webhook-secret', 'x-enjoyfun-webhook-secret', 'x-wa-webhook-secret', 'apikey'] as $headerName) {
         $value = trim((string)($headers[$headerName] ?? ''));
         if ($value !== '') {
-            $directCandidates[] = $value;
+            $directCandidates[] = ['value' => $value, 'source' => "header:{$headerName}"];
         }
     }
 
@@ -430,14 +552,14 @@ function messagingWebhookAuthorized(array $headers, array $query, string $rawBod
             $authorization = trim(substr($authorization, 7));
         }
         if ($authorization !== '') {
-            $directCandidates[] = $authorization;
+            $directCandidates[] = ['value' => $authorization, 'source' => 'header:authorization'];
         }
     }
 
     foreach (['secret', 'token'] as $queryKey) {
         $value = trim((string)($query[$queryKey] ?? ''));
         if ($value !== '') {
-            $directCandidates[] = $value;
+            $directCandidates[] = ['value' => $value, 'source' => "query:{$queryKey}"];
         }
     }
 
@@ -445,20 +567,24 @@ function messagingWebhookAuthorized(array $headers, array $query, string $rawBod
     foreach (['x-signature', 'x-webhook-signature', 'x-hub-signature-256'] as $headerName) {
         $value = trim((string)($headers[$headerName] ?? ''));
         if ($value !== '') {
-            $signatureCandidates[] = $value;
+            $signatureCandidates[] = ['value' => $value, 'source' => "header:{$headerName}"];
         }
     }
     foreach (['signature', 'sig'] as $queryKey) {
         $value = trim((string)($query[$queryKey] ?? ''));
         if ($value !== '') {
-            $signatureCandidates[] = $value;
+            $signatureCandidates[] = ['value' => $value, 'source' => "query:{$queryKey}"];
         }
     }
 
-    foreach ($acceptedSecrets as $secret) {
+    foreach ($acceptedSecrets as $secretIndex => $secret) {
         foreach ($directCandidates as $candidate) {
-            if (hash_equals($secret, $candidate)) {
-                return true;
+            if (hash_equals($secret, $candidate['value'])) {
+                return [
+                    'authorized' => true,
+                    'matched_secret_index' => $secretIndex,
+                    'match_method' => 'direct:' . $candidate['source'],
+                ];
             }
         }
 
@@ -469,12 +595,163 @@ function messagingWebhookAuthorized(array $headers, array $query, string $rawBod
         $digest = hash_hmac('sha256', $rawBody, $secret);
         foreach ([$digest, 'sha256=' . $digest] as $expected) {
             foreach ($signatureCandidates as $candidate) {
-                if (hash_equals($expected, $candidate)) {
-                    return true;
+                if (hash_equals($expected, $candidate['value'])) {
+                    return [
+                        'authorized' => true,
+                        'matched_secret_index' => $secretIndex,
+                        'match_method' => 'hmac:' . $candidate['source'],
+                    ];
                 }
             }
         }
     }
 
-    return false;
+    return $result;
+}
+
+/** @deprecated Use messagingWebhookAuthorizedDetailed() — kept for backward compat */
+function messagingWebhookAuthorized(array $headers, array $query, string $rawBody, array $acceptedSecrets): bool
+{
+    return messagingWebhookAuthorizedDetailed($headers, $query, $rawBody, $acceptedSecrets)['authorized'];
+}
+
+// ─────────────────────────────────────────────────────────────
+// H18: Webhook timestamp validation (±5 minutes tolerance)
+// ─────────────────────────────────────────────────────────────
+function messagingValidateWebhookTimestamp(array $body, array $headers): ?string
+{
+    $timestampCandidates = [
+        $headers['x-webhook-timestamp'] ?? null,
+        $headers['x-timestamp'] ?? null,
+        $body['timestamp'] ?? null,
+        $body['date_time'] ?? null,
+        $body['data']['timestamp'] ?? null,
+    ];
+
+    $timestamp = null;
+    foreach ($timestampCandidates as $candidate) {
+        if ($candidate !== null && $candidate !== '') {
+            $timestamp = $candidate;
+            break;
+        }
+    }
+
+    if ($timestamp === null) {
+        // No timestamp provided — cannot validate, allow (provider may not send one)
+        return null;
+    }
+
+    // Parse timestamp: support unix epoch (seconds or milliseconds) and ISO 8601
+    $epochSeconds = null;
+    if (is_numeric($timestamp)) {
+        $ts = (int)$timestamp;
+        // If it looks like milliseconds (> year 2100 in seconds), convert
+        $epochSeconds = $ts > 4_000_000_000 ? (int)($ts / 1000) : $ts;
+    } else {
+        $parsed = strtotime((string)$timestamp);
+        if ($parsed !== false) {
+            $epochSeconds = $parsed;
+        }
+    }
+
+    if ($epochSeconds === null) {
+        return 'unparseable_timestamp';
+    }
+
+    $drift = abs(time() - $epochSeconds);
+    $maxDriftSeconds = 300; // ±5 minutes
+
+    if ($drift > $maxDriftSeconds) {
+        return "stale_webhook_timestamp:drift={$drift}s,max={$maxDriftSeconds}s";
+    }
+
+    return null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// M21: Rate limiting for messaging (100 messages/hour per organizer)
+// ─────────────────────────────────────────────────────────────
+function messagingEnsureRateLimitTable(PDO $db): void
+{
+    static $checked = false;
+    if ($checked) return;
+
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS messaging_rate_limits (
+            id SERIAL PRIMARY KEY,
+            organizer_id INTEGER NOT NULL,
+            attempted_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+    ");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_messaging_rate_limits_org_time ON messaging_rate_limits (organizer_id, attempted_at)");
+    $checked = true;
+}
+
+function messagingRecordAttempt(PDO $db, int $organizerId): void
+{
+    messagingEnsureRateLimitTable($db);
+    $db->prepare("INSERT INTO messaging_rate_limits (organizer_id, attempted_at) VALUES (?, NOW())")
+        ->execute([$organizerId]);
+
+    // Probabilistic cleanup (1% chance)
+    if (random_int(1, 100) === 1) {
+        $cutoff = date('Y-m-d H:i:s', strtotime('-2 hours'));
+        $db->prepare("DELETE FROM messaging_rate_limits WHERE attempted_at < ?")->execute([$cutoff]);
+    }
+}
+
+function messagingCheckRateLimit(PDO $db, int $organizerId, int $maxPerHour = 100): bool
+{
+    messagingEnsureRateLimitTable($db);
+    $cutoff = date('Y-m-d H:i:s', strtotime('-1 hour'));
+    $stmt = $db->prepare("SELECT COUNT(*)::int FROM messaging_rate_limits WHERE organizer_id = ? AND attempted_at > ?");
+    $stmt->execute([$organizerId, $cutoff]);
+    return (int)$stmt->fetchColumn() < $maxPerHour;
+}
+
+function messagingEnforceRateLimit(PDO $db, int $organizerId, int $maxPerHour = 100): void
+{
+    if (!messagingCheckRateLimit($db, $organizerId, $maxPerHour)) {
+        try {
+            \AuditService::log(
+                \AuditService::MESSAGING_RATE_LIMITED,
+                'organizer',
+                $organizerId,
+                null,
+                ['max_per_hour' => $maxPerHour],
+                null,
+                'blocked',
+                ['organizer_id' => $organizerId]
+            );
+        } catch (\Throwable $e) {
+            error_log('[MessagingController] Failed to audit rate limit: ' . $e->getMessage());
+        }
+        jsonError('Limite de mensagens excedido. Máximo de ' . $maxPerHour . ' mensagens por hora.', 429);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// M22: Webhook event retention — cleanup events older than 90 days
+// ─────────────────────────────────────────────────────────────
+function messagingCleanupOldWebhookEvents(PDO $db, int $retentionDays = 90): array
+{
+    $cutoff = date('Y-m-d H:i:s', strtotime("-{$retentionDays} days"));
+
+    $stmt = $db->prepare("DELETE FROM public.messaging_webhook_events WHERE created_at < ? RETURNING id");
+    $stmt->execute([$cutoff]);
+    $deletedWebhookEvents = $stmt->rowCount();
+
+    // Also clean old delivery records beyond retention
+    $stmt = $db->prepare("DELETE FROM public.message_deliveries WHERE created_at < ? AND status IN ('delivered', 'read', 'failed') RETURNING id");
+    $stmt->execute([$cutoff]);
+    $deletedDeliveries = $stmt->rowCount();
+
+    error_log("[MessagingCleanup] Removed {$deletedWebhookEvents} webhook events and {$deletedDeliveries} deliveries older than {$retentionDays} days");
+
+    return [
+        'deleted_webhook_events' => $deletedWebhookEvents,
+        'deleted_deliveries' => $deletedDeliveries,
+        'retention_days' => $retentionDays,
+        'cutoff' => $cutoff,
+    ];
 }
