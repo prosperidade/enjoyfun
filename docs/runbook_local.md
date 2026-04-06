@@ -27,6 +27,8 @@ Padronizar o bootstrap local mínimo do projeto e o primeiro smoke operacional.
 - `scripts/rotate_credentials.sh`
 - `scripts/apply_migrations.sh`
 - `tests/smoke_test.sh`
+- `backend/src/Services/OfflineSyncService.php` (extraído do SyncController)
+- `backend/src/Services/EventService.php` (extraído do EventController)
 - `tests/validate_schema.sql`
 - `tests/security_scan.sh`
 

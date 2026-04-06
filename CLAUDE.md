@@ -68,7 +68,7 @@ super_admin / admin (André)
 | **Error sanitization** | `backend/public/index.php` | Sem stack traces em produção |
 | **IDOR fix (Customer)** | `resolveCustomerAuthScope()` | organizer_id nunca aceito do body |
 | **Input validation (checkout)** | SalesDomainService | qty <= 1000, max 100 items por checkout |
-| **Cookie flags** | Backend | Secure, HttpOnly, SameSite=Strict em produção |
+| **HttpOnly cookies (transporte padrão)** | AuthController + AuthMiddleware | Access token via cookie HttpOnly path=/api. sessionStorage não armazena mais tokens |
 | **HMAC-SHA256 offline** | `frontend/src/lib/hmac.js` | Integridade de payloads offline |
 | **AI prompt sanitization** | `backend/src/Services/AIPromptSanitizer.php` | Proteção contra prompt injection + PII scrubbing |
 | **AI spending caps** | `backend/src/Services/AIBillingService.php` | Limite de gasto por organizador |
@@ -78,6 +78,9 @@ super_admin / admin (André)
 | **RLS ativo no runtime PHP** | `backend/config/Database.php` | `activateTenantScope()` conecta como `app_user` e faz `SET app.current_organizer_id` por request |
 | **HMAC contrato unificado** | `AuthController.php` + `hmac.js` | Backend envia `hmac_key` no login, frontend usa para assinar — key material identico |
 | **PaymentWebhookController auth** | `PaymentWebhookController.php` | Corrigido de `AuthMiddleware::authenticate()` para `requireAuth()` |
+| **JWT claims (aud, nbf, jti)** | `backend/src/Helpers/JWT.php` | Audience, not-before e JWT ID em todos os tokens |
+| **AI feature flags** | `AIController.php` + `AIToolRuntimeService.php` | `FEATURE_AI_INSIGHTS`, `FEATURE_AI_TOOLS`, `FEATURE_AI_TOOL_WRITE` |
+| **Recharge Asaas PIX real** | `CustomerController.php` | Pix QR real via Asaas API, webhook credita saldo automaticamente |
 
 ### 🟡 PENDÊNCIAS DE SEGURANÇA (pré-produção)
 
@@ -86,7 +89,7 @@ super_admin / admin (André)
 | **Rotacionar API keys externas** | AGORA | Gemini e OpenAI ainda são as do histórico Git |
 | **Redis rate limiting** | Pré-produção | Rate limiting atual é DB-based, Redis é mais performante |
 | **Cloudflare WAF** | No deploy | Sem proteção de edge |
-| **JWT claims (`aud`, `jti`)** | Pré-produção | Sem validação de audience nem proteção contra replay |
+| **jti blacklist (Redis)** | Pré-produção | jti é gerado mas sem blacklist — replay possível até expiração do token |
 
 ---
 
@@ -173,7 +176,7 @@ enjoyfun/
 ├── backend/src/
 │   ├── Controllers/ (29 resources no router)
 │   │   ├── AuthController.php         ✅
-│   │   ├── EventController.php        ✅
+│   │   ├── EventController.php        ✅ 129 linhas (refatorado → EventService)
 │   │   ├── EventDayController.php     ✅
 │   │   ├── EventShiftController.php   ✅
 │   │   ├── TicketController.php       ✅ organizer_id blindado + transfer ativo
@@ -181,7 +184,7 @@ enjoyfun/
 │   │   ├── BarController.php          ✅
 │   │   ├── FoodController.php         ✅
 │   │   ├── ShopController.php         ✅
-│   │   ├── SyncController.php         ✅ NOWAIT + batch dedup + size limits
+│   │   ├── SyncController.php         ✅ 60 linhas (refatorado → OfflineSyncService)
 │   │   ├── ParkingController.php      ✅ organizer_id blindado via JOIN
 │   │   ├── ParticipantController.php  ✅
 │   │   ├── ParticipantCheckinController.php ✅
@@ -205,6 +208,10 @@ enjoyfun/
 │   ├── Services/
 │   │   ├── WalletSecurityService.php  ✅ FOR UPDATE lock
 │   │   ├── SalesDomainService.php     ✅ Checkout centralizado
+│   │   ├── EventService.php          ✅ CRUD, calendário, config comercial (extraído do controller)
+│   │   ├── OfflineSyncService.php    ✅ Orquestração batch, processamento por tipo (extraído do controller)
+│   │   ├── OfflineSyncNormalizer.php ✅ Normalização de payloads offline por tipo
+│   │   ├── OfflineHmacService.php    ✅ Derivação HKDF e verificação HMAC
 │   │   ├── MealsDomainService.php     ✅
 │   │   ├── AuditService.php           ✅ alinhado com AuthMiddleware
 │   │   ├── AIBillingService.php       ✅
@@ -300,11 +307,11 @@ enjoyfun/
 | Health Check | ✅ Real | Deep check + métricas (não mais dummy) |
 | Agents Hub | 🔴 Pendente | ADR aceito, implementação não iniciada |
 | Embedded Support Bot | 🔴 Pendente | ADR aceito, implementação não iniciada |
-| Gateways de Pagamento | 🟡 Fundação | Asaas integration foundation + webhook controller + migration 053 |
+| Gateways de Pagamento | ✅ Asaas ativo | Asaas PIX real + webhook + split 1%/99% + recharge integrado |
 | Docker / Deploy | 🟡 Presente | Dockerfile, docker-compose.yml, nginx/default.conf |
 | Logística de Artistas | 🔴 Pendente | ADR não escrito ainda |
 | Controle de Custos | 🔴 Pendente | ADR não escrito ainda |
-| Customer App / PWA | 🟡 Base presente | Service Worker, push, gateway de recarga ausentes |
+| Customer App / PWA | 🟡 Parcial | Recharge com Asaas PIX real. Service Worker e push pendentes |
 | SuperAdmin / Billing SaaS | 🟡 Parcial | Dashboard de comissões e MRR ausentes |
 
 ---
