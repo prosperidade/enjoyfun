@@ -8,16 +8,24 @@ class JWT
     private const ALGO = 'RS256';
     private const ISSUER = 'enjoyfun-core-auth';
 
-    public static function encode(array $payload, int $ttlSeconds = 3600): string
+    public static function encode(array $payload, int $ttlSeconds = 3600, string $audience = ''): string
     {
         self::assertOpenSslAvailable();
 
         $now = time();
-        $payload = array_merge([
+        $reserved = [
             'iss' => self::ISSUER,
             'iat' => $now,
             'exp' => $now + $ttlSeconds,
-        ], $payload);
+            'nbf' => $now,
+            'jti' => bin2hex(random_bytes(16)),
+        ];
+
+        if ($audience !== '') {
+            $reserved['aud'] = $audience;
+        }
+
+        $payload = array_merge($reserved, $payload);
 
         $header = self::b64url(self::jsonEncode(['alg' => self::ALGO, 'typ' => 'JWT', 'kid' => 'enjoyfun-rs256-v1']));
         $body = self::b64url(self::jsonEncode($payload));
@@ -32,7 +40,7 @@ class JWT
         return "$header.$body." . self::b64url($signature);
     }
 
-    public static function decode(string $token): ?array
+    public static function decode(string $token, string $expectedAudience = ''): ?array
     {
         if (!self::isOpenSslAvailable()) {
             error_log("❌ [JWT] OpenSSL indisponivel no runtime para validar RS256.");
@@ -84,6 +92,26 @@ class JWT
             }
             if (($payload['iss'] ?? '') !== self::ISSUER) {
                 error_log("❌ [JWT] Emissor (iss) inválido.");
+                return null;
+            }
+
+            // nbf — reject tokens not yet valid (backward compatible: skip if absent)
+            if (isset($payload['nbf']) && time() < (int)$payload['nbf']) {
+                error_log("❌ [JWT] Token ainda nao valido (nbf).");
+                return null;
+            }
+
+            // aud — validate audience when expected (backward compatible: skip if not requested or absent)
+            if ($expectedAudience !== '' && isset($payload['aud'])) {
+                if ($payload['aud'] !== $expectedAudience) {
+                    error_log("❌ [JWT] Audience (aud) invalido. Esperado: {$expectedAudience}");
+                    return null;
+                }
+            }
+
+            // jti — ensure presence when set (actual replay blacklist is P2/Redis)
+            if (array_key_exists('jti', $payload) && empty($payload['jti'])) {
+                error_log("❌ [JWT] jti presente mas vazio.");
                 return null;
             }
 

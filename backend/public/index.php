@@ -142,6 +142,15 @@ function setCurrentRequestActor(array $user): void
         'organizer_id' => isset($user['organizer_id']) ? (int)$user['organizer_id'] : null,
         'sector' => (string)($user['sector'] ?? ''),
     ];
+
+    // ── RLS Tenant Scope ─────────────────────────────────────────────────────
+    // After authentication, activate Row Level Security by connecting as
+    // app_user and setting the tenant context. This makes RLS policies from
+    // migration 051 effective, providing defense-in-depth multi-tenant isolation.
+    $organizerId = isset($user['organizer_id']) ? (int)$user['organizer_id'] : 0;
+    if ($organizerId > 0 && class_exists('Database')) {
+        Database::activateTenantScope($organizerId);
+    }
 }
 
 function setCurrentRequestEventId(?int $eventId): void

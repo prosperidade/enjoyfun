@@ -75,6 +75,7 @@ const OFFLINE_QUEUE_RETRY_POLICIES = Object.freeze({
 const OFFLINE_QUEUE_SCHEMA_VERSIONS = Object.freeze({
   sale: 2,
   meal: 1,
+  topup: 1,
   scanner_process: 1,
   ticket_validate: 1,
   guest_validate: 1,

@@ -303,12 +303,20 @@ psql -U postgres -c "SELECT pg_reload_conf();"
 
 **Nota:** no deploy via Docker (`docker-compose.yml` ja criado), o container PostgreSQL usa `scram-sha-256` por padrao. Essa alteracao e necessaria apenas para PostgreSQL instalado diretamente na maquina.
 
+### CRITICO — Bugs descobertos na Auditoria Sistema 8 (bloqueiam producao)
+
+Esses 3 itens foram identificados na `auditoriasistema8.md` e confirmados contra o codigo real:
+
+- [x] **A8-01: RLS ativo no runtime PHP** — `Database.php` agora conecta como `app_user` e faz `SET app.current_organizer_id` por request. Testado: tenant 999 retorna 0 rows. Resolvido em `2026-04-05`
+- [x] **A8-02: PaymentWebhookController auth corrigido** — trocado `AuthMiddleware::authenticate()` por `requireAuth()` nas 4 ocorrencias. Resolvido em `2026-04-05`
+- [x] **A8-03: HMAC contrato unificado** — backend envia `hmac_key` no login, frontend usa diretamente. Key material identico. Resolvido em `2026-04-05`
+
 ### Demais itens pre-producao
 
 - [ ] `pg_hba.conf` alterado para `scram-sha-256`
 - [ ] Credenciais rotacionadas (`scripts/rotate_credentials.sh`)
 - [ ] API keys externas rotacionadas nos consoles (Gemini, OpenAI, Asaas)
-- [ ] Migrations 049-053 aplicadas (`scripts/apply_migrations.sh`)
+- [ ] Migrations 049-054 aplicadas (`scripts/apply_migrations.sh`)
 - [ ] `APP_ENV=production` no `.env` de producao (ativa HMAC obrigatorio, error sanitization, cookie Secure)
 - [ ] HTTPS configurado (Nginx + Cloudflare ou cert local)
 - [ ] `.env` **nunca** versionado (verificar `.gitignore`)

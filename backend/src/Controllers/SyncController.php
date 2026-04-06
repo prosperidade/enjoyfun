@@ -238,6 +238,8 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
                 processOfflineParkingExit($db, $operator, $payload);
             } elseif ($type === 'parking_validate') {
                 processOfflineParkingValidation($db, $operator, $payload);
+            } elseif ($type === 'topup') {
+                processTopup($db, $operator, $payload, $offlineId);
             } else {
                 throw new Exception("Tipo de payload offline não suportado: {$type}.", 422);
             }
@@ -364,6 +366,8 @@ function normalizeOfflineSyncPayloadByType(string $type, array $payload, array $
         $normalized = normalizeOfflineParkingExitPayload($payload, $item);
     } elseif ($type === 'parking_validate') {
         $normalized = normalizeOfflineParkingValidationPayload($payload, $item);
+    } elseif ($type === 'topup') {
+        $normalized = normalizeOfflineTopupPayload($payload, $item);
     } else {
         return $payload;
     }
@@ -447,6 +451,78 @@ function normalizeOfflineSalePayload(array $payload, array $item): array
         'card_id' => $cardId !== '' ? $cardId : null,
         'items' => $normalizedItems,
     ];
+}
+
+/**
+ * Normaliza payload de topup (recarga cashless) offline.
+ */
+function normalizeOfflineTopupPayload(array $payload, array $item): array
+{
+    $cardId = trim((string)($payload['card_id'] ?? ''));
+
+    return [
+        'event_id' => (int)($payload['event_id'] ?? 0),
+        'amount' => round((float)($payload['amount'] ?? 0), 2),
+        'card_id' => $cardId !== '' ? $cardId : null,
+        'payment_method' => trim((string)($payload['payment_method'] ?? 'manual')) ?: 'manual',
+    ];
+}
+
+/**
+ * Processa recarga cashless (topup) offline via WalletSecurityService.
+ */
+function processTopup(PDO $db, array $operator, array $payload, string $offlineId): void
+{
+    $eventId = (int)($payload['event_id'] ?? 0);
+    $amount  = round((float)($payload['amount'] ?? 0), 2);
+    $cardId  = trim((string)($payload['card_id'] ?? ''));
+    $paymentMethod = trim((string)($payload['payment_method'] ?? 'manual')) ?: 'manual';
+
+    if ($eventId <= 0) {
+        throw new Exception('Evento inválido para recarga offline.', 422);
+    }
+    if ($amount <= 0) {
+        throw new Exception('Valor de recarga inválido para sincronização offline.', 422);
+    }
+    if ($cardId === '') {
+        throw new Exception('Registro offline de recarga sem card_id canônico.', 422);
+    }
+    if (!\WalletSecurityService::isCanonicalCardId($cardId)) {
+        throw new Exception('Registro offline de recarga sem card_id canônico. Revalide o cartão antes de sincronizar.', 422);
+    }
+
+    $organizerId = resolveSyncOrganizerId($operator);
+
+    \WalletSecurityService::processTransaction(
+        $db,
+        $cardId,
+        $amount,
+        'credit',
+        $organizerId,
+        [
+            'description' => 'Recarga de Saldo (offline)',
+            'event_id' => $eventId,
+            'user_id' => (int)($operator['id'] ?? $operator['sub'] ?? 0),
+            'payment_method' => $paymentMethod,
+            'offline_id' => $offlineId,
+            'is_offline' => true,
+        ]
+    );
+
+    \AuditService::log(
+        \AuditService::CARD_RECHARGE,
+        'card',
+        $cardId,
+        null,
+        [
+            'recharge_amount' => $amount,
+            'payment_method' => $paymentMethod,
+            'offline_id' => $offlineId,
+            'is_offline' => true,
+        ],
+        $operator,
+        'success'
+    );
 }
 
 function processMeal(PDO $db, array $operator, array $payload, string $offlineId): void

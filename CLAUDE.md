@@ -47,9 +47,9 @@ super_admin / admin (André)
 
 | Recurso | Arquivo | Detalhe |
 |---------|---------|---------|
-| **JWT HS256** | `backend/src/Helpers/JWT.php` | HS256 com `JWT_SECRET` — decisão oficial (ADR registrado). RS256 é plano futuro |
+| **JWT RS256** | `backend/src/Helpers/JWT.php` | RS256 com chaves PEM — migração de HS256 concluída. ADR original registrava HS256, implementação evoluiu para RS256 |
 | **organizer_id no JWT** | `backend/src/Controllers/AuthController.php` | Isolamento multi-tenant no próprio token |
-| **Auth Middleware completo** | `backend/src/Middleware/AuthMiddleware.php` | Valida HS256, extrai `id`, `sub`, `name`, `email`, `role`, `sector`, `organizer_id` |
+| **Auth Middleware completo** | `backend/src/Middleware/AuthMiddleware.php` | Valida RS256, extrai `id`, `sub`, `name`, `email`, `role`, `sector`, `organizer_id` |
 | **Refresh Tokens (hard-delete)** | `backend/src/Controllers/AuthController.php` | Hash SHA-256, expiração configurável, revogação por DELETE real (não soft-delete) |
 | **Audit Log imutável** | `database/schema_current.sql` | Trigger bloqueia UPDATE e DELETE |
 | **AuditService alinhado** | `backend/src/Services/AuditService.php` | Lê `id` com fallback `sub`, grava `email`, `organizer_id` |
@@ -75,15 +75,18 @@ super_admin / admin (André)
 | **Webhook timestamp validation** | `backend/src/Controllers/PaymentWebhookController.php` | Rejeita webhooks com timestamp fora da janela |
 | **Messaging idempotency** | `backend/src/Controllers/MessagingController.php` | Deduplicação via correlation_id |
 | **RLS policies** | `database/051_rls_policies.sql` | Row-Level Security em 15 tabelas |
+| **RLS ativo no runtime PHP** | `backend/config/Database.php` | `activateTenantScope()` conecta como `app_user` e faz `SET app.current_organizer_id` por request |
+| **HMAC contrato unificado** | `AuthController.php` + `hmac.js` | Backend envia `hmac_key` no login, frontend usa para assinar — key material identico |
+| **PaymentWebhookController auth** | `PaymentWebhookController.php` | Corrigido de `AuthMiddleware::authenticate()` para `requireAuth()` |
 
 ### 🟡 PENDÊNCIAS DE SEGURANÇA (pré-produção)
 
 | Recurso | Quando fazer | Risco |
 |---------|-------------|-------|
-| **Rotacionar credenciais expostas** | AGORA | Credenciais no historico do Git |
+| **Rotacionar API keys externas** | AGORA | Gemini e OpenAI ainda são as do histórico Git |
 | **Redis rate limiting** | Pré-produção | Rate limiting atual é DB-based, Redis é mais performante |
 | **Cloudflare WAF** | No deploy | Sem proteção de edge |
-| **RS256 pleno** | Trilha V4 | HS256 funcional, RS256 é evolução planejada |
+| **JWT claims (`aud`, `jti`)** | Pré-produção | Sem validação de audience nem proteção contra replay |
 
 ---
 
@@ -91,7 +94,7 @@ super_admin / admin (André)
 
 **PostgreSQL 18.2 | DB: `enjoyfun` | host: 127.0.0.1:5432 | user: postgres**
 
-### Migrations versionadas até 053
+### Migrations versionadas até 054
 
 | Faixa | Conteúdo |
 |-------|---------|
@@ -182,7 +185,7 @@ enjoyfun/
 │   │   ├── ParkingController.php      ✅ organizer_id blindado via JOIN
 │   │   ├── ParticipantController.php  ✅
 │   │   ├── ParticipantCheckinController.php ✅
-│   │   ├── WorkforceController.php    ⚠️ 1578 linhas — refatoração em andamento
+│   │   ├── WorkforceController.php    ✅ 299 linhas (fatiado em helpers)
 │   │   ├── MealController.php         ✅
 │   │   ├── GuestController.php        ✅
 │   │   ├── ScannerController.php      ✅
@@ -224,7 +227,7 @@ enjoyfun/
 │   │   ├── OrganizerMessagingConfigService.php ✅
 │   │   └── ProductService.php         ✅
 │   ├── Helpers/
-│   │   ├── JWT.php                    ✅ HS256 (oficial por ADR)
+│   │   ├── JWT.php                    ✅ RS256 com chaves PEM (evoluído de HS256)
 │   │   ├── Response.php               ✅
 │   │   ├── ParticipantPresenceHelper.php ✅
 │   │   ├── WorkforceControllerSupport.php ✅
@@ -286,7 +289,7 @@ enjoyfun/
 | Estacionamento | ✅ Encerrado | — |
 | Sync Offline | ✅ Hardened | NOWAIT, batch dedup, size limits. Smoke E2E pendente |
 | ParticipantsHub | ✅ Encerrado | Testes de contrato e telemetria |
-| Workforce | ✅ Encerrado funcional | Refatoração em andamento (1578 linhas) |
+| Workforce | ✅ Encerrado funcional | Fatiado em helpers (299 linhas no controller principal) |
 | Meals Control | ✅ Encerrado | Migration 014 pendente de aplicação em janela controlada |
 | Card Issuance em Massa | 🟡 Novo (migration 028) | Smoke ponta a ponta pendente |
 | White Label (Branding) | 🟡 Parcial | CSS vars dinâmicos, subdomínio ausente |
@@ -369,7 +372,7 @@ enjoyfun/
 | App PDV/Validador | PWA offline-first | 🚧 |
 | Backend | PHP 8.2 | ✅ |
 | Banco | PostgreSQL 18.2 + pgcrypto + uuid-ossp | ✅ |
-| Auth | JWT HS256 (RS256 no roadmap) | ✅ |
+| Auth | JWT RS256 com chaves PEM | ✅ |
 | Offline | Dexie.js (IndexedDB) + offline_queue | ✅ |
 | Cache | Redis 7 | ❌ no deploy |
 | IA | OpenAI GPT-4o-mini + Gemini 2.5 Flash | ✅ |
@@ -391,7 +394,7 @@ Arquivos críticos de referência:
 - database/schema_current.sql (baseline oficial do banco)
 - database/migrations_applied.log (histórico de migrations)
 - database/drift_replay_manifest.json (janela suportada de replay)
-- backend/src/Helpers/JWT.php (HS256 — decisão oficial por ADR)
+- backend/src/Helpers/JWT.php (RS256 — evoluído de HS256)
 - backend/src/Middleware/AuthMiddleware.php
 - backend/src/Services/AuditService.php
 - backend/src/Services/WalletSecurityService.php (padrão de transação cashless)
@@ -412,7 +415,7 @@ REGRAS INVIOLÁVEIS:
 6. TODA query de listagem/busca DEVE filtrar por organizer_id
 7. event_id nunca tem fallback — deve ser explícito e válido
 8. Sync offline exige idempotência (offline_id + FOR UPDATE SKIP LOCKED)
-9. JWT é HS256 (não RS256) — ver ADR para plano de migração futura
+9. JWT é RS256 com chaves PEM — migração de HS256 já concluída
 10. Não abrir frentes V4 enquanto houver bugs críticos ou smoke tests pendentes
 ```
 
@@ -422,7 +425,7 @@ REGRAS INVIOLÁVEIS:
 
 | ADR | Decisão | Status |
 |-----|---------|--------|
-| `adr_auth_jwt_strategy_v1.md` | HS256 como estratégia oficial imediata | ✅ Implementado |
+| `adr_auth_jwt_strategy_v1.md` | HS256 como estratégia inicial, migrado para RS256 | ✅ RS256 implementado |
 | `adr_ai_multiagentes_strategy_v1.md` | Agents Hub + Embedded Bot como dois planos complementares | 📋 Aceito, pendente |
 | `adr_cashless_card_issuance_strategy_v1.md` | Emissão estruturada nasce no Workforce, não em /cards | 🟡 Aceito, parcialmente implementado |
 

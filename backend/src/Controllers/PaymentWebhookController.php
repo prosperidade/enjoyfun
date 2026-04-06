@@ -6,6 +6,7 @@
  * No JWT auth required; validated via HMAC signature.
  */
 
+require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/src/Services/PaymentGatewayService.php';
 
 use EnjoyFun\Services\PaymentGatewayService;
@@ -91,8 +92,8 @@ function handleWebhook(array $body): void
  */
 function handleListCharges(array $query): void
 {
-    $user = AuthMiddleware::authenticate();
-    $organizerId = (int)($user['organizer_id'] ?? 0);
+    $user = requireAuth();
+    $organizerId = (int)($user['organizer_id'] ?? $user['id'] ?? 0);
     if ($organizerId <= 0) {
         jsonError('organizer_id ausente no token.', 403);
     }
@@ -120,8 +121,8 @@ function handleListCharges(array $query): void
  */
 function handleCreateCharge(array $body): void
 {
-    $user = AuthMiddleware::authenticate();
-    $organizerId = (int)($user['organizer_id'] ?? 0);
+    $user = requireAuth();
+    $organizerId = (int)($user['organizer_id'] ?? $user['id'] ?? 0);
     if ($organizerId <= 0) {
         jsonError('organizer_id ausente no token.', 403);
     }
@@ -144,8 +145,8 @@ function handleCreateCharge(array $body): void
  */
 function handleGetChargeStatus(string $chargeId): void
 {
-    $user = AuthMiddleware::authenticate();
-    $organizerId = (int)($user['organizer_id'] ?? 0);
+    $user = requireAuth();
+    $organizerId = (int)($user['organizer_id'] ?? $user['id'] ?? 0);
     if ($organizerId <= 0) {
         jsonError('organizer_id ausente no token.', 403);
     }
@@ -168,7 +169,7 @@ function handleGetChargeStatus(string $chargeId): void
  */
 function handleCalculateSplit(array $query): void
 {
-    $user = AuthMiddleware::authenticate();
+    $user = requireAuth();
 
     $amount = (float)($query['amount'] ?? 0);
     if ($amount <= 0) {

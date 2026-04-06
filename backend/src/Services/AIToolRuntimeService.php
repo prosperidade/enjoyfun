@@ -133,6 +133,12 @@ final class AIToolRuntimeService
 
     public static function executeReadOnlyTools(PDO $db, array $operator, array $context, array $toolCalls): array
     {
+        // Feature flag gate — block all tool execution when disabled
+        if (getenv('FEATURE_AI_TOOLS') === 'false') {
+            error_log('[AIToolRuntimeService] AI tools blocked by FEATURE_AI_TOOLS=false');
+            throw new RuntimeException('AI tools estão desabilitados', 403);
+        }
+
         $updatedToolCalls = [];
         $toolResults = [];
         $executedCount = 0;
@@ -157,6 +163,19 @@ final class AIToolRuntimeService
                 $updatedCall['runtime_status'] = 'unsupported';
                 $updatedCall['runtime_message'] = 'Tool read-only ainda não suportada pelo runtime local.';
                 $updatedCall['runtime_duration_ms'] = max(0, (int)round(microtime(true) * 1000) - $startedAt);
+                $updatedToolCalls[] = $updatedCall;
+                continue;
+            }
+
+            // Write tool gate — block write tools unless explicitly enabled
+            $toolType = $resolvedTool['type'] ?? 'read';
+            if ($toolType === 'write' && getenv('FEATURE_AI_TOOL_WRITE') !== 'true') {
+                error_log('[AIToolRuntimeService] AI write tool blocked by FEATURE_AI_TOOL_WRITE != true: ' . $resolvedTool['name']);
+                $failedCount++;
+                $updatedCall['runtime_status'] = 'blocked';
+                $updatedCall['runtime_message'] = 'AI write tools requerem FEATURE_AI_TOOL_WRITE=true';
+                $updatedCall['runtime_duration_ms'] = max(0, (int)round(microtime(true) * 1000) - $startedAt);
+                $updatedCall['resolved_tool_name'] = $resolvedTool['name'];
                 $updatedToolCalls[] = $updatedCall;
                 continue;
             }

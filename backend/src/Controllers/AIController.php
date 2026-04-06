@@ -28,6 +28,12 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
 function getInsight(array $body): void
 {
+    // Feature flag gate — checked before auth/billing to avoid unnecessary work
+    if (getenv('FEATURE_AI_INSIGHTS') === 'false') {
+        error_log('[AIController] AI insights blocked by FEATURE_AI_INSIGHTS=false');
+        jsonError('AI insights estão desabilitados', 403);
+    }
+
     $operator = requireAuth(['admin', 'organizer', 'manager', 'bartender', 'staff']);
     $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
 

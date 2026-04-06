@@ -2,42 +2,44 @@
  * EnjoyFun — HMAC-SHA256 signing for offline payloads (C07)
  *
  * Uses the Web Crypto API (crypto.subtle) so no external dependencies are needed.
- * The signing key is derived from the JWT access token via HKDF so the raw token
- * is never used directly as key material.
+ *
+ * The signing key is provided by the backend at login/refresh as a hex-encoded
+ * HKDF-derived key (from JWT_SECRET). This ensures both sides use the same key
+ * material for HMAC computation.
  */
+
+import { getHmacKey } from './session';
 
 const HMAC_ALGO = 'HMAC';
 const HASH_ALGO = 'SHA-256';
-const HKDF_INFO = 'enjoyfun-offline-hmac-v1';
 
 const encoder = new TextEncoder();
 
 /**
- * Derive a CryptoKey suitable for HMAC-SHA256 from the raw JWT string.
- * We import the JWT bytes as HKDF key material and derive a fixed-length
- * HMAC key so the actual token never leaks into signature output.
+ * Convert a hex string to an ArrayBuffer.
  */
-async function deriveHmacKey(jwtToken) {
-  if (!jwtToken || typeof jwtToken !== 'string') {
-    throw new Error('HMAC key derivation requires a valid JWT token.');
+function hexToBuffer(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+  }
+  return bytes.buffer;
+}
+
+/**
+ * Import the server-provided HMAC key (hex string) as a CryptoKey.
+ *
+ * The key is already derived via HKDF on the backend from JWT_SECRET,
+ * so we import it directly — no client-side derivation needed.
+ */
+async function importHmacKey(hmacKeyHex) {
+  if (!hmacKeyHex || typeof hmacKeyHex !== 'string' || hmacKeyHex.length === 0) {
+    throw new Error('HMAC key not available in session. Re-login required.');
   }
 
-  const rawKeyMaterial = await crypto.subtle.importKey(
+  return crypto.subtle.importKey(
     'raw',
-    encoder.encode(jwtToken),
-    'HKDF',
-    false,
-    ['deriveKey'],
-  );
-
-  return crypto.subtle.deriveKey(
-    {
-      name: 'HKDF',
-      hash: HASH_ALGO,
-      salt: encoder.encode('enjoyfun'),
-      info: encoder.encode(HKDF_INFO),
-    },
-    rawKeyMaterial,
+    hexToBuffer(hmacKeyHex),
     { name: HMAC_ALGO, hash: HASH_ALGO },
     false,
     ['sign', 'verify'],
@@ -65,11 +67,17 @@ function canonicalize(payload) {
  * Sign a payload object with HMAC-SHA256.
  *
  * @param {object} payload  - The offline sale/transaction payload.
- * @param {string} jwtToken - The current access token (used for key derivation).
+ * @param {string} [hmacKeyHex] - Optional hex-encoded HMAC key. If omitted,
+ *                                reads from session storage automatically.
  * @returns {Promise<string>} Hex-encoded HMAC signature.
  */
-export async function signPayload(payload, jwtToken) {
-  const key = await deriveHmacKey(jwtToken);
+export async function signPayload(payload, hmacKeyHex) {
+  const keyHex = hmacKeyHex || getHmacKey();
+  if (!keyHex) {
+    console.warn('[HMAC] hmac_key not available in session — signing skipped.');
+    return null;
+  }
+  const key = await importHmacKey(keyHex);
   const data = encoder.encode(canonicalize(payload));
   const signature = await crypto.subtle.sign(HMAC_ALGO, key, data);
   return bufferToHex(signature);
@@ -80,11 +88,17 @@ export async function signPayload(payload, jwtToken) {
  *
  * @param {object} payload   - The offline sale/transaction payload.
  * @param {string} signature - The hex-encoded HMAC to verify.
- * @param {string} jwtToken  - The access token that was used for signing.
+ * @param {string} [hmacKeyHex] - Optional hex-encoded HMAC key. If omitted,
+ *                                reads from session storage automatically.
  * @returns {Promise<boolean>}
  */
-export async function verifyPayload(payload, signature, jwtToken) {
-  const key = await deriveHmacKey(jwtToken);
+export async function verifyPayload(payload, signature, hmacKeyHex) {
+  const keyHex = hmacKeyHex || getHmacKey();
+  if (!keyHex) {
+    console.warn('[HMAC] hmac_key not available in session — verification skipped.');
+    return false;
+  }
+  const key = await importHmacKey(keyHex);
   const data = encoder.encode(canonicalize(payload));
   const sigBuffer = new Uint8Array(
     signature.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)),

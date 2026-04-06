@@ -9,7 +9,7 @@ import {
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
-const NETWORK_SYNC_TYPES = ['sale', 'meal'];
+const NETWORK_SYNC_TYPES = ['sale', 'meal', 'topup'];
 
 function hasValidEventId(eventId) {
   return Number(eventId) > 0;
@@ -32,7 +32,7 @@ function normalizePendingSyncRecord(record) {
       ...payload,
       event_id: hasValidEventId(payload?.event_id) ? Number(payload.event_id) : null,
       sector: payload?.sector ?? record?.sector ?? (payloadType === 'sale' ? 'bar' : null),
-      ...(payloadType === 'sale' ? { card_id: cardId } : {}),
+      ...(payloadType === 'sale' || payloadType === 'topup' ? { card_id: cardId } : {}),
     },
     created_offline_at: record?.created_offline_at ?? record?.created_at ?? new Date().toISOString(),
   };

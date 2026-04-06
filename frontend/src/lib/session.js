@@ -3,6 +3,7 @@ const REFRESH_TOKEN_KEY = "refresh_token";
 const USER_KEY = "enjoyfun_user";
 const ACCESS_TRANSPORT_KEY = "enjoyfun_access_transport";
 const REFRESH_TRANSPORT_KEY = "enjoyfun_refresh_transport";
+const HMAC_KEY = "enjoyfun_hmac_key";
 
 const sessionState = {
   hydrated: false,
@@ -11,6 +12,7 @@ const sessionState = {
   refreshToken: "",
   refreshTransport: "body",
   user: null,
+  hmacKey: "",
 };
 
 function getStorage(name) {
@@ -92,6 +94,7 @@ function hydrateSessionState() {
   const sessionRefreshToken = sessionStorageRef?.getItem(REFRESH_TOKEN_KEY) || "";
   const sessionRefreshTransport = sessionStorageRef?.getItem(REFRESH_TRANSPORT_KEY) || "";
   const sessionUser = readJson(sessionStorageRef, USER_KEY);
+  const sessionHmacKey = sessionStorageRef?.getItem(HMAC_KEY) || "";
 
   if (sessionAccessToken || sessionRefreshToken || sessionUser || sessionRefreshTransport || sessionAccessTransport) {
     sessionState.hydrated = true;
@@ -100,6 +103,7 @@ function hydrateSessionState() {
     sessionState.refreshToken = sessionRefreshToken;
     sessionState.refreshTransport = sessionRefreshTransport || "body";
     sessionState.user = sessionUser;
+    sessionState.hmacKey = sessionHmacKey;
     removeLegacySession();
     return;
   }
@@ -158,12 +162,14 @@ export function persistSession(result) {
   sessionState.refreshTransport = refreshTransport;
   sessionState.refreshToken = nextRefreshToken;
   sessionState.user = result.user ?? null;
+  sessionState.hmacKey = result.hmac_key || sessionState.hmacKey || "";
 
   writeString(sessionStorageRef, ACCESS_TOKEN_KEY, sessionState.accessToken);
   writeString(sessionStorageRef, ACCESS_TRANSPORT_KEY, sessionState.accessTransport);
   writeString(sessionStorageRef, REFRESH_TOKEN_KEY, sessionState.refreshToken);
   writeString(sessionStorageRef, REFRESH_TRANSPORT_KEY, sessionState.refreshTransport);
   writeJson(sessionStorageRef, USER_KEY, sessionState.user);
+  writeString(sessionStorageRef, HMAC_KEY, sessionState.hmacKey);
   removeLegacySession();
 }
 
@@ -185,13 +191,20 @@ export function clearSession() {
   sessionState.refreshToken = "";
   sessionState.refreshTransport = "body";
   sessionState.user = null;
+  sessionState.hmacKey = "";
 
   writeString(sessionStorageRef, ACCESS_TOKEN_KEY, "");
   writeString(sessionStorageRef, ACCESS_TRANSPORT_KEY, "");
   writeString(sessionStorageRef, REFRESH_TOKEN_KEY, "");
   writeString(sessionStorageRef, REFRESH_TRANSPORT_KEY, "");
   writeJson(sessionStorageRef, USER_KEY, null);
+  writeString(sessionStorageRef, HMAC_KEY, "");
   removeLegacySession();
+}
+
+export function getHmacKey() {
+  hydrateSessionState();
+  return sessionState.hmacKey;
 }
 
 export function getSessionSnapshot() {
@@ -203,5 +216,6 @@ export function getSessionSnapshot() {
     refreshToken: sessionState.refreshToken,
     refreshTransport: sessionState.refreshTransport,
     user: sessionState.user,
+    hmacKey: sessionState.hmacKey,
   };
 }

@@ -253,12 +253,13 @@ function refresh(array $body): void
         jsonError('Usuário inativo.', 403);
     }
 
+    $refreshAudience = ($userData['role'] ?? '') === 'customer' ? 'customer' : 'admin';
     $tokens   = issueTokens($db, $userData, authRefreshContext([
         'session_id' => $stored['session_id'] ?? null,
         'device_id' => $stored['device_id'] ?? null,
         'user_agent' => $stored['user_agent'] ?? null,
         'ip_address' => $stored['ip_address'] ?? null,
-    ]));
+    ]), $refreshAudience);
 
     authRespondWithTokens($userData, $tokens);
 }
@@ -627,7 +628,7 @@ function verifyAccessCode(array $body): void
         }
 
         $userData = buildUserPayload($db, $user);
-        $tokens   = issueTokens($db, $userData);
+        $tokens   = issueTokens($db, $userData, [], 'customer');
 
         authRespondWithTokens($userData, $tokens, 'Acesso concedido.');
 
@@ -684,12 +685,13 @@ function buildUserPayload(PDO $db, array $user): array
     return $user;
 }
 
-function issueTokens(PDO $db, array $user, array $context = []): array
+function issueTokens(PDO $db, array $user, array $context = [], string $audience = 'admin'): array
 {
     $expiry  = (int)(getenv('JWT_EXPIRY')  ?: 3600);
     $refresh = (int)(getenv('JWT_REFRESH') ?: 2592000);
 
     // RS256: a chave privada assina o access token; JWT_SECRET permanece para OTP e outros usos legados.
+    // aud/nbf/jti are auto-injected by JWT::encode for hardened claim validation.
     $access = JWT::encode([
         'sub'          => $user['id'],
         'name'         => $user['name'],
@@ -698,7 +700,7 @@ function issueTokens(PDO $db, array $user, array $context = []): array
         'role'         => $user['role'],
         'sector'       => $user['sector'] ?? 'all',
         'organizer_id' => $user['organizer_id'] ?? null, // A CHAVE MESTRA DO WHITE LABEL!
-    ], $expiry);
+    ], $expiry, $audience);
 
     $rawRefresh  = bin2hex(random_bytes(32));
     $hashRefresh = hash('sha256', $rawRefresh);
@@ -751,6 +753,10 @@ function authRespondWithTokens(array $userData, array $tokens, string $message =
         authSetRefreshCookie((string)($tokens['refresh'] ?? ''));
     }
 
+    // Derive the offline HMAC key so the frontend can sign payloads with the
+    // same secret the SyncController uses for verification (C07 fix).
+    $hmacKey = authDeriveOfflineHmacKeyHex();
+
     jsonSuccess([
         'user' => $userData,
         'access_token' => authShouldUseAccessCookie() ? '' : $tokens['access'],
@@ -758,7 +764,25 @@ function authRespondWithTokens(array $userData, array $tokens, string $message =
         'refresh_token' => authShouldUseRefreshCookie() ? '' : $tokens['refresh'],
         'refresh_transport' => authShouldUseRefreshCookie() ? 'cookie' : 'body',
         'expires_in' => (int)(getenv('JWT_EXPIRY') ?: 3600),
+        'hmac_key' => $hmacKey,
     ], $message, $code);
+}
+
+/**
+ * Derive the offline HMAC signing key as a hex string.
+ *
+ * Uses the same HKDF derivation that SyncController::deriveOfflineHmacKey()
+ * performs, so the frontend can sign payloads that the backend will accept.
+ * Returns empty string when JWT_SECRET is not configured.
+ */
+function authDeriveOfflineHmacKeyHex(): string
+{
+    $secret = trim((string)($_ENV['JWT_SECRET'] ?? getenv('JWT_SECRET') ?: ''));
+    if ($secret === '') {
+        return '';
+    }
+
+    return bin2hex(hash_hkdf('sha256', $secret, 32, 'enjoyfun-offline-hmac-v1', 'enjoyfun'));
 }
 
 function authRefreshContext(array $overrides = []): array
