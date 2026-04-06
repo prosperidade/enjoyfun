@@ -886,7 +886,9 @@ function authShouldUseRefreshCookie(): bool
 
 function authShouldUseAccessCookie(): bool
 {
-    $raw = strtolower(trim((string)(getenv('AUTH_ACCESS_COOKIE_MODE') ?: '0')));
+    // Default ON — access token is transported via HttpOnly cookie.
+    // Set AUTH_ACCESS_COOKIE_MODE=0 to fall back to body-only (Postman/legacy).
+    $raw = strtolower(trim((string)(getenv('AUTH_ACCESS_COOKIE_MODE') ?: '1')));
     return !in_array($raw, ['0', 'false', 'off', 'no'], true);
 }
 
@@ -980,6 +982,24 @@ function authSetRefreshCookie(string $refreshToken): void
     $_COOKIE[authRefreshCookieName()] = $refreshToken;
 }
 
+function authAccessCookieOptions(int $expiresAt): array
+{
+    $options = [
+        'expires' => $expiresAt,
+        'path' => '/api',          // Scoped to API routes only — never sent to static assets
+        'secure' => authCookieIsSecure() || authRefreshCookieSameSite() === 'None',
+        'httponly' => true,
+        'samesite' => authRefreshCookieSameSite(),
+    ];
+
+    $domain = trim((string)(getenv('AUTH_COOKIE_DOMAIN') ?: ''));
+    if ($domain !== '') {
+        $options['domain'] = $domain;
+    }
+
+    return $options;
+}
+
 function authSetAccessCookie(string $accessToken): void
 {
     if (!authShouldUseAccessCookie() || $accessToken === '') {
@@ -989,14 +1009,14 @@ function authSetAccessCookie(string $accessToken): void
     setcookie(
         authAccessCookieName(),
         $accessToken,
-        authRefreshCookieOptions(time() + (int)(getenv('JWT_EXPIRY') ?: 3600))
+        authAccessCookieOptions(time() + (int)(getenv('JWT_EXPIRY') ?: 3600))
     );
     $_COOKIE[authAccessCookieName()] = $accessToken;
 }
 
 function authClearAccessCookie(): void
 {
-    setcookie(authAccessCookieName(), '', authRefreshCookieOptions(time() - 3600));
+    setcookie(authAccessCookieName(), '', authAccessCookieOptions(time() - 3600));
     unset($_COOKIE[authAccessCookieName()]);
 }
 

@@ -65,22 +65,28 @@ function requireRole(array $allowedRoles): array
 
 function accessTokenFromRequest(): string
 {
+    // Priority 1: HttpOnly cookie (default transport — invisible to JS / XSS)
+    if (shouldUseAccessCookie()) {
+        $cookieToken = trim((string)($_COOKIE[accessCookieName()] ?? ''));
+        if ($cookieToken !== '') {
+            return $cookieToken;
+        }
+    }
+
+    // Priority 2: Authorization header (Postman, mobile, legacy clients)
     $headers = getallheaders();
     $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
     if ($authHeader && str_starts_with($authHeader, 'Bearer ')) {
         return trim(substr($authHeader, 7));
     }
 
-    if (!shouldUseAccessCookie()) {
-        return '';
-    }
-
-    return trim((string)($_COOKIE[accessCookieName()] ?? ''));
+    return '';
 }
 
 function shouldUseAccessCookie(): bool
 {
-    $raw = strtolower(trim((string)(getenv('AUTH_ACCESS_COOKIE_MODE') ?: '0')));
+    // Default ON — matches AuthController::authShouldUseAccessCookie().
+    $raw = strtolower(trim((string)(getenv('AUTH_ACCESS_COOKIE_MODE') ?: '1')));
     return !in_array($raw, ['0', 'false', 'off', 'no'], true);
 }
 

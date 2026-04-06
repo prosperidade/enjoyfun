@@ -1008,12 +1008,21 @@ class PaymentGatewayService
             );
         }
 
+        // If payment confirmed/received, credit the cashless card balance
+        $balanceCredited = false;
+        if (in_array($newStatus, ['confirmed', 'received'], true)
+            && !in_array($previousStatus, ['confirmed', 'received'], true)
+        ) {
+            $balanceCredited = self::creditCardBalanceFromCharge($db, (int)$charge['id'], (int)$charge['organizer_id']);
+        }
+
         return [
             'processed' => true,
             'charge_id' => (int)$charge['id'],
             'previous_status' => $previousStatus,
             'new_status' => $newStatus,
             'webhook_event_id' => $webhookEventId,
+            'balance_credited' => $balanceCredited,
         ];
     }
 
@@ -1089,6 +1098,131 @@ class PaymentGatewayService
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $row ? self::formatChargeRow($row) : null;
+    }
+
+    /**
+     * Credit the card balance when a recharge payment is confirmed.
+     * Looks up the pending card_transaction linked to the charge,
+     * credits via WalletSecurityService, and marks the transaction as completed.
+     *
+     * @return bool True if balance was credited, false if not applicable.
+     */
+    private static function creditCardBalanceFromCharge(PDO $db, int $chargeId, int $organizerId): bool
+    {
+        // Load the full charge record
+        $stmt = $db->prepare("
+            SELECT id, organizer_id, event_id, amount, metadata
+            FROM payment_charges
+            WHERE id = :id AND organizer_id = :organizer_id
+            LIMIT 1
+        ");
+        $stmt->execute([':id' => $chargeId, ':organizer_id' => $organizerId]);
+        $charge = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (!$charge) {
+            return false;
+        }
+
+        // Parse metadata to find linked card_transaction and card_id
+        $metadata = $charge['metadata'] ?? null;
+        if (is_string($metadata)) {
+            $metadata = json_decode($metadata, true);
+        }
+        if (!is_array($metadata)) {
+            $metadata = [];
+        }
+
+        $cardTransactionId = (int)($metadata['card_transaction_id'] ?? 0);
+        $cardId = trim((string)($metadata['card_id'] ?? ''));
+        $rechargeType = (string)($metadata['recharge_type'] ?? '');
+
+        // Only process cashless recharge charges
+        if ($rechargeType !== 'cashless_pix' || $cardId === '' || $cardTransactionId <= 0) {
+            return false;
+        }
+
+        $amount = (float)$charge['amount'];
+        $eventId = $charge['event_id'] !== null ? (int)$charge['event_id'] : 0;
+
+        // Verify the card_transaction is still pending (idempotency guard)
+        $hasTxStatus = self::columnExists($db, 'card_transactions', 'status');
+        if ($hasTxStatus) {
+            $txStmt = $db->prepare("
+                SELECT id, status
+                FROM public.card_transactions
+                WHERE id = :id AND card_id = :card_id::uuid
+                FOR UPDATE
+            ");
+            $txStmt->execute([':id' => $cardTransactionId, ':card_id' => $cardId]);
+            $tx = $txStmt->fetch(\PDO::FETCH_ASSOC);
+
+            if (!$tx) {
+                return false;
+            }
+
+            // Already credited -- idempotent no-op
+            if (($tx['status'] ?? '') === 'completed') {
+                return false;
+            }
+        }
+
+        // Credit the card balance via WalletSecurityService
+        if (!class_exists('WalletSecurityService')) {
+            require_once BASE_PATH . '/src/Services/WalletSecurityService.php';
+        }
+
+        $eventName = '';
+        if ($eventId > 0) {
+            $evStmt = $db->prepare("SELECT name FROM public.events WHERE id = ? AND organizer_id = ? LIMIT 1");
+            $evStmt->execute([$eventId, $organizerId]);
+            $eventName = (string)($evStmt->fetchColumn() ?: '');
+        }
+
+        \WalletSecurityService::processTransaction(
+            $db,
+            $cardId,
+            $amount,
+            'credit',
+            $organizerId,
+            [
+                'event_id' => $eventId > 0 ? $eventId : null,
+                'description' => sprintf('Recarga Pix confirmada%s', $eventName !== '' ? " - {$eventName}" : ''),
+            ]
+        );
+
+        // Mark the pending card_transaction as completed
+        if ($hasTxStatus) {
+            $updateTx = $db->prepare("
+                UPDATE public.card_transactions
+                SET status = 'completed',
+                    description = REPLACE(COALESCE(description, ''), '(pendente)', '(confirmado)'),
+                    updated_at = NOW()
+                WHERE id = :id
+            ");
+            $updateTx->execute([':id' => $cardTransactionId]);
+        }
+
+        // Audit log
+        if (class_exists('AuditService')) {
+            \AuditService::log(
+                defined('\\AuditService::CARD_RECHARGE') ? \AuditService::CARD_RECHARGE : 'card.recharge',
+                'digital_card',
+                $cardId,
+                null,
+                [
+                    'amount' => $amount,
+                    'charge_id' => $chargeId,
+                    'card_transaction_id' => $cardTransactionId,
+                    'event_id' => $eventId,
+                    'source' => 'webhook_confirmed',
+                ],
+                null,
+                'success',
+                ['organizer_id' => $organizerId]
+            );
+        }
+
+        return true;
     }
 
     private static function updateChargeStatus(PDO $db, int $chargeId, string $status, ?string $paidAt = null): void

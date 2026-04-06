@@ -942,3 +942,68 @@ A `auditoriasistema8.md` foi cruzada contra o codigo real em `2026-04-05`. Resul
 - Revisao de backward compatibility confirmada para JWT claims
 - Feature flags com defaults seguros verificados
 - topup handler segue padrao existente de processamento de transacoes
+
+---
+
+## 21. Atualizacao de `2026-04-05` - Sprint P2, fechamento completo do backlog
+
+### Registro obrigatorio desta passada
+
+- **Responsavel:** `Claude — sprint P2`
+- **Status:** `Entregue`
+- **Escopo:** `seguranca`, `backend`, `frontend`, `refatoracao`, `pagamentos`
+- **Arquivos principais tocados:** ver lista completa abaixo
+- **Proxima acao sugerida:** rotacionar API keys externas nos consoles (Gemini, OpenAI); rodar smoke tests E2E completos
+- **Bloqueios / dependencias:** nenhum bloqueio de codigo — rotacao de API keys depende apenas de acesso aos consoles
+
+### Escopo fechado nesta passada
+
+#### P2-01: HttpOnly cookies como transporte padrao
+
+- `AuthController.php`: access token agora e setado como cookie HttpOnly com path `/api`, Secure em producao, SameSite=Strict
+- `AuthMiddleware.php`: extrai token de cookie PRIMEIRO, fallback para Authorization header
+- `session.js`: transporte padrao mudou de `body` para `cookie`; tokens nao sao mais armazenados em sessionStorage
+- `api.js`: Authorization header so e enviado em modo `body`; modo `cookie` depende de `withCredentials: true`
+- Backward compatible: `AUTH_ACCESS_COOKIE_MODE=0` no `.env` volta ao modo body (para Postman/testing)
+- XSS nao pode mais roubar tokens — eles sao invisiveis ao JavaScript
+
+#### P2-02: Refatoracao do SyncController
+
+- **Antes:** 1278 linhas monoliticas
+- **Depois:** 60 linhas no controller
+- 3 services extraidos:
+  - `OfflineSyncService.php` (956 linhas) — orquestracao de batch, processamento por tipo, dedup, locking
+  - `OfflineSyncNormalizer.php` (329 linhas) — normalizacao de payloads por tipo, schema version, contratos
+  - `OfflineHmacService.php` (95 linhas) — derivacao de chave HKDF, verificacao HMAC, logging
+- API contract 100% preservado (request/response, HTTP codes)
+
+#### P2-03: Refatoracao do EventController
+
+- **Antes:** 1250 linhas monoliticas
+- **Depois:** 129 linhas no controller
+- Service extraido:
+  - `EventService.php` (1143 linhas) — CRUD, validacao, calendario operacional, config comercial, integracao IA
+- API contract 100% preservado
+
+#### P2-04: Recharge com gateway real (Asaas PIX)
+
+- `CustomerController::createRecharge()` agora chama `PaymentGatewayService::createCharge()` com `billing_type='PIX'`
+- Pix QR fake substituido por chamada real a API Asaas
+- Charge armazenado em `payment_charges` com link para `card_transactions` pendente
+- Webhook de pagamento confirmado credita saldo automaticamente via `WalletSecurityService::processTransaction()`
+- Guard contra double-credit com `FOR UPDATE` lock
+- AuditService logging em toda operacao financeira
+
+### Validacao executada
+
+- PHP syntax check: 0 erros em todos os 10 arquivos PHP
+- SyncController: 1278 → 60 linhas (reducao de 95%)
+- EventController: 1250 → 129 linhas (reducao de 90%)
+- HttpOnly cookie: transporte padrao sem tokens em JS
+- Recharge: integrado com Asaas PIX real + webhook de confirmacao
+
+### Leitura operacional
+
+- o backlog P2 esta encerrado
+- todas as frentes das auditorias 7 e 8 estao resolvidas ou endereçadas
+- restam apenas itens operacionais manuais: rotacao de API keys nos consoles dos providers

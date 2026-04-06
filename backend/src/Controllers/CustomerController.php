@@ -6,6 +6,9 @@
 
 require_once BASE_PATH . '/src/Services/CardAssignmentService.php';
 require_once BASE_PATH . '/src/Services/EventLookupService.php';
+require_once BASE_PATH . '/src/Services/PaymentGatewayService.php';
+
+use EnjoyFun\Services\PaymentGatewayService;
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -250,23 +253,84 @@ function createRecharge(array $body): void
 
         $db->beginTransaction();
         $wallet = customerEnsureEventWallet($db, $userId, $organizerId, $event);
-        customerInsertPendingRecharge($db, (string)$wallet['card_id'], (int)$event['id'], $amount, (string)($event['name'] ?? 'Evento'));
+        $cardId = (string)$wallet['card_id'];
+        $eventId = (int)$event['id'];
+        $eventName = (string)($event['name'] ?? 'Evento');
+
+        // Insert pending card_transaction and get its ID for linking
+        $txId = customerInsertPendingRecharge($db, $cardId, $eventId, $amount, $eventName);
         $db->commit();
 
-        $txId = bin2hex(random_bytes(8));
-        $pixKey = getenv('PIX_KEY') ?: 'enjoyfun@pagamentos.com';
-        $pixCode = "00020126580014BR.GOV.BCB.PIX0136{$pixKey}5204000053039865802BR5925EnjoyFun"
-            . "Eventos6009SAO PAULO62070503***6304{$txId}";
+        // Load customer identity for Asaas
+        $identity = customerLoadUserIdentity($db, $userId, $organizerId);
+        $userStmt = $db->prepare("SELECT name, email, cpf FROM public.users WHERE id = ? LIMIT 1");
+        $userStmt->execute([$userId]);
+        $userRow = $userStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $customerName = trim((string)($userRow['name'] ?? ''));
+        $customerCpf = preg_replace('/\D/', '', (string)($userRow['cpf'] ?? ''));
+        $customerEmail = trim((string)($userRow['email'] ?? $identity['email'] ?? ''));
+
+        if ($customerName === '') {
+            $customerName = 'Cliente EnjoyFun';
+        }
+        if ($customerCpf === '') {
+            jsonError('CPF do cliente é obrigatório para gerar cobrança Pix.', 422);
+        }
+
+        $idempotencyKey = "recharge_{$organizerId}_{$eventId}_{$cardId}_{$txId}";
+
+        // Create real charge via Asaas
+        $charge = PaymentGatewayService::createCharge($db, $organizerId, [
+            'amount' => $amount,
+            'billing_type' => 'PIX',
+            'customer_name' => $customerName,
+            'customer_cpf' => $customerCpf,
+            'customer_email' => $customerEmail,
+            'description' => sprintf('Recarga Cashless - %s', $eventName),
+            'event_id' => $eventId,
+            'idempotency_key' => $idempotencyKey,
+        ]);
+
+        // Link the payment_charges record to the card_transaction
+        $chargeId = (int)($charge['id'] ?? 0);
+        if ($chargeId > 0 && $txId > 0) {
+            customerLinkChargeToTransaction($db, $chargeId, $txId, $cardId);
+        }
+
+        // Audit log
+        if (class_exists('AuditService')) {
+            AuditService::log(
+                'card.recharge.initiated',
+                'digital_card',
+                $cardId,
+                null,
+                [
+                    'amount' => $amount,
+                    'charge_id' => $chargeId,
+                    'external_id' => $charge['external_id'] ?? null,
+                    'event_id' => $eventId,
+                ],
+                $customer,
+                'success',
+                ['organizer_id' => $organizerId]
+            );
+        }
+
+        $pixCode = $charge['pix_code'] ?? null;
 
         jsonSuccess([
             'pix_code' => $pixCode,
             'amount' => $amount,
             'recharge_type' => 'event',
             'wallet_scope' => 'event',
+            'charge_id' => $chargeId,
+            'external_id' => $charge['external_id'] ?? null,
             'transaction_id' => $txId,
-            'card_id' => (string)$wallet['card_id'],
-            'event_id' => (int)$event['id'],
-            'event_name' => (string)($event['name'] ?? ''),
+            'card_id' => $cardId,
+            'event_id' => $eventId,
+            'event_name' => $eventName,
+            'status' => $charge['status'] ?? 'pending',
             'expires_in' => 1800,
         ], 'QR Code Pix gerado com sucesso.');
     } catch (Exception $e) {
@@ -435,7 +499,7 @@ function customerEnsureEventWallet(PDO $db, int $userId, int $organizerId, array
     ];
 }
 
-function customerInsertPendingRecharge(PDO $db, string $cardId, int $eventId, float $amount, string $eventName): void
+function customerInsertPendingRecharge(PDO $db, string $cardId, int $eventId, float $amount, string $eventName): int
 {
     $columns = ['card_id', 'type', 'amount', 'description', 'created_at'];
     $placeholders = ['?::uuid', '?', '?', '?', 'NOW()'];
@@ -456,17 +520,58 @@ function customerInsertPendingRecharge(PDO $db, string $cardId, int $eventId, fl
         $placeholders[] = '?';
         $values[] = 'pix';
     }
+    if (customerColumnExists($db, 'card_transactions', 'status')) {
+        $columns[] = 'status';
+        $placeholders[] = '?';
+        $values[] = 'pending';
+    }
     if (customerColumnExists($db, 'card_transactions', 'updated_at')) {
         $columns[] = 'updated_at';
         $placeholders[] = 'NOW()';
     }
 
     $stmt = $db->prepare(sprintf(
-        'INSERT INTO public.card_transactions (%s) VALUES (%s)',
+        'INSERT INTO public.card_transactions (%s) VALUES (%s) RETURNING id',
         implode(', ', $columns),
         implode(', ', $placeholders)
     ));
     $stmt->execute($values);
+
+    return (int)$stmt->fetchColumn();
+}
+
+/**
+ * Link a payment_charges record to the pending card_transaction for later webhook resolution.
+ */
+function customerLinkChargeToTransaction(PDO $db, int $chargeId, int $txId, string $cardId): void
+{
+    // Store the card_transaction_id in payment_charges metadata if column exists
+    if (customerColumnExists($db, 'payment_charges', 'metadata')) {
+        $stmt = $db->prepare("
+            UPDATE public.payment_charges
+            SET metadata = COALESCE(metadata, '{}'::jsonb) || ?::jsonb,
+                updated_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->execute([
+            json_encode([
+                'card_transaction_id' => $txId,
+                'card_id' => $cardId,
+                'recharge_type' => 'cashless_pix',
+            ], JSON_UNESCAPED_UNICODE),
+            $chargeId,
+        ]);
+    }
+
+    // Also store the charge reference on the card_transaction if column exists
+    if (customerColumnExists($db, 'card_transactions', 'payment_charge_id')) {
+        $stmt = $db->prepare("
+            UPDATE public.card_transactions
+            SET payment_charge_id = ?, updated_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->execute([$chargeId, $txId]);
+    }
 }
 
 function customerGenerateUuidV4(): string

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { clearSession, getAccessToken, getSessionSnapshot, persistSession } from './session';
+import { clearSession, getSessionSnapshot, persistSession } from './session';
 
 // Reads VITE_API_URL from frontend/.env
 // Falls back to /api (Vite proxy) when running `npm run dev` without .env
@@ -8,9 +8,9 @@ const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
-  // withCredentials sends HttpOnly cookies when the backend sets them (C06).
-  // Token reads from sessionStorage (session.js) remain as fallback until
-  // full cookie migration is complete and will be removed then.
+  // withCredentials sends HttpOnly cookies automatically on every request.
+  // This is the primary auth transport — the Authorization header is only
+  // attached as a fallback when access_transport is "body" (legacy/Postman).
   withCredentials: true,
 });
 
@@ -64,10 +64,14 @@ function redirectToLogin() {
   window.location.assign('/login');
 }
 
-// Attach JWT automatically
+// Attach JWT only when transport is body (legacy/Postman mode).
+// When transport is cookie, the HttpOnly cookie is sent automatically
+// via withCredentials — no Authorization header needed.
 api.interceptors.request.use((config) => {
-  const token = getAccessToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const { accessToken, accessTransport } = getSessionSnapshot();
+  if (accessTransport === 'body' && accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
   config.headers['X-Device-ID'] = getDeviceId();
   return config;
 });
