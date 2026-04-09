@@ -144,9 +144,16 @@ class OfflineSyncNormalizer
 
     public static function resolveErrorCode(\Throwable $error): string
     {
-        return (int)$error->getCode() === self::UPGRADE_REQUIRED_CODE
-            ? 'offline_sync_upgrade_required'
-            : 'offline_sync_processing_error';
+        if ((int)$error->getCode() === self::UPGRADE_REQUIRED_CODE) {
+            return 'offline_sync_upgrade_required';
+        }
+
+        // Surface specific error codes embedded in the message for operational clarity
+        if (str_contains($error->getMessage(), 'nao permitido para recarga offline')) {
+            return 'offline_payment_method_not_allowed';
+        }
+
+        return 'offline_sync_processing_error';
     }
 
     // ─── Per-type normalizers ───────────────────────────────────────────
@@ -251,16 +258,32 @@ class OfflineSyncNormalizer
         ];
     }
 
+    /** Aliases that map to the canonical 'cash' payment method for offline topup. */
+    const OFFLINE_TOPUP_CASH_ALIASES = ['cash', 'manual', 'dinheiro', 'especie'];
+
     public static function normalizeTopup(array $payload, array $item): array
     {
         $cardId = trim((string)($payload['card_id'] ?? ''));
+        $rawMethod = strtolower(trim((string)($payload['payment_method'] ?? 'manual'))) ?: 'manual';
 
-        return [
+        // Canonize cash aliases; unknown methods pass through for the blocker in processTopup
+        $canonicalMethod = in_array($rawMethod, self::OFFLINE_TOPUP_CASH_ALIASES, true)
+            ? 'cash'
+            : $rawMethod;
+
+        $normalized = [
             'event_id' => (int)($payload['event_id'] ?? 0),
             'amount' => round((float)($payload['amount'] ?? 0), 2),
             'card_id' => $cardId !== '' ? $cardId : null,
-            'payment_method' => trim((string)($payload['payment_method'] ?? 'manual')) ?: 'manual',
+            'payment_method' => $canonicalMethod,
         ];
+
+        // Preserve original value for audit trail when it was mapped
+        if ($canonicalMethod !== $rawMethod) {
+            $normalized['payment_method_original'] = $rawMethod;
+        }
+
+        return $normalized;
     }
 
     // ─── Shared helpers ─────────────────────────────────────────────────

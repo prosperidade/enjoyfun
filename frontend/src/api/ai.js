@@ -64,3 +64,13 @@ export async function queueAIEndOfEventReport(eventId) {
   const { data } = await api.post("/ai/reports/end-of-event", { event_id: eventId });
   return data?.data || null;
 }
+
+export async function approveAIExecution(executionId, payload = {}) {
+  const { data } = await api.post(`/ai/executions/${executionId}/approve`, payload);
+  return data?.data || null;
+}
+
+export async function rejectAIExecution(executionId, payload = {}) {
+  const { data } = await api.post(`/ai/executions/${executionId}/reject`, payload);
+  return data?.data || null;
+}

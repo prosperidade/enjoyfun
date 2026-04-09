@@ -620,16 +620,34 @@ class OfflineSyncService
         throw new Exception('Acao de validacao de estacionamento invalida.', 422);
     }
 
+    /** Payment methods forbidden in offline topup (digital/gateway-dependent). */
+    const OFFLINE_TOPUP_BLOCKED_METHODS = [
+        'pix', 'card', 'credit_card', 'debit_card', 'web', 'asaas',
+        'mercadopago', 'pagarme', 'stripe', 'boleto', 'online',
+    ];
+
     private static function processTopup(PDO $db, array $operator, array $payload, string $offlineId): void
     {
         $eventId = (int)($payload['event_id'] ?? 0);
         $amount  = round((float)($payload['amount'] ?? 0), 2);
         $cardId  = trim((string)($payload['card_id'] ?? ''));
-        $paymentMethod = trim((string)($payload['payment_method'] ?? 'manual')) ?: 'manual';
+        $paymentMethod = strtolower(trim((string)($payload['payment_method'] ?? 'cash'))) ?: 'cash';
 
         if ($eventId <= 0) {
             throw new Exception('Evento invalido para recarga offline.', 422);
         }
+
+        // S1-01: Only cash is allowed for offline topup (normalized by OfflineSyncNormalizer)
+        if ($paymentMethod !== 'cash') {
+            self::logOfflineTopupRejection($operator, $offlineId, $eventId, $paymentMethod, $cardId);
+            throw new Exception(
+                "Metodo de pagamento '{$paymentMethod}' nao permitido para recarga offline. "
+                . 'Apenas dinheiro (cash/manual) e aceito offline. '
+                . 'Para pagamentos digitais, use a recarga online.',
+                422
+            );
+        }
+
         if ($amount <= 0) {
             throw new Exception('Valor de recarga invalido para sincronizacao offline.', 422);
         }
@@ -672,6 +690,51 @@ class OfflineSyncService
             $operator,
             'success'
         );
+    }
+
+    /**
+     * S1-04: Log and audit rejected offline topup with invalid payment method.
+     */
+    private static function logOfflineTopupRejection(
+        array $operator,
+        string $offlineId,
+        int $eventId,
+        string $rejectedMethod,
+        string $cardId
+    ): void {
+        $userId = (int)($operator['id'] ?? $operator['sub'] ?? 0);
+        $organizerId = self::resolveOrganizerId($operator);
+
+        error_log(json_encode([
+            'timestamp' => date('c'),
+            'level' => 'warning',
+            'message' => 'Offline topup rejected: invalid payment method',
+            'error_code' => 'offline_payment_method_not_allowed',
+            'offline_id' => $offlineId,
+            'event_id' => $eventId,
+            'payment_method' => $rejectedMethod,
+            'card_id' => $cardId,
+            'user_id' => $userId,
+            'organizer_id' => $organizerId,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        if (class_exists('AuditService')) {
+            \AuditService::log(
+                'offline_sync.topup_rejected',
+                'card',
+                $cardId ?: $offlineId,
+                null,
+                [
+                    'reason' => 'offline_payment_method_not_allowed',
+                    'payment_method' => $rejectedMethod,
+                    'offline_id' => $offlineId,
+                    'event_id' => $eventId,
+                    'is_offline' => true,
+                ],
+                $operator,
+                'failure'
+            );
+        }
     }
 
     // ─── Authorization ──────────────────────────────────────────────────

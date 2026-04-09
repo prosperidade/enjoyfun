@@ -33,6 +33,9 @@ class AuditService
     const AI_EXECUTION_TOOL_RUNTIME_PENDING = 'ai.execution.tool_runtime_pending';
     const AI_EXECUTION_APPROVED           = 'ai.execution.approved';
     const AI_EXECUTION_REJECTED           = 'ai.execution.rejected';
+    const AI_APPROVED_TOOL_EXECUTED       = 'ai.approved.tool_executed';
+    const AI_APPROVED_EXECUTION_COMPLETED = 'ai.approved.execution_completed';
+    const AI_APPROVED_EXECUTION_FAILED    = 'ai.approved.execution_failed';
     const AI_MEMORY_RECORDED              = 'ai.memory.recorded';
     const AI_REPORT_QUEUED                = 'ai.report.queued';
     const WEBHOOK_REJECTED                = 'webhook.rejected';

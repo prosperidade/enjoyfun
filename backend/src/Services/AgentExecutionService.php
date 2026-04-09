@@ -353,7 +353,7 @@ final class AgentExecutionService
     private static function normalizeExecutionStatusOrNull(mixed $value): ?string
     {
         $normalized = strtolower(trim((string)$value));
-        return in_array($normalized, ['succeeded', 'failed', 'blocked', 'pending'], true)
+        return in_array($normalized, ['succeeded', 'failed', 'blocked', 'pending', 'running'], true)
             ? $normalized
             : null;
     }

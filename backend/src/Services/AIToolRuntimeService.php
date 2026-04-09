@@ -9,6 +9,7 @@ require_once BASE_PATH . '/src/Helpers/WorkforceControllerSupport.php';
 require_once __DIR__ . '/FinanceWorkforceCostService.php';
 require_once __DIR__ . '/WorkforceTreeUseCaseService.php';
 require_once __DIR__ . '/AIMCPClientService.php';
+require_once __DIR__ . '/AuditService.php';
 
 final class AIToolRuntimeService
 {
@@ -694,7 +695,58 @@ final class AIToolRuntimeService
     //  Tool execution
     // ──────────────────────────────────────────────────────────────
 
+    /**
+     * Execute ONLY read-only tools. Write tool calls are silently skipped.
+     *
+     * This is the safe entry point for auto-execution in the orchestrator's
+     * bounded loop and legacy path — it never runs writes, even when
+     * FEATURE_AI_TOOL_WRITE is enabled.
+     */
     public static function executeReadOnlyTools(PDO $db, array $operator, array $context, array $toolCalls): array
+    {
+        // Filter to read-only tool calls before dispatching
+        $readOnly = [];
+        $skippedWrite = [];
+
+        foreach ($toolCalls as $toolCall) {
+            if (!is_array($toolCall)) {
+                continue;
+            }
+            $type = strtolower(trim((string)($toolCall['type'] ?? ($toolCall['risk_level'] ?? ''))));
+            if ($type === 'write') {
+                $skippedWrite[] = $toolCall;
+                continue;
+            }
+            // If the type is not explicitly tagged, resolve and check
+            $resolved = self::resolveToolDefinition($toolCall['tool_name'] ?? null, $toolCall['target'] ?? null);
+            if (is_array($resolved) && ($resolved['type'] ?? 'read') === 'write') {
+                $skippedWrite[] = $toolCall;
+                continue;
+            }
+            $readOnly[] = $toolCall;
+        }
+
+        $result = self::executeTools($db, $operator, $context, $readOnly);
+
+        // Append skipped write calls with explicit status so callers see them
+        foreach ($skippedWrite as $wc) {
+            $result['tool_calls'][] = array_merge($wc, [
+                'runtime_status' => 'skipped_write',
+                'runtime_message' => 'Write tool skipped by executeReadOnlyTools — requires approved execution path.',
+            ]);
+        }
+
+        return $result;
+    }
+
+    /**
+     * General tool executor — handles both reads and writes.
+     *
+     * Writes are still gated by FEATURE_AI_TOOL_WRITE and per-tool flags.
+     * The approved execution runner (S3-01) calls this directly for writes
+     * that have passed the approval workflow.
+     */
+    public static function executeTools(PDO $db, array $operator, array $context, array $toolCalls): array
     {
         if (getenv('FEATURE_AI_TOOLS') === 'false') {
             error_log('[AIToolRuntimeService] AI tools blocked by FEATURE_AI_TOOLS=false');
@@ -731,7 +783,7 @@ final class AIToolRuntimeService
             if (!is_array($resolvedTool)) {
                 $unsupportedCount++;
                 $updatedCall['runtime_status'] = 'unsupported';
-                $updatedCall['runtime_message'] = 'Tool read-only ainda não suportada pelo runtime local.';
+                $updatedCall['runtime_message'] = 'Tool ainda nao suportada pelo runtime local.';
                 $updatedCall['runtime_duration_ms'] = max(0, (int)round(microtime(true) * 1000) - $startedAt);
                 $updatedToolCalls[] = $updatedCall;
                 continue;
@@ -748,6 +800,8 @@ final class AIToolRuntimeService
                 $updatedToolCalls[] = $updatedCall;
                 continue;
             }
+
+            $isWrite = $toolType === 'write';
 
             try {
                 $arguments = (array)($toolCall['arguments'] ?? []);
@@ -767,16 +821,19 @@ final class AIToolRuntimeService
                 $durationMs = max(0, (int)round(microtime(true) * 1000) - $startedAt);
                 $resultPreview = self::buildResultPreview($resolvedTool['name'], $result);
 
+                $runtimeLabel = $isWrite ? 'Tool write executada (aprovada).' : 'Tool read-only executada automaticamente.';
                 $updatedCall['runtime_status'] = 'completed';
-                $updatedCall['runtime_message'] = 'Tool read-only executada automaticamente.';
+                $updatedCall['runtime_message'] = $runtimeLabel;
                 $updatedCall['runtime_duration_ms'] = $durationMs;
                 $updatedCall['runtime_result_preview'] = $resultPreview;
                 $updatedCall['resolved_tool_name'] = $resolvedTool['name'];
+                $updatedCall['tool_type'] = $toolType;
                 $updatedToolCalls[] = $updatedCall;
 
                 $toolResults[] = [
                     'provider_call_id' => $toolCall['provider_call_id'] ?? null,
                     'tool_name' => $resolvedTool['name'],
+                    'tool_type' => $toolType,
                     'status' => 'completed',
                     'duration_ms' => $durationMs,
                     'result_preview' => $resultPreview,
@@ -789,11 +846,13 @@ final class AIToolRuntimeService
                 $updatedCall['runtime_message'] = $e->getMessage();
                 $updatedCall['runtime_duration_ms'] = max(0, (int)round(microtime(true) * 1000) - $startedAt);
                 $updatedCall['resolved_tool_name'] = $resolvedTool['name'];
+                $updatedCall['tool_type'] = $toolType;
                 $updatedToolCalls[] = $updatedCall;
 
                 $toolResults[] = [
                     'provider_call_id' => $toolCall['provider_call_id'] ?? null,
                     'tool_name' => $resolvedTool['name'],
+                    'tool_type' => $toolType,
                     'status' => 'failed',
                     'error_message' => $e->getMessage(),
                 ];
@@ -805,7 +864,7 @@ final class AIToolRuntimeService
         $message = null;
 
         if ($handledAll) {
-            $message = sprintf('Runtime read-only executou %d tool call(s) automaticamente.', $executedCount);
+            $message = sprintf('Runtime executou %d tool call(s) automaticamente.', $executedCount);
         } elseif ($hasToolCalls) {
             $parts = [];
             if ($executedCount > 0) {
@@ -817,7 +876,7 @@ final class AIToolRuntimeService
             if ($failedCount > 0) {
                 $parts[] = sprintf('%d com falha', $failedCount);
             }
-            $message = 'Runtime read-only parcial: ' . implode(', ', $parts) . '.';
+            $message = 'Runtime parcial: ' . implode(', ', $parts) . '.';
         }
 
         return [
@@ -835,11 +894,11 @@ final class AIToolRuntimeService
     {
         $completed = (int)($runtimeResult['executed_count'] ?? 0);
         if ($completed <= 0) {
-            return 'A IA propôs tools read-only, mas nenhuma execução automática foi concluída. Consulte os detalhes em tool_calls.';
+            return 'A IA propôs tools, mas nenhuma execução automática foi concluída. Consulte os detalhes em tool_calls.';
         }
 
         return sprintf(
-            'A IA executou %d tool call(s) read-only automaticamente. Consulte tool_results para os dados retornados.',
+            'A IA executou %d tool call(s) automaticamente. Consulte tool_results para os dados retornados.',
             $completed
         );
     }
@@ -1851,6 +1910,11 @@ final class AIToolRuntimeService
 
     private static function executeUpdateTimelineCheckpoint(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
     {
+        // ── S4-01: Specific feature flag gate for the first write path ──
+        if (getenv('FEATURE_AI_WRITE_TIMELINE_CHECKPOINT') === 'false') {
+            throw new RuntimeException('update_timeline_checkpoint desabilitado por FEATURE_AI_WRITE_TIMELINE_CHECKPOINT=false', 403);
+        }
+
         self::requireEventId($eventId, 'update_timeline_checkpoint');
         $eventArtistId = self::requireEventArtistId($arguments);
 
@@ -1865,28 +1929,77 @@ final class AIToolRuntimeService
             throw new RuntimeException('timestamp e obrigatorio.', 422);
         }
 
+        // ── Load existing row (with current value for idempotency + diff) ──
         $stmt = $db->prepare("
-            SELECT id FROM public.artist_operational_timelines
+            SELECT id, {$checkpoint} AS current_value FROM public.artist_operational_timelines
             WHERE event_artist_id = :eaid AND organizer_id = :org AND event_id = :evt
             LIMIT 1
         ");
         $stmt->execute([':eaid' => $eventArtistId, ':org' => $organizerId, ':evt' => $eventId]);
         $existing = $stmt->fetch(\PDO::FETCH_ASSOC);
 
+        $previousValue = $existing['current_value'] ?? null;
+        $action = 'created';
+
+        // ── Idempotency: if value is already identical, skip write ──
+        if ($existing && $previousValue === $timestamp) {
+            AuditService::log(
+                'ai_write_timeline_checkpoint_noop',
+                'artist_operational_timelines',
+                $existing['id'],
+                $previousValue,
+                $timestamp,
+                null,
+                'success',
+                ['organizer_id' => $organizerId, 'event_id' => $eventId, 'event_artist_id' => $eventArtistId, 'checkpoint' => $checkpoint]
+            );
+            return [
+                'event_artist_id' => $eventArtistId,
+                'checkpoint' => $checkpoint,
+                'timestamp' => $timestamp,
+                'previous_value' => $previousValue,
+                'status' => 'no_change',
+                'action' => 'noop',
+                'diff' => null,
+                'message' => "Checkpoint '{$checkpoint}' ja possui o valor {$timestamp}. Nenhuma alteracao.",
+            ];
+        }
+
         if ($existing) {
             $db->prepare("UPDATE public.artist_operational_timelines SET {$checkpoint} = :ts, updated_at = NOW() WHERE id = :id AND organizer_id = :org")
                ->execute([':ts' => $timestamp, ':id' => $existing['id'], ':org' => $organizerId]);
+            $action = 'updated';
         } else {
             $db->prepare("INSERT INTO public.artist_operational_timelines (organizer_id, event_id, event_artist_id, {$checkpoint}) VALUES (:org, :evt, :eaid, :ts)")
                ->execute([':org' => $organizerId, ':evt' => $eventId, ':eaid' => $eventArtistId, ':ts' => $timestamp]);
+            $action = 'created';
         }
+
+        // ── Audit trail ──
+        AuditService::log(
+            'ai_write_timeline_checkpoint',
+            'artist_operational_timelines',
+            $existing['id'] ?? null,
+            $previousValue,
+            $timestamp,
+            null,
+            'success',
+            ['organizer_id' => $organizerId, 'event_id' => $eventId, 'event_artist_id' => $eventArtistId, 'checkpoint' => $checkpoint, 'action' => $action]
+        );
 
         return [
             'event_artist_id' => $eventArtistId,
             'checkpoint' => $checkpoint,
             'timestamp' => $timestamp,
+            'previous_value' => $previousValue,
             'status' => 'updated',
-            'message' => "Checkpoint '{$checkpoint}' atualizado para {$timestamp}.",
+            'action' => $action,
+            'diff' => [
+                'field' => $checkpoint,
+                'before' => $previousValue,
+                'after' => $timestamp,
+            ],
+            'message' => "Checkpoint '{$checkpoint}' " . ($action === 'created' ? 'criado' : 'atualizado de ' . ($previousValue ?? 'null')) . " para {$timestamp}.",
         ];
     }
 
@@ -2028,7 +2141,7 @@ final class AIToolRuntimeService
             'get_venue_location_context' => ['has_event' => ($result['event'] ?? null) !== null],
             'update_artist_logistics' => ['status' => $result['status'] ?? 'unknown'],
             'create_logistics_item' => ['status' => $result['status'] ?? 'unknown', 'item_type' => $result['item_type'] ?? null],
-            'update_timeline_checkpoint' => ['checkpoint' => $result['checkpoint'] ?? null, 'status' => $result['status'] ?? 'unknown'],
+            'update_timeline_checkpoint' => ['checkpoint' => $result['checkpoint'] ?? null, 'status' => $result['status'] ?? 'unknown', 'action' => $result['action'] ?? null, 'diff' => $result['diff'] ?? null],
             'close_artist_logistics' => ['status' => $result['status'] ?? 'unknown', 'blockers' => $result['blockers'] ?? []],
 
             // Logistics / Management / Bar / Marketing / Contracting

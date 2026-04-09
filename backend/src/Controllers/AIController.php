@@ -6,6 +6,7 @@
 
 require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/src/Services/AgentExecutionService.php';
+require_once BASE_PATH . '/src/Services/AIApprovedExecutionRunnerService.php';
 require_once BASE_PATH . '/src/Services/AIMemoryStoreService.php';
 require_once BASE_PATH . '/src/Services/AIOrchestratorService.php';
 require_once BASE_PATH . '/src/Services/AIRateLimitService.php';
@@ -122,24 +123,40 @@ function approveExecution(int $executionId, array $body): void
         jsonError('Organizer inválido para aprovar execuções de IA.', 403);
     }
 
+    $db = Database::getInstance();
+
     try {
+        // Step 1: Apply approval decision (status update)
         $data = \EnjoyFun\Services\AgentExecutionService::approveExecution(
-            Database::getInstance(),
+            $db,
             $organizerId,
             $executionId,
             $operator,
             $body
+        );
+
+        // Step 2: Execute the approved tool_calls and synthesize final response (S3-01 + S3-02)
+        $data = \EnjoyFun\Services\AIApprovedExecutionRunnerService::runApprovedExecution(
+            $db,
+            $organizerId,
+            $executionId,
+            $operator
         );
     } catch (RuntimeException $e) {
         $statusCode = (int)$e->getCode();
         jsonError($e->getMessage(), $statusCode >= 400 ? $statusCode : 503);
     } catch (Throwable $e) {
         $ref = uniqid();
-        error_log("[AIController] Error approving execution (Ref: {$ref}) - " . $e->getMessage());
+        error_log("[AIController] Error approving/executing execution (Ref: {$ref}) - " . $e->getMessage());
         jsonError("Erro interno ao aprovar execução de IA (Ref: {$ref})", 500);
     }
 
-    jsonSuccess($data, 'Execução de IA aprovada com sucesso.');
+    $finalStatus = $data['execution_status'] ?? 'unknown';
+    $message = $finalStatus === 'succeeded'
+        ? 'Execução de IA aprovada e executada com sucesso.'
+        : 'Execução de IA aprovada, mas a execução das tools falhou.';
+
+    jsonSuccess($data, $message);
 }
 
 function rejectExecution(int $executionId, array $body): void

@@ -1,11 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Clock3, Database, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Clock3, Database, RefreshCw, Banknote } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
+  db,
   getOfflineQueueReconciliationSnapshot,
   getOfflineQueueRetryPolicy,
   requeueOfflineQueueItems,
+  createOfflineQueueRecord,
 } from '../lib/db';
+
+/** Error substring that identifies an offline topup rejected for invalid payment method. */
+const TOPUP_METHOD_ERROR_MARKER = 'nao permitido para recarga offline';
+
+function isTopupMethodFailure(record) {
+  if (record?.payload_type !== 'topup') return false;
+  const error = String(record?.last_error || '').toLowerCase();
+  return error.includes(TOPUP_METHOD_ERROR_MARKER) || error.includes('offline_payment_method_not_allowed');
+}
 
 function formatDateTimeLabel(value) {
   if (!value) {
@@ -38,6 +49,8 @@ function describeOfflineRecord(record) {
       return `Venda offline${eventId > 0 ? ` · evento ${eventId}` : ''}`;
     case 'meal':
       return `Meals offline${eventId > 0 ? ` · evento ${eventId}` : ''}`;
+    case 'topup':
+      return `Recarga offline${eventId > 0 ? ` · evento ${eventId}` : ''}`;
     case 'ticket_validate':
       return `Ticket validate${eventId > 0 ? ` · evento ${eventId}` : ''}`;
     case 'guest_validate':
@@ -65,6 +78,12 @@ function describeOfflineRecordContext(record) {
         payload?.card_id ? `cartao ${formatSnippet(payload.card_id, 8)}` : null,
         Array.isArray(payload?.items) ? `${payload.items.length} item(ns)` : null,
       ].filter(Boolean).join(' · ');
+    case 'topup':
+      return [
+        payload?.payment_method ? `metodo: ${payload.payment_method}` : null,
+        payload?.amount ? `valor: R$ ${Number(payload.amount).toFixed(2)}` : null,
+        payload?.card_id ? `cartao ${formatSnippet(payload.card_id, 8)}` : null,
+      ].filter(Boolean).join(' · ');
     case 'meal':
       return [
         payload?.sector ? `setor ${payload.sector}` : null,
@@ -90,9 +109,52 @@ function describeOfflineRecordContext(record) {
   }
 }
 
+/**
+ * Corrects a failed topup record by changing its payment method to 'cash',
+ * resetting its failure state, and re-enqueuing it for sync.
+ * Does NOT duplicate: updates the existing record in-place via its offline_id.
+ */
+async function correctTopupPaymentMethodAndRequeue(offlineId) {
+  const normalizedId = String(offlineId || '').trim();
+  if (!normalizedId) {
+    throw new Error('offline_id invalido.');
+  }
+
+  const now = new Date().toISOString();
+
+  await db.transaction('rw', db.offlineQueue, async () => {
+    const existing = await db.offlineQueue.get(normalizedId);
+    if (!existing) {
+      throw new Error('Registro offline nao encontrado no dispositivo.');
+    }
+
+    const record = createOfflineQueueRecord(existing);
+
+    // Update payment method to cash and reset failure state
+    const correctedPayload = {
+      ...(record.payload || {}),
+      payment_method: 'cash',
+      _corrected_from_method: record.payload?.payment_method || 'unknown',
+      _corrected_at: now,
+    };
+
+    await db.offlineQueue.put({
+      ...record,
+      payload: correctedPayload,
+      status: 'pending',
+      sync_attempts: 0,
+      last_error: null,
+      last_error_at: null,
+      next_retry_at: now,
+      retried_at: now,
+    });
+  });
+}
+
 export default function OfflineQueueReconciliationPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [actingOn, setActingOn] = useState(null);
   const [snapshot, setSnapshot] = useState({
     pendingCount: 0,
     readyCount: 0,
@@ -150,6 +212,19 @@ export default function OfflineQueueReconciliationPanel() {
     }
   }, [refreshSnapshot]);
 
+  const handleCorrectTopupAndRequeue = useCallback(async (offlineId) => {
+    setActingOn(offlineId);
+    try {
+      await correctTopupPaymentMethodAndRequeue(offlineId);
+      await refreshSnapshot();
+      toast.success('Recarga corrigida para dinheiro e reenfileirada.');
+    } catch (err) {
+      toast.error(err?.message || 'Nao foi possivel corrigir e reenfileirar a recarga.');
+    } finally {
+      setActingOn(null);
+    }
+  }, [refreshSnapshot]);
+
   return (
     <div className="relative">
       <button
@@ -173,12 +248,12 @@ export default function OfflineQueueReconciliationPanel() {
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 top-12 z-30 w-[24rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-800 bg-gray-950/95 p-4 shadow-2xl backdrop-blur">
+        <div className="absolute right-0 top-12 z-30 w-[26rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-800 bg-gray-950/95 p-4 shadow-2xl backdrop-blur">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-white">Reconciliação offline</p>
+              <p className="text-sm font-semibold text-white">Reconciliacao offline</p>
               <p className="mt-1 text-xs text-gray-400">
-                Lote local deste dispositivo com retry automático e reenfileiramento manual.
+                Lote local deste dispositivo com retry automatico e reenfileiramento manual.
               </p>
             </div>
             <button
@@ -235,7 +310,7 @@ export default function OfflineQueueReconciliationPanel() {
             </div>
           ) : null}
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-3 max-h-[24rem] overflow-y-auto">
             {snapshot.failedCount === 0 ? (
               <div className="rounded-xl border border-dashed border-gray-800 p-4 text-sm text-gray-400">
                 Nenhuma falha local aberta neste dispositivo.
@@ -244,11 +319,17 @@ export default function OfflineQueueReconciliationPanel() {
               snapshot.failedRecords.map((record) => {
                 const policy = getOfflineQueueRetryPolicy(record?.payload_type);
                 const attempts = Number(record?.sync_attempts || 0);
+                const isTopupFix = isTopupMethodFailure(record);
+                const isActing = actingOn === record.offline_id;
 
                 return (
                   <div
                     key={record.offline_id}
-                    className="rounded-xl border border-gray-800 bg-gray-900/70 p-3"
+                    className={`rounded-xl border p-3 ${
+                      isTopupFix
+                        ? 'border-amber-800/50 bg-amber-950/20'
+                        : 'border-gray-800 bg-gray-900/70'
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -268,6 +349,30 @@ export default function OfflineQueueReconciliationPanel() {
                     <p className="mt-3 text-xs text-red-200">
                       {record?.last_error || 'Falha local sem detalhe registrado.'}
                     </p>
+
+                    {/* Topup method failure: explain and offer correction */}
+                    {isTopupFix ? (
+                      <div className="mt-3 rounded-lg border border-amber-800/40 bg-amber-950/30 p-3 space-y-2">
+                        <p className="text-xs text-amber-100 leading-relaxed">
+                          <strong>Por que falhou:</strong> Recargas offline so aceitam pagamento em dinheiro.
+                          O metodo original era <strong>"{record?.payload?.payment_method || 'desconhecido'}"</strong>, que
+                          requer conexao com o gateway (pix, cartao, etc).
+                        </p>
+                        <p className="text-xs text-amber-100 leading-relaxed">
+                          <strong>O que fazer:</strong> Clique abaixo para corrigir o metodo para <strong>dinheiro</strong> e
+                          reenfileirar automaticamente. O valor e os demais dados serao mantidos.
+                        </p>
+                        <button
+                          type="button"
+                          disabled={isActing}
+                          onClick={() => handleCorrectTopupAndRequeue(record.offline_id)}
+                          className="inline-flex items-center gap-2 rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-60 transition-colors"
+                        >
+                          <Banknote size={14} />
+                          {isActing ? 'Corrigindo...' : 'Corrigir para dinheiro e reenfileirar'}
+                        </button>
+                      </div>
+                    ) : null}
 
                     <div className="mt-3 flex items-center justify-between gap-3">
                       <span className="text-[11px] text-gray-500">

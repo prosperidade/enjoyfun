@@ -241,6 +241,20 @@ function healthMetrics(): void
         $metrics['total_events'] = null;
     }
 
+    // S1-04: Offline topup rejections (invalid payment method) in last 24h
+    try {
+        $stmt = $db->prepare("
+            SELECT COUNT(*) AS total
+            FROM audit_log
+            WHERE action = 'offline_sync.topup_rejected'
+              AND occurred_at >= NOW() - INTERVAL '24 hours'
+        ");
+        $stmt->execute();
+        $metrics['offline_topup_rejections_24h'] = (int)$stmt->fetchColumn();
+    } catch (\Throwable $e) {
+        $metrics['offline_topup_rejections_24h'] = null;
+    }
+
     jsonSuccess([
         'metrics' => $metrics,
         'timestamp' => date('c'),

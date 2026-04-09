@@ -39,11 +39,27 @@ final class AIOrchestratorService
         $runtime = AIProviderConfigService::resolveRuntime($db, $organizerId, $effectiveProvider);
         $systemPrompt = AIPromptCatalogService::composeSystemPrompt($legacyConfig, $agentExecution, $surface);
         $prompt = AIPromptCatalogService::buildUserPrompt($surface, $context, $question);
-        $toolCatalog = AIToolRuntimeService::buildToolCatalog($context);
+        $toolCatalog = AIToolRuntimeService::buildToolCatalog($context, $db, $organizerId);
         $startedAt = gmdate('Y-m-d H:i:s');
 
+        // ── S2-03: Bounded loop path (behind feature flag) ──
+        $useBoundedLoop = self::isBoundedLoopEnabled();
+
         try {
-            $result = self::requestInsight($runtime, $systemPrompt, $prompt, $toolCatalog);
+            if ($useBoundedLoop) {
+                $result = self::runBoundedInteractionLoop(
+                    $db,
+                    $operator,
+                    $context,
+                    $runtime,
+                    $systemPrompt,
+                    $prompt,
+                    $toolCatalog,
+                    $agentExecution
+                );
+            } else {
+                $result = self::requestInsight($runtime, $systemPrompt, $prompt, $toolCatalog);
+            }
         } catch (\Throwable $e) {
             try {
                 $executionId = self::logExecution(
@@ -78,51 +94,89 @@ final class AIOrchestratorService
             throw $e;
         }
 
-        $approvalPolicy = AIToolApprovalPolicyService::resolveExecutionPolicy([
-            'organizer_id' => $organizerId,
-            'event_id' => isset($context['event_id']) ? (int)$context['event_id'] : null,
-            'requesting_user_id' => isset($operator['id']) ? (int)$operator['id'] : null,
-            'entrypoint' => 'ai/insight',
-            'surface' => $context['surface'] ?? null,
-            'agent_key' => $agentExecution['agent_key'] ?? null,
-            'approval_mode' => $agentExecution['approval_mode'] ?? null,
-            'tool_calls' => $result['tool_calls'] ?? [],
-        ]);
-        $result['tool_calls'] = $approvalPolicy['tool_calls'] ?? [];
-        $result['tool_results'] = [];
+        // ── S2-03: When bounded loop is active, approval policy is already resolved inside the loop ──
+        if ($useBoundedLoop) {
+            $loopMeta = $result['loop_metadata'] ?? [];
+            $loopExitReason = $loopMeta['loop_exit_reason'] ?? 'completed';
 
-        if (
-            ($result['tool_calls'] ?? []) !== []
-            && empty($approvalPolicy['approval_required'])
-            && empty($approvalPolicy['approval_denied'])
-        ) {
-            $toolRuntime = AIToolRuntimeService::executeReadOnlyTools(
-                $db,
-                $operator,
-                $context,
-                (array)($result['tool_calls'] ?? [])
-            );
-            $result['tool_calls'] = $toolRuntime['tool_calls'] ?? [];
-            $result['tool_results'] = $toolRuntime['tool_results'] ?? [];
-            $approvalPolicy['tool_calls'] = $result['tool_calls'];
+            // Build approval policy from loop exit reason
+            $approvalPolicy = [
+                'tool_calls' => $result['tool_calls'] ?? [],
+                'approval_status' => 'not_required',
+                'approval_risk_level' => 'none',
+                'execution_status' => 'succeeded',
+                'message' => null,
+            ];
 
-            if (!empty($toolRuntime['handled_all'])) {
-                $approvalPolicy['tool_runtime_pending'] = false;
-                $approvalPolicy['execution_status'] = 'succeeded';
-                $approvalPolicy['message'] = null;
-                if (trim((string)($result['insight'] ?? '')) === '') {
-                    $result = self::completeInsightAfterReadOnlyTools(
-                        $runtime,
-                        $systemPrompt,
-                        $prompt,
-                        $result,
-                        $toolRuntime
-                    );
-                }
-            } elseif (($toolRuntime['message'] ?? null) !== null) {
+            if ($loopExitReason === 'approval_required') {
+                $approvalPolicy['approval_required'] = true;
+                $approvalPolicy['execution_status'] = 'pending';
+                $approvalPolicy['approval_status'] = 'pending';
+                $approvalPolicy['message'] = 'Tool call requires approval.';
+            } elseif ($loopExitReason === 'approval_denied') {
+                $approvalPolicy['approval_denied'] = true;
+                $approvalPolicy['execution_status'] = 'blocked';
+                $approvalPolicy['approval_status'] = 'rejected';
+                $approvalPolicy['message'] = 'Tool call denied by policy.';
+            } elseif ($loopExitReason === 'write_tools_blocked') {
                 $approvalPolicy['tool_runtime_pending'] = true;
                 $approvalPolicy['execution_status'] = 'pending';
-                $approvalPolicy['message'] = $toolRuntime['message'];
+                $approvalPolicy['message'] = 'Write tools require human approval (bounded loop does not auto-execute writes).';
+            } elseif ($loopExitReason === 'max_steps_reached') {
+                $approvalPolicy['execution_status'] = 'succeeded';
+                $approvalPolicy['message'] = 'Bounded loop reached max steps limit.';
+            } elseif ($loopExitReason === 'token_ceiling_reached') {
+                $approvalPolicy['execution_status'] = 'succeeded';
+                $approvalPolicy['message'] = 'Bounded loop reached token cost ceiling.';
+            }
+        } else {
+            // ── Legacy path (old fallback) ──
+            $approvalPolicy = AIToolApprovalPolicyService::resolveExecutionPolicy([
+                'organizer_id' => $organizerId,
+                'event_id' => isset($context['event_id']) ? (int)$context['event_id'] : null,
+                'requesting_user_id' => isset($operator['id']) ? (int)$operator['id'] : null,
+                'entrypoint' => 'ai/insight',
+                'surface' => $context['surface'] ?? null,
+                'agent_key' => $agentExecution['agent_key'] ?? null,
+                'approval_mode' => $agentExecution['approval_mode'] ?? null,
+                'tool_calls' => $result['tool_calls'] ?? [],
+            ]);
+            $result['tool_calls'] = $approvalPolicy['tool_calls'] ?? [];
+            $result['tool_results'] = [];
+
+            if (
+                ($result['tool_calls'] ?? []) !== []
+                && empty($approvalPolicy['approval_required'])
+                && empty($approvalPolicy['approval_denied'])
+            ) {
+                $toolRuntime = AIToolRuntimeService::executeReadOnlyTools(
+                    $db,
+                    $operator,
+                    $context,
+                    (array)($result['tool_calls'] ?? [])
+                );
+                $result['tool_calls'] = $toolRuntime['tool_calls'] ?? [];
+                $result['tool_results'] = $toolRuntime['tool_results'] ?? [];
+                $approvalPolicy['tool_calls'] = $result['tool_calls'];
+
+                if (!empty($toolRuntime['handled_all'])) {
+                    $approvalPolicy['tool_runtime_pending'] = false;
+                    $approvalPolicy['execution_status'] = 'succeeded';
+                    $approvalPolicy['message'] = null;
+                    if (trim((string)($result['insight'] ?? '')) === '') {
+                        $result = self::completeInsightAfterReadOnlyTools(
+                            $runtime,
+                            $systemPrompt,
+                            $prompt,
+                            $result,
+                            $toolRuntime
+                        );
+                    }
+                } elseif (($toolRuntime['message'] ?? null) !== null) {
+                    $approvalPolicy['tool_runtime_pending'] = true;
+                    $approvalPolicy['execution_status'] = 'pending';
+                    $approvalPolicy['message'] = $toolRuntime['message'];
+                }
             }
         }
 
@@ -180,7 +234,647 @@ final class AIOrchestratorService
             $response['tool_results'] = $result['tool_results'];
         }
 
+        // S2-04: Include loop metadata in response when bounded loop is active
+        if (isset($result['loop_metadata']) && is_array($result['loop_metadata'])) {
+            $response['loop_metadata'] = $result['loop_metadata'];
+        }
+
         return $response;
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  S3-02 — Synthesis after approved execution
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * After executing approved tools, reinject results into canonical message
+     * history and request final synthesis from the provider.
+     *
+     * Uses the same structured history mechanism as the bounded loop (Sprint 2).
+     * Does NOT allow new writes in cascade — tool catalog is empty for synthesis.
+     *
+     * @param PDO   $db
+     * @param int   $organizerId
+     * @param array $execution  The execution record (with provider, model, prompt_preview, context_snapshot, tool_calls)
+     * @param array $toolResults Array of tool result entries from the runner
+     * @return string Final synthesized insight text
+     */
+    public static function synthesizeAfterApprovedExecution(
+        PDO $db,
+        int $organizerId,
+        array $execution,
+        array $toolResults
+    ): string {
+        $provider = $execution['provider'] ?? 'openai';
+        $model = $execution['model'] ?? null;
+
+        // Resolve runtime config for this provider
+        $runtime = AIProviderConfigService::resolveRuntime($db, $organizerId, $provider);
+        if ($model !== null && $model !== '') {
+            $runtime['model'] = $model;
+        }
+
+        // Reconstruct the original prompt from prompt_preview
+        $promptPreview = (string)($execution['prompt_preview'] ?? '');
+        $originalQuestion = $promptPreview;
+        if (str_starts_with($promptPreview, 'Q: ')) {
+            $parts = explode("\n\n", $promptPreview, 2);
+            $originalQuestion = $parts[1] ?? $parts[0];
+        }
+
+        // Build system prompt for synthesis pass
+        $systemPrompt = implode("\n", [
+            'Voce esta em uma passada de sintese final apos execucao de tools aprovadas pelo usuario.',
+            'Responda a pergunta original usando os resultados das tools abaixo.',
+            'Nao proponha novas tool calls.',
+            'Nao invente dados — explicite lacunas quando faltarem evidencias.',
+            'Responda em portugues do Brasil, com foco operacional e objetivo.',
+        ]);
+
+        // Build canonical messages: system + user + assistant (original tool calls) + tool results
+        $messages = self::buildCanonicalMessages($systemPrompt, $originalQuestion);
+
+        // Append original assistant message with the tool calls that were approved
+        $originalToolCalls = $execution['tool_calls'] ?? [];
+        self::appendAssistantMessage($messages, [
+            'insight' => '',
+            'tool_calls' => $originalToolCalls,
+        ]);
+
+        // Append tool result messages into canonical history
+        self::appendToolResultMessages($messages, $toolResults);
+
+        // Request final synthesis — NO tool catalog (prevents cascade writes)
+        $synthesisResult = self::requestInsightWithMessages($runtime, $messages, []);
+
+        $insight = trim((string)($synthesisResult['insight'] ?? ''));
+        if ($insight === '') {
+            throw new RuntimeException('Provider retornou resposta vazia na sintese final.', 502);
+        }
+
+        return $insight;
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  S2-01 — Canonical message model
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Build initial canonical messages array.
+     * Roles: system, user, assistant, tool
+     */
+    private static function buildCanonicalMessages(string $systemPrompt, string $userPrompt): array
+    {
+        return [
+            ['role' => 'system', 'content' => $systemPrompt],
+            ['role' => 'user', 'content' => $userPrompt],
+        ];
+    }
+
+    /**
+     * Append an assistant message (with optional tool_calls) to canonical history.
+     */
+    private static function appendAssistantMessage(array &$messages, array $result): void
+    {
+        $entry = [
+            'role' => 'assistant',
+            'content' => $result['insight'] ?? '',
+        ];
+        if (!empty($result['tool_calls'])) {
+            $entry['tool_calls'] = $result['tool_calls'];
+        }
+        $messages[] = $entry;
+    }
+
+    /**
+     * Append tool result messages to canonical history.
+     */
+    private static function appendToolResultMessages(array &$messages, array $toolResults): void
+    {
+        foreach ($toolResults as $toolResult) {
+            if (!is_array($toolResult)) {
+                continue;
+            }
+            $messages[] = [
+                'role' => 'tool',
+                'tool_call_id' => $toolResult['tool_call_id'] ?? ($toolResult['id'] ?? null),
+                'tool_name' => $toolResult['tool_name'] ?? null,
+                'content' => is_array($toolResult['result'] ?? null)
+                    ? json_encode($toolResult['result'], JSON_UNESCAPED_UNICODE)
+                    : (string)($toolResult['result'] ?? $toolResult['error_message'] ?? ''),
+                'status' => $toolResult['status'] ?? 'unknown',
+            ];
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  S2-02 — Provider-aware serialization of canonical messages
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Serialize canonical messages to OpenAI chat format.
+     */
+    private static function serializeMessagesForOpenAi(array $messages): array
+    {
+        $serialized = [];
+        foreach ($messages as $msg) {
+            $role = $msg['role'] ?? 'user';
+
+            if ($role === 'system' || $role === 'user') {
+                $serialized[] = ['role' => $role, 'content' => $msg['content'] ?? ''];
+                continue;
+            }
+
+            if ($role === 'assistant') {
+                $entry = ['role' => 'assistant'];
+                if (!empty($msg['tool_calls'])) {
+                    $oaiToolCalls = [];
+                    foreach ($msg['tool_calls'] as $tc) {
+                        $args = $tc['arguments'] ?? [];
+                        $oaiToolCalls[] = [
+                            'id' => $tc['id'] ?? ('call_' . md5(($tc['tool_name'] ?? '') . json_encode($args))),
+                            'type' => 'function',
+                            'function' => [
+                                'name' => $tc['tool_name'] ?? '',
+                                'arguments' => is_string($args) ? $args : json_encode($args, JSON_UNESCAPED_UNICODE),
+                            ],
+                        ];
+                    }
+                    $entry['tool_calls'] = $oaiToolCalls;
+                    $entry['content'] = ($msg['content'] ?? '') !== '' ? $msg['content'] : null;
+                } else {
+                    $entry['content'] = $msg['content'] ?? '';
+                }
+                $serialized[] = $entry;
+                continue;
+            }
+
+            if ($role === 'tool') {
+                $serialized[] = [
+                    'role' => 'tool',
+                    'tool_call_id' => $msg['tool_call_id'] ?? '',
+                    'content' => $msg['content'] ?? '',
+                ];
+                continue;
+            }
+        }
+        return $serialized;
+    }
+
+    /**
+     * Serialize canonical messages to Claude Messages API format.
+     * Returns ['system' => string, 'messages' => array].
+     */
+    private static function serializeMessagesForClaude(array $messages): array
+    {
+        $system = '';
+        $claudeMessages = [];
+
+        foreach ($messages as $msg) {
+            $role = $msg['role'] ?? 'user';
+
+            if ($role === 'system') {
+                $system = $msg['content'] ?? '';
+                continue;
+            }
+
+            if ($role === 'user') {
+                $claudeMessages[] = ['role' => 'user', 'content' => $msg['content'] ?? ''];
+                continue;
+            }
+
+            if ($role === 'assistant') {
+                $blocks = [];
+                if (($msg['content'] ?? '') !== '') {
+                    $blocks[] = ['type' => 'text', 'text' => $msg['content']];
+                }
+                if (!empty($msg['tool_calls'])) {
+                    foreach ($msg['tool_calls'] as $tc) {
+                        $blocks[] = [
+                            'type' => 'tool_use',
+                            'id' => $tc['id'] ?? ('toolu_' . md5(($tc['tool_name'] ?? '') . json_encode($tc['arguments'] ?? []))),
+                            'name' => $tc['tool_name'] ?? '',
+                            'input' => is_array($tc['arguments'] ?? null) ? $tc['arguments'] : [],
+                        ];
+                    }
+                }
+                if ($blocks !== []) {
+                    $claudeMessages[] = ['role' => 'assistant', 'content' => $blocks];
+                }
+                continue;
+            }
+
+            if ($role === 'tool') {
+                $claudeMessages[] = [
+                    'role' => 'user',
+                    'content' => [
+                        [
+                            'type' => 'tool_result',
+                            'tool_use_id' => $msg['tool_call_id'] ?? '',
+                            'content' => $msg['content'] ?? '',
+                        ],
+                    ],
+                ];
+                continue;
+            }
+        }
+
+        return ['system' => $system, 'messages' => $claudeMessages];
+    }
+
+    /**
+     * Serialize canonical messages to Gemini contents format.
+     * Returns ['system_instruction' => array, 'contents' => array].
+     */
+    private static function serializeMessagesForGemini(array $messages): array
+    {
+        $systemText = '';
+        $contents = [];
+
+        foreach ($messages as $msg) {
+            $role = $msg['role'] ?? 'user';
+
+            if ($role === 'system') {
+                $systemText = $msg['content'] ?? '';
+                continue;
+            }
+
+            if ($role === 'user') {
+                $contents[] = ['role' => 'user', 'parts' => [['text' => $msg['content'] ?? '']]];
+                continue;
+            }
+
+            if ($role === 'assistant') {
+                $parts = [];
+                if (($msg['content'] ?? '') !== '') {
+                    $parts[] = ['text' => $msg['content']];
+                }
+                if (!empty($msg['tool_calls'])) {
+                    foreach ($msg['tool_calls'] as $tc) {
+                        $parts[] = [
+                            'functionCall' => [
+                                'name' => $tc['tool_name'] ?? '',
+                                'args' => is_array($tc['arguments'] ?? null) ? $tc['arguments'] : [],
+                            ],
+                        ];
+                    }
+                }
+                if ($parts !== []) {
+                    $contents[] = ['role' => 'model', 'parts' => $parts];
+                }
+                continue;
+            }
+
+            if ($role === 'tool') {
+                $responseData = json_decode($msg['content'] ?? '{}', true);
+                if (!is_array($responseData)) {
+                    $responseData = ['text' => $msg['content'] ?? ''];
+                }
+                $contents[] = [
+                    'role' => 'function',
+                    'parts' => [
+                        [
+                            'functionResponse' => [
+                                'name' => $msg['tool_name'] ?? '',
+                                'response' => $responseData,
+                            ],
+                        ],
+                    ],
+                ];
+                continue;
+            }
+        }
+
+        return [
+            'system_instruction' => ['parts' => [['text' => $systemText]]],
+            'contents' => $contents,
+        ];
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  S2-03 — Bounded interaction loop (feature flag: AI_BOUNDED_LOOP_V2)
+    // ──────────────────────────────────────────────────────────────
+
+    private static function isBoundedLoopEnabled(): bool
+    {
+        $raw = strtolower(trim((string)(getenv('AI_BOUNDED_LOOP_V2') ?: '0')));
+        return in_array($raw, ['1', 'true', 'yes', 'on'], true);
+    }
+
+    /**
+     * Bounded interaction loop: provider call → policy → execute read-only tools → append → repeat.
+     * Max steps, cost ceiling, NEVER auto-executes writes.
+     *
+     * Returns the same shape as the old flow: ['insight', 'provider', 'model', 'tool_calls', 'tool_results', 'usage', 'request_duration_ms', 'loop_metadata']
+     */
+    private static function runBoundedInteractionLoop(
+        PDO $db,
+        array $operator,
+        array $context,
+        array $runtime,
+        string $systemPrompt,
+        string $prompt,
+        array $toolCatalog,
+        ?array $agentExecution,
+        int $maxSteps = 3,
+        int $maxTotalTokens = 50000
+    ): array {
+        $messages = self::buildCanonicalMessages($systemPrompt, $prompt);
+        $totalUsage = ['prompt_tokens' => 0, 'completion_tokens' => 0];
+        $totalDurationMs = 0;
+        $allToolResults = [];
+        $toolRoundtrips = 0;
+        $exitReason = 'completed';
+        $lastResult = null;
+        $organizerId = self::resolveOrganizerId($operator, $context);
+
+        for ($step = 1; $step <= $maxSteps; $step++) {
+            // Cost ceiling check
+            $currentTokens = $totalUsage['prompt_tokens'] + $totalUsage['completion_tokens'];
+            if ($currentTokens >= $maxTotalTokens) {
+                $exitReason = 'token_ceiling_reached';
+                break;
+            }
+
+            // Call provider with full message history
+            $stepResult = self::requestInsightWithMessages($runtime, $messages, $toolCatalog);
+            $totalUsage = self::mergeUsage($totalUsage, (array)($stepResult['usage'] ?? []));
+            $totalDurationMs += max(0, (int)($stepResult['request_duration_ms'] ?? 0));
+            $lastResult = $stepResult;
+
+            // Append assistant response to canonical history
+            self::appendAssistantMessage($messages, $stepResult);
+
+            $stepToolCalls = $stepResult['tool_calls'] ?? [];
+
+            // No tool calls → final response, we're done
+            if ($stepToolCalls === []) {
+                $exitReason = 'completed';
+                break;
+            }
+
+            // Apply approval policy to classify tools
+            $approvalPolicy = AIToolApprovalPolicyService::resolveExecutionPolicy([
+                'organizer_id' => $organizerId,
+                'event_id' => isset($context['event_id']) ? (int)$context['event_id'] : null,
+                'requesting_user_id' => isset($operator['id']) ? (int)$operator['id'] : null,
+                'entrypoint' => 'ai/insight',
+                'surface' => $context['surface'] ?? null,
+                'agent_key' => $agentExecution['agent_key'] ?? null,
+                'approval_mode' => $agentExecution['approval_mode'] ?? null,
+                'tool_calls' => $stepToolCalls,
+            ]);
+
+            // If any tool requires approval or is denied, stop the loop
+            if (!empty($approvalPolicy['approval_required']) || !empty($approvalPolicy['approval_denied'])) {
+                $exitReason = !empty($approvalPolicy['approval_required']) ? 'approval_required' : 'approval_denied';
+                $lastResult['tool_calls'] = $approvalPolicy['tool_calls'] ?? $stepToolCalls;
+                break;
+            }
+
+            // Filter to read-only tools only — NEVER auto-execute writes
+            $readOnlyToolCalls = array_values(array_filter(
+                $approvalPolicy['tool_calls'] ?? $stepToolCalls,
+                static fn(array $tc): bool => ($tc['risk_level'] ?? 'read') === 'read' || ($tc['type'] ?? 'read') === 'read'
+            ));
+
+            if ($readOnlyToolCalls === []) {
+                // All tools are writes, stop with what we have
+                $exitReason = 'write_tools_blocked';
+                $lastResult['tool_calls'] = $approvalPolicy['tool_calls'] ?? $stepToolCalls;
+                break;
+            }
+
+            // Execute read-only tools
+            $toolRuntime = AIToolRuntimeService::executeReadOnlyTools($db, $operator, $context, $readOnlyToolCalls);
+            $stepToolResults = $toolRuntime['tool_results'] ?? [];
+            $toolRoundtrips++;
+
+            // Append tool results to canonical history
+            self::appendToolResultMessages($messages, $stepToolResults);
+            $allToolResults = array_merge($allToolResults, $stepToolResults);
+
+            // Update tool calls with runtime info
+            $lastResult['tool_calls'] = $toolRuntime['tool_calls'] ?? $readOnlyToolCalls;
+
+            // If this is the last allowed step and tools were executed, mark termination
+            if ($step === $maxSteps) {
+                $exitReason = 'max_steps_reached';
+            }
+        }
+
+        // Build final result
+        $finalResult = $lastResult ?? [
+            'provider' => $runtime['provider'] ?? 'openai',
+            'model' => $runtime['model'] ?? '',
+            'insight' => '',
+            'tool_calls' => [],
+        ];
+
+        $finalResult['usage'] = $totalUsage;
+        $finalResult['request_duration_ms'] = $totalDurationMs;
+        $finalResult['tool_results'] = $allToolResults;
+        $finalResult['loop_metadata'] = [
+            'loop_step_count' => min($step ?? 1, $maxSteps),
+            'loop_exit_reason' => $exitReason,
+            'tool_roundtrips' => $toolRoundtrips,
+            'total_tokens' => $totalUsage['prompt_tokens'] + $totalUsage['completion_tokens'],
+        ];
+
+        return $finalResult;
+    }
+
+    /**
+     * Call provider using full canonical messages (multi-turn).
+     * Delegates to provider-specific serializers.
+     */
+    private static function requestInsightWithMessages(array $runtime, array $messages, array $toolCatalog = []): array
+    {
+        return match ($runtime['provider'] ?? 'openai') {
+            'gemini' => self::requestGeminiInsightWithMessages($runtime, $messages, $toolCatalog),
+            'claude' => self::requestClaudeInsightWithMessages($runtime, $messages, $toolCatalog),
+            default => self::requestOpenAiInsightWithMessages($runtime, $messages, $toolCatalog),
+        };
+    }
+
+    private static function requestOpenAiInsightWithMessages(array $runtime, array $messages, array $toolCatalog = []): array
+    {
+        $apiKey = trim((string)($runtime['api_key'] ?? ''));
+        if ($apiKey === '') {
+            throw new RuntimeException('API Key da OpenAI não configurada no servidor (.env).', 503);
+        }
+
+        $model = trim((string)($runtime['model'] ?? 'gpt-4o-mini'));
+        $baseUrl = rtrim((string)($runtime['base_url'] ?? 'https://api.openai.com/v1'), '/');
+
+        $payloadData = [
+            'model' => $model,
+            'messages' => self::serializeMessagesForOpenAi($messages),
+            'temperature' => 0.4,
+        ];
+        $openAiTools = AIToolRuntimeService::buildOpenAiToolDefinitions($toolCatalog);
+        if ($openAiTools !== []) {
+            $payloadData['tools'] = $openAiTools;
+            $payloadData['tool_choice'] = 'auto';
+        }
+        $payload = json_encode($payloadData, JSON_UNESCAPED_UNICODE);
+
+        $startMs = (int)round(microtime(true) * 1000);
+        $response = self::executeJsonRequest(
+            $baseUrl . '/chat/completions',
+            (string)$payload,
+            ['Content-Type: application/json', "Authorization: Bearer {$apiKey}"],
+            'OpenAI'
+        );
+        $endMs = (int)round(microtime(true) * 1000);
+
+        $decoded = json_decode($response['body'], true);
+        $message = is_array($decoded['choices'][0]['message'] ?? null) ? $decoded['choices'][0]['message'] : [];
+        $toolCalls = self::extractOpenAiToolCalls($message);
+        $insight = self::flattenOpenAiContent($message['content'] ?? null);
+
+        return [
+            'provider' => 'openai',
+            'model' => $model,
+            'insight' => $insight,
+            'tool_calls' => $toolCalls,
+            'usage' => [
+                'prompt_tokens' => (int)($decoded['usage']['prompt_tokens'] ?? 0),
+                'completion_tokens' => (int)($decoded['usage']['completion_tokens'] ?? 0),
+            ],
+            'request_duration_ms' => max(0, $endMs - $startMs),
+        ];
+    }
+
+    private static function requestGeminiInsightWithMessages(array $runtime, array $messages, array $toolCatalog = []): array
+    {
+        $apiKey = trim((string)($runtime['api_key'] ?? ''));
+        if ($apiKey === '') {
+            throw new RuntimeException('API Key do Gemini não configurada no servidor (.env).', 503);
+        }
+
+        $model = trim((string)($runtime['model'] ?? 'gemini-2.5-flash'));
+        $baseUrl = rtrim((string)($runtime['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta'), '/');
+        $url = $baseUrl . '/models/' . rawurlencode($model) . ':generateContent?key=' . rawurlencode($apiKey);
+
+        $serialized = self::serializeMessagesForGemini($messages);
+        $payloadData = [
+            'system_instruction' => $serialized['system_instruction'],
+            'contents' => $serialized['contents'],
+            'generationConfig' => [
+                'temperature' => 0.4,
+                'response_mime_type' => 'text/plain',
+            ],
+        ];
+        $geminiTools = AIToolRuntimeService::buildGeminiToolDefinitions($toolCatalog);
+        if ($geminiTools !== []) {
+            $payloadData['tools'] = $geminiTools;
+        }
+        $payload = json_encode($payloadData, JSON_UNESCAPED_UNICODE);
+
+        $startMs = (int)round(microtime(true) * 1000);
+        $response = self::executeJsonRequest($url, (string)$payload, ['Content-Type: application/json'], 'Gemini');
+        $endMs = (int)round(microtime(true) * 1000);
+
+        $decoded = json_decode($response['body'], true);
+        $parts = is_array($decoded['candidates'][0]['content']['parts'] ?? null) ? $decoded['candidates'][0]['content']['parts'] : [];
+        $toolCalls = self::extractGeminiToolCalls($parts);
+        $insight = trim(implode("\n\n", array_values(array_filter(array_map(
+            static fn(array $part): string => trim((string)($part['text'] ?? '')),
+            array_filter($parts, 'is_array')
+        )))));
+
+        $promptTokens = (int)($decoded['usageMetadata']['promptTokenCount'] ?? 0);
+        $completionTokens = (int)($decoded['usageMetadata']['candidatesTokenCount'] ?? 0);
+        if ($completionTokens <= 0) {
+            $totalTokens = (int)($decoded['usageMetadata']['totalTokenCount'] ?? 0);
+            $completionTokens = max(0, $totalTokens - $promptTokens);
+        }
+
+        return [
+            'provider' => 'gemini',
+            'model' => $model,
+            'insight' => $insight,
+            'tool_calls' => $toolCalls,
+            'usage' => ['prompt_tokens' => $promptTokens, 'completion_tokens' => $completionTokens],
+            'request_duration_ms' => max(0, $endMs - $startMs),
+        ];
+    }
+
+    private static function requestClaudeInsightWithMessages(array $runtime, array $messages, array $toolCatalog = []): array
+    {
+        $apiKey = trim((string)($runtime['api_key'] ?? ''));
+        if ($apiKey === '') {
+            throw new RuntimeException('API Key do Claude não configurada no servidor (.env).', 503);
+        }
+
+        $model = trim((string)($runtime['model'] ?? 'claude-3-5-sonnet-latest'));
+        $baseUrl = trim((string)($runtime['base_url'] ?? ''));
+        if ($baseUrl === '') {
+            $url = 'https://api.anthropic.com/v1/messages';
+        } else {
+            $url = rtrim($baseUrl, '/');
+            if (!str_ends_with(strtolower($url), '/messages')) {
+                $url .= '/messages';
+            }
+        }
+
+        $serialized = self::serializeMessagesForClaude($messages);
+        $payloadData = [
+            'model' => $model,
+            'system' => $serialized['system'],
+            'messages' => $serialized['messages'],
+            'max_tokens' => 800,
+            'temperature' => 0.4,
+        ];
+        $claudeTools = AIToolRuntimeService::buildClaudeToolDefinitions($toolCatalog);
+        if ($claudeTools !== []) {
+            $payloadData['tools'] = $claudeTools;
+        }
+        $payload = json_encode($payloadData, JSON_UNESCAPED_UNICODE);
+
+        $startMs = (int)round(microtime(true) * 1000);
+        $response = self::executeJsonRequest(
+            $url,
+            (string)$payload,
+            ['Content-Type: application/json', "x-api-key: {$apiKey}", 'anthropic-version: 2023-06-01'],
+            'Claude'
+        );
+        $endMs = (int)round(microtime(true) * 1000);
+
+        $decoded = json_decode($response['body'], true);
+        $blocks = is_array($decoded['content'] ?? null) ? $decoded['content'] : [];
+        $textParts = [];
+        $toolCalls = [];
+        foreach ($blocks as $block) {
+            if (!is_array($block)) {
+                continue;
+            }
+            if (($block['type'] ?? null) === 'tool_use') {
+                $toolCalls[] = [
+                    'id' => $block['id'] ?? null,
+                    'tool_name' => $block['name'] ?? null,
+                    'arguments' => is_array($block['input'] ?? null) ? $block['input'] : [],
+                ];
+                continue;
+            }
+            $text = trim((string)($block['text'] ?? ''));
+            if ($text !== '') {
+                $textParts[] = $text;
+            }
+        }
+
+        return [
+            'provider' => 'claude',
+            'model' => $model,
+            'insight' => trim(implode("\n\n", $textParts)),
+            'tool_calls' => $toolCalls,
+            'usage' => [
+                'prompt_tokens' => (int)($decoded['usage']['input_tokens'] ?? 0),
+                'completion_tokens' => (int)($decoded['usage']['output_tokens'] ?? 0),
+            ],
+            'request_duration_ms' => max(0, $endMs - $startMs),
+        ];
     }
 
     private static function resolveOrganizerId(array $operator, array $context): int
@@ -371,13 +1065,41 @@ final class AIOrchestratorService
             'execution_status' => $executionStatus,
             'prompt_preview' => "Q: {$question}\n\n{$prompt}",
             'response_preview' => $result['insight'] ?? null,
-            'context_snapshot' => $context,
+            'context_snapshot' => self::enrichContextSnapshot($context, $result),
             'tool_calls' => $result['tool_calls'] ?? [],
             'error_message' => $errorMessage,
             'request_duration_ms' => (int)($result['request_duration_ms'] ?? 0),
             'created_at' => $startedAt,
             'completed_at' => gmdate('Y-m-d H:i:s'),
         ]);
+    }
+
+    /**
+     * S2-04: Enrich context_snapshot with loop traceability data.
+     * Adds loop_step_count, loop_exit_reason, tool_roundtrips when available.
+     * No migration required — stored in existing context_snapshot_json column.
+     */
+    private static function enrichContextSnapshot(array $context, ?array $result): array
+    {
+        if ($result === null) {
+            return $context;
+        }
+
+        $loopMeta = $result['loop_metadata'] ?? null;
+        if (!is_array($loopMeta) || $loopMeta === []) {
+            return $context;
+        }
+
+        $enriched = $context;
+        $enriched['loop_step_count'] = (int)($loopMeta['loop_step_count'] ?? 0);
+        $enriched['loop_exit_reason'] = (string)($loopMeta['loop_exit_reason'] ?? 'unknown');
+        $enriched['tool_roundtrips'] = (int)($loopMeta['tool_roundtrips'] ?? 0);
+
+        if (isset($loopMeta['total_tokens'])) {
+            $enriched['loop_total_tokens'] = (int)$loopMeta['total_tokens'];
+        }
+
+        return $enriched;
     }
 
     private static function buildNonTerminalResponse(?array $result, ?array $agentExecution, array $approvalPolicy, ?int $executionId): array
