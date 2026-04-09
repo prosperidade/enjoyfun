@@ -10,6 +10,12 @@ import {
   MessageSquare,
   Save,
   Zap,
+  MicVocal,
+  Plane,
+  Database,
+  PenLine,
+  Image,
+  FileSpreadsheet,
 } from "lucide-react";
 import AIBlueprintWorkbench from "../components/AIBlueprintWorkbench";
 import AIControlCenter from "../components/AIControlCenter";
@@ -69,6 +75,54 @@ const AGENT_PRESENTATION = {
     example:
       "Consolide os sinais de participantes e operacao para identificar os 3 problemas mais recorrentes.",
   },
+  data_analyst: {
+    icon: Database,
+    color: "from-cyan-700 to-blue-700",
+    border: "border-cyan-800/40",
+    emoji: "DATA",
+    example:
+      "Cruze dados de vendas, ingressos e workforce para detectar padroes e anomalias do evento.",
+  },
+  content: {
+    icon: PenLine,
+    color: "from-fuchsia-700 to-pink-700",
+    border: "border-fuchsia-800/40",
+    emoji: "TXT",
+    example:
+      "Crie um post para Instagram anunciando o line-up do evento com senso de urgencia.",
+  },
+  media: {
+    icon: Image,
+    color: "from-orange-700 to-red-700",
+    border: "border-orange-800/40",
+    emoji: "IMG",
+    example:
+      "Gere um prompt de imagem para o banner do evento e as especificacoes de tamanho.",
+  },
+  documents: {
+    icon: FileSpreadsheet,
+    color: "from-lime-700 to-green-700",
+    border: "border-lime-800/40",
+    emoji: "DOC",
+    example:
+      "Leia a planilha de custos que subi e organize em categorias financeiras com pendencias.",
+  },
+  artists: {
+    icon: MicVocal,
+    color: "from-emerald-700 to-green-700",
+    border: "border-emerald-800/40",
+    emoji: "ART",
+    example:
+      "Analise a logistica de todos os artistas: alertas criticos, custos, hotel e transfers pendentes.",
+  },
+  artists_travel: {
+    icon: Plane,
+    color: "from-sky-700 to-blue-700",
+    border: "border-sky-800/40",
+    emoji: "TRV",
+    example:
+      "Organize passagens, hoteis e transfers de cada artista. Mostre o checklist de fechamento logistico.",
+  },
 };
 
 const AGENT_ORDER = [
@@ -78,6 +132,12 @@ const AGENT_ORDER = [
   "bar",
   "contracting",
   "feedback",
+  "data_analyst",
+  "content",
+  "media",
+  "documents",
+  "artists",
+  "artists_travel",
 ];
 
 const APPROVAL_OPTIONS = [

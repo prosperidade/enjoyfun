@@ -1,0 +1,369 @@
+<?php
+
+require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
+require_once BASE_PATH . '/src/Helpers/Response.php';
+
+use EnjoyFun\Middleware\AuthMiddleware;
+
+function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
+{
+    global $db;
+
+    match (true) {
+        $method === 'GET' && $id === null => orgFileList($db, $query),
+        $method === 'POST' && $id === null => orgFileUpload($db),
+        $method === 'GET' && is_numeric($id) && $sub === null => orgFileGet($db, (int)$id),
+        $method === 'GET' && is_numeric($id) && $sub === 'parsed' => orgFileGetParsed($db, (int)$id),
+        $method === 'POST' && is_numeric($id) && $sub === 'parse' => orgFileReparse($db, (int)$id),
+        $method === 'DELETE' && is_numeric($id) => orgFileDelete($db, (int)$id),
+        default => jsonError('Endpoint nao encontrado em organizer-files.', 404),
+    };
+}
+
+function orgFileList(PDO $db, array $query): void
+{
+    $operator = AuthMiddleware::requireAuth($db, ['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+
+    $conditions = ['organizer_id = :org'];
+    $params = [':org' => $organizerId];
+
+    $eventId = (int)($query['event_id'] ?? 0);
+    if ($eventId > 0) {
+        $conditions[] = 'event_id = :evt';
+        $params[':evt'] = $eventId;
+    }
+
+    $category = strtolower(trim((string)($query['category'] ?? '')));
+    if ($category !== '') {
+        $conditions[] = 'category = :cat';
+        $params[':cat'] = $category;
+    }
+
+    $where = implode(' AND ', $conditions);
+    $stmt = $db->prepare("
+        SELECT id, event_id, category, file_type, original_name, mime_type, file_size_bytes,
+               parsed_status, parsed_at, notes, uploaded_by_user_id, created_at
+        FROM public.organizer_files
+        WHERE {$where}
+        ORDER BY created_at DESC
+        LIMIT 50
+    ");
+    $stmt->execute($params);
+
+    jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+}
+
+function orgFileUpload(PDO $db): void
+{
+    $operator = AuthMiddleware::requireAuth($db, ['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    $userId = (int)($operator['id'] ?? $operator['sub'] ?? 0);
+
+    if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+        jsonError('Arquivo nao recebido ou com erro de upload.', 422);
+    }
+
+    $file = $_FILES['file'];
+    $originalName = basename($file['name']);
+    $mimeType = $file['type'] ?? '';
+    $fileSize = (int)($file['size'] ?? 0);
+
+    // Validate size (max 20MB)
+    if ($fileSize > 20 * 1024 * 1024) {
+        jsonError('Arquivo excede o limite de 20MB.', 422);
+    }
+
+    // Validate MIME
+    $allowedMimes = [
+        'text/csv', 'text/plain',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/pdf',
+        'application/json',
+        'image/jpeg', 'image/png', 'image/webp',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if ($mimeType !== '' && !in_array($mimeType, $allowedMimes, true)) {
+        jsonError("Tipo de arquivo nao permitido: {$mimeType}.", 422);
+    }
+
+    // Determine file type and category
+    $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+    $fileType = match ($ext) {
+        'csv' => 'csv',
+        'xls', 'xlsx' => 'excel',
+        'pdf' => 'pdf',
+        'json' => 'json',
+        'jpg', 'jpeg', 'png', 'webp' => 'image',
+        'doc', 'docx' => 'document',
+        default => 'other',
+    };
+
+    $category = strtolower(trim((string)($_POST['category'] ?? 'general')));
+    $validCategories = ['general', 'financial', 'contracts', 'logistics', 'marketing', 'operational', 'reports', 'spreadsheets'];
+    if (!in_array($category, $validCategories, true)) {
+        $category = 'general';
+    }
+
+    $eventId = (int)($_POST['event_id'] ?? 0);
+    $notes = trim((string)($_POST['notes'] ?? ''));
+
+    // Save file
+    $uploadDir = BASE_PATH . '/public/uploads/organizer_files/' . $organizerId;
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0775, true);
+    }
+
+    $safeFilename = sprintf('org_%d_%s_%s.%s', $organizerId, date('Ymd_His'), bin2hex(random_bytes(4)), $ext);
+    $storagePath = '/uploads/organizer_files/' . $organizerId . '/' . $safeFilename;
+    $fullPath = $uploadDir . '/' . $safeFilename;
+
+    if (!move_uploaded_file($file['tmp_name'], $fullPath)) {
+        jsonError('Falha ao salvar o arquivo.', 500);
+    }
+
+    // Insert record
+    $stmt = $db->prepare("
+        INSERT INTO public.organizer_files (organizer_id, event_id, category, file_type, original_name, storage_path, mime_type, file_size_bytes, notes, uploaded_by_user_id, parsed_status)
+        VALUES (:org, :evt, :cat, :ft, :name, :path, :mime, :size, :notes, :uid, 'pending')
+        RETURNING id
+    ");
+    $stmt->execute([
+        ':org' => $organizerId,
+        ':evt' => $eventId > 0 ? $eventId : null,
+        ':cat' => $category,
+        ':ft' => $fileType,
+        ':name' => $originalName,
+        ':path' => $storagePath,
+        ':mime' => $mimeType,
+        ':size' => $fileSize,
+        ':notes' => $notes !== '' ? $notes : null,
+        ':uid' => $userId > 0 ? $userId : null,
+    ]);
+    $fileId = (int)$stmt->fetchColumn();
+
+    // Auto-parse CSV and JSON
+    if (in_array($fileType, ['csv', 'json'], true)) {
+        orgFileAutoparse($db, $fileId, $fullPath, $fileType);
+    }
+
+    // Reload record
+    $stmt = $db->prepare("SELECT id, event_id, category, file_type, original_name, mime_type, file_size_bytes, parsed_status, parsed_at, notes, created_at FROM public.organizer_files WHERE id = :id AND organizer_id = :org LIMIT 1");
+    $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+    $record = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    jsonSuccess($record, 'Arquivo enviado com sucesso.', 201);
+}
+
+function orgFileGet(PDO $db, int $fileId): void
+{
+    $operator = AuthMiddleware::requireAuth($db, ['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+
+    $stmt = $db->prepare("
+        SELECT id, event_id, category, file_type, original_name, storage_path, mime_type, file_size_bytes,
+               parsed_status, parsed_at, parsed_error, notes, uploaded_by_user_id, created_at, updated_at
+        FROM public.organizer_files
+        WHERE id = :id AND organizer_id = :org
+        LIMIT 1
+    ");
+    $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+    $file = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$file) {
+        jsonError('Arquivo nao encontrado.', 404);
+    }
+
+    jsonSuccess($file);
+}
+
+function orgFileGetParsed(PDO $db, int $fileId): void
+{
+    $operator = AuthMiddleware::requireAuth($db, ['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+
+    $stmt = $db->prepare("
+        SELECT id, original_name, file_type, parsed_status, parsed_data, parsed_at, parsed_error
+        FROM public.organizer_files
+        WHERE id = :id AND organizer_id = :org
+        LIMIT 1
+    ");
+    $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+    $file = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$file) {
+        jsonError('Arquivo nao encontrado.', 404);
+    }
+
+    $parsedData = is_string($file['parsed_data'] ?? null) ? json_decode($file['parsed_data'], true) : ($file['parsed_data'] ?? null);
+    $file['parsed_data'] = $parsedData;
+
+    jsonSuccess($file);
+}
+
+function orgFileReparse(PDO $db, int $fileId): void
+{
+    $operator = AuthMiddleware::requireAuth($db, ['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+
+    $stmt = $db->prepare("SELECT storage_path, file_type FROM public.organizer_files WHERE id = :id AND organizer_id = :org LIMIT 1");
+    $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+    $file = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$file) {
+        jsonError('Arquivo nao encontrado.', 404);
+    }
+
+    $fullPath = BASE_PATH . '/public' . $file['storage_path'];
+    if (!file_exists($fullPath)) {
+        jsonError('Arquivo fisico nao encontrado no servidor.', 404);
+    }
+
+    orgFileAutoparse($db, $fileId, $fullPath, $file['file_type']);
+
+    $stmt = $db->prepare("SELECT parsed_status, parsed_at, parsed_error FROM public.organizer_files WHERE id = :id LIMIT 1");
+    $stmt->execute([':id' => $fileId]);
+
+    jsonSuccess($stmt->fetch(PDO::FETCH_ASSOC), 'Re-parsing concluido.');
+}
+
+function orgFileDelete(PDO $db, int $fileId): void
+{
+    $operator = AuthMiddleware::requireAuth($db, ['admin', 'organizer']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+
+    $stmt = $db->prepare("SELECT storage_path FROM public.organizer_files WHERE id = :id AND organizer_id = :org LIMIT 1");
+    $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+    $file = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$file) {
+        jsonError('Arquivo nao encontrado.', 404);
+    }
+
+    // Delete physical file
+    $fullPath = BASE_PATH . '/public' . ($file['storage_path'] ?? '');
+    if ($fullPath !== '' && file_exists($fullPath)) {
+        @unlink($fullPath);
+    }
+
+    $db->prepare("DELETE FROM public.organizer_files WHERE id = :id AND organizer_id = :org")->execute([':id' => $fileId, ':org' => $organizerId]);
+
+    jsonSuccess(null, 'Arquivo removido.');
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Auto-parse engine (CSV / JSON)
+// ──────────────────────────────────────────────────────────────
+
+function orgFileAutoparse(PDO $db, int $fileId, string $fullPath, string $fileType): void
+{
+    $db->prepare("UPDATE public.organizer_files SET parsed_status = 'parsing', updated_at = NOW() WHERE id = :id")->execute([':id' => $fileId]);
+
+    try {
+        $parsedData = match ($fileType) {
+            'csv' => orgFileParseCsv($fullPath),
+            'json' => orgFileParseJson($fullPath),
+            default => null,
+        };
+
+        if ($parsedData === null) {
+            $db->prepare("UPDATE public.organizer_files SET parsed_status = 'skipped', parsed_error = 'Tipo de arquivo nao suportado para parsing automatico.', updated_at = NOW() WHERE id = :id")->execute([':id' => $fileId]);
+            return;
+        }
+
+        $db->prepare("UPDATE public.organizer_files SET parsed_status = 'parsed', parsed_data = :data, parsed_at = NOW(), parsed_error = NULL, updated_at = NOW() WHERE id = :id")
+           ->execute([':data' => json_encode($parsedData, JSON_UNESCAPED_UNICODE), ':id' => $fileId]);
+    } catch (\Throwable $e) {
+        $db->prepare("UPDATE public.organizer_files SET parsed_status = 'failed', parsed_error = :err, updated_at = NOW() WHERE id = :id")
+           ->execute([':err' => substr($e->getMessage(), 0, 500), ':id' => $fileId]);
+    }
+}
+
+function orgFileParseCsv(string $fullPath): array
+{
+    $handle = fopen($fullPath, 'r');
+    if ($handle === false) {
+        throw new RuntimeException('Nao foi possivel abrir o arquivo CSV.');
+    }
+
+    // Detect delimiter
+    $firstLine = fgets($handle);
+    rewind($handle);
+    $delimiter = substr_count($firstLine, ';') > substr_count($firstLine, ',') ? ';' : ',';
+
+    $headers = fgetcsv($handle, 0, $delimiter);
+    if ($headers === false || $headers === [null]) {
+        fclose($handle);
+        throw new RuntimeException('CSV sem cabecalho valido.');
+    }
+
+    // Normalize headers
+    $headers = array_map(static function ($h) {
+        $normalized = strtolower(trim(preg_replace('/[^a-zA-Z0-9_]/', '_', (string)$h) ?? ''));
+        return $normalized !== '' ? $normalized : 'col_' . bin2hex(random_bytes(2));
+    }, $headers);
+
+    $rows = [];
+    $rowNumber = 0;
+    $maxRows = 500; // Limit for safety
+
+    while (($row = fgetcsv($handle, 0, $delimiter)) !== false && $rowNumber < $maxRows) {
+        $rowNumber++;
+        $rowData = [];
+        foreach ($headers as $index => $header) {
+            $rowData[$header] = isset($row[$index]) ? trim((string)$row[$index]) : null;
+        }
+        $rows[] = $rowData;
+    }
+
+    fclose($handle);
+
+    // Auto-detect column types
+    $columnTypes = [];
+    foreach ($headers as $header) {
+        $sample = array_filter(array_column($rows, $header), static fn($v) => $v !== null && $v !== '');
+        $sample = array_slice(array_values($sample), 0, 10);
+
+        $isNumeric = count($sample) > 0 && count(array_filter($sample, static fn($v) => is_numeric(str_replace([',', 'R$', ' '], ['', '', ''], $v)))) >= count($sample) * 0.7;
+        $isDate = count($sample) > 0 && count(array_filter($sample, static fn($v) => strtotime($v) !== false)) >= count($sample) * 0.7;
+
+        $columnTypes[$header] = $isNumeric ? 'numeric' : ($isDate ? 'date' : 'text');
+    }
+
+    return [
+        'format' => 'csv',
+        'delimiter' => $delimiter,
+        'headers' => $headers,
+        'column_types' => $columnTypes,
+        'rows_count' => $rowNumber,
+        'rows' => $rows,
+        'truncated' => $rowNumber >= $maxRows,
+    ];
+}
+
+function orgFileParseJson(string $fullPath): array
+{
+    $content = file_get_contents($fullPath);
+    if ($content === false) {
+        throw new RuntimeException('Nao foi possivel ler o arquivo JSON.');
+    }
+
+    $data = json_decode($content, true);
+    if ($data === null && json_last_error() !== JSON_ERROR_NONE) {
+        throw new RuntimeException('JSON invalido: ' . json_last_error_msg());
+    }
+
+    $isArrayOfObjects = is_array($data) && isset($data[0]) && is_array($data[0]);
+
+    return [
+        'format' => 'json',
+        'is_array' => is_array($data),
+        'is_array_of_objects' => $isArrayOfObjects,
+        'rows_count' => $isArrayOfObjects ? count($data) : 1,
+        'keys' => $isArrayOfObjects ? array_keys($data[0]) : (is_array($data) ? array_keys($data) : []),
+        'data' => $isArrayOfObjects ? array_slice($data, 0, 500) : $data,
+        'truncated' => $isArrayOfObjects && count($data) > 500,
+    ];
+}

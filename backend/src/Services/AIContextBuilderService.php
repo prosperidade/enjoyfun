@@ -5,6 +5,8 @@ namespace EnjoyFun\Services;
 use PDO;
 
 require_once __DIR__ . '/../Helpers/WorkforceTreeHelper.php';
+require_once __DIR__ . '/../Helpers/ArtistControllerSupport.php';
+require_once __DIR__ . '/../Helpers/ArtistModuleHelper.php';
 require_once __DIR__ . '/MealsDomainService.php';
 require_once __DIR__ . '/WorkforceTreeUseCaseService.php';
 
@@ -25,6 +27,7 @@ final class AIContextBuilderService
         return match ($surface) {
             'parking' => self::buildParkingContext($db, $organizerId, $baseContext),
             'workforce' => self::buildWorkforceContext($db, $organizerId, $baseContext),
+            'artists' => self::buildArtistsContext($db, $organizerId, $baseContext),
             default => self::buildGenericContext($baseContext),
         };
     }
@@ -71,6 +74,14 @@ final class AIContextBuilderService
                 'agent_key' => 'bar',
                 'context_sources' => ['sales', 'products', 'stock'],
                 'output_focus' => ['ruptura', 'mix', 'ritmo de venda'],
+            ],
+            [
+                'surface' => 'artists',
+                'label' => 'Artists',
+                'status' => 'implemented',
+                'agent_key' => 'artists',
+                'context_sources' => ['artists', 'event_artists', 'artist_logistics', 'artist_logistics_items', 'artist_operational_timelines', 'artist_transfer_estimations', 'artist_operational_alerts', 'artist_team_members'],
+                'output_focus' => ['status logistico por artista', 'alertas criticos de timeline', 'custos cache + logistica', 'pendencias de hotel e transfer'],
             ],
         ];
     }
@@ -2159,6 +2170,258 @@ final class AIContextBuilderService
             'supervisor' => 2,
             default => 3,
         };
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Artists context builder
+    // ──────────────────────────────────────────────────────────────
+
+    private static function buildArtistsContext(PDO $db, int $organizerId, array $context): array
+    {
+        $eventId = (int)($context['event_id'] ?? 0);
+        if ($eventId <= 0) {
+            $context['context_origin'] = 'builder';
+            $context['artists_error'] = 'event_id obrigatorio para superficie artists';
+            return $context;
+        }
+
+        if (!\artistTableExists($db, 'event_artists')) {
+            $context['context_origin'] = 'builder';
+            $context['artists_error'] = 'Tabelas de artistas nao encontradas. Aplique as migrations do modulo de artistas.';
+            return $context;
+        }
+
+        // --- Booking status distribution ---
+        $stmt = $db->prepare("
+            SELECT
+                COUNT(*) FILTER (WHERE booking_status = 'confirmed') AS confirmed,
+                COUNT(*) FILTER (WHERE booking_status = 'pending') AS pending,
+                COUNT(*) FILTER (WHERE booking_status = 'cancelled') AS cancelled,
+                COALESCE(SUM(cache_amount) FILTER (WHERE booking_status <> 'cancelled'), 0) AS total_cache
+            FROM public.event_artists
+            WHERE organizer_id = :org AND event_id = :evt
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $bookingStats = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $context['artists_confirmed'] = (int)($bookingStats['confirmed'] ?? 0);
+        $context['artists_pending'] = (int)($bookingStats['pending'] ?? 0);
+        $context['artists_cancelled'] = (int)($bookingStats['cancelled'] ?? 0);
+        $context['total_cache_amount'] = number_format((float)($bookingStats['total_cache'] ?? 0), 2, '.', '');
+
+        // --- Logistics items cost + status ---
+        $stmt = $db->prepare("
+            SELECT
+                COALESCE(SUM(total_amount), 0) AS total_logistics_cost,
+                COUNT(*) FILTER (WHERE status = 'pending') AS items_pending,
+                COUNT(*) FILTER (WHERE status = 'paid') AS items_paid
+            FROM public.artist_logistics_items
+            WHERE organizer_id = :org AND event_id = :evt
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $costStats = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $context['total_logistics_cost'] = number_format((float)($costStats['total_logistics_cost'] ?? 0), 2, '.', '');
+        $context['logistics_items_pending'] = (int)($costStats['items_pending'] ?? 0);
+        $context['logistics_items_paid'] = (int)($costStats['items_paid'] ?? 0);
+
+        // --- Alert severity distribution ---
+        $stmt = $db->prepare("
+            SELECT
+                COUNT(*) FILTER (WHERE status = 'open') AS alerts_open,
+                COUNT(*) FILTER (WHERE severity = 'red' AND status = 'open') AS alerts_red,
+                COUNT(*) FILTER (WHERE severity = 'orange' AND status = 'open') AS alerts_orange,
+                COUNT(*) FILTER (WHERE severity = 'yellow' AND status = 'open') AS alerts_yellow
+            FROM public.artist_operational_alerts
+            WHERE organizer_id = :org AND event_id = :evt
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $alertStats = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $context['alerts_open'] = (int)($alertStats['alerts_open'] ?? 0);
+        $context['alerts_red'] = (int)($alertStats['alerts_red'] ?? 0);
+        $context['alerts_orange'] = (int)($alertStats['alerts_orange'] ?? 0);
+        $context['alerts_yellow'] = (int)($alertStats['alerts_yellow'] ?? 0);
+
+        // --- Timeline status distribution ---
+        $stmt = $db->prepare("
+            SELECT
+                COUNT(*) FILTER (WHERE timeline_status = 'ready') AS timelines_ready,
+                COUNT(*) FILTER (WHERE timeline_status = 'incomplete' OR timeline_status IS NULL) AS timelines_incomplete,
+                COUNT(*) FILTER (WHERE timeline_status IN ('attention', 'critical')) AS timelines_attention
+            FROM public.artist_operational_timelines
+            WHERE organizer_id = :org AND event_id = :evt
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $timelineStats = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $context['timelines_ready'] = (int)($timelineStats['timelines_ready'] ?? 0);
+        $context['timelines_incomplete'] = (int)($timelineStats['timelines_incomplete'] ?? 0);
+        $context['timelines_attention'] = (int)($timelineStats['timelines_attention'] ?? 0);
+
+        // --- Logistics completeness ---
+        $stmt = $db->prepare("
+            SELECT
+                COUNT(*) FILTER (WHERE al.id IS NOT NULL AND al.arrival_at IS NOT NULL AND al.hotel_name IS NOT NULL AND al.departure_at IS NOT NULL) AS logistics_complete,
+                COUNT(*) FILTER (WHERE al.id IS NULL OR al.arrival_at IS NULL OR al.hotel_name IS NULL OR al.departure_at IS NULL) AS logistics_incomplete
+            FROM public.event_artists ea
+            LEFT JOIN public.artist_logistics al ON al.event_artist_id = ea.id AND al.organizer_id = ea.organizer_id
+            WHERE ea.organizer_id = :org AND ea.event_id = :evt AND ea.booking_status <> 'cancelled'
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $logStats = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $context['logistics_complete'] = (int)($logStats['logistics_complete'] ?? 0);
+        $context['logistics_incomplete'] = (int)($logStats['logistics_incomplete'] ?? 0);
+
+        // --- Team members summary ---
+        $stmt = $db->prepare("
+            SELECT
+                COUNT(*) AS team_total,
+                COUNT(*) FILTER (WHERE needs_hotel = true) AS needs_hotel,
+                COUNT(*) FILTER (WHERE needs_transfer = true) AS needs_transfer
+            FROM public.artist_team_members
+            WHERE organizer_id = :org AND event_id = :evt AND is_active = true
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $teamStats = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $context['team_members_total'] = (int)($teamStats['team_total'] ?? 0);
+        $context['team_needs_hotel'] = (int)($teamStats['needs_hotel'] ?? 0);
+        $context['team_needs_transfer'] = (int)($teamStats['needs_transfer'] ?? 0);
+
+        // --- Transfer estimations count ---
+        $stmt = $db->prepare("
+            SELECT COUNT(*) AS total FROM public.artist_transfer_estimations
+            WHERE organizer_id = :org AND event_id = :evt
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $context['transfers_total'] = (int)($stmt->fetchColumn() ?: 0);
+
+        // --- Recent alerts (top 5 by severity) ---
+        $stmt = $db->prepare("
+            SELECT
+                aoa.id, aoa.alert_type, aoa.severity, aoa.status, aoa.title, aoa.message,
+                aoa.recommended_action, aoa.triggered_at,
+                a.stage_name AS artist_name
+            FROM public.artist_operational_alerts aoa
+            JOIN public.event_artists ea ON ea.id = aoa.event_artist_id AND ea.organizer_id = aoa.organizer_id
+            JOIN public.artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            WHERE aoa.organizer_id = :org AND aoa.event_id = :evt AND aoa.status = 'open'
+            ORDER BY
+                CASE aoa.severity WHEN 'red' THEN 1 WHEN 'orange' THEN 2 WHEN 'yellow' THEN 3 WHEN 'gray' THEN 4 ELSE 5 END,
+                aoa.triggered_at DESC
+            LIMIT 5
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $context['recent_alerts'] = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        // --- Per-artist summary (non-cancelled) ---
+        $stmt = $db->prepare("
+            SELECT
+                ea.id AS event_artist_id,
+                a.stage_name,
+                ea.booking_status,
+                ea.cache_amount,
+                ea.performance_date,
+                ea.performance_start_at,
+                ea.performance_duration_minutes,
+                aot.timeline_status,
+                COALESCE(ali_agg.logistics_cost, 0) AS logistics_cost,
+                COALESCE(alert_agg.open_alerts, 0) AS open_alerts,
+                COALESCE(alert_agg.max_severity, 'green') AS max_severity,
+                CASE WHEN al.id IS NOT NULL AND al.arrival_at IS NOT NULL AND al.hotel_name IS NOT NULL AND al.departure_at IS NOT NULL THEN true ELSE false END AS logistics_complete
+            FROM public.event_artists ea
+            JOIN public.artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            LEFT JOIN public.artist_logistics al ON al.event_artist_id = ea.id AND al.organizer_id = ea.organizer_id
+            LEFT JOIN public.artist_operational_timelines aot ON aot.event_artist_id = ea.id AND aot.organizer_id = ea.organizer_id
+            LEFT JOIN LATERAL (
+                SELECT SUM(total_amount) AS logistics_cost
+                FROM public.artist_logistics_items WHERE event_artist_id = ea.id AND organizer_id = ea.organizer_id
+            ) ali_agg ON true
+            LEFT JOIN LATERAL (
+                SELECT
+                    COUNT(*) FILTER (WHERE status = 'open') AS open_alerts,
+                    MAX(CASE severity WHEN 'red' THEN 'red' WHEN 'orange' THEN 'orange' WHEN 'yellow' THEN 'yellow' ELSE 'green' END) AS max_severity
+                FROM public.artist_operational_alerts WHERE event_artist_id = ea.id AND organizer_id = ea.organizer_id
+            ) alert_agg ON true
+            WHERE ea.organizer_id = :org AND ea.event_id = :evt AND ea.booking_status <> 'cancelled'
+            ORDER BY
+                CASE alert_agg.max_severity WHEN 'red' THEN 1 WHEN 'orange' THEN 2 WHEN 'yellow' THEN 3 ELSE 4 END,
+                ea.performance_date ASC NULLS LAST,
+                a.stage_name ASC
+            LIMIT 20
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $context['artists_summary'] = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        // --- Focused artist detail (if event_artist_id provided) ---
+        $focusArtistId = (int)($context['event_artist_id'] ?? ($context['artist_id'] ?? 0));
+        $context['focus_artist_name'] = null;
+        $context['focus_artist_id'] = $focusArtistId > 0 ? $focusArtistId : null;
+        $context['focus_artist_detail'] = [];
+
+        if ($focusArtistId > 0) {
+            $stmt = $db->prepare("
+                SELECT
+                    ea.id AS event_artist_id, a.stage_name, a.legal_name, a.artist_type,
+                    ea.booking_status, ea.cache_amount, ea.performance_date, ea.performance_start_at,
+                    ea.performance_duration_minutes, ea.soundcheck_at, ea.notes AS booking_notes
+                FROM public.event_artists ea
+                JOIN public.artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+                WHERE ea.id = :eaid AND ea.organizer_id = :org AND ea.event_id = :evt
+                LIMIT 1
+            ");
+            $stmt->execute([':eaid' => $focusArtistId, ':org' => $organizerId, ':evt' => $eventId]);
+            $focusArtist = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            if ($focusArtist) {
+                $context['focus_artist_name'] = $focusArtist['stage_name'] ?? null;
+
+                // Logistics
+                $stmtLog = $db->prepare("SELECT * FROM public.artist_logistics WHERE event_artist_id = :eaid AND organizer_id = :org LIMIT 1");
+                $stmtLog->execute([':eaid' => $focusArtistId, ':org' => $organizerId]);
+                $focusLogistics = $stmtLog->fetch(\PDO::FETCH_ASSOC) ?: null;
+
+                // Logistics items
+                $stmtItems = $db->prepare("SELECT item_type, description, quantity, unit_amount, total_amount, supplier_name, status FROM public.artist_logistics_items WHERE event_artist_id = :eaid AND organizer_id = :org ORDER BY created_at");
+                $stmtItems->execute([':eaid' => $focusArtistId, ':org' => $organizerId]);
+                $focusItems = $stmtItems->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+                // Timeline
+                $stmtTl = $db->prepare("SELECT * FROM public.artist_operational_timelines WHERE event_artist_id = :eaid AND organizer_id = :org LIMIT 1");
+                $stmtTl->execute([':eaid' => $focusArtistId, ':org' => $organizerId]);
+                $focusTimeline = $stmtTl->fetch(\PDO::FETCH_ASSOC) ?: null;
+
+                // Transfers
+                $stmtTr = $db->prepare("SELECT route_code, origin_label, destination_label, eta_base_minutes, eta_peak_minutes, buffer_minutes, planned_eta_minutes FROM public.artist_transfer_estimations WHERE event_artist_id = :eaid AND organizer_id = :org");
+                $stmtTr->execute([':eaid' => $focusArtistId, ':org' => $organizerId]);
+                $focusTransfers = $stmtTr->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+                // Alerts
+                $stmtAl = $db->prepare("SELECT alert_type, severity, status, title, message, recommended_action FROM public.artist_operational_alerts WHERE event_artist_id = :eaid AND organizer_id = :org AND status = 'open' ORDER BY CASE severity WHEN 'red' THEN 1 WHEN 'orange' THEN 2 WHEN 'yellow' THEN 3 ELSE 4 END");
+                $stmtAl->execute([':eaid' => $focusArtistId, ':org' => $organizerId]);
+                $focusAlerts = $stmtAl->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+                // Team
+                $stmtTeam = $db->prepare("SELECT full_name, role_name, needs_hotel, needs_transfer FROM public.artist_team_members WHERE event_artist_id = :eaid AND organizer_id = :org AND is_active = true");
+                $stmtTeam->execute([':eaid' => $focusArtistId, ':org' => $organizerId]);
+                $focusTeam = $stmtTeam->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+                $context['focus_artist_detail'] = [
+                    'artist' => $focusArtist,
+                    'logistics' => $focusLogistics,
+                    'logistics_items' => $focusItems,
+                    'timeline' => $focusTimeline,
+                    'transfers' => $focusTransfers,
+                    'alerts' => $focusAlerts,
+                    'team' => $focusTeam,
+                ];
+            }
+        }
+
+        $context['context_origin'] = 'builder';
+        return $context;
     }
 
     private static function normalizeSurface(string $value): string

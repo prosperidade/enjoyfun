@@ -26,6 +26,7 @@ import {
   Building2,
   Upload,
   Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -134,6 +135,12 @@ const nav = [
     to: "/ai",
     icon: Bot,
     label: "Agentes de IA",
+    roles: ["admin", "organizer"],
+  },
+  {
+    to: "/files",
+    icon: FileSpreadsheet,
+    label: "Documentos",
     roles: ["admin", "organizer"],
   },
   {

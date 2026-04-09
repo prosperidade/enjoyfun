@@ -119,6 +119,9 @@ super_admin / admin (André)
 | 051 | RLS policies em 15 tabelas |
 | 052 | Messaging hardening |
 | 053 | Payment gateway tables |
+| 054 | organizer_id meals/workforce hardening |
+| 055 | MCP servers + MCP server tools (AI hub) |
+| 056 | Organizer file hub (AI document parsing) |
 
 **Pendências de banco:**
 - Migration `009`: não aplicada (escopo reduzido ao seguro)
@@ -127,7 +130,7 @@ super_admin / admin (André)
 - Drift replay suportado: janela `039..048` provada; `034..038` com divergência pendente de reconciliação
 
 ### Tabelas com `organizer_id` (multi-tenant ativo):
-`events` · `products` · `sales` · `tickets` · `ticket_types` · `digital_cards` · `parking_records` · `users` · `guests` · `event_participants` · `event_days` · `event_shifts` · `event_meal_services` · `workforce_assignments` · `workforce_roles` · `workforce_event_roles` · `participant_meals` · `ai_usage_logs` · `audit_log` · `card_issue_batches` · `refresh_tokens` · `vendors`
+`events` · `products` · `sales` · `tickets` · `ticket_types` · `digital_cards` · `parking_records` · `users` · `guests` · `event_participants` · `event_days` · `event_shifts` · `event_meal_services` · `workforce_assignments` · `workforce_roles` · `workforce_event_roles` · `participant_meals` · `ai_usage_logs` · `audit_log` · `card_issue_batches` · `refresh_tokens` · `vendors` · `organizer_mcp_servers` · `organizer_mcp_server_tools` · `organizer_files` · `organizer_ai_providers` · `organizer_ai_agents` · `ai_agent_executions` · `ai_agent_memories` · `ai_event_reports`
 
 ### Regra de Ouro — NUNCA violar:
 ```sql
@@ -204,7 +207,9 @@ enjoyfun/
 │   │   ├── OrganizerFinanceController.php ✅
 │   │   ├── SuperAdminController.php   ✅
 │   │   ├── PaymentWebhookController.php ✅ Webhook com timestamp validation
-│   │   └── HealthController.php       ✅ Deep check + métricas (não mais dummy)
+│   │   ├── HealthController.php       ✅ Deep check + métricas (não mais dummy)
+│   │   ├── MCPServerController.php    ✅ CRUD + discovery + tool management
+│   │   └── OrganizerFileController.php ✅ Upload, auto-parse CSV/JSON, delete
 │   ├── Services/
 │   │   ├── WalletSecurityService.php  ✅ FOR UPDATE lock
 │   │   ├── SalesDomainService.php     ✅ Checkout centralizado
@@ -232,7 +237,8 @@ enjoyfun/
 │   │   ├── GeminiService.php          ✅
 │   │   ├── MetricsDefinitionService.php ✅
 │   │   ├── OrganizerMessagingConfigService.php ✅
-│   │   └── ProductService.php         ✅
+│   │   ├── ProductService.php         ✅
+│   │   └── AIMCPClientService.php     ✅ MCP discover + execute + catalog merge
 │   ├── Helpers/
 │   │   ├── JWT.php                    ✅ RS256 com chaves PEM (evoluído de HS256)
 │   │   ├── Response.php               ✅
@@ -278,7 +284,8 @@ enjoyfun/
     ├── runbook_local.md               ✅ Bootstrap local padronizado
     ├── progresso1..9.md               ✅ Histórico de pesquisa
     ├── progresso10.md                 ✅ Diário de rodadas anteriores
-    ├── progresso18.md                 ✅ Diário ativo (Sprint 1 governance)
+    ├── progresso18.md                 ✅ Diário (Sprint 1 governance)
+    ├── progresso19.md                 ✅ Diário ativo (Hub de IA Multi-Agentes)
     └── qa/                            ✅ Playbooks e coleções Postman
 ```
 
@@ -305,8 +312,10 @@ enjoyfun/
 | Dashboard | ✅ Funcional | — |
 | IA (insights setoriais) | ✅ Hardened | Rate limiting, prompt sanitization, PII scrub, spending caps |
 | Health Check | ✅ Real | Deep check + métricas (não mais dummy) |
-| Agents Hub | 🔴 Pendente | ADR aceito, implementação não iniciada |
-| Embedded Support Bot | 🔴 Pendente | ADR aceito, implementação não iniciada |
+| Agents Hub | ✅ Implementado | 12 agentes, 33+ tools, prompts profissionais, approval workflow |
+| Embedded Support Bot | ✅ Parcial | ArtistAIAssistant embarcado. WorkforceAI, ParkingAI, POS existentes |
+| MCP Server Integration | ✅ Foundation | CRUD + discovery + tool execution + merge no catalog |
+| Organizer File Hub | ✅ Foundation | Upload, auto-parse CSV/JSON, UI /files, agente documents |
 | Gateways de Pagamento | ✅ Asaas ativo | Asaas PIX real + webhook + split 1%/99% + recharge integrado |
 | Docker / Deploy | 🟡 Presente | Dockerfile, docker-compose.yml, nginx/default.conf |
 | Logística de Artistas | 🔴 Pendente | ADR não escrito ainda |
@@ -444,7 +453,8 @@ REGRAS INVIOLÁVEIS:
 |-----------|---------|
 | `pendencias.md` | Seção 3.2 (POS) pendente de smoke confirmado |
 | `docs/diagnostico.md` | Deve continuar alinhado com o estado real do código |
-| `docs/progresso18.md` | Diário ativo da rodada (Sprint 1 governance + Audit #7) |
+| `docs/progresso18.md` | Diário da rodada Sprint 1 governance + Audit #7 |
+| `docs/progresso19.md` | Diário ativo — Hub de IA Multi-Agentes (overhaul completo) |
 
 Auditorias técnicas agora entram por `docs/auditorias.md`; os arquivos antigos ficam apenas como arquivo externo fora da operação do repo.
 

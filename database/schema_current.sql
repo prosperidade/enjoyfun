@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict NKMzHbSgCnlIaMcZ7nPO6f2o74wMBsxhPmfvT46hSlR2mDu9au4DHyqgZwLGmEG
+\restrict KkYWOgvpqXVTt08IqbXBZA821T6opMFZjh7uMPgakgYacsANm2kFm4gap0ykJUr
 
 -- Dumped from database version 18.2
 -- Dumped by pg_dump version 18.2
@@ -27,24 +27,10 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
-
-
---
 -- Name: uuid-ossp; Type: EXTENSION; Schema: -; Owner: -
 --
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
-
-
---
--- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION "uuid-ossp" IS 'generate universally unique identifiers (UUIDs)';
 
 
 --
@@ -128,6 +114,42 @@ $$;
 CREATE FUNCTION public.audit_log_immutable() RETURNS trigger
     LANGUAGE plpgsql
     AS $$ BEGIN RAISE EXCEPTION 'audit_log e append-only. Operacao % nao permitida.', TG_OP; END; $$;
+
+
+--
+-- Name: messaging_cleanup_old_events(integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.messaging_cleanup_old_events(retention_days integer DEFAULT 90) RETURNS TABLE(deleted_webhook_events bigint, deleted_deliveries bigint, cutoff_timestamp timestamp without time zone)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_cutoff TIMESTAMP;
+    v_webhook_count BIGINT;
+    v_delivery_count BIGINT;
+BEGIN
+    v_cutoff := NOW() - (retention_days || ' days')::INTERVAL;
+
+    -- Delete old webhook events
+    WITH deleted_webhooks AS (
+        DELETE FROM public.messaging_webhook_events
+        WHERE created_at < v_cutoff
+        RETURNING id
+    )
+    SELECT COUNT(*) INTO v_webhook_count FROM deleted_webhooks;
+
+    -- Delete old terminal-state deliveries (delivered, read, failed)
+    WITH deleted_delivs AS (
+        DELETE FROM public.message_deliveries
+        WHERE created_at < v_cutoff
+          AND status IN ('delivered', 'read', 'failed')
+        RETURNING id
+    )
+    SELECT COUNT(*) INTO v_delivery_count FROM deleted_delivs;
+
+    RETURN QUERY SELECT v_webhook_count, v_delivery_count, v_cutoff;
+END;
+$$;
 
 
 --
@@ -611,6 +633,8 @@ CREATE TABLE public.ai_usage_logs (
     organizer_id integer NOT NULL
 );
 
+ALTER TABLE ONLY public.ai_usage_logs FORCE ROW LEVEL SECURITY;
+
 
 --
 -- Name: ai_usage_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -1035,6 +1059,8 @@ CREATE TABLE public.audit_log (
     CONSTRAINT chk_audit_log_actor_type CHECK (((actor_type IS NULL) OR ((actor_type)::text = ANY (ARRAY['human'::text, 'system'::text, 'ai_agent'::text]))))
 );
 
+ALTER TABLE ONLY public.audit_log FORCE ROW LEVEL SECURITY;
+
 
 --
 -- Name: audit_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -1263,9 +1289,11 @@ CREATE TABLE public.digital_cards (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     is_active boolean DEFAULT true,
-    organizer_id integer,
+    organizer_id integer NOT NULL,
     CONSTRAINT chk_digital_cards_balance_non_negative CHECK ((balance >= (0)::numeric))
 );
+
+ALTER TABLE ONLY public.digital_cards FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -1497,6 +1525,8 @@ CREATE TABLE public.event_days (
     organizer_id integer NOT NULL
 );
 
+ALTER TABLE ONLY public.event_days FORCE ROW LEVEL SECURITY;
+
 
 --
 -- Name: event_days_id_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -1574,6 +1604,8 @@ CREATE TABLE public.event_participants (
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     organizer_id integer NOT NULL
 );
+
+ALTER TABLE ONLY public.event_participants FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -1734,6 +1766,8 @@ CREATE TABLE public.event_shifts (
     organizer_id integer NOT NULL
 );
 
+ALTER TABLE ONLY public.event_shifts FORCE ROW LEVEL SECURITY;
+
 
 --
 -- Name: event_shifts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -1777,6 +1811,8 @@ CREATE TABLE public.events (
     is_active boolean DEFAULT true,
     organizer_id integer NOT NULL
 );
+
+ALTER TABLE ONLY public.events FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -1885,6 +1921,8 @@ CREATE TABLE public.guests (
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE ONLY public.guests FORCE ROW LEVEL SECURITY;
+
 
 --
 -- Name: guests_id_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -1955,6 +1993,37 @@ CREATE SEQUENCE public.message_deliveries_id_seq
 --
 
 ALTER SEQUENCE public.message_deliveries_id_seq OWNED BY public.message_deliveries.id;
+
+
+--
+-- Name: messaging_rate_limits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.messaging_rate_limits (
+    id integer NOT NULL,
+    organizer_id integer NOT NULL,
+    attempted_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: messaging_rate_limits_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.messaging_rate_limits_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: messaging_rate_limits_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.messaging_rate_limits_id_seq OWNED BY public.messaging_rate_limits.id;
 
 
 --
@@ -2186,6 +2255,53 @@ ALTER SEQUENCE public.organizer_channels_id_seq OWNED BY public.organizer_channe
 
 
 --
+-- Name: organizer_files; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organizer_files (
+    id bigint NOT NULL,
+    organizer_id integer NOT NULL,
+    event_id integer,
+    category character varying(50) DEFAULT 'general'::character varying NOT NULL,
+    file_type character varying(50) NOT NULL,
+    original_name character varying(255) NOT NULL,
+    storage_path character varying(500) NOT NULL,
+    mime_type character varying(120),
+    file_size_bytes bigint,
+    parsed_status character varying(30) DEFAULT 'pending'::character varying NOT NULL,
+    parsed_data jsonb,
+    parsed_at timestamp without time zone,
+    parsed_error text,
+    notes text,
+    uploaded_by_user_id integer,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    CONSTRAINT chk_org_files_category CHECK (((category)::text = ANY ((ARRAY['general'::character varying, 'financial'::character varying, 'contracts'::character varying, 'logistics'::character varying, 'marketing'::character varying, 'operational'::character varying, 'reports'::character varying, 'spreadsheets'::character varying])::text[]))),
+    CONSTRAINT chk_org_files_parsed_status CHECK (((parsed_status)::text = ANY ((ARRAY['pending'::character varying, 'parsing'::character varying, 'parsed'::character varying, 'failed'::character varying, 'skipped'::character varying])::text[]))),
+    CONSTRAINT chk_org_files_size CHECK (((file_size_bytes IS NULL) OR (file_size_bytes >= 0)))
+);
+
+
+--
+-- Name: organizer_files_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.organizer_files_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: organizer_files_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.organizer_files_id_seq OWNED BY public.organizer_files.id;
+
+
+--
 -- Name: organizer_financial_settings; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2218,6 +2334,89 @@ CREATE SEQUENCE public.organizer_financial_settings_id_seq
 --
 
 ALTER SEQUENCE public.organizer_financial_settings_id_seq OWNED BY public.organizer_financial_settings.id;
+
+
+--
+-- Name: organizer_mcp_server_tools; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organizer_mcp_server_tools (
+    id integer NOT NULL,
+    mcp_server_id integer NOT NULL,
+    organizer_id integer NOT NULL,
+    tool_name character varying(120) NOT NULL,
+    tool_description text,
+    input_schema_json jsonb,
+    type character varying(20) DEFAULT 'read'::character varying NOT NULL,
+    risk_level character varying(30) DEFAULT 'write'::character varying NOT NULL,
+    is_enabled boolean DEFAULT true NOT NULL,
+    discovered_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    CONSTRAINT chk_mcp_tool_risk CHECK (((risk_level)::text = ANY ((ARRAY['none'::character varying, 'read'::character varying, 'write'::character varying, 'destructive'::character varying])::text[]))),
+    CONSTRAINT chk_mcp_tool_type CHECK (((type)::text = ANY ((ARRAY['read'::character varying, 'write'::character varying])::text[])))
+);
+
+
+--
+-- Name: organizer_mcp_server_tools_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.organizer_mcp_server_tools_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: organizer_mcp_server_tools_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.organizer_mcp_server_tools_id_seq OWNED BY public.organizer_mcp_server_tools.id;
+
+
+--
+-- Name: organizer_mcp_servers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organizer_mcp_servers (
+    id integer NOT NULL,
+    organizer_id integer NOT NULL,
+    label character varying(120) NOT NULL,
+    server_url text NOT NULL,
+    auth_type character varying(30) DEFAULT 'none'::character varying NOT NULL,
+    encrypted_auth_credential text,
+    is_active boolean DEFAULT true NOT NULL,
+    allowed_agent_keys jsonb DEFAULT '[]'::jsonb NOT NULL,
+    allowed_surfaces jsonb DEFAULT '[]'::jsonb NOT NULL,
+    last_discovery_at timestamp without time zone,
+    last_discovery_status character varying(30),
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    CONSTRAINT chk_mcp_auth_type CHECK (((auth_type)::text = ANY ((ARRAY['none'::character varying, 'bearer'::character varying, 'api_key'::character varying, 'basic'::character varying])::text[])))
+);
+
+
+--
+-- Name: organizer_mcp_servers_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.organizer_mcp_servers_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: organizer_mcp_servers_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.organizer_mcp_servers_id_seq OWNED BY public.organizer_mcp_servers.id;
 
 
 --
@@ -2337,6 +2536,8 @@ CREATE TABLE public.parking_records (
     totp_secret character varying(64),
     organizer_id integer NOT NULL
 );
+
+ALTER TABLE ONLY public.parking_records FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -2478,8 +2679,11 @@ CREATE TABLE public.participant_meals (
     consumed_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     meal_service_id integer,
     unit_cost_applied numeric(12,2),
-    offline_request_id character varying(100)
+    offline_request_id character varying(100),
+    organizer_id integer NOT NULL
 );
+
+ALTER TABLE ONLY public.participant_meals FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -2549,6 +2753,59 @@ ALTER TABLE public.participant_meals_quarantine ALTER COLUMN quarantine_id ADD G
 
 
 --
+-- Name: payment_charges; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.payment_charges (
+    id integer NOT NULL,
+    organizer_id integer NOT NULL,
+    event_id integer,
+    sale_id integer,
+    external_id character varying(255),
+    gateway character varying(50) DEFAULT 'asaas'::character varying NOT NULL,
+    amount numeric(10,2) NOT NULL,
+    platform_fee numeric(10,2) NOT NULL,
+    organizer_amount numeric(10,2) NOT NULL,
+    status character varying(50) DEFAULT 'pending'::character varying NOT NULL,
+    billing_type character varying(20) NOT NULL,
+    pix_code text,
+    boleto_url text,
+    due_date date,
+    paid_at timestamp without time zone,
+    idempotency_key character varying(255),
+    webhook_event_ids text[] DEFAULT '{}'::text[],
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now(),
+    CONSTRAINT chk_charge_amount CHECK ((amount > (0)::numeric)),
+    CONSTRAINT chk_charge_billing_type CHECK (((billing_type)::text = ANY ((ARRAY['PIX'::character varying, 'BOLETO'::character varying, 'CREDIT_CARD'::character varying])::text[]))),
+    CONSTRAINT chk_charge_organizer_amount CHECK ((organizer_amount >= (0)::numeric)),
+    CONSTRAINT chk_charge_platform_fee CHECK ((platform_fee >= (0)::numeric)),
+    CONSTRAINT chk_charge_status CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'confirmed'::character varying, 'received'::character varying, 'overdue'::character varying, 'refunded'::character varying, 'cancelled'::character varying, 'failed'::character varying])::text[])))
+);
+
+
+--
+-- Name: payment_charges_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.payment_charges_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: payment_charges_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.payment_charges_id_seq OWNED BY public.payment_charges.id;
+
+
+--
 -- Name: people; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2601,6 +2858,8 @@ CREATE TABLE public.products (
     low_stock_threshold integer DEFAULT 5,
     organizer_id integer NOT NULL
 );
+
+ALTER TABLE ONLY public.products FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -2741,6 +3000,8 @@ CREATE TABLE public.sales (
     organizer_id integer NOT NULL,
     operator_id integer
 );
+
+ALTER TABLE ONLY public.sales FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -2938,6 +3199,8 @@ CREATE TABLE public.ticket_types (
     organizer_id integer
 );
 
+ALTER TABLE ONLY public.ticket_types FORCE ROW LEVEL SECURITY;
+
 
 --
 -- Name: ticket_types_id_seq; Type: SEQUENCE; Schema: public; Owner: -
@@ -2984,6 +3247,8 @@ CREATE TABLE public.tickets (
     ticket_batch_id integer,
     commissary_id integer
 );
+
+ALTER TABLE ONLY public.tickets FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -3107,8 +3372,11 @@ CREATE TABLE public.workforce_assignments (
     source_file_name character varying(255),
     public_id uuid DEFAULT gen_random_uuid() NOT NULL,
     event_role_id integer,
-    root_manager_event_role_id integer
+    root_manager_event_role_id integer,
+    organizer_id integer NOT NULL
 );
+
+ALTER TABLE ONLY public.workforce_assignments FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -3423,6 +3691,13 @@ ALTER TABLE ONLY public.message_deliveries ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
+-- Name: messaging_rate_limits id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.messaging_rate_limits ALTER COLUMN id SET DEFAULT nextval('public.messaging_rate_limits_id_seq'::regclass);
+
+
+--
 -- Name: messaging_webhook_events id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -3465,10 +3740,31 @@ ALTER TABLE ONLY public.organizer_channels ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
+-- Name: organizer_files id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_files ALTER COLUMN id SET DEFAULT nextval('public.organizer_files_id_seq'::regclass);
+
+
+--
 -- Name: organizer_financial_settings id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_financial_settings ALTER COLUMN id SET DEFAULT nextval('public.organizer_financial_settings_id_seq'::regclass);
+
+
+--
+-- Name: organizer_mcp_server_tools id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_mcp_server_tools ALTER COLUMN id SET DEFAULT nextval('public.organizer_mcp_server_tools_id_seq'::regclass);
+
+
+--
+-- Name: organizer_mcp_servers id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_mcp_servers ALTER COLUMN id SET DEFAULT nextval('public.organizer_mcp_servers_id_seq'::regclass);
 
 
 --
@@ -3518,6 +3814,13 @@ ALTER TABLE ONLY public.participant_checkins ALTER COLUMN id SET DEFAULT nextval
 --
 
 ALTER TABLE ONLY public.participant_meals ALTER COLUMN id SET DEFAULT nextval('public.participant_meals_id_seq'::regclass);
+
+
+--
+-- Name: payment_charges id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_charges ALTER COLUMN id SET DEFAULT nextval('public.payment_charges_id_seq'::regclass);
 
 
 --
@@ -3984,6 +4287,14 @@ ALTER TABLE ONLY public.message_deliveries
 
 
 --
+-- Name: messaging_rate_limits messaging_rate_limits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.messaging_rate_limits
+    ADD CONSTRAINT messaging_rate_limits_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: messaging_webhook_events messaging_webhook_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4040,11 +4351,35 @@ ALTER TABLE ONLY public.organizer_channels
 
 
 --
+-- Name: organizer_files organizer_files_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_files
+    ADD CONSTRAINT organizer_files_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: organizer_financial_settings organizer_financial_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_financial_settings
     ADD CONSTRAINT organizer_financial_settings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organizer_mcp_server_tools organizer_mcp_server_tools_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_mcp_server_tools
+    ADD CONSTRAINT organizer_mcp_server_tools_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organizer_mcp_servers organizer_mcp_servers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_mcp_servers
+    ADD CONSTRAINT organizer_mcp_servers_pkey PRIMARY KEY (id);
 
 
 --
@@ -4133,6 +4468,22 @@ ALTER TABLE ONLY public.participant_meals_quarantine
 
 ALTER TABLE ONLY public.participant_meals_quarantine
     ADD CONSTRAINT participant_meals_quarantine_pkey PRIMARY KEY (quarantine_id);
+
+
+--
+-- Name: payment_charges payment_charges_idempotency_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_charges
+    ADD CONSTRAINT payment_charges_idempotency_key_key UNIQUE (idempotency_key);
+
+
+--
+-- Name: payment_charges payment_charges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_charges
+    ADD CONSTRAINT payment_charges_pkey PRIMARY KEY (id);
 
 
 --
@@ -4309,6 +4660,14 @@ ALTER TABLE ONLY public.event_meal_services
 
 ALTER TABLE ONLY public.event_budgets
     ADD CONSTRAINT uq_event_budget_event UNIQUE (event_id);
+
+
+--
+-- Name: organizer_mcp_server_tools uq_mcp_server_tool; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_mcp_server_tools
+    ADD CONSTRAINT uq_mcp_server_tool UNIQUE (mcp_server_id, tool_name);
 
 
 --
@@ -4691,6 +5050,20 @@ CREATE INDEX idx_audit_entity ON public.audit_log USING btree (entity_type, enti
 
 
 --
+-- Name: idx_audit_log_org_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_log_org_created ON public.audit_log USING btree (organizer_id, occurred_at DESC);
+
+
+--
+-- Name: idx_audit_log_org_event_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_log_org_event_created ON public.audit_log USING btree (organizer_id, event_id, occurred_at DESC);
+
+
+--
 -- Name: idx_audit_occurred_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4761,6 +5134,13 @@ CREATE INDEX idx_card_transactions_card_event_created_at ON public.card_transact
 
 
 --
+-- Name: idx_card_transactions_event_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_card_transactions_event_created ON public.card_transactions USING btree (event_id, created_at DESC);
+
+
+--
 -- Name: idx_commissaries_event_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4779,6 +5159,13 @@ CREATE INDEX idx_cost_categories_organizer ON public.event_cost_categories USING
 --
 
 CREATE INDEX idx_cost_centers_event ON public.event_cost_centers USING btree (organizer_id, event_id) WHERE (is_active = true);
+
+
+--
+-- Name: idx_digital_cards_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_digital_cards_org ON public.digital_cards USING btree (organizer_id);
 
 
 --
@@ -4859,10 +5246,59 @@ CREATE INDEX idx_event_card_assignments_source_batch ON public.event_card_assign
 
 
 --
+-- Name: idx_event_days_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_event_days_event ON public.event_days USING btree (event_id);
+
+
+--
+-- Name: idx_event_days_organizer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_event_days_organizer_id ON public.event_days USING btree (organizer_id);
+
+
+--
 -- Name: idx_event_meal_services_order; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_event_meal_services_order ON public.event_meal_services USING btree (event_id, sort_order);
+
+
+--
+-- Name: idx_event_meal_services_organizer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_event_meal_services_organizer_id ON public.event_meal_services USING btree (organizer_id);
+
+
+--
+-- Name: idx_event_participants_org_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_event_participants_org_event ON public.event_participants USING btree (organizer_id, event_id);
+
+
+--
+-- Name: idx_event_participants_organizer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_event_participants_organizer_id ON public.event_participants USING btree (organizer_id);
+
+
+--
+-- Name: idx_event_shifts_event_day; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_event_shifts_event_day ON public.event_shifts USING btree (event_day_id);
+
+
+--
+-- Name: idx_event_shifts_organizer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_event_shifts_organizer_id ON public.event_shifts USING btree (organizer_id);
 
 
 --
@@ -4901,6 +5337,27 @@ CREATE INDEX idx_guests_qr_token ON public.guests USING btree (qr_code_token);
 
 
 --
+-- Name: idx_mcp_servers_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mcp_servers_org ON public.organizer_mcp_servers USING btree (organizer_id);
+
+
+--
+-- Name: idx_mcp_tools_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mcp_tools_org ON public.organizer_mcp_server_tools USING btree (organizer_id);
+
+
+--
+-- Name: idx_mcp_tools_server; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mcp_tools_server ON public.organizer_mcp_server_tools USING btree (mcp_server_id);
+
+
+--
 -- Name: idx_message_deliveries_organizer_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4919,6 +5376,13 @@ CREATE INDEX idx_message_deliveries_provider_message_id ON public.message_delive
 --
 
 CREATE INDEX idx_message_deliveries_status ON public.message_deliveries USING btree (status);
+
+
+--
+-- Name: idx_messaging_rate_limits_org_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_messaging_rate_limits_org_time ON public.messaging_rate_limits USING btree (organizer_id, attempted_at);
 
 
 --
@@ -4950,6 +5414,41 @@ CREATE INDEX idx_offline_queue_status_created_at ON public.offline_queue USING b
 
 
 --
+-- Name: idx_org_files_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_org_files_org ON public.organizer_files USING btree (organizer_id, created_at DESC);
+
+
+--
+-- Name: idx_org_files_org_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_org_files_org_category ON public.organizer_files USING btree (organizer_id, category, created_at DESC);
+
+
+--
+-- Name: idx_org_files_org_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_org_files_org_event ON public.organizer_files USING btree (organizer_id, event_id, created_at DESC);
+
+
+--
+-- Name: idx_org_files_parsed; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_org_files_parsed ON public.organizer_files USING btree (organizer_id, parsed_status);
+
+
+--
+-- Name: idx_otp_codes_identifier; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_otp_codes_identifier ON public.otp_codes USING btree (identifier, created_at DESC);
+
+
+--
 -- Name: idx_parking_event_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4961,6 +5460,13 @@ CREATE INDEX idx_parking_event_id ON public.parking_records USING btree (event_i
 --
 
 CREATE INDEX idx_parking_license_plate ON public.parking_records USING btree (license_plate);
+
+
+--
+-- Name: idx_parking_org_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_parking_org_event ON public.parking_records USING btree (organizer_id, event_id);
 
 
 --
@@ -5027,6 +5533,20 @@ CREATE INDEX idx_participant_meals_meal_service ON public.participant_meals USIN
 
 
 --
+-- Name: idx_participant_meals_org_participant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_participant_meals_org_participant ON public.participant_meals USING btree (organizer_id, participant_id);
+
+
+--
+-- Name: idx_participant_meals_participant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_participant_meals_participant ON public.participant_meals USING btree (participant_id);
+
+
+--
 -- Name: idx_payables_category; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5059,6 +5579,48 @@ CREATE INDEX idx_payables_event ON public.event_payables USING btree (organizer_
 --
 
 CREATE INDEX idx_payables_status ON public.event_payables USING btree (organizer_id, event_id, status);
+
+
+--
+-- Name: idx_payment_charges_event_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_charges_event_id ON public.payment_charges USING btree (event_id);
+
+
+--
+-- Name: idx_payment_charges_external_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_charges_external_id ON public.payment_charges USING btree (external_id);
+
+
+--
+-- Name: idx_payment_charges_idempotency_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_charges_idempotency_key ON public.payment_charges USING btree (idempotency_key);
+
+
+--
+-- Name: idx_payment_charges_organizer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_charges_organizer_id ON public.payment_charges USING btree (organizer_id);
+
+
+--
+-- Name: idx_payment_charges_sale_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_charges_sale_id ON public.payment_charges USING btree (sale_id);
+
+
+--
+-- Name: idx_payment_charges_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_charges_status ON public.payment_charges USING btree (status);
 
 
 --
@@ -5118,6 +5680,13 @@ CREATE INDEX idx_pm_quarantine_event ON public.participant_meals_quarantine USIN
 
 
 --
+-- Name: idx_products_org_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_products_org_event ON public.products USING btree (organizer_id, event_id);
+
+
+--
 -- Name: idx_refresh_expires; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5132,6 +5701,20 @@ CREATE INDEX idx_refresh_token ON public.refresh_tokens USING btree (token_hash)
 
 
 --
+-- Name: idx_refresh_tokens_organizer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_refresh_tokens_organizer_id ON public.refresh_tokens USING btree (organizer_id);
+
+
+--
+-- Name: idx_refresh_tokens_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_refresh_tokens_user ON public.refresh_tokens USING btree (user_id);
+
+
+--
 -- Name: idx_sales_event_status_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5143,6 +5726,13 @@ CREATE INDEX idx_sales_event_status_created_at ON public.sales USING btree (even
 --
 
 CREATE INDEX idx_sales_org_completed_created_at ON public.sales USING btree (organizer_id, created_at DESC) WHERE ((status)::text = 'completed'::text);
+
+
+--
+-- Name: idx_sales_org_event_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sales_org_event_status ON public.sales USING btree (organizer_id, event_id, status);
 
 
 --
@@ -5209,10 +5799,31 @@ CREATE INDEX idx_tickets_order_reference ON public.tickets USING btree (order_re
 
 
 --
+-- Name: idx_tickets_org_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tickets_org_created ON public.tickets USING btree (organizer_id, created_at DESC);
+
+
+--
+-- Name: idx_tickets_org_event_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tickets_org_event_status ON public.tickets USING btree (organizer_id, event_id, status);
+
+
+--
 -- Name: idx_tickets_qr_token; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX idx_tickets_qr_token ON public.tickets USING btree (qr_token);
+
+
+--
+-- Name: idx_vendors_organizer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_vendors_organizer_id ON public.vendors USING btree (organizer_id);
 
 
 --
@@ -5234,6 +5845,20 @@ CREATE INDEX idx_workforce_assignments_event_role ON public.workforce_assignment
 --
 
 CREATE INDEX idx_workforce_assignments_manager_user ON public.workforce_assignments USING btree (manager_user_id);
+
+
+--
+-- Name: idx_workforce_assignments_org_participant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_workforce_assignments_org_participant ON public.workforce_assignments USING btree (organizer_id, participant_id);
+
+
+--
+-- Name: idx_workforce_assignments_participant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_workforce_assignments_participant ON public.workforce_assignments USING btree (participant_id);
 
 
 --
@@ -5384,10 +6009,24 @@ CREATE UNIQUE INDEX uq_participant_meals_service_once_per_day ON public.particip
 
 
 --
+-- Name: uq_products_organizer_event_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_products_organizer_event_name ON public.products USING btree (organizer_id, event_id, name);
+
+
+--
 -- Name: uq_supplier_org_document; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX uq_supplier_org_document ON public.suppliers USING btree (organizer_id, document_number) WHERE ((document_number IS NOT NULL) AND ((document_number)::text <> ''::text));
+
+
+--
+-- Name: uq_ticket_types_organizer_event_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_ticket_types_organizer_event_name ON public.ticket_types USING btree (organizer_id, event_id, name);
 
 
 --
@@ -6317,6 +6956,54 @@ ALTER TABLE ONLY public.event_card_assignments
 
 
 --
+-- Name: event_days fk_event_days_organizer_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.event_days
+    ADD CONSTRAINT fk_event_days_organizer_id FOREIGN KEY (organizer_id) REFERENCES public.users(id) NOT VALID;
+
+
+--
+-- Name: event_meal_services fk_event_meal_services_organizer_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.event_meal_services
+    ADD CONSTRAINT fk_event_meal_services_organizer_id FOREIGN KEY (organizer_id) REFERENCES public.users(id) NOT VALID;
+
+
+--
+-- Name: event_participants fk_event_participants_organizer_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.event_participants
+    ADD CONSTRAINT fk_event_participants_organizer_id FOREIGN KEY (organizer_id) REFERENCES public.users(id) NOT VALID;
+
+
+--
+-- Name: event_shifts fk_event_shifts_organizer_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.event_shifts
+    ADD CONSTRAINT fk_event_shifts_organizer_id FOREIGN KEY (organizer_id) REFERENCES public.users(id) NOT VALID;
+
+
+--
+-- Name: events fk_events_organizer_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT fk_events_organizer_id FOREIGN KEY (organizer_id) REFERENCES public.users(id) NOT VALID;
+
+
+--
+-- Name: parking_records fk_parking_records_organizer_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.parking_records
+    ADD CONSTRAINT fk_parking_records_organizer_id FOREIGN KEY (organizer_id) REFERENCES public.users(id) NOT VALID;
+
+
+--
 -- Name: participant_checkins fk_participant_checkins_event_day; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6346,6 +7033,14 @@ ALTER TABLE ONLY public.participant_checkins
 
 ALTER TABLE ONLY public.participant_checkins
     ADD CONSTRAINT fk_participant_checkins_participant FOREIGN KEY (participant_id) REFERENCES public.event_participants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: participant_meals fk_participant_meals_organizer; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.participant_meals
+    ADD CONSTRAINT fk_participant_meals_organizer FOREIGN KEY (organizer_id) REFERENCES public.users(id) NOT VALID;
 
 
 --
@@ -6381,11 +7076,27 @@ ALTER TABLE ONLY public.participant_meals
 
 
 --
+-- Name: products fk_products_organizer_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.products
+    ADD CONSTRAINT fk_products_organizer_id FOREIGN KEY (organizer_id) REFERENCES public.users(id) NOT VALID;
+
+
+--
 -- Name: sales fk_sales_operator; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sales
     ADD CONSTRAINT fk_sales_operator FOREIGN KEY (operator_id) REFERENCES public.users(id);
+
+
+--
+-- Name: sales fk_sales_organizer_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sales
+    ADD CONSTRAINT fk_sales_organizer_id FOREIGN KEY (organizer_id) REFERENCES public.users(id) NOT VALID;
 
 
 --
@@ -6429,6 +7140,14 @@ ALTER TABLE ONLY public.tickets
 
 
 --
+-- Name: tickets fk_tickets_organizer_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tickets
+    ADD CONSTRAINT fk_tickets_organizer_id FOREIGN KEY (organizer_id) REFERENCES public.users(id) NOT VALID;
+
+
+--
 -- Name: tickets fk_tickets_ticket_batch; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6442,6 +7161,14 @@ ALTER TABLE ONLY public.tickets
 
 ALTER TABLE ONLY public.workforce_assignments
     ADD CONSTRAINT fk_workforce_assignments_event_role FOREIGN KEY (event_role_id) REFERENCES public.workforce_event_roles(id) ON DELETE SET NULL;
+
+
+--
+-- Name: workforce_assignments fk_workforce_assignments_organizer; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workforce_assignments
+    ADD CONSTRAINT fk_workforce_assignments_organizer FOREIGN KEY (organizer_id) REFERENCES public.users(id) NOT VALID;
 
 
 --
@@ -6493,6 +7220,54 @@ ALTER TABLE ONLY public.offline_queue
 
 
 --
+-- Name: organizer_files organizer_files_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_files
+    ADD CONSTRAINT organizer_files_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE SET NULL;
+
+
+--
+-- Name: organizer_files organizer_files_organizer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_files
+    ADD CONSTRAINT organizer_files_organizer_id_fkey FOREIGN KEY (organizer_id) REFERENCES public.users(id);
+
+
+--
+-- Name: organizer_files organizer_files_uploaded_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_files
+    ADD CONSTRAINT organizer_files_uploaded_by_user_id_fkey FOREIGN KEY (uploaded_by_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: organizer_mcp_server_tools organizer_mcp_server_tools_mcp_server_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_mcp_server_tools
+    ADD CONSTRAINT organizer_mcp_server_tools_mcp_server_id_fkey FOREIGN KEY (mcp_server_id) REFERENCES public.organizer_mcp_servers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: organizer_mcp_server_tools organizer_mcp_server_tools_organizer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_mcp_server_tools
+    ADD CONSTRAINT organizer_mcp_server_tools_organizer_id_fkey FOREIGN KEY (organizer_id) REFERENCES public.users(id);
+
+
+--
+-- Name: organizer_mcp_servers organizer_mcp_servers_organizer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_mcp_servers
+    ADD CONSTRAINT organizer_mcp_servers_organizer_id_fkey FOREIGN KEY (organizer_id) REFERENCES public.users(id);
+
+
+--
 -- Name: organizer_settings organizer_settings_organizer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6514,6 +7289,30 @@ ALTER TABLE ONLY public.parking_records
 
 ALTER TABLE ONLY public.parking_records
     ADD CONSTRAINT parking_records_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(id) ON DELETE SET NULL;
+
+
+--
+-- Name: payment_charges payment_charges_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_charges
+    ADD CONSTRAINT payment_charges_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id);
+
+
+--
+-- Name: payment_charges payment_charges_organizer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_charges
+    ADD CONSTRAINT payment_charges_organizer_id_fkey FOREIGN KEY (organizer_id) REFERENCES public.users(id);
+
+
+--
+-- Name: payment_charges payment_charges_sale_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_charges
+    ADD CONSTRAINT payment_charges_sale_id_fkey FOREIGN KEY (sale_id) REFERENCES public.sales(id);
 
 
 --
@@ -6613,8 +7412,623 @@ ALTER TABLE ONLY public.user_roles
 
 
 --
+-- Name: ai_usage_logs; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ai_usage_logs ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: audit_log; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: digital_cards; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.digital_cards ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: event_days; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.event_days ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: event_participants; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.event_participants ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: event_shifts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.event_shifts ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: events; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: guests; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.guests ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: parking_records; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.parking_records ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: participant_meals; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.participant_meals ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: products; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: sales; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ai_usage_logs superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.ai_usage_logs TO postgres USING (true);
+
+
+--
+-- Name: audit_log superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.audit_log TO postgres USING (true);
+
+
+--
+-- Name: digital_cards superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.digital_cards TO postgres USING (true);
+
+
+--
+-- Name: event_days superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.event_days TO postgres USING (true);
+
+
+--
+-- Name: event_participants superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.event_participants TO postgres USING (true);
+
+
+--
+-- Name: event_shifts superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.event_shifts TO postgres USING (true);
+
+
+--
+-- Name: events superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.events TO postgres USING (true);
+
+
+--
+-- Name: guests superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.guests TO postgres USING (true);
+
+
+--
+-- Name: parking_records superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.parking_records TO postgres USING (true);
+
+
+--
+-- Name: participant_meals superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.participant_meals TO postgres USING (true);
+
+
+--
+-- Name: products superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.products TO postgres USING (true);
+
+
+--
+-- Name: sales superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.sales TO postgres USING (true);
+
+
+--
+-- Name: ticket_types superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.ticket_types TO postgres USING (true);
+
+
+--
+-- Name: tickets superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.tickets TO postgres USING (true);
+
+
+--
+-- Name: workforce_assignments superadmin_bypass; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY superadmin_bypass ON public.workforce_assignments TO postgres USING (true);
+
+
+--
+-- Name: ai_usage_logs tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.ai_usage_logs FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: audit_log tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.audit_log FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: digital_cards tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.digital_cards FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: event_days tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.event_days FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: event_participants tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.event_participants FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: event_shifts tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.event_shifts FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: events tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.events FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: guests tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.guests FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: parking_records tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.parking_records FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: participant_meals tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.participant_meals FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: products tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.products FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: sales tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.sales FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: ticket_types tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.ticket_types FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: tickets tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.tickets FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: workforce_assignments tenant_isolation_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_delete ON public.workforce_assignments FOR DELETE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: ai_usage_logs tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.ai_usage_logs FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: audit_log tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.audit_log FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: digital_cards tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.digital_cards FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: event_days tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.event_days FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: event_participants tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.event_participants FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: event_shifts tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.event_shifts FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: events tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.events FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: guests tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.guests FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: parking_records tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.parking_records FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: participant_meals tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.participant_meals FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: products tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.products FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: sales tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.sales FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: ticket_types tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.ticket_types FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: tickets tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.tickets FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: workforce_assignments tenant_isolation_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_insert ON public.workforce_assignments FOR INSERT TO app_user WITH CHECK ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: ai_usage_logs tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.ai_usage_logs FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: audit_log tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.audit_log FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: digital_cards tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.digital_cards FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: event_days tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.event_days FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: event_participants tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.event_participants FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: event_shifts tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.event_shifts FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: events tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.events FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: guests tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.guests FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: parking_records tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.parking_records FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: participant_meals tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.participant_meals FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: products tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.products FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: sales tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.sales FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: ticket_types tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.ticket_types FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: tickets tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.tickets FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: workforce_assignments tenant_isolation_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_select ON public.workforce_assignments FOR SELECT TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: ai_usage_logs tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.ai_usage_logs FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: audit_log tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.audit_log FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: digital_cards tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.digital_cards FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: event_days tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.event_days FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: event_participants tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.event_participants FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: event_shifts tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.event_shifts FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: events tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.events FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: guests tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.guests FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: parking_records tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.parking_records FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: participant_meals tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.participant_meals FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: products tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.products FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: sales tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.sales FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: ticket_types tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.ticket_types FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: tickets tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.tickets FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: workforce_assignments tenant_isolation_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation_update ON public.workforce_assignments FOR UPDATE TO app_user USING ((organizer_id = (current_setting('app.current_organizer_id'::text))::integer));
+
+
+--
+-- Name: ticket_types; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ticket_types ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: tickets; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: workforce_assignments; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.workforce_assignments ENABLE ROW LEVEL SECURITY;
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict NKMzHbSgCnlIaMcZ7nPO6f2o74wMBsxhPmfvT46hSlR2mDu9au4DHyqgZwLGmEG
+\unrestrict KkYWOgvpqXVTt08IqbXBZA821T6opMFZjh7uMPgakgYacsANm2kFm4gap0ykJUr
 

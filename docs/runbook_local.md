@@ -339,9 +339,97 @@ psql -U postgres -d enjoyfun -f tests/validate_schema.sql
 bash tests/security_scan.sh
 ```
 
+---
+
+## Hub de IA Multi-Agentes
+
+### Arquitetura
+
+O sistema de IA opera via **AIOrchestratorService** que roteia requests para agentes especializados com tools dedicadas.
+
+**Fluxo:** `POST /ai/insight` -> AuthMiddleware -> Rate limit -> Spending cap -> Context builder -> Agent resolution -> Provider API call -> Tool execution -> Approval policy -> Audit log
+
+### 12 agentes ativos
+
+```
+marketing, logistics, management, bar, contracting, feedback,
+data_analyst, content, media, documents, artists, artists_travel
+```
+
+**Configuracao por agente:** `organizer_ai_agents` (provider, approval_mode, is_enabled, config_json)
+**Configuracao por provider:** `organizer_ai_providers` (API key criptografada, model, base_url)
+
+### 33+ tools
+
+Definidas em `AIToolRuntimeService::allToolDefinitions()`. Cada tool tem:
+- `surfaces[]` e `agent_keys[]` para filtro automatico
+- `type`: read ou write (write exige approval)
+- `aliases[]` para resolver nomes de diferentes providers
+- Executor dedicado com query scoped por organizer_id
+
+### MCP (Model Context Protocol)
+
+**Tabelas:** `organizer_mcp_servers`, `organizer_mcp_server_tools`
+**Rotas:** `GET/POST/PUT/DELETE /organizer-mcp`, `POST /organizer-mcp/{id}/discover`, `GET /organizer-mcp/{id}/tools`
+**Service:** `AIMCPClientService` — discover tools, execute calls, merge no catalogo
+**Regra:** MCP tools default risk_level=write. Passam pelo approval workflow.
+
+### File Hub do Organizador
+
+**Tabela:** `organizer_files` (migration 056)
+**Rotas:** `GET/POST/DELETE /organizer-files`, `GET /organizer-files/{id}/parsed`, `POST /organizer-files/{id}/parse`
+**Auto-parse:** CSV (detecta delimitador, tipos de coluna) e JSON no upload
+**Limite:** 20MB por arquivo, 500 linhas max no parse
+**Diretorio fisico:** `backend/public/uploads/organizer_files/{organizer_id}/`
+
+### Migrations de IA
+
+```
+038 — organizer_ai_providers, organizer_ai_agents
+039 — ai_agent_executions
+040 — ai_agent_memories, ai_event_reports, ai_event_report_sections
+041 — workforce AI integrity triggers
+046 — AI tool approval enforcement
+048 — AI tenant isolation hardening
+055 — organizer_mcp_servers, organizer_mcp_server_tools
+056 — organizer_files (file hub)
+```
+
+### Smoke test de IA
+
+```bash
+# Testar insight basico (surface artists)
+curl -X POST http://localhost:8000/api/ai/insight \
+  -H "Content-Type: application/json" \
+  -H "Cookie: access_token=<JWT>" \
+  -d '{"question":"status dos artistas","context":{"event_id":1,"surface":"artists","agent_key":"artists"}}'
+
+# Testar upload de arquivo
+curl -X POST http://localhost:8000/api/organizer-files \
+  -H "Cookie: access_token=<JWT>" \
+  -F "file=@planilha_custos.csv" \
+  -F "category=financial"
+
+# Testar MCP discovery
+curl -X POST http://localhost:8000/api/organizer-mcp/1/discover \
+  -H "Cookie: access_token=<JWT>"
+```
+
+### Feature flags
+
+```env
+FEATURE_AI_INSIGHTS=true    # Gate de todo o sistema de IA
+FEATURE_AI_TOOLS=true       # Gate de tool execution
+FEATURE_AI_TOOL_WRITE=true  # Gate de tools de escrita
+AI_RATE_LIMIT_PER_HOUR=60   # Requests/hora por organizer
+AI_SPENDING_CAP_BRL=500.00  # Cap mensal em R$
+```
+
+---
+
 ## Quando algo divergir
 
 1. conferir `README.md`
 2. conferir `CLAUDE.md`
 3. conferir `docs/auditorias.md`
-4. registrar a divergencia em `docs/progresso18.md`
+4. registrar a divergencia em `docs/progresso19.md`

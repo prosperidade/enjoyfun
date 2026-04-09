@@ -32,6 +32,7 @@ import MealsControl from "./pages/MealsControl";
 import ArtistsCatalog from "./pages/ArtistsCatalog";
 import ArtistDetail from "./pages/ArtistDetail";
 import ArtistImport from "./pages/ArtistImport";
+import OrganizerFiles from "./pages/OrganizerFiles";
 import CustomerLogin from "./pages/CustomerApp/CustomerLogin";
 import CustomerDashboard from "./pages/CustomerApp/CustomerDashboard";
 import CustomerRecharge from "./pages/CustomerApp/CustomerRecharge";
@@ -115,6 +116,7 @@ export default function App() {
               <Route path="/parking" element={<Parking />} />
               <Route path="/messaging" element={<Messaging />} />
               <Route path="/ai" element={<AIAgents />} />
+              <Route path="/files" element={<OrganizerFiles />} />
               <Route path="/users" element={<Users />} />
               <Route path="/guests" element={<Guests />} />
               <Route path="/participants" element={<ParticipantsHub />} />

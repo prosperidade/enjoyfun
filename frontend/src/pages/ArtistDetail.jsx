@@ -18,6 +18,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import api from "../lib/api";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
+import ArtistAIAssistant from "../components/ArtistAIAssistant";
 import { useEventScope } from "../context/EventScopeContext";
 import {
   ALERT_SEVERITY_META,
@@ -3055,6 +3056,20 @@ export default function ArtistDetail() {
             </div>
           )}
         </>
+      )}
+
+      {scopedEventId && artist && (
+        <ArtistAIAssistant
+          eventId={scopedEventId}
+          artistsTotal={1}
+          confirmedCount={1}
+          pendingCount={0}
+          totalCost={Number(artist.cache_amount || 0)}
+          openAlertsCount={0}
+          criticalAlertsCount={0}
+          focusArtistName={artist.stage_name}
+          focusArtistId={artist.id}
+        />
       )}
     </div>
   );

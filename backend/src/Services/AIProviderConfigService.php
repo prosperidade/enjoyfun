@@ -229,8 +229,13 @@ final class AIProviderConfigService
 
             $encryptedApiKey = trim((string)($row['encrypted_api_key'] ?? ''));
             if ($encryptedApiKey !== '') {
-                $apiKey = SecretCryptoService::decrypt($encryptedApiKey, self::providerScope($organizerId, $normalizedProvider));
-                $source = 'tenant';
+                try {
+                    $apiKey = SecretCryptoService::decrypt($encryptedApiKey, self::providerScope($organizerId, $normalizedProvider));
+                    $source = 'tenant';
+                } catch (\Throwable $e) {
+                    error_log("[AIProviderConfigService] Falha ao descriptografar API key do provider {$normalizedProvider} para organizer {$organizerId}: {$e->getMessage()}. Fallback para env.");
+                    $apiKey = '';
+                }
             }
         }
 
@@ -608,6 +613,42 @@ final class AIProviderConfigService
                 'description' => 'Consolida sinais de participantes e operacao para apontar melhorias.',
                 'surfaces' => ['messaging', 'customer', 'analytics'],
                 'supports_write_actions' => false,
+            ],
+            'data_analyst' => [
+                'label' => 'Agente Analista de Dados',
+                'description' => 'Cruza dados de multiplos modulos para gerar insights analiticos, detectar padroes e anomalias.',
+                'surfaces' => ['dashboard', 'analytics', 'finance'],
+                'supports_write_actions' => false,
+            ],
+            'content' => [
+                'label' => 'Agente de Conteudo',
+                'description' => 'Gera textos profissionais: posts, descricoes, campanhas, comunicados e copy para eventos.',
+                'surfaces' => ['messaging', 'marketing', 'customer'],
+                'supports_write_actions' => false,
+            ],
+            'media' => [
+                'label' => 'Agente de Midia Visual',
+                'description' => 'Cria prompts de imagem, briefings visuais, especificacoes de midia e storyboards.',
+                'surfaces' => ['marketing'],
+                'supports_write_actions' => false,
+            ],
+            'documents' => [
+                'label' => 'Agente de Documentos e Planilhas',
+                'description' => 'Le arquivos do organizador (planilhas, custos) e transforma em categorias financeiras organizadas.',
+                'surfaces' => ['finance'],
+                'supports_write_actions' => true,
+            ],
+            'artists' => [
+                'label' => 'Agente de Artistas',
+                'description' => 'Analisa logistica, timeline, alertas, custos e equipe de cada artista do evento.',
+                'surfaces' => ['artists'],
+                'supports_write_actions' => false,
+            ],
+            'artists_travel' => [
+                'label' => 'Agente de Viagens de Artistas',
+                'description' => 'Organiza passagens, hoteis, transfers e fechamento logistico completo de artistas.',
+                'surfaces' => ['artists'],
+                'supports_write_actions' => true,
             ],
         ];
     }

@@ -8,40 +8,33 @@ use RuntimeException;
 require_once BASE_PATH . '/src/Helpers/WorkforceControllerSupport.php';
 require_once __DIR__ . '/FinanceWorkforceCostService.php';
 require_once __DIR__ . '/WorkforceTreeUseCaseService.php';
+require_once __DIR__ . '/AIMCPClientService.php';
 
 final class AIToolRuntimeService
 {
-    public static function buildToolCatalog(array $context): array
-    {
-        $eventId = self::nullablePositiveInt($context['event_id'] ?? null);
-        if ($eventId === null) {
-            return [];
-        }
+    // ──────────────────────────────────────────────────────────────
+    //  Tool Registry — all tool definitions in one place
+    // ──────────────────────────────────────────────────────────────
 
+    private static function allToolDefinitions(): array
+    {
         return [
+            // --- Workforce tools (existing) ---
             [
                 'name' => 'get_workforce_tree_status',
                 'description' => 'Read-only diagnostic for the workforce tree of the current event, including readiness, leadership coverage, blockers and missing bindings.',
                 'input_schema' => [
                     'type' => 'object',
                     'properties' => [
-                        'event_id' => [
-                            'type' => 'integer',
-                            'description' => 'Event identifier for the workforce tree analysis.',
-                        ],
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier for the workforce tree analysis.'],
                     ],
                     'required' => ['event_id'],
                     'additionalProperties' => false,
                 ],
-                'aliases' => [
-                    'get_workforce_tree_status',
-                    'workforce_tree_status',
-                    'workforce.tree_status',
-                    'workforce/tree-status',
-                    'tree_status',
-                    'tree-status',
-                    'read_workforce_tree_status',
-                ],
+                'aliases' => ['get_workforce_tree_status', 'workforce_tree_status', 'workforce.tree_status', 'workforce/tree-status', 'tree_status', 'tree-status', 'read_workforce_tree_status'],
+                'type' => 'read',
+                'surfaces' => ['workforce'],
+                'agent_keys' => ['logistics', 'management'],
             ],
             [
                 'name' => 'get_workforce_costs',
@@ -49,33 +42,599 @@ final class AIToolRuntimeService
                 'input_schema' => [
                     'type' => 'object',
                     'properties' => [
-                        'event_id' => [
-                            'type' => 'integer',
-                            'description' => 'Event identifier for the workforce cost report.',
-                        ],
-                        'role_id' => [
-                            'type' => 'integer',
-                            'description' => 'Optional role identifier to filter the report.',
-                        ],
-                        'sector' => [
-                            'type' => 'string',
-                            'description' => 'Optional sector slug to scope the report.',
-                        ],
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier for the workforce cost report.'],
+                        'role_id' => ['type' => 'integer', 'description' => 'Optional role identifier to filter the report.'],
+                        'sector' => ['type' => 'string', 'description' => 'Optional sector slug to scope the report.'],
                     ],
                     'required' => ['event_id'],
                     'additionalProperties' => false,
                 ],
-                'aliases' => [
-                    'get_workforce_costs',
-                    'workforce_costs',
-                    'finance.workforce_costs',
-                    'organizer_finance.workforce_costs',
-                    'organizer-finance/workforce-costs',
-                    'workforce-costs',
-                    'read_workforce_costs',
+                'aliases' => ['get_workforce_costs', 'workforce_costs', 'finance.workforce_costs', 'organizer_finance.workforce_costs', 'organizer-finance/workforce-costs', 'workforce-costs', 'read_workforce_costs'],
+                'type' => 'read',
+                'surfaces' => ['workforce', 'finance'],
+                'agent_keys' => ['logistics', 'management', 'contracting'],
+            ],
+
+            // --- Artists tools (new) ---
+            [
+                'name' => 'get_artist_event_summary',
+                'description' => 'Lista todos os artistas de um evento com status de booking, cache, custo logistico, alertas abertos e severidade maxima. Visao geral da operacao de artistas.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
                 ],
+                'aliases' => ['get_artist_event_summary', 'artist_event_summary', 'artists.event_summary', 'artists/summary'],
+                'type' => 'read',
+                'surfaces' => ['artists'],
+                'agent_keys' => ['artists', 'artists_travel', 'management', 'contracting'],
+            ],
+            [
+                'name' => 'get_artist_logistics_detail',
+                'description' => 'Detalhe completo da logistica de um artista: origem, chegada, hotel, partida, itens de custo com status de pagamento.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                        'event_artist_id' => ['type' => 'integer', 'description' => 'Event-artist booking identifier.'],
+                    ],
+                    'required' => ['event_id', 'event_artist_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_artist_logistics_detail', 'artist_logistics_detail', 'artists.logistics', 'artist_logistics'],
+                'type' => 'read',
+                'surfaces' => ['artists'],
+                'agent_keys' => ['artists', 'artists_travel'],
+            ],
+            [
+                'name' => 'get_artist_timeline_status',
+                'description' => 'Timeline operacional de um artista com 9 checkpoints (pouso a saida), status calculado e margens de tempo.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                        'event_artist_id' => ['type' => 'integer', 'description' => 'Event-artist booking identifier.'],
+                    ],
+                    'required' => ['event_id', 'event_artist_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_artist_timeline_status', 'artist_timeline_status', 'artists.timeline', 'artist_timeline'],
+                'type' => 'read',
+                'surfaces' => ['artists'],
+                'agent_keys' => ['artists', 'artists_travel'],
+            ],
+            [
+                'name' => 'get_artist_alerts',
+                'description' => 'Alertas operacionais de artistas do evento, filtrados por severidade ou artista especifico. Inclui tipo, severidade, mensagem e acao recomendada.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                        'event_artist_id' => ['type' => 'integer', 'description' => 'Optional: filter alerts for a specific artist.'],
+                        'severity' => ['type' => 'string', 'description' => 'Optional: filter by severity (red, orange, yellow, green, gray).'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_artist_alerts', 'artist_alerts', 'artists.alerts', 'artist_operational_alerts'],
+                'type' => 'read',
+                'surfaces' => ['artists'],
+                'agent_keys' => ['artists', 'artists_travel', 'logistics'],
+            ],
+            [
+                'name' => 'get_artist_cost_breakdown',
+                'description' => 'Custo detalhado por artista: cache + itens logisticos agrupados por tipo (hotel, passagem, transfer, etc) com status de pagamento.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                        'event_artist_id' => ['type' => 'integer', 'description' => 'Optional: filter costs for a specific artist.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_artist_cost_breakdown', 'artist_cost_breakdown', 'artists.costs', 'artist_costs'],
+                'type' => 'read',
+                'surfaces' => ['artists', 'finance'],
+                'agent_keys' => ['artists', 'artists_travel', 'management', 'contracting'],
+            ],
+            [
+                'name' => 'get_artist_team_composition',
+                'description' => 'Equipe de um artista: nomes, funcoes, necessidade de hotel e transfer.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                        'event_artist_id' => ['type' => 'integer', 'description' => 'Event-artist booking identifier.'],
+                    ],
+                    'required' => ['event_id', 'event_artist_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_artist_team_composition', 'artist_team_composition', 'artists.team', 'artist_team'],
+                'type' => 'read',
+                'surfaces' => ['artists'],
+                'agent_keys' => ['artists', 'artists_travel'],
+            ],
+            [
+                'name' => 'get_artist_transfer_estimations',
+                'description' => 'Estimativas de tempo de transfer entre pontos (aeroporto, hotel, venue) para um artista. Inclui ETA base, pico, buffer e total planejado.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                        'event_artist_id' => ['type' => 'integer', 'description' => 'Event-artist booking identifier.'],
+                    ],
+                    'required' => ['event_id', 'event_artist_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_artist_transfer_estimations', 'artist_transfer_estimations', 'artists.transfers', 'artist_transfers'],
+                'type' => 'read',
+                'surfaces' => ['artists'],
+                'agent_keys' => ['artists', 'artists_travel'],
+            ],
+            [
+                'name' => 'search_artists_by_status',
+                'description' => 'Busca artistas filtrados por status de booking, severidade de alerta ou completude logistica. Util para encontrar artistas que precisam de atencao.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                        'booking_status' => ['type' => 'string', 'description' => 'Optional: pending, confirmed, cancelled.'],
+                        'min_alert_severity' => ['type' => 'string', 'description' => 'Optional: minimum severity to include (red, orange, yellow).'],
+                        'logistics_incomplete' => ['type' => 'boolean', 'description' => 'Optional: true to show only artists with incomplete logistics.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['search_artists_by_status', 'artists.search', 'filter_artists', 'find_artists'],
+                'type' => 'read',
+                'surfaces' => ['artists'],
+                'agent_keys' => ['artists', 'artists_travel', 'management'],
+            ],
+
+            // --- Artists Travel tools (read + write) ---
+            [
+                'name' => 'get_artist_travel_requirements',
+                'description' => 'Requisitos de viagem de cada artista: origem, datas, tamanho da equipe, quem precisa de hotel e transfer. Visao para planejar passagens e reservas.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_artist_travel_requirements', 'artist_travel_requirements', 'artists.travel_requirements'],
+                'type' => 'read',
+                'surfaces' => ['artists'],
+                'agent_keys' => ['artists_travel'],
+            ],
+            [
+                'name' => 'get_venue_location_context',
+                'description' => 'Localizacao do venue do evento: endereco, cidade, notas de transporte. Util para planejar rotas de transfer e buscar hoteis proximos.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_venue_location_context', 'venue_location', 'artists.venue_location'],
+                'type' => 'read',
+                'surfaces' => ['artists', 'events'],
+                'agent_keys' => ['artists_travel', 'logistics'],
+            ],
+            [
+                'name' => 'update_artist_logistics',
+                'description' => 'Atualiza dados de logistica de um artista: origem/chegada, hotel (nome, endereco, check-in/out), partida, notas. REQUER APROVACAO.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                        'event_artist_id' => ['type' => 'integer', 'description' => 'Event-artist booking identifier.'],
+                        'arrival_origin' => ['type' => 'string', 'description' => 'City/airport of origin.'],
+                        'arrival_mode' => ['type' => 'string', 'description' => 'Mode of arrival: flight, car, bus.'],
+                        'arrival_reference' => ['type' => 'string', 'description' => 'Flight number or ticket reference.'],
+                        'arrival_at' => ['type' => 'string', 'description' => 'Arrival timestamp (ISO 8601).'],
+                        'hotel_name' => ['type' => 'string', 'description' => 'Hotel name.'],
+                        'hotel_address' => ['type' => 'string', 'description' => 'Hotel address.'],
+                        'hotel_check_in_at' => ['type' => 'string', 'description' => 'Check-in timestamp.'],
+                        'hotel_check_out_at' => ['type' => 'string', 'description' => 'Check-out timestamp.'],
+                        'departure_destination' => ['type' => 'string', 'description' => 'Departure destination.'],
+                        'departure_mode' => ['type' => 'string', 'description' => 'Mode: flight, car, bus.'],
+                        'departure_reference' => ['type' => 'string', 'description' => 'Departure ticket reference.'],
+                        'departure_at' => ['type' => 'string', 'description' => 'Departure timestamp.'],
+                        'transport_notes' => ['type' => 'string', 'description' => 'Transport notes.'],
+                    ],
+                    'required' => ['event_id', 'event_artist_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['update_artist_logistics', 'artists.update_logistics'],
+                'type' => 'write',
+                'surfaces' => ['artists'],
+                'agent_keys' => ['artists_travel'],
+            ],
+            [
+                'name' => 'create_logistics_item',
+                'description' => 'Cria um item de custo logistico para um artista: passagem aerea, diaria de hotel, transfer terrestre, alimentacao, etc. REQUER APROVACAO.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                        'event_artist_id' => ['type' => 'integer', 'description' => 'Event-artist booking identifier.'],
+                        'item_type' => ['type' => 'string', 'description' => 'Type: hotel, flights, transport, catering, equipment, other.'],
+                        'description' => ['type' => 'string', 'description' => 'Description of the item.'],
+                        'quantity' => ['type' => 'number', 'description' => 'Quantity (default 1).'],
+                        'unit_amount' => ['type' => 'number', 'description' => 'Unit price in BRL.'],
+                        'total_amount' => ['type' => 'number', 'description' => 'Total amount in BRL.'],
+                        'supplier_name' => ['type' => 'string', 'description' => 'Supplier/vendor name.'],
+                        'notes' => ['type' => 'string', 'description' => 'Additional notes.'],
+                    ],
+                    'required' => ['event_id', 'event_artist_id', 'item_type', 'description'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['create_logistics_item', 'artists.create_logistics_item', 'add_logistics_item'],
+                'type' => 'write',
+                'surfaces' => ['artists'],
+                'agent_keys' => ['artists_travel'],
+            ],
+            [
+                'name' => 'update_timeline_checkpoint',
+                'description' => 'Atualiza um checkpoint da timeline operacional do artista (ex: landing_at, hotel_arrival_at, venue_arrival_at). Recalcula alertas automaticamente. REQUER APROVACAO.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                        'event_artist_id' => ['type' => 'integer', 'description' => 'Event-artist booking identifier.'],
+                        'checkpoint' => ['type' => 'string', 'description' => 'Checkpoint name: landing_at, airport_out_at, hotel_arrival_at, venue_arrival_at, soundcheck_at, show_start_at, show_end_at, venue_exit_at, next_departure_deadline_at.'],
+                        'timestamp' => ['type' => 'string', 'description' => 'New timestamp value (ISO 8601).'],
+                    ],
+                    'required' => ['event_id', 'event_artist_id', 'checkpoint', 'timestamp'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['update_timeline_checkpoint', 'artists.update_checkpoint', 'set_timeline_checkpoint'],
+                'type' => 'write',
+                'surfaces' => ['artists'],
+                'agent_keys' => ['artists_travel'],
+            ],
+            [
+                'name' => 'close_artist_logistics',
+                'description' => 'Verifica se toda a logistica de um artista esta completa (chegada, hotel, partida, itens pagos) e marca como fechada se estiver. Recalcula alertas. REQUER APROVACAO.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                        'event_artist_id' => ['type' => 'integer', 'description' => 'Event-artist booking identifier.'],
+                    ],
+                    'required' => ['event_id', 'event_artist_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['close_artist_logistics', 'artists.close_logistics', 'finalize_artist_logistics'],
+                'type' => 'write',
+                'surfaces' => ['artists'],
+                'agent_keys' => ['artists_travel'],
+            ],
+
+            // --- Logistics agent tools ---
+            [
+                'name' => 'get_parking_live_snapshot',
+                'description' => 'Snapshot em tempo real do estacionamento: veiculos no local, pendentes de bip, entradas/saidas na ultima hora, mix de veiculos.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_parking_live_snapshot', 'parking_snapshot', 'parking.live'],
+                'type' => 'read',
+                'surfaces' => ['parking', 'dashboard'],
+                'agent_keys' => ['logistics', 'management'],
+            ],
+            [
+                'name' => 'get_meal_service_status',
+                'description' => 'Status dos servicos de refeicao do evento: planejado vs servido por dia/turno, anomalias de consumo.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_meal_service_status', 'meal_service_status', 'meals.status'],
+                'type' => 'read',
+                'surfaces' => ['meals-control', 'workforce'],
+                'agent_keys' => ['logistics'],
+            ],
+            [
+                'name' => 'get_event_shift_coverage',
+                'description' => 'Cobertura de turnos do evento: shifts planejados vs preenchidos, gaps de cobertura por setor.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_event_shift_coverage', 'shift_coverage', 'events.shifts'],
+                'type' => 'read',
+                'surfaces' => ['workforce', 'events'],
+                'agent_keys' => ['logistics', 'management'],
+            ],
+
+            // --- Management agent tools ---
+            [
+                'name' => 'get_event_kpi_dashboard',
+                'description' => 'KPIs consolidados do evento: faturamento, headcount, custo total, margem estimada, ingressos vendidos.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_event_kpi_dashboard', 'event_kpi_dashboard', 'dashboard.kpis'],
+                'type' => 'read',
+                'surfaces' => ['dashboard', 'analytics', 'finance'],
+                'agent_keys' => ['management'],
+            ],
+            [
+                'name' => 'get_finance_summary',
+                'description' => 'Resumo financeiro do evento: receita total, custos (workforce + artistas + logistica), contas a pagar pendentes, margem.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_finance_summary', 'finance_summary', 'finance.summary'],
+                'type' => 'read',
+                'surfaces' => ['finance', 'dashboard'],
+                'agent_keys' => ['management', 'contracting'],
+            ],
+
+            // --- Bar agent tools ---
+            [
+                'name' => 'get_pos_sales_snapshot',
+                'description' => 'Snapshot de vendas do PDV: faturamento, itens vendidos, ticket medio, top produtos, por setor e periodo.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                        'sector' => ['type' => 'string', 'description' => 'Optional: bar, food, shop.'],
+                        'time_filter' => ['type' => 'string', 'description' => 'Optional: 1h, 6h, 12h, 24h, all.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_pos_sales_snapshot', 'pos_sales_snapshot', 'pos.sales', 'bar.sales'],
+                'type' => 'read',
+                'surfaces' => ['bar', 'food', 'shop'],
+                'agent_keys' => ['bar', 'management'],
+            ],
+            [
+                'name' => 'get_stock_critical_items',
+                'description' => 'Produtos em estoque critico ou em ruptura no evento, por setor.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                        'sector' => ['type' => 'string', 'description' => 'Optional: bar, food, shop.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_stock_critical_items', 'stock_critical_items', 'stock.critical'],
+                'type' => 'read',
+                'surfaces' => ['bar', 'food', 'shop'],
+                'agent_keys' => ['bar'],
+            ],
+
+            // --- Marketing agent tools ---
+            [
+                'name' => 'get_ticket_demand_signals',
+                'description' => 'Sinais de demanda de ingressos: vendas por lote, velocidade, capacidade restante, conversao.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_ticket_demand_signals', 'ticket_demand_signals', 'tickets.demand'],
+                'type' => 'read',
+                'surfaces' => ['tickets', 'dashboard'],
+                'agent_keys' => ['marketing', 'management'],
+            ],
+
+            // --- Contracting agent tools ---
+            [
+                'name' => 'get_artist_contract_status',
+                'description' => 'Status consolidado de contratos de artistas: confirmados, pendentes, cancelados, valores comprometidos.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_artist_contract_status', 'artist_contract_status', 'contracting.artists'],
+                'type' => 'read',
+                'surfaces' => ['artists', 'finance'],
+                'agent_keys' => ['contracting', 'management'],
+            ],
+            [
+                'name' => 'get_pending_payments',
+                'description' => 'Pagamentos pendentes do evento: itens logisticos de artistas com status pendente, agrupados por fornecedor e tipo.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_pending_payments', 'pending_payments', 'finance.pending'],
+                'type' => 'read',
+                'surfaces' => ['finance', 'artists'],
+                'agent_keys' => ['contracting', 'management'],
+            ],
+
+            // --- Data Analyst agent tools ---
+            [
+                'name' => 'get_cross_module_analytics',
+                'description' => 'Dados cruzados de multiplos modulos do evento: vendas, ingressos, workforce, artistas, parking. Para analise profunda e deteccao de padroes.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_cross_module_analytics', 'cross_module_analytics', 'analytics.cross'],
+                'type' => 'read',
+                'surfaces' => ['dashboard', 'analytics'],
+                'agent_keys' => ['data_analyst', 'management'],
+            ],
+            [
+                'name' => 'get_event_comparison',
+                'description' => 'Compara metricas do evento atual com eventos anteriores do mesmo organizador: receita, ingressos, custos, workforce.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Current event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_event_comparison', 'event_comparison', 'analytics.compare'],
+                'type' => 'read',
+                'surfaces' => ['analytics', 'dashboard'],
+                'agent_keys' => ['data_analyst', 'management'],
+            ],
+
+            // --- Documents agent tools ---
+            [
+                'name' => 'get_organizer_files',
+                'description' => 'Lista arquivos que o organizador subiu na plataforma, filtrados por categoria ou status de parsing.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Optional: filter by event.'],
+                        'category' => ['type' => 'string', 'description' => 'Optional: financial, contracts, logistics, spreadsheets, etc.'],
+                        'parsed_status' => ['type' => 'string', 'description' => 'Optional: pending, parsed, failed.'],
+                    ],
+                    'required' => [],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_organizer_files', 'organizer_files', 'documents.list'],
+                'type' => 'read',
+                'surfaces' => ['finance', 'general'],
+                'agent_keys' => ['documents', 'data_analyst'],
+            ],
+            [
+                'name' => 'get_parsed_file_data',
+                'description' => 'Retorna os dados parseados de um arquivo especifico que o organizador subiu. Inclui linhas, colunas e categorias detectadas.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'file_id' => ['type' => 'integer', 'description' => 'ID of the organizer file.'],
+                    ],
+                    'required' => ['file_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_parsed_file_data', 'parsed_file_data', 'documents.read'],
+                'type' => 'read',
+                'surfaces' => ['finance', 'general'],
+                'agent_keys' => ['documents', 'data_analyst'],
+            ],
+            [
+                'name' => 'categorize_file_entries',
+                'description' => 'Aplica categorizacao automatica nos dados parseados de um arquivo: identifica tipo (hotel, transporte, etc), status de pagamento, fornecedor. REQUER APROVACAO.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'file_id' => ['type' => 'integer', 'description' => 'ID of the organizer file.'],
+                        'categories' => ['type' => 'string', 'description' => 'JSON array of category mappings the agent proposes.'],
+                    ],
+                    'required' => ['file_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['categorize_file_entries', 'documents.categorize'],
+                'type' => 'write',
+                'surfaces' => ['finance'],
+                'agent_keys' => ['documents'],
+            ],
+
+            // --- Content agent tools ---
+            [
+                'name' => 'get_event_content_context',
+                'description' => 'Contexto do evento para geracao de conteudo: nome, data, local, line-up de artistas, ingressos disponiveis, destaque, branding do organizador.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_event_content_context', 'event_content_context', 'content.context'],
+                'type' => 'read',
+                'surfaces' => ['messaging', 'marketing', 'general'],
+                'agent_keys' => ['content', 'media', 'marketing'],
             ],
         ];
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Public API — catalog building
+    // ──────────────────────────────────────────────────────────────
+
+    public static function buildToolCatalog(array $context, ?PDO $db = null, ?int $organizerId = null): array
+    {
+        $eventId = self::nullablePositiveInt($context['event_id'] ?? null);
+        if ($eventId === null) {
+            return [];
+        }
+
+        $surface = strtolower(trim((string)($context['surface'] ?? '')));
+        $agentKey = strtolower(trim((string)($context['agent_key'] ?? '')));
+
+        $tools = [];
+        foreach (self::allToolDefinitions() as $tool) {
+            $matchesSurface = $surface === '' || in_array($surface, $tool['surfaces'] ?? [], true);
+            $matchesAgent = $agentKey === '' || in_array($agentKey, $tool['agent_keys'] ?? [], true);
+
+            if ($matchesSurface || $matchesAgent) {
+                $tools[] = $tool;
+            }
+        }
+
+        // Merge MCP tools if database connection available
+        $mcpTools = [];
+        if ($db !== null && $organizerId !== null && $organizerId > 0) {
+            try {
+                $mcpTools = AIMCPClientService::buildMCPToolCatalog($db, $organizerId, $surface, $agentKey);
+                $tools = array_merge($tools, $mcpTools);
+            } catch (\Throwable $e) {
+                error_log('[AIToolRuntimeService] MCP catalog merge failed: ' . $e->getMessage());
+            }
+        }
+
+        return $tools;
     }
 
     public static function buildOpenAiToolDefinitions(array $catalog): array
@@ -131,9 +690,12 @@ final class AIToolRuntimeService
         ];
     }
 
+    // ──────────────────────────────────────────────────────────────
+    //  Tool execution
+    // ──────────────────────────────────────────────────────────────
+
     public static function executeReadOnlyTools(PDO $db, array $operator, array $context, array $toolCalls): array
     {
-        // Feature flag gate — block all tool execution when disabled
         if (getenv('FEATURE_AI_TOOLS') === 'false') {
             error_log('[AIToolRuntimeService] AI tools blocked by FEATURE_AI_TOOLS=false');
             throw new RuntimeException('AI tools estão desabilitados', 403);
@@ -149,13 +711,21 @@ final class AIToolRuntimeService
         $userSector = \resolveUserSector($db, $operator);
         $organizerId = (int)(\resolveOrganizerId($operator) ?: ($context['organizer_id'] ?? 0));
 
+        // Pre-load MCP tools once for resolution
+        $mcpExtraTools = [];
+        if ($organizerId > 0) {
+            try {
+                $mcpExtraTools = AIMCPClientService::buildMCPToolCatalog($db, $organizerId, (string)($context['surface'] ?? ''), (string)($context['agent_key'] ?? ''));
+            } catch (\Throwable) {}
+        }
+
         foreach ($toolCalls as $toolCall) {
             if (!is_array($toolCall)) {
                 continue;
             }
 
             $startedAt = (int)round(microtime(true) * 1000);
-            $resolvedTool = self::resolveToolDefinition($toolCall['tool_name'] ?? null, $toolCall['target'] ?? null);
+            $resolvedTool = self::resolveToolDefinition($toolCall['tool_name'] ?? null, $toolCall['target'] ?? null, $mcpExtraTools);
             $updatedCall = $toolCall;
 
             if (!is_array($resolvedTool)) {
@@ -167,7 +737,6 @@ final class AIToolRuntimeService
                 continue;
             }
 
-            // Write tool gate — block write tools unless explicitly enabled
             $toolType = $resolvedTool['type'] ?? 'read';
             if ($toolType === 'write' && getenv('FEATURE_AI_TOOL_WRITE') !== 'true') {
                 error_log('[AIToolRuntimeService] AI write tool blocked by FEATURE_AI_TOOL_WRITE != true: ' . $resolvedTool['name']);
@@ -181,25 +750,19 @@ final class AIToolRuntimeService
             }
 
             try {
-                $result = match ($resolvedTool['name']) {
-                    'get_workforce_tree_status' => self::executeWorkforceTreeStatus(
-                        $db,
-                        $organizerId,
-                        $context,
-                        (array)($toolCall['arguments'] ?? []),
-                        $canBypassSector,
-                        $userSector
-                    ),
-                    'get_workforce_costs' => self::executeWorkforceCosts(
-                        $db,
-                        $organizerId,
-                        $context,
-                        (array)($toolCall['arguments'] ?? []),
-                        $canBypassSector,
-                        $userSector
-                    ),
-                    default => throw new RuntimeException('Tool read-only reconhecida, mas ainda sem executor implementado.', 501),
-                };
+                $arguments = (array)($toolCall['arguments'] ?? []);
+
+                // MCP tool dispatch
+                if (($resolvedTool['source'] ?? '') === 'mcp') {
+                    $result = AIMCPClientService::executeToolCall(
+                        $db, $organizerId,
+                        (int)($resolvedTool['mcp_server_id'] ?? 0),
+                        (string)($resolvedTool['mcp_tool_name'] ?? $resolvedTool['name']),
+                        $arguments
+                    );
+                } else {
+                    $result = self::dispatchToolExecution($db, $resolvedTool['name'], $organizerId, $context, $arguments, $canBypassSector, $userSector);
+                }
 
                 $durationMs = max(0, (int)round(microtime(true) * 1000) - $startedAt);
                 $resultPreview = self::buildResultPreview($resolvedTool['name'], $result);
@@ -242,10 +805,7 @@ final class AIToolRuntimeService
         $message = null;
 
         if ($handledAll) {
-            $message = sprintf(
-                'Runtime read-only executou %d tool call(s) automaticamente.',
-                $executedCount
-            );
+            $message = sprintf('Runtime read-only executou %d tool call(s) automaticamente.', $executedCount);
         } elseif ($hasToolCalls) {
             $parts = [];
             if ($executedCount > 0) {
@@ -284,37 +844,88 @@ final class AIToolRuntimeService
         );
     }
 
-    private static function executeWorkforceTreeStatus(
-        PDO $db,
-        int $organizerId,
-        array $context,
-        array $arguments,
-        bool $canBypassSector,
-        string $userSector
-    ): array {
+    // ──────────────────────────────────────────────────────────────
+    //  Dispatcher — routes tool calls to executors
+    // ──────────────────────────────────────────────────────────────
+
+    private static function dispatchToolExecution(PDO $db, string $toolName, int $organizerId, array $context, array $arguments, bool $canBypassSector, string $userSector): array
+    {
         $eventId = self::nullablePositiveInt($arguments['event_id'] ?? ($context['event_id'] ?? null));
+
+        return match ($toolName) {
+            // Workforce
+            'get_workforce_tree_status' => self::executeWorkforceTreeStatus($db, $organizerId, $eventId, $canBypassSector, $userSector),
+            'get_workforce_costs' => self::executeWorkforceCosts($db, $organizerId, $eventId, $arguments, $canBypassSector, $userSector),
+
+            // Artists
+            'get_artist_event_summary' => self::executeArtistEventSummary($db, $organizerId, $eventId),
+            'get_artist_logistics_detail' => self::executeArtistLogisticsDetail($db, $organizerId, $eventId, $arguments),
+            'get_artist_timeline_status' => self::executeArtistTimelineStatus($db, $organizerId, $eventId, $arguments),
+            'get_artist_alerts' => self::executeArtistAlerts($db, $organizerId, $eventId, $arguments),
+            'get_artist_cost_breakdown' => self::executeArtistCostBreakdown($db, $organizerId, $eventId, $arguments),
+            'get_artist_team_composition' => self::executeArtistTeamComposition($db, $organizerId, $eventId, $arguments),
+            'get_artist_transfer_estimations' => self::executeArtistTransferEstimations($db, $organizerId, $eventId, $arguments),
+            'search_artists_by_status' => self::executeSearchArtistsByStatus($db, $organizerId, $eventId, $arguments),
+
+            // Artists Travel
+            'get_artist_travel_requirements' => self::executeArtistTravelRequirements($db, $organizerId, $eventId),
+            'get_venue_location_context' => self::executeVenueLocationContext($db, $organizerId, $eventId),
+            'update_artist_logistics' => self::executeUpdateArtistLogistics($db, $organizerId, $eventId, $arguments),
+            'create_logistics_item' => self::executeCreateLogisticsItem($db, $organizerId, $eventId, $arguments),
+            'update_timeline_checkpoint' => self::executeUpdateTimelineCheckpoint($db, $organizerId, $eventId, $arguments),
+            'close_artist_logistics' => self::executeCloseArtistLogistics($db, $organizerId, $eventId, $arguments),
+
+            // Logistics
+            'get_parking_live_snapshot' => self::executeParkingLiveSnapshot($db, $organizerId, $eventId),
+            'get_meal_service_status' => self::executeMealServiceStatus($db, $organizerId, $eventId),
+            'get_event_shift_coverage' => self::executeEventShiftCoverage($db, $organizerId, $eventId),
+
+            // Management
+            'get_event_kpi_dashboard' => self::executeEventKpiDashboard($db, $organizerId, $eventId),
+            'get_finance_summary' => self::executeFinanceSummary($db, $organizerId, $eventId),
+
+            // Bar
+            'get_pos_sales_snapshot' => self::executePosSalesSnapshot($db, $organizerId, $eventId, $arguments),
+            'get_stock_critical_items' => self::executeStockCriticalItems($db, $organizerId, $eventId, $arguments),
+
+            // Marketing
+            'get_ticket_demand_signals' => self::executeTicketDemandSignals($db, $organizerId, $eventId),
+
+            // Contracting
+            'get_artist_contract_status' => self::executeArtistContractStatus($db, $organizerId, $eventId),
+            'get_pending_payments' => self::executePendingPayments($db, $organizerId, $eventId),
+
+            // Data Analyst
+            'get_cross_module_analytics' => self::executeCrossModuleAnalytics($db, $organizerId, $eventId),
+            'get_event_comparison' => self::executeEventComparison($db, $organizerId, $eventId),
+
+            // Documents
+            'get_organizer_files' => self::executeGetOrganizerFiles($db, $organizerId, $arguments),
+            'get_parsed_file_data' => self::executeGetParsedFileData($db, $organizerId, $arguments),
+            'categorize_file_entries' => self::executeCategorizeFileEntries($db, $organizerId, $arguments),
+
+            // Content
+            'get_event_content_context' => self::executeEventContentContext($db, $organizerId, $eventId),
+
+            default => throw new RuntimeException('Tool reconhecida, mas ainda sem executor implementado.', 501),
+        };
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Workforce executors
+    // ──────────────────────────────────────────────────────────────
+
+    private static function executeWorkforceTreeStatus(PDO $db, int $organizerId, ?int $eventId, bool $canBypassSector, string $userSector): array
+    {
         if ($eventId === null) {
             throw new RuntimeException('event_id é obrigatório para get_workforce_tree_status.', 422);
         }
 
-        return WorkforceTreeUseCaseService::getStatus(
-            $db,
-            $organizerId,
-            $eventId,
-            $canBypassSector,
-            $userSector
-        );
+        return WorkforceTreeUseCaseService::getStatus($db, $organizerId, $eventId, $canBypassSector, $userSector);
     }
 
-    private static function executeWorkforceCosts(
-        PDO $db,
-        int $organizerId,
-        array $context,
-        array $arguments,
-        bool $canBypassSector,
-        string $userSector
-    ): array {
-        $eventId = self::nullablePositiveInt($arguments['event_id'] ?? ($context['event_id'] ?? null));
+    private static function executeWorkforceCosts(PDO $db, int $organizerId, ?int $eventId, array $arguments, bool $canBypassSector, string $userSector): array
+    {
         if ($eventId === null) {
             throw new RuntimeException('event_id é obrigatório para get_workforce_costs.', 422);
         }
@@ -330,14 +941,1016 @@ final class AIToolRuntimeService
         );
     }
 
-    private static function resolveToolDefinition(mixed $toolName, mixed $target): ?array
+    // ──────────────────────────────────────────────────────────────
+    //  Artists executors
+    // ──────────────────────────────────────────────────────────────
+
+    private static function executeArtistEventSummary(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_artist_event_summary');
+
+        $stmt = $db->prepare("
+            SELECT
+                ea.id AS event_artist_id,
+                a.stage_name,
+                ea.booking_status,
+                ea.cache_amount,
+                ea.performance_date,
+                ea.performance_start_at,
+                ea.performance_duration_minutes,
+                aot.timeline_status,
+                COALESCE(ali_agg.logistics_cost, 0) AS logistics_cost,
+                COALESCE(ali_agg.items_total, 0) AS logistics_items_total,
+                COALESCE(ali_agg.items_pending, 0) AS logistics_items_pending,
+                COALESCE(alert_agg.open_alerts, 0) AS open_alerts,
+                COALESCE(alert_agg.max_severity, 'green') AS max_alert_severity,
+                COALESCE(team_agg.team_count, 0) AS team_members,
+                CASE WHEN al.id IS NOT NULL AND al.arrival_at IS NOT NULL AND al.hotel_name IS NOT NULL AND al.departure_at IS NOT NULL THEN true ELSE false END AS logistics_complete
+            FROM public.event_artists ea
+            JOIN public.artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            LEFT JOIN public.artist_logistics al ON al.event_artist_id = ea.id AND al.organizer_id = ea.organizer_id
+            LEFT JOIN public.artist_operational_timelines aot ON aot.event_artist_id = ea.id AND aot.organizer_id = ea.organizer_id
+            LEFT JOIN LATERAL (
+                SELECT SUM(total_amount) AS logistics_cost, COUNT(*) AS items_total, COUNT(*) FILTER (WHERE status = 'pending') AS items_pending
+                FROM public.artist_logistics_items WHERE event_artist_id = ea.id AND organizer_id = ea.organizer_id
+            ) ali_agg ON true
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*) FILTER (WHERE status = 'open') AS open_alerts,
+                    MAX(CASE severity WHEN 'red' THEN 'red' WHEN 'orange' THEN 'orange' WHEN 'yellow' THEN 'yellow' ELSE 'green' END) AS max_severity
+                FROM public.artist_operational_alerts WHERE event_artist_id = ea.id AND organizer_id = ea.organizer_id
+            ) alert_agg ON true
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*) AS team_count FROM public.artist_team_members WHERE event_artist_id = ea.id AND organizer_id = ea.organizer_id AND is_active = true
+            ) team_agg ON true
+            WHERE ea.organizer_id = :org AND ea.event_id = :evt
+            ORDER BY
+                CASE ea.booking_status WHEN 'confirmed' THEN 1 WHEN 'pending' THEN 2 ELSE 3 END,
+                CASE alert_agg.max_severity WHEN 'red' THEN 1 WHEN 'orange' THEN 2 WHEN 'yellow' THEN 3 ELSE 4 END,
+                ea.performance_date ASC NULLS LAST
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+
+        return [
+            'event_id' => $eventId,
+            'artists' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [],
+        ];
+    }
+
+    private static function executeArtistLogisticsDetail(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
+    {
+        self::requireEventId($eventId, 'get_artist_logistics_detail');
+        $eventArtistId = self::requireEventArtistId($arguments);
+
+        $stmt = $db->prepare("
+            SELECT al.*, a.stage_name
+            FROM public.artist_logistics al
+            JOIN public.event_artists ea ON ea.id = al.event_artist_id AND ea.organizer_id = al.organizer_id
+            JOIN public.artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            WHERE al.event_artist_id = :eaid AND al.organizer_id = :org AND al.event_id = :evt
+            LIMIT 1
+        ");
+        $stmt->execute([':eaid' => $eventArtistId, ':org' => $organizerId, ':evt' => $eventId]);
+        $logistics = $stmt->fetch(\PDO::FETCH_ASSOC) ?: null;
+
+        $stmtItems = $db->prepare("
+            SELECT item_type, description, quantity, unit_amount, total_amount, currency_code, supplier_name, status, notes
+            FROM public.artist_logistics_items
+            WHERE event_artist_id = :eaid AND organizer_id = :org AND event_id = :evt
+            ORDER BY item_type, created_at
+        ");
+        $stmtItems->execute([':eaid' => $eventArtistId, ':org' => $organizerId, ':evt' => $eventId]);
+
+        return [
+            'event_artist_id' => $eventArtistId,
+            'logistics' => $logistics,
+            'items' => $stmtItems->fetchAll(\PDO::FETCH_ASSOC) ?: [],
+        ];
+    }
+
+    private static function executeArtistTimelineStatus(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
+    {
+        self::requireEventId($eventId, 'get_artist_timeline_status');
+        $eventArtistId = self::requireEventArtistId($arguments);
+
+        $stmt = $db->prepare("
+            SELECT aot.*, a.stage_name, ea.performance_start_at, ea.performance_duration_minutes, ea.soundcheck_at
+            FROM public.artist_operational_timelines aot
+            JOIN public.event_artists ea ON ea.id = aot.event_artist_id AND ea.organizer_id = aot.organizer_id
+            JOIN public.artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            WHERE aot.event_artist_id = :eaid AND aot.organizer_id = :org AND aot.event_id = :evt
+            LIMIT 1
+        ");
+        $stmt->execute([':eaid' => $eventArtistId, ':org' => $organizerId, ':evt' => $eventId]);
+
+        return [
+            'event_artist_id' => $eventArtistId,
+            'timeline' => $stmt->fetch(\PDO::FETCH_ASSOC) ?: null,
+        ];
+    }
+
+    private static function executeArtistAlerts(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
+    {
+        self::requireEventId($eventId, 'get_artist_alerts');
+
+        $conditions = ['aoa.organizer_id = :org', 'aoa.event_id = :evt', "aoa.status = 'open'"];
+        $params = [':org' => $organizerId, ':evt' => $eventId];
+
+        $eventArtistId = self::nullablePositiveInt($arguments['event_artist_id'] ?? null);
+        if ($eventArtistId !== null) {
+            $conditions[] = 'aoa.event_artist_id = :eaid';
+            $params[':eaid'] = $eventArtistId;
+        }
+
+        $severity = strtolower(trim((string)($arguments['severity'] ?? '')));
+        if (in_array($severity, ['red', 'orange', 'yellow', 'green', 'gray'], true)) {
+            $conditions[] = 'aoa.severity = :sev';
+            $params[':sev'] = $severity;
+        }
+
+        $where = implode(' AND ', $conditions);
+        $stmt = $db->prepare("
+            SELECT aoa.id, aoa.event_artist_id, a.stage_name, aoa.alert_type, aoa.severity, aoa.status,
+                   aoa.title, aoa.message, aoa.recommended_action, aoa.triggered_at
+            FROM public.artist_operational_alerts aoa
+            JOIN public.event_artists ea ON ea.id = aoa.event_artist_id AND ea.organizer_id = aoa.organizer_id
+            JOIN public.artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            WHERE {$where}
+            ORDER BY CASE aoa.severity WHEN 'red' THEN 1 WHEN 'orange' THEN 2 WHEN 'yellow' THEN 3 ELSE 4 END, aoa.triggered_at DESC
+            LIMIT 30
+        ");
+        $stmt->execute($params);
+
+        return [
+            'event_id' => $eventId,
+            'alerts' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [],
+        ];
+    }
+
+    private static function executeArtistCostBreakdown(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
+    {
+        self::requireEventId($eventId, 'get_artist_cost_breakdown');
+
+        $eventArtistId = self::nullablePositiveInt($arguments['event_artist_id'] ?? null);
+
+        $artistCondition = $eventArtistId !== null ? 'AND ea.id = :eaid' : '';
+        $params = [':org' => $organizerId, ':evt' => $eventId];
+        if ($eventArtistId !== null) {
+            $params[':eaid'] = $eventArtistId;
+        }
+
+        $stmt = $db->prepare("
+            SELECT
+                ea.id AS event_artist_id,
+                a.stage_name,
+                ea.cache_amount,
+                COALESCE(cost_agg.total_logistics, 0) AS total_logistics,
+                COALESCE(ea.cache_amount, 0) + COALESCE(cost_agg.total_logistics, 0) AS total_cost,
+                COALESCE(cost_agg.by_type, '[]'::jsonb) AS cost_by_type
+            FROM public.event_artists ea
+            JOIN public.artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            LEFT JOIN LATERAL (
+                SELECT
+                    SUM(total_amount) AS total_logistics,
+                    jsonb_agg(jsonb_build_object('item_type', item_type, 'total', SUM(total_amount), 'count', COUNT(*), 'pending', COUNT(*) FILTER (WHERE status = 'pending')) ORDER BY item_type) AS by_type
+                FROM (
+                    SELECT item_type, total_amount, status
+                    FROM public.artist_logistics_items
+                    WHERE event_artist_id = ea.id AND organizer_id = ea.organizer_id
+                ) sub
+                GROUP BY TRUE
+            ) cost_agg ON true
+            WHERE ea.organizer_id = :org AND ea.event_id = :evt AND ea.booking_status <> 'cancelled' {$artistCondition}
+            ORDER BY total_cost DESC NULLS LAST
+        ");
+        $stmt->execute($params);
+
+        return [
+            'event_id' => $eventId,
+            'costs' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [],
+        ];
+    }
+
+    private static function executeArtistTeamComposition(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
+    {
+        self::requireEventId($eventId, 'get_artist_team_composition');
+        $eventArtistId = self::requireEventArtistId($arguments);
+
+        $stmt = $db->prepare("
+            SELECT atm.full_name, atm.role_name, atm.phone, atm.needs_hotel, atm.needs_transfer, atm.notes,
+                   a.stage_name AS artist_name
+            FROM public.artist_team_members atm
+            JOIN public.event_artists ea ON ea.id = atm.event_artist_id AND ea.organizer_id = atm.organizer_id
+            JOIN public.artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            WHERE atm.event_artist_id = :eaid AND atm.organizer_id = :org AND atm.event_id = :evt AND atm.is_active = true
+            ORDER BY atm.role_name, atm.full_name
+        ");
+        $stmt->execute([':eaid' => $eventArtistId, ':org' => $organizerId, ':evt' => $eventId]);
+
+        return [
+            'event_artist_id' => $eventArtistId,
+            'team' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [],
+        ];
+    }
+
+    private static function executeArtistTransferEstimations(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
+    {
+        self::requireEventId($eventId, 'get_artist_transfer_estimations');
+        $eventArtistId = self::requireEventArtistId($arguments);
+
+        $stmt = $db->prepare("
+            SELECT ate.route_code, ate.origin_label, ate.destination_label,
+                   ate.eta_base_minutes, ate.eta_peak_minutes, ate.buffer_minutes, ate.planned_eta_minutes,
+                   ate.notes, a.stage_name AS artist_name
+            FROM public.artist_transfer_estimations ate
+            JOIN public.event_artists ea ON ea.id = ate.event_artist_id AND ea.organizer_id = ate.organizer_id
+            JOIN public.artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            WHERE ate.event_artist_id = :eaid AND ate.organizer_id = :org AND ate.event_id = :evt
+            ORDER BY ate.route_code
+        ");
+        $stmt->execute([':eaid' => $eventArtistId, ':org' => $organizerId, ':evt' => $eventId]);
+
+        return [
+            'event_artist_id' => $eventArtistId,
+            'transfers' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [],
+        ];
+    }
+
+    private static function executeSearchArtistsByStatus(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
+    {
+        self::requireEventId($eventId, 'search_artists_by_status');
+
+        $conditions = ['ea.organizer_id = :org', 'ea.event_id = :evt'];
+        $params = [':org' => $organizerId, ':evt' => $eventId];
+
+        $bookingStatus = strtolower(trim((string)($arguments['booking_status'] ?? '')));
+        if (in_array($bookingStatus, ['pending', 'confirmed', 'cancelled'], true)) {
+            $conditions[] = 'ea.booking_status = :bs';
+            $params[':bs'] = $bookingStatus;
+        }
+
+        $logisticsIncomplete = filter_var($arguments['logistics_incomplete'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $joinLogistics = $logisticsIncomplete;
+        if ($logisticsIncomplete) {
+            $conditions[] = '(al.id IS NULL OR al.arrival_at IS NULL OR al.hotel_name IS NULL OR al.departure_at IS NULL)';
+        }
+
+        $minSeverity = strtolower(trim((string)($arguments['min_alert_severity'] ?? '')));
+        $joinAlerts = in_array($minSeverity, ['red', 'orange', 'yellow'], true);
+        if ($joinAlerts) {
+            $severityList = match ($minSeverity) {
+                'red' => "'red'",
+                'orange' => "'red','orange'",
+                'yellow' => "'red','orange','yellow'",
+            };
+            $conditions[] = "alert_agg.max_severity IN ({$severityList})";
+        }
+
+        $where = implode(' AND ', $conditions);
+        $logisticsJoin = $joinLogistics
+            ? "LEFT JOIN public.artist_logistics al ON al.event_artist_id = ea.id AND al.organizer_id = ea.organizer_id"
+            : '';
+
+        $stmt = $db->prepare("
+            SELECT ea.id AS event_artist_id, a.stage_name, ea.booking_status, ea.cache_amount, ea.performance_date,
+                   COALESCE(alert_agg.open_alerts, 0) AS open_alerts,
+                   COALESCE(alert_agg.max_severity, 'green') AS max_alert_severity,
+                   CASE WHEN al2.id IS NOT NULL AND al2.arrival_at IS NOT NULL AND al2.hotel_name IS NOT NULL AND al2.departure_at IS NOT NULL THEN true ELSE false END AS logistics_complete
+            FROM public.event_artists ea
+            JOIN public.artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            LEFT JOIN public.artist_logistics al2 ON al2.event_artist_id = ea.id AND al2.organizer_id = ea.organizer_id
+            {$logisticsJoin}
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*) FILTER (WHERE status = 'open') AS open_alerts,
+                    MAX(CASE severity WHEN 'red' THEN 'red' WHEN 'orange' THEN 'orange' WHEN 'yellow' THEN 'yellow' ELSE 'green' END) AS max_severity
+                FROM public.artist_operational_alerts WHERE event_artist_id = ea.id AND organizer_id = ea.organizer_id
+            ) alert_agg ON true
+            WHERE {$where}
+            ORDER BY ea.performance_date ASC NULLS LAST, a.stage_name
+            LIMIT 30
+        ");
+        $stmt->execute($params);
+
+        return [
+            'event_id' => $eventId,
+            'filters_applied' => array_filter([
+                'booking_status' => $bookingStatus ?: null,
+                'min_alert_severity' => $minSeverity ?: null,
+                'logistics_incomplete' => $logisticsIncomplete ?: null,
+            ]),
+            'artists' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [],
+        ];
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Data Analyst / Documents / Content executors
+    // ──────────────────────────────────────────────────────────────
+
+    private static function executeCrossModuleAnalytics(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_cross_module_analytics');
+        $p = [':org' => $organizerId, ':evt' => $eventId];
+
+        $sales = $db->prepare("SELECT COALESCE(SUM(total_amount),0) AS revenue, COUNT(*) AS transactions, COALESCE(SUM(quantity),0) AS items FROM public.sales WHERE organizer_id=:org AND event_id=:evt AND status='completed'");
+        $sales->execute($p); $salesData = $sales->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $tickets = $db->prepare("SELECT COUNT(*) AS sold FROM public.tickets WHERE organizer_id=:org AND event_id=:evt AND status='active'");
+        $tickets->execute($p); $ticketData = $tickets->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $wf = $db->prepare("SELECT COUNT(*) AS total FROM public.workforce_assignments WHERE organizer_id=:org AND event_id=:evt");
+        $wf->execute($p); $wfData = $wf->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $artists = $db->prepare("SELECT COUNT(*) AS total, COUNT(*) FILTER(WHERE booking_status='confirmed') AS confirmed, COALESCE(SUM(cache_amount) FILTER(WHERE booking_status<>'cancelled'),0) AS cache_total FROM public.event_artists WHERE organizer_id=:org AND event_id=:evt");
+        $artists->execute($p); $artistData = $artists->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $parking = $db->prepare("SELECT COUNT(*) AS total, COUNT(*) FILTER(WHERE exit_at IS NULL AND status<>'cancelled') AS parked FROM public.parking_records WHERE organizer_id=:org AND event_id=:evt");
+        $parking->execute($p); $parkingData = $parking->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $alerts = $db->prepare("SELECT COUNT(*) FILTER(WHERE severity='red') AS red, COUNT(*) FILTER(WHERE severity='orange') AS orange FROM public.artist_operational_alerts WHERE organizer_id=:org AND event_id=:evt AND status='open'");
+        $alerts->execute($p); $alertData = $alerts->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'event_id' => $eventId,
+            'sales' => ['revenue' => (float)($salesData['revenue'] ?? 0), 'transactions' => (int)($salesData['transactions'] ?? 0), 'items' => (int)($salesData['items'] ?? 0)],
+            'tickets' => ['sold' => (int)($ticketData['sold'] ?? 0)],
+            'workforce' => ['assignments' => (int)($wfData['total'] ?? 0)],
+            'artists' => ['total' => (int)($artistData['total'] ?? 0), 'confirmed' => (int)($artistData['confirmed'] ?? 0), 'cache_total' => (float)($artistData['cache_total'] ?? 0)],
+            'parking' => ['total_records' => (int)($parkingData['total'] ?? 0), 'currently_parked' => (int)($parkingData['parked'] ?? 0)],
+            'critical_alerts' => ['red' => (int)($alertData['red'] ?? 0), 'orange' => (int)($alertData['orange'] ?? 0)],
+        ];
+    }
+
+    private static function executeEventComparison(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_event_comparison');
+
+        $stmt = $db->prepare("
+            SELECT e.id, e.name, e.start_date, e.status,
+                   COALESCE(s_agg.revenue, 0) AS revenue,
+                   COALESCE(s_agg.transactions, 0) AS transactions,
+                   COALESCE(t_agg.tickets_sold, 0) AS tickets_sold,
+                   COALESCE(wf_agg.workforce, 0) AS workforce_total
+            FROM public.events e
+            LEFT JOIN LATERAL (SELECT SUM(total_amount) AS revenue, COUNT(*) AS transactions FROM public.sales WHERE event_id=e.id AND organizer_id=e.organizer_id AND status='completed') s_agg ON true
+            LEFT JOIN LATERAL (SELECT COUNT(*) AS tickets_sold FROM public.tickets WHERE event_id=e.id AND organizer_id=e.organizer_id AND status='active') t_agg ON true
+            LEFT JOIN LATERAL (SELECT COUNT(*) AS workforce FROM public.workforce_assignments WHERE event_id=e.id AND organizer_id=e.organizer_id) wf_agg ON true
+            WHERE e.organizer_id = :org
+            ORDER BY e.start_date DESC NULLS LAST
+            LIMIT 5
+        ");
+        $stmt->execute([':org' => $organizerId]);
+
+        return ['current_event_id' => $eventId, 'events' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: []];
+    }
+
+    private static function executeGetOrganizerFiles(PDO $db, int $organizerId, array $arguments): array
+    {
+        $conditions = ['organizer_id = :org'];
+        $params = [':org' => $organizerId];
+
+        $eventId = self::nullablePositiveInt($arguments['event_id'] ?? null);
+        if ($eventId !== null) {
+            $conditions[] = 'event_id = :evt';
+            $params[':evt'] = $eventId;
+        }
+
+        $category = strtolower(trim((string)($arguments['category'] ?? '')));
+        if ($category !== '') {
+            $conditions[] = 'category = :cat';
+            $params[':cat'] = $category;
+        }
+
+        $parsedStatus = strtolower(trim((string)($arguments['parsed_status'] ?? '')));
+        if (in_array($parsedStatus, ['pending', 'parsing', 'parsed', 'failed', 'skipped'], true)) {
+            $conditions[] = 'parsed_status = :ps';
+            $params[':ps'] = $parsedStatus;
+        }
+
+        $where = implode(' AND ', $conditions);
+
+        try {
+            $stmt = $db->prepare("
+                SELECT id, event_id, category, file_type, original_name, mime_type, file_size_bytes, parsed_status, notes, created_at
+                FROM public.organizer_files
+                WHERE {$where}
+                ORDER BY created_at DESC
+                LIMIT 30
+            ");
+            $stmt->execute($params);
+            return ['files' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: []];
+        } catch (\Throwable) {
+            return ['files' => [], 'error' => 'Tabela organizer_files nao encontrada. Aplique a migration 056.'];
+        }
+    }
+
+    private static function executeGetParsedFileData(PDO $db, int $organizerId, array $arguments): array
+    {
+        $fileId = self::nullablePositiveInt($arguments['file_id'] ?? null);
+        if ($fileId === null) {
+            throw new RuntimeException('file_id e obrigatorio.', 422);
+        }
+
+        try {
+            $stmt = $db->prepare("
+                SELECT id, category, file_type, original_name, parsed_status, parsed_data, parsed_at, parsed_error, notes
+                FROM public.organizer_files
+                WHERE id = :id AND organizer_id = :org
+                LIMIT 1
+            ");
+            $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+            $file = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            if (!$file) {
+                throw new RuntimeException('Arquivo nao encontrado.', 404);
+            }
+
+            $parsedData = is_string($file['parsed_data'] ?? null) ? json_decode($file['parsed_data'], true) : ($file['parsed_data'] ?? null);
+
+            return [
+                'file_id' => $fileId,
+                'file' => $file,
+                'parsed_data' => $parsedData,
+                'has_data' => $parsedData !== null && $parsedData !== [],
+            ];
+        } catch (RuntimeException $e) {
+            throw $e;
+        } catch (\Throwable) {
+            return ['file_id' => $fileId, 'error' => 'Tabela organizer_files nao encontrada. Aplique a migration 056.'];
+        }
+    }
+
+    private static function executeCategorizeFileEntries(PDO $db, int $organizerId, array $arguments): array
+    {
+        $fileId = self::nullablePositiveInt($arguments['file_id'] ?? null);
+        if ($fileId === null) {
+            throw new RuntimeException('file_id e obrigatorio.', 422);
+        }
+
+        $categories = trim((string)($arguments['categories'] ?? ''));
+        $categoriesData = $categories !== '' ? json_decode($categories, true) : null;
+
+        try {
+            $stmt = $db->prepare("
+                UPDATE public.organizer_files
+                SET parsed_data = COALESCE(parsed_data, '{}'::jsonb) || jsonb_build_object('ai_categories', :cats::jsonb),
+                    parsed_status = 'parsed',
+                    parsed_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = :id AND organizer_id = :org
+            ");
+            $stmt->execute([
+                ':cats' => json_encode($categoriesData ?? [], JSON_UNESCAPED_UNICODE),
+                ':id' => $fileId,
+                ':org' => $organizerId,
+            ]);
+
+            return ['file_id' => $fileId, 'status' => 'categorized', 'message' => 'Categorias aplicadas com sucesso ao arquivo.'];
+        } catch (\Throwable $e) {
+            return ['file_id' => $fileId, 'status' => 'failed', 'message' => $e->getMessage()];
+        }
+    }
+
+    private static function executeEventContentContext(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_event_content_context');
+
+        $event = $db->prepare("SELECT id, name, description, location, address, city, state, start_date, end_date, status FROM public.events WHERE id=:evt AND organizer_id=:org LIMIT 1");
+        $event->execute([':evt' => $eventId, ':org' => $organizerId]);
+        $eventData = $event->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $artists = $db->prepare("SELECT a.stage_name, ea.performance_date, ea.performance_start_at FROM public.event_artists ea JOIN public.artists a ON a.id=ea.artist_id AND a.organizer_id=ea.organizer_id WHERE ea.organizer_id=:org AND ea.event_id=:evt AND ea.booking_status='confirmed' ORDER BY ea.performance_date, ea.performance_start_at");
+        $artists->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $lineup = $artists->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        $tickets = $db->prepare("SELECT tt.name, tt.price, tt.quantity, COALESCE(sold.count,0) AS sold FROM public.ticket_types tt LEFT JOIN LATERAL (SELECT COUNT(*) AS count FROM public.tickets WHERE ticket_type_id=tt.id AND organizer_id=tt.organizer_id AND status='active') sold ON true WHERE tt.organizer_id=:org AND tt.event_id=:evt AND tt.is_active=true ORDER BY tt.price");
+        $tickets->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $ticketTypes = $tickets->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'event_id' => $eventId,
+            'event' => $eventData,
+            'lineup' => $lineup,
+            'ticket_types' => $ticketTypes,
+        ];
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Logistics / Management / Bar / Marketing / Contracting executors
+    // ──────────────────────────────────────────────────────────────
+
+    private static function executeParkingLiveSnapshot(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_parking_live_snapshot');
+
+        $stmt = $db->prepare("
+            SELECT
+                COUNT(*) AS records_total,
+                COUNT(*) FILTER (WHERE exit_at IS NULL AND status <> 'cancelled') AS parked_total,
+                COUNT(*) FILTER (WHERE biometric_status = 'pending' OR biometric_status IS NULL) AS pending_total,
+                COUNT(*) FILTER (WHERE exit_at IS NOT NULL) AS exited_total,
+                COUNT(*) FILTER (WHERE entry_at >= NOW() - INTERVAL '1 hour') AS entries_last_hour,
+                COUNT(*) FILTER (WHERE exit_at >= NOW() - INTERVAL '1 hour') AS exits_last_hour
+            FROM public.parking_records
+            WHERE organizer_id = :org AND event_id = :evt
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $stats = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        return array_merge(['event_id' => $eventId], $stats);
+    }
+
+    private static function executeMealServiceStatus(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_meal_service_status');
+
+        $stmt = $db->prepare("
+            SELECT
+                ems.id, ems.meal_type, ems.service_date, ems.planned_quantity, ems.is_active,
+                COALESCE(consumed.total, 0) AS consumed_quantity
+            FROM public.event_meal_services ems
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*) AS total FROM public.participant_meals
+                WHERE event_meal_service_id = ems.id AND organizer_id = ems.organizer_id
+            ) consumed ON true
+            WHERE ems.organizer_id = :org AND ems.event_id = :evt
+            ORDER BY ems.service_date, ems.meal_type
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+
+        return ['event_id' => $eventId, 'meal_services' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: []];
+    }
+
+    private static function executeEventShiftCoverage(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_event_shift_coverage');
+
+        $stmt = $db->prepare("
+            SELECT
+                es.id AS shift_id, es.shift_label, es.shift_date, es.start_time, es.end_time,
+                COALESCE(wa_agg.assigned_count, 0) AS assigned_count
+            FROM public.event_shifts es
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*) AS assigned_count FROM public.workforce_assignments
+                WHERE event_id = es.event_id AND organizer_id = es.organizer_id
+            ) wa_agg ON true
+            WHERE es.organizer_id = :org AND es.event_id = :evt
+            ORDER BY es.shift_date, es.start_time
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+
+        return ['event_id' => $eventId, 'shifts' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: []];
+    }
+
+    private static function executeEventKpiDashboard(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_event_kpi_dashboard');
+
+        $event = $db->prepare("SELECT name, status, start_date, end_date FROM public.events WHERE id = :evt AND organizer_id = :org LIMIT 1");
+        $event->execute([':evt' => $eventId, ':org' => $organizerId]);
+        $eventData = $event->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $sales = $db->prepare("SELECT COALESCE(SUM(total_amount), 0) AS revenue, COUNT(*) AS transactions FROM public.sales WHERE organizer_id = :org AND event_id = :evt AND status = 'completed'");
+        $sales->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $salesData = $sales->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $tickets = $db->prepare("SELECT COUNT(*) AS sold FROM public.tickets WHERE organizer_id = :org AND event_id = :evt AND status = 'active'");
+        $tickets->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $ticketData = $tickets->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $workforce = $db->prepare("SELECT COUNT(*) AS total FROM public.workforce_assignments WHERE organizer_id = :org AND event_id = :evt");
+        $workforce->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $wfData = $workforce->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'event_id' => $eventId,
+            'event' => $eventData,
+            'revenue' => (float)($salesData['revenue'] ?? 0),
+            'transactions' => (int)($salesData['transactions'] ?? 0),
+            'tickets_sold' => (int)($ticketData['sold'] ?? 0),
+            'workforce_total' => (int)($wfData['total'] ?? 0),
+        ];
+    }
+
+    private static function executeFinanceSummary(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_finance_summary');
+
+        $revenue = $db->prepare("SELECT COALESCE(SUM(total_amount), 0) AS total FROM public.sales WHERE organizer_id = :org AND event_id = :evt AND status = 'completed'");
+        $revenue->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $revenueTotal = (float)$revenue->fetchColumn();
+
+        $artistCosts = $db->prepare("SELECT COALESCE(SUM(cache_amount), 0) AS cache_total FROM public.event_artists WHERE organizer_id = :org AND event_id = :evt AND booking_status <> 'cancelled'");
+        $artistCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $cacheTotal = (float)$artistCosts->fetchColumn();
+
+        $logisticsCosts = $db->prepare("SELECT COALESCE(SUM(total_amount), 0) AS logistics_total, COUNT(*) FILTER (WHERE status = 'pending') AS pending_count FROM public.artist_logistics_items WHERE organizer_id = :org AND event_id = :evt");
+        $logisticsCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $logData = $logisticsCosts->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'event_id' => $eventId,
+            'revenue' => $revenueTotal,
+            'costs' => [
+                'artist_cache' => $cacheTotal,
+                'artist_logistics' => (float)($logData['logistics_total'] ?? 0),
+                'pending_items' => (int)($logData['pending_count'] ?? 0),
+            ],
+            'total_costs' => $cacheTotal + (float)($logData['logistics_total'] ?? 0),
+            'estimated_margin' => $revenueTotal - $cacheTotal - (float)($logData['logistics_total'] ?? 0),
+        ];
+    }
+
+    private static function executePosSalesSnapshot(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
+    {
+        self::requireEventId($eventId, 'get_pos_sales_snapshot');
+
+        $sector = strtolower(trim((string)($arguments['sector'] ?? '')));
+        $sectorCondition = in_array($sector, ['bar', 'food', 'shop'], true) ? "AND s.sector = :sector" : '';
+        $params = [':org' => $organizerId, ':evt' => $eventId];
+        if ($sectorCondition !== '') {
+            $params[':sector'] = $sector;
+        }
+
+        $stmt = $db->prepare("
+            SELECT
+                COALESCE(SUM(s.total_amount), 0) AS revenue,
+                COUNT(*) AS transactions,
+                COALESCE(SUM(s.quantity), 0) AS items_sold,
+                CASE WHEN COUNT(*) > 0 THEN ROUND(SUM(s.total_amount) / COUNT(*), 2) ELSE 0 END AS avg_ticket
+            FROM public.sales s
+            WHERE s.organizer_id = :org AND s.event_id = :evt AND s.status = 'completed' {$sectorCondition}
+        ");
+        $stmt->execute($params);
+        $data = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        return array_merge(['event_id' => $eventId, 'sector_filter' => $sector ?: 'all'], $data);
+    }
+
+    private static function executeStockCriticalItems(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
+    {
+        self::requireEventId($eventId, 'get_stock_critical_items');
+
+        $sector = strtolower(trim((string)($arguments['sector'] ?? '')));
+        $sectorCondition = in_array($sector, ['bar', 'food', 'shop'], true) ? "AND p.sector = :sector" : '';
+        $params = [':org' => $organizerId, ':evt' => $eventId];
+        if ($sectorCondition !== '') {
+            $params[':sector'] = $sector;
+        }
+
+        $stmt = $db->prepare("
+            SELECT p.id, p.name, p.sector, p.stock_quantity, p.min_stock_threshold, p.price
+            FROM public.products p
+            WHERE p.organizer_id = :org AND p.event_id = :evt AND p.is_active = true
+              AND (p.stock_quantity <= p.min_stock_threshold OR p.stock_quantity <= 0) {$sectorCondition}
+            ORDER BY p.stock_quantity ASC
+            LIMIT 20
+        ");
+        $stmt->execute($params);
+
+        return ['event_id' => $eventId, 'critical_items' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: []];
+    }
+
+    private static function executeTicketDemandSignals(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_ticket_demand_signals');
+
+        $stmt = $db->prepare("
+            SELECT
+                tt.id, tt.name, tt.price, tt.quantity AS total_available,
+                COALESCE(sold_agg.sold, 0) AS sold,
+                tt.quantity - COALESCE(sold_agg.sold, 0) AS remaining
+            FROM public.ticket_types tt
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*) AS sold FROM public.tickets WHERE ticket_type_id = tt.id AND organizer_id = tt.organizer_id AND status = 'active'
+            ) sold_agg ON true
+            WHERE tt.organizer_id = :org AND tt.event_id = :evt AND tt.is_active = true
+            ORDER BY tt.name
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+
+        $types = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        $totalAvailable = array_sum(array_column($types, 'total_available'));
+        $totalSold = array_sum(array_column($types, 'sold'));
+
+        return [
+            'event_id' => $eventId,
+            'ticket_types' => $types,
+            'total_available' => $totalAvailable,
+            'total_sold' => $totalSold,
+            'total_remaining' => $totalAvailable - $totalSold,
+            'sell_through_pct' => $totalAvailable > 0 ? round(($totalSold / $totalAvailable) * 100, 1) : 0,
+        ];
+    }
+
+    private static function executeArtistContractStatus(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_artist_contract_status');
+
+        $stmt = $db->prepare("
+            SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE booking_status = 'confirmed') AS confirmed,
+                COUNT(*) FILTER (WHERE booking_status = 'pending') AS pending,
+                COUNT(*) FILTER (WHERE booking_status = 'cancelled') AS cancelled,
+                COALESCE(SUM(cache_amount) FILTER (WHERE booking_status = 'confirmed'), 0) AS confirmed_value,
+                COALESCE(SUM(cache_amount) FILTER (WHERE booking_status = 'pending'), 0) AS pending_value,
+                COALESCE(SUM(cache_amount) FILTER (WHERE booking_status <> 'cancelled'), 0) AS total_committed
+            FROM public.event_artists
+            WHERE organizer_id = :org AND event_id = :evt
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+
+        return array_merge(['event_id' => $eventId], $stmt->fetch(\PDO::FETCH_ASSOC) ?: []);
+    }
+
+    private static function executePendingPayments(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_pending_payments');
+
+        $stmt = $db->prepare("
+            SELECT
+                ali.item_type,
+                ali.supplier_name,
+                a.stage_name AS artist_name,
+                ali.description,
+                ali.total_amount,
+                ali.status
+            FROM public.artist_logistics_items ali
+            JOIN public.event_artists ea ON ea.id = ali.event_artist_id AND ea.organizer_id = ali.organizer_id
+            JOIN public.artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            WHERE ali.organizer_id = :org AND ali.event_id = :evt AND ali.status = 'pending'
+            ORDER BY ali.total_amount DESC NULLS LAST
+            LIMIT 30
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+
+        $items = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        $totalPending = array_sum(array_column($items, 'total_amount'));
+
+        return [
+            'event_id' => $eventId,
+            'pending_items' => $items,
+            'total_pending_amount' => $totalPending,
+        ];
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Artists Travel executors
+    // ──────────────────────────────────────────────────────────────
+
+    private static function executeArtistTravelRequirements(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_artist_travel_requirements');
+
+        $stmt = $db->prepare("
+            SELECT
+                ea.id AS event_artist_id,
+                a.stage_name,
+                ea.booking_status,
+                ea.performance_date,
+                ea.performance_start_at,
+                al.arrival_origin,
+                al.arrival_mode,
+                al.arrival_at,
+                al.hotel_name,
+                al.hotel_check_in_at,
+                al.hotel_check_out_at,
+                al.departure_destination,
+                al.departure_mode,
+                al.departure_at,
+                COALESCE(team_agg.team_count, 0) AS team_total,
+                COALESCE(team_agg.needs_hotel, 0) AS team_needs_hotel,
+                COALESCE(team_agg.needs_transfer, 0) AS team_needs_transfer,
+                CASE WHEN al.id IS NOT NULL AND al.arrival_at IS NOT NULL AND al.hotel_name IS NOT NULL AND al.departure_at IS NOT NULL THEN true ELSE false END AS logistics_complete
+            FROM public.event_artists ea
+            JOIN public.artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            LEFT JOIN public.artist_logistics al ON al.event_artist_id = ea.id AND al.organizer_id = ea.organizer_id
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*) AS team_count,
+                       COUNT(*) FILTER (WHERE needs_hotel = true) AS needs_hotel,
+                       COUNT(*) FILTER (WHERE needs_transfer = true) AS needs_transfer
+                FROM public.artist_team_members WHERE event_artist_id = ea.id AND organizer_id = ea.organizer_id AND is_active = true
+            ) team_agg ON true
+            WHERE ea.organizer_id = :org AND ea.event_id = :evt AND ea.booking_status <> 'cancelled'
+            ORDER BY ea.performance_date ASC NULLS LAST, a.stage_name
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+
+        return [
+            'event_id' => $eventId,
+            'artists' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [],
+        ];
+    }
+
+    private static function executeVenueLocationContext(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_venue_location_context');
+
+        $stmt = $db->prepare("
+            SELECT id, name, location, address, city, state, start_date, end_date, status
+            FROM public.events
+            WHERE id = :evt AND organizer_id = :org
+            LIMIT 1
+        ");
+        $stmt->execute([':evt' => $eventId, ':org' => $organizerId]);
+        $event = $stmt->fetch(\PDO::FETCH_ASSOC) ?: null;
+
+        return [
+            'event_id' => $eventId,
+            'event' => $event,
+        ];
+    }
+
+    private static function executeUpdateArtistLogistics(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
+    {
+        self::requireEventId($eventId, 'update_artist_logistics');
+        $eventArtistId = self::requireEventArtistId($arguments);
+
+        $stmt = $db->prepare("
+            SELECT id FROM public.artist_logistics
+            WHERE event_artist_id = :eaid AND organizer_id = :org AND event_id = :evt
+            LIMIT 1
+        ");
+        $stmt->execute([':eaid' => $eventArtistId, ':org' => $organizerId, ':evt' => $eventId]);
+        $existing = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        $fields = ['arrival_origin', 'arrival_mode', 'arrival_reference', 'arrival_at',
+                    'hotel_name', 'hotel_address', 'hotel_check_in_at', 'hotel_check_out_at',
+                    'departure_destination', 'departure_mode', 'departure_reference', 'departure_at',
+                    'transport_notes'];
+
+        if ($existing) {
+            $setClauses = ['updated_at = NOW()'];
+            $params = [':id' => $existing['id'], ':org' => $organizerId];
+            foreach ($fields as $field) {
+                if (array_key_exists($field, $arguments)) {
+                    $setClauses[] = "{$field} = :{$field}";
+                    $params[":{$field}"] = $arguments[$field] !== '' ? $arguments[$field] : null;
+                }
+            }
+            $setStr = implode(', ', $setClauses);
+            $db->prepare("UPDATE public.artist_logistics SET {$setStr} WHERE id = :id AND organizer_id = :org")->execute($params);
+        } else {
+            $insertFields = ['organizer_id', 'event_id', 'event_artist_id'];
+            $insertValues = [':org', ':evt', ':eaid'];
+            $params = [':org' => $organizerId, ':evt' => $eventId, ':eaid' => $eventArtistId];
+            foreach ($fields as $field) {
+                if (array_key_exists($field, $arguments) && $arguments[$field] !== '') {
+                    $insertFields[] = $field;
+                    $insertValues[] = ":{$field}";
+                    $params[":{$field}"] = $arguments[$field];
+                }
+            }
+            $fieldsStr = implode(', ', $insertFields);
+            $valuesStr = implode(', ', $insertValues);
+            $db->prepare("INSERT INTO public.artist_logistics ({$fieldsStr}) VALUES ({$valuesStr})")->execute($params);
+        }
+
+        return ['event_artist_id' => $eventArtistId, 'status' => 'updated', 'message' => 'Logistica do artista atualizada com sucesso.'];
+    }
+
+    private static function executeCreateLogisticsItem(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
+    {
+        self::requireEventId($eventId, 'create_logistics_item');
+        $eventArtistId = self::requireEventArtistId($arguments);
+
+        $itemType = trim((string)($arguments['item_type'] ?? ''));
+        $description = trim((string)($arguments['description'] ?? ''));
+        if ($itemType === '' || $description === '') {
+            throw new RuntimeException('item_type e description sao obrigatorios.', 422);
+        }
+
+        $quantity = max(1, (float)($arguments['quantity'] ?? 1));
+        $unitAmount = max(0, (float)($arguments['unit_amount'] ?? 0));
+        $totalAmount = (float)($arguments['total_amount'] ?? ($unitAmount * $quantity));
+        $supplierName = trim((string)($arguments['supplier_name'] ?? '')) ?: null;
+        $notes = trim((string)($arguments['notes'] ?? '')) ?: null;
+
+        $logisticsStmt = $db->prepare("SELECT id FROM public.artist_logistics WHERE event_artist_id = :eaid AND organizer_id = :org LIMIT 1");
+        $logisticsStmt->execute([':eaid' => $eventArtistId, ':org' => $organizerId]);
+        $logisticsId = $logisticsStmt->fetchColumn() ?: null;
+
+        $stmt = $db->prepare("
+            INSERT INTO public.artist_logistics_items (organizer_id, event_id, event_artist_id, artist_logistics_id, item_type, description, quantity, unit_amount, total_amount, supplier_name, notes, status)
+            VALUES (:org, :evt, :eaid, :lid, :type, :desc, :qty, :unit, :total, :supplier, :notes, 'pending')
+        ");
+        $stmt->execute([
+            ':org' => $organizerId, ':evt' => $eventId, ':eaid' => $eventArtistId,
+            ':lid' => $logisticsId, ':type' => $itemType, ':desc' => $description,
+            ':qty' => $quantity, ':unit' => $unitAmount, ':total' => $totalAmount,
+            ':supplier' => $supplierName, ':notes' => $notes,
+        ]);
+
+        return [
+            'event_artist_id' => $eventArtistId,
+            'status' => 'created',
+            'item_type' => $itemType,
+            'total_amount' => $totalAmount,
+            'message' => "Item logistico '{$description}' criado com sucesso (R$ " . number_format($totalAmount, 2, '.', '') . ").",
+        ];
+    }
+
+    private static function executeUpdateTimelineCheckpoint(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
+    {
+        self::requireEventId($eventId, 'update_timeline_checkpoint');
+        $eventArtistId = self::requireEventArtistId($arguments);
+
+        $checkpoint = strtolower(trim((string)($arguments['checkpoint'] ?? '')));
+        $validCheckpoints = ['landing_at', 'airport_out_at', 'hotel_arrival_at', 'venue_arrival_at', 'soundcheck_at', 'show_start_at', 'show_end_at', 'venue_exit_at', 'next_departure_deadline_at'];
+        if (!in_array($checkpoint, $validCheckpoints, true)) {
+            throw new RuntimeException('Checkpoint invalido. Use: ' . implode(', ', $validCheckpoints), 422);
+        }
+
+        $timestamp = trim((string)($arguments['timestamp'] ?? ''));
+        if ($timestamp === '') {
+            throw new RuntimeException('timestamp e obrigatorio.', 422);
+        }
+
+        $stmt = $db->prepare("
+            SELECT id FROM public.artist_operational_timelines
+            WHERE event_artist_id = :eaid AND organizer_id = :org AND event_id = :evt
+            LIMIT 1
+        ");
+        $stmt->execute([':eaid' => $eventArtistId, ':org' => $organizerId, ':evt' => $eventId]);
+        $existing = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if ($existing) {
+            $db->prepare("UPDATE public.artist_operational_timelines SET {$checkpoint} = :ts, updated_at = NOW() WHERE id = :id AND organizer_id = :org")
+               ->execute([':ts' => $timestamp, ':id' => $existing['id'], ':org' => $organizerId]);
+        } else {
+            $db->prepare("INSERT INTO public.artist_operational_timelines (organizer_id, event_id, event_artist_id, {$checkpoint}) VALUES (:org, :evt, :eaid, :ts)")
+               ->execute([':org' => $organizerId, ':evt' => $eventId, ':eaid' => $eventArtistId, ':ts' => $timestamp]);
+        }
+
+        return [
+            'event_artist_id' => $eventArtistId,
+            'checkpoint' => $checkpoint,
+            'timestamp' => $timestamp,
+            'status' => 'updated',
+            'message' => "Checkpoint '{$checkpoint}' atualizado para {$timestamp}.",
+        ];
+    }
+
+    private static function executeCloseArtistLogistics(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
+    {
+        self::requireEventId($eventId, 'close_artist_logistics');
+        $eventArtistId = self::requireEventArtistId($arguments);
+
+        $stmt = $db->prepare("
+            SELECT al.arrival_at, al.hotel_name, al.departure_at,
+                   COALESCE(items.pending_count, 0) AS pending_items
+            FROM public.artist_logistics al
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*) FILTER (WHERE status = 'pending') AS pending_count
+                FROM public.artist_logistics_items WHERE event_artist_id = al.event_artist_id AND organizer_id = al.organizer_id
+            ) items ON true
+            WHERE al.event_artist_id = :eaid AND al.organizer_id = :org AND al.event_id = :evt
+            LIMIT 1
+        ");
+        $stmt->execute([':eaid' => $eventArtistId, ':org' => $organizerId, ':evt' => $eventId]);
+        $logistics = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (!$logistics) {
+            return ['event_artist_id' => $eventArtistId, 'status' => 'incomplete', 'message' => 'Nenhuma logistica cadastrada para este artista.', 'blockers' => ['sem_logistica']];
+        }
+
+        $blockers = [];
+        if (empty($logistics['arrival_at'])) $blockers[] = 'sem_chegada';
+        if (empty($logistics['hotel_name'])) $blockers[] = 'sem_hotel';
+        if (empty($logistics['departure_at'])) $blockers[] = 'sem_partida';
+        if ((int)$logistics['pending_items'] > 0) $blockers[] = 'itens_pendentes_pagamento';
+
+        if ($blockers !== []) {
+            return [
+                'event_artist_id' => $eventArtistId,
+                'status' => 'incomplete',
+                'message' => 'Logistica nao pode ser fechada. Pendencias: ' . implode(', ', $blockers),
+                'blockers' => $blockers,
+            ];
+        }
+
+        $db->prepare("UPDATE public.artist_logistics SET hospitality_notes = COALESCE(hospitality_notes, '') || E'\n[FECHADO] Logistica marcada como completa em ' || NOW()::text, updated_at = NOW() WHERE event_artist_id = :eaid AND organizer_id = :org")
+           ->execute([':eaid' => $eventArtistId, ':org' => $organizerId]);
+
+        return [
+            'event_artist_id' => $eventArtistId,
+            'status' => 'closed',
+            'message' => 'Logistica fechada com sucesso. Chegada, hotel, partida e pagamentos confirmados.',
+            'blockers' => [],
+        ];
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Tool resolution helpers
+    // ──────────────────────────────────────────────────────────────
+
+    private static function resolveToolDefinition(mixed $toolName, mixed $target, array $extraTools = []): ?array
     {
         $candidateNames = [
             self::normalizeToolIdentifier((string)$toolName),
             self::normalizeToolIdentifier((string)$target),
         ];
 
-        foreach (self::buildToolCatalog(['event_id' => 1]) as $tool) {
+        foreach (array_merge(self::allToolDefinitions(), $extraTools) as $tool) {
             $aliases = array_map(
                 static fn(string $alias): string => self::normalizeToolIdentifier($alias),
                 (array)($tool['aliases'] ?? [])
@@ -367,19 +1980,84 @@ final class AIToolRuntimeService
                 'assignments_missing_bindings' => isset($result['assignments_missing_bindings']) ? (int)$result['assignments_missing_bindings'] : null,
                 'activation_blockers' => is_array($result['activation_blockers'] ?? null) ? $result['activation_blockers'] : [],
             ], static fn(mixed $value): bool => $value !== null),
+
             'get_workforce_costs' => array_filter([
                 'planned_members_total' => isset($result['planned_members_total']) ? (int)$result['planned_members_total'] : null,
                 'filled_members_total' => isset($result['filled_members_total']) ? (int)$result['filled_members_total'] : null,
-                'present_members_total' => isset($result['present_members_total']) ? (int)$result['present_members_total'] : null,
                 'total_estimated_payment' => isset($result['total_estimated_payment']) ? (float)$result['total_estimated_payment'] : null,
-                'total_estimated_hours' => isset($result['total_estimated_hours']) ? (float)$result['total_estimated_hours'] : null,
-                'total_estimated_meals' => isset($result['total_estimated_meals']) ? (int)$result['total_estimated_meals'] : null,
                 'by_sector_count' => is_array($result['by_sector'] ?? null) ? count($result['by_sector']) : 0,
-                'by_role_count' => is_array($result['by_role'] ?? null) ? count($result['by_role']) : 0,
             ], static fn(mixed $value): bool => $value !== null),
+
+            'get_artist_event_summary' => [
+                'artists_count' => is_array($result['artists'] ?? null) ? count($result['artists']) : 0,
+            ],
+
+            'get_artist_logistics_detail' => [
+                'has_logistics' => ($result['logistics'] ?? null) !== null,
+                'items_count' => is_array($result['items'] ?? null) ? count($result['items']) : 0,
+            ],
+
+            'get_artist_timeline_status' => [
+                'has_timeline' => ($result['timeline'] ?? null) !== null,
+                'timeline_status' => $result['timeline']['timeline_status'] ?? null,
+            ],
+
+            'get_artist_alerts' => [
+                'alerts_count' => is_array($result['alerts'] ?? null) ? count($result['alerts']) : 0,
+            ],
+
+            'get_artist_cost_breakdown' => [
+                'artists_count' => is_array($result['costs'] ?? null) ? count($result['costs']) : 0,
+            ],
+
+            'get_artist_team_composition' => [
+                'team_count' => is_array($result['team'] ?? null) ? count($result['team']) : 0,
+            ],
+
+            'get_artist_transfer_estimations' => [
+                'transfers_count' => is_array($result['transfers'] ?? null) ? count($result['transfers']) : 0,
+            ],
+
+            'search_artists_by_status' => [
+                'results_count' => is_array($result['artists'] ?? null) ? count($result['artists']) : 0,
+                'filters' => $result['filters_applied'] ?? [],
+            ],
+
+            // Artists Travel
+            'get_artist_travel_requirements' => ['artists_count' => is_array($result['artists'] ?? null) ? count($result['artists']) : 0],
+            'get_venue_location_context' => ['has_event' => ($result['event'] ?? null) !== null],
+            'update_artist_logistics' => ['status' => $result['status'] ?? 'unknown'],
+            'create_logistics_item' => ['status' => $result['status'] ?? 'unknown', 'item_type' => $result['item_type'] ?? null],
+            'update_timeline_checkpoint' => ['checkpoint' => $result['checkpoint'] ?? null, 'status' => $result['status'] ?? 'unknown'],
+            'close_artist_logistics' => ['status' => $result['status'] ?? 'unknown', 'blockers' => $result['blockers'] ?? []],
+
+            // Logistics / Management / Bar / Marketing / Contracting
+            'get_parking_live_snapshot' => ['parked_total' => (int)($result['parked_total'] ?? 0), 'pending_total' => (int)($result['pending_total'] ?? 0)],
+            'get_meal_service_status' => ['services_count' => is_array($result['meal_services'] ?? null) ? count($result['meal_services']) : 0],
+            'get_event_shift_coverage' => ['shifts_count' => is_array($result['shifts'] ?? null) ? count($result['shifts']) : 0],
+            'get_event_kpi_dashboard' => ['revenue' => (float)($result['revenue'] ?? 0), 'tickets_sold' => (int)($result['tickets_sold'] ?? 0)],
+            'get_finance_summary' => ['revenue' => (float)($result['revenue'] ?? 0), 'estimated_margin' => (float)($result['estimated_margin'] ?? 0)],
+            'get_pos_sales_snapshot' => ['revenue' => (float)($result['revenue'] ?? 0), 'transactions' => (int)($result['transactions'] ?? 0)],
+            'get_stock_critical_items' => ['critical_count' => is_array($result['critical_items'] ?? null) ? count($result['critical_items']) : 0],
+            'get_ticket_demand_signals' => ['total_sold' => (int)($result['total_sold'] ?? 0), 'sell_through_pct' => (float)($result['sell_through_pct'] ?? 0)],
+            'get_artist_contract_status' => ['confirmed' => (int)($result['confirmed'] ?? 0), 'pending' => (int)($result['pending'] ?? 0), 'total_committed' => (float)($result['total_committed'] ?? 0)],
+            'get_pending_payments' => ['pending_count' => is_array($result['pending_items'] ?? null) ? count($result['pending_items']) : 0, 'total_pending' => (float)($result['total_pending_amount'] ?? 0)],
+
+            // Data Analyst / Documents / Content
+            'get_cross_module_analytics' => ['revenue' => (float)($result['sales']['revenue'] ?? 0), 'tickets_sold' => (int)($result['tickets']['sold'] ?? 0), 'red_alerts' => (int)($result['critical_alerts']['red'] ?? 0)],
+            'get_event_comparison' => ['events_count' => is_array($result['events'] ?? null) ? count($result['events']) : 0],
+            'get_organizer_files' => ['files_count' => is_array($result['files'] ?? null) ? count($result['files']) : 0],
+            'get_parsed_file_data' => ['has_data' => (bool)($result['has_data'] ?? false)],
+            'categorize_file_entries' => ['status' => $result['status'] ?? 'unknown'],
+            'get_event_content_context' => ['has_event' => ($result['event'] ?? []) !== [], 'lineup_count' => is_array($result['lineup'] ?? null) ? count($result['lineup']) : 0],
+
             default => [],
         };
     }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Conversion helpers
+    // ──────────────────────────────────────────────────────────────
 
     private static function convertJsonSchemaToGemini(array $schema): array
     {
@@ -443,5 +2121,21 @@ final class AIToolRuntimeService
     {
         $normalized = (int)($value ?? 0);
         return $normalized > 0 ? $normalized : null;
+    }
+
+    private static function requireEventId(?int $eventId, string $toolName): void
+    {
+        if ($eventId === null) {
+            throw new RuntimeException("event_id é obrigatório para {$toolName}.", 422);
+        }
+    }
+
+    private static function requireEventArtistId(array $arguments): int
+    {
+        $id = self::nullablePositiveInt($arguments['event_artist_id'] ?? null);
+        if ($id === null) {
+            throw new RuntimeException('event_artist_id é obrigatório.', 422);
+        }
+        return $id;
     }
 }
