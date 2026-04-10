@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import publicApi from '../lib/publicApi';
 
 export default function GuestTicket() {
@@ -27,10 +28,6 @@ export default function GuestTicket() {
   }, [token]);
 
   const displayToken = ticket?.qr_token || token;
-  const qrUrl = useMemo(
-    () => `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(displayToken)}`,
-    [displayToken],
-  );
 
   const normalizedStatus = String(ticket?.status || '').toLowerCase();
   const isCheckedIn = ['presente', 'present', 'checked-in', 'checked_in', 'utilizado', 'used'].includes(normalizedStatus);
@@ -132,7 +129,7 @@ export default function GuestTicket() {
 
         <div className="p-5">
           <div className="relative bg-white rounded-2xl p-4 flex flex-col items-center justify-center min-h-[290px] gap-3">
-            <img src={qrUrl} alt="QR Code da credencial" className="w-[250px] h-[250px] rounded-lg" />
+            <QRCodeSVG value={displayToken} size={250} level="H" marginSize={2} className="rounded-lg" />
 
             <div className="text-center w-full">
               <p className="font-mono font-bold text-gray-800 text-sm md:text-base tracking-wider break-all bg-gray-100 py-2 px-3 rounded-lg w-full border border-gray-200">
