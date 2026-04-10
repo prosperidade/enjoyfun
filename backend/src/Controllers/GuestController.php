@@ -47,13 +47,33 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 // ─────────────────────────────────────────────────────────────────────────────
 function getGuestTicket(array $query): void
 {
+    // Rate limit: 30 requests per minute per IP for public guest ticket lookup
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $rateKey = 'guest_ticket_lookup:' . $ip;
+    $windowSecs = 60;
+    $maxAttempts = 30;
+
+    $db = Database::getInstance();
+    $windowStart = date('Y-m-d H:i:s', time() - $windowSecs);
+
+    $countStmt = $db->prepare("SELECT COUNT(*)::int FROM auth_rate_limits WHERE rate_key = ? AND attempted_at > ?");
+    $countStmt->execute([$rateKey, $windowStart]);
+    $count = (int)$countStmt->fetchColumn();
+
+    if ($count >= $maxAttempts) {
+        header('Retry-After: 60');
+        jsonError('Muitas tentativas. Tente novamente em 1 minuto.', 429);
+        return;
+    }
+
+    $db->prepare("INSERT INTO auth_rate_limits (rate_key, attempted_at) VALUES (?, NOW())")->execute([$rateKey]);
+
     $token = trim((string)($query['token'] ?? ''));
     if (!$token || $token === 'undefined' || $token === 'null') {
         jsonError("Token do convite não informado ou corrompido.", 422);
     }
 
     try {
-        $db = Database::getInstance();
 
         // 1) Fluxo legado de guests
         $stmtGuest = $db->prepare("

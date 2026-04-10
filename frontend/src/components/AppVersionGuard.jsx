@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useLocation } from "react-router-dom";
+import { useRegisterSW } from "virtual:pwa-register/react";
 
 const VERSION_CHECK_INTERVAL_MS = 60_000;
 const OPERATIONAL_PATH_PREFIXES = [
@@ -43,11 +44,25 @@ export default function AppVersionGuard() {
   const [dismissedBuildId, setDismissedBuildId] = useState("");
   const reloadTimerRef = useRef(null);
   const detectedBuildIdRef = useRef("");
+  const [swWaiting, setSwWaiting] = useState(false);
   const operationalRoute = useMemo(
     () => isOperationalPath(location.pathname),
     [location.pathname]
   );
   const versionManifestUrl = `${import.meta.env.BASE_URL}app-version.json`;
+
+  // registerType: 'prompt' — SW waits for explicit activation
+  const {
+    needRefresh: [needRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onNeedRefresh() {
+      setSwWaiting(true);
+    },
+    onOfflineReady() {
+      // Offline assets cached — no action needed
+    },
+  });
 
   const clearReloadTimer = useEffectEvent(() => {
     if (reloadTimerRef.current) {
@@ -56,12 +71,21 @@ export default function AppVersionGuard() {
     }
   });
 
-  const reloadApplication = useEffectEvent(() => {
+  const reloadApplication = useEffectEvent(async () => {
     clearReloadTimer();
     toast.loading("Nova versao detectada. Recarregando a estacao...", {
       id: "app-version-guard",
       duration: Infinity,
     });
+    // Activate the waiting Service Worker before reloading so the new
+    // assets are served immediately on the next page load.
+    if (needRefresh) {
+      try {
+        await updateServiceWorker(true);
+      } catch {
+        // SW activation failed — reload will pick up the new SW anyway.
+      }
+    }
     window.setTimeout(() => {
       window.location.reload();
     }, 900);
@@ -141,16 +165,16 @@ export default function AppVersionGuard() {
     toast.dismiss("app-version-guard");
   }, [operationalRoute, staleBuild]);
 
-  if (
-    import.meta.env.DEV ||
-    !CURRENT_BUILD_ID ||
-    !staleBuild ||
-    (dismissedBuildId === staleBuild.buildId && !operationalRoute)
-  ) {
+  // Show banner when: version manifest detects a new build, OR the SW
+  // itself is waiting to activate (registerType: 'prompt').
+  const hasBuildUpdate = staleBuild && !(dismissedBuildId === staleBuild.buildId && !operationalRoute);
+  const hasSwUpdate = swWaiting || needRefresh;
+
+  if (import.meta.env.DEV || (!CURRENT_BUILD_ID && !hasSwUpdate) || (!hasBuildUpdate && !hasSwUpdate)) {
     return null;
   }
 
-  const latestBuildLabel = formatBuildMoment(staleBuild.builtAt);
+  const latestBuildLabel = staleBuild ? formatBuildMoment(staleBuild.builtAt) : "";
   const currentBuildLabel = formatBuildMoment(CURRENT_BUILD_AT);
 
   return (
@@ -161,10 +185,16 @@ export default function AppVersionGuard() {
             <p className="text-sm font-semibold text-amber-300">
               Nova versao do sistema detectada nesta estacao
             </p>
-            <p className="text-xs text-gray-300">
-              Build atual: {CURRENT_APP_VERSION || "local"}{currentBuildLabel ? ` (${currentBuildLabel})` : ""}.
-              Build disponivel: {staleBuild.version || "nova versao"}{latestBuildLabel ? ` (${latestBuildLabel})` : ""}.
-            </p>
+            {staleBuild ? (
+              <p className="text-xs text-gray-300">
+                Build atual: {CURRENT_APP_VERSION || "local"}{currentBuildLabel ? ` (${currentBuildLabel})` : ""}.
+                Build disponivel: {staleBuild.version || "nova versao"}{latestBuildLabel ? ` (${latestBuildLabel})` : ""}.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-300">
+                Uma atualizacao do Service Worker esta pronta para ser ativada.
+              </p>
+            )}
             <p className="text-xs text-gray-400">
               {operationalRoute
                 ? "Rota operacional critica aberta. A atualizacao ficou manual para evitar reinicios automaticos da estacao."
@@ -184,7 +214,10 @@ export default function AppVersionGuard() {
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => setDismissedBuildId(staleBuild.buildId)}
+                onClick={() => {
+                  if (staleBuild) setDismissedBuildId(staleBuild.buildId);
+                  setSwWaiting(false);
+                }}
               >
                 Depois
               </button>
