@@ -322,6 +322,164 @@ else
 fi
 
 ###############################################################################
+# 11. JWT AUDIENCE ENFORCEMENT
+###############################################################################
+section "11. JWT audience enforcement in AuthMiddleware"
+
+AUTH_MIDDLEWARE="${PROJECT_ROOT}/backend/src/Middleware/AuthMiddleware.php"
+if [[ -f "$AUTH_MIDDLEWARE" ]]; then
+    if grep -q 'enjoyfun-api' "$AUTH_MIDDLEWARE"; then
+        pass "JWT audience 'enjoyfun-api' enforced in AuthMiddleware"
+    else
+        fail "JWT audience 'enjoyfun-api' NOT found in AuthMiddleware"
+    fi
+else
+    fail "AuthMiddleware.php not found"
+fi
+
+###############################################################################
+# 12. POS AUDIT TRAIL
+###############################################################################
+section "12. POS audit trail in SalesDomainService"
+
+SALES_SERVICE="${PROJECT_ROOT}/backend/src/Services/SalesDomainService.php"
+if [[ -f "$SALES_SERVICE" ]]; then
+    if grep -q 'AuditService::log' "$SALES_SERVICE"; then
+        pass "AuditService::log found in SalesDomainService (POS audit trail)"
+    else
+        fail "AuditService::log NOT found in SalesDomainService -- POS lacks audit trail"
+    fi
+else
+    fail "SalesDomainService.php not found"
+fi
+
+###############################################################################
+# 13. WEBHOOK TIMESTAMP VALIDATION
+###############################################################################
+section "13. Webhook timestamp validation"
+
+WEBHOOK_CTRL="${PROJECT_ROOT}/backend/src/Controllers/PaymentWebhookController.php"
+if [[ -f "$WEBHOOK_CTRL" ]]; then
+    if grep -qE 'timestamp|drift' "$WEBHOOK_CTRL"; then
+        pass "Webhook timestamp/drift validation found in PaymentWebhookController"
+    else
+        fail "No timestamp/drift validation in PaymentWebhookController"
+    fi
+else
+    fail "PaymentWebhookController.php not found"
+fi
+
+###############################################################################
+# 14. PARKING TRANSACTION SAFETY
+###############################################################################
+section "14. Parking transaction safety"
+
+PARKING_CTRL="${PROJECT_ROOT}/backend/src/Controllers/ParkingController.php"
+if [[ -f "$PARKING_CTRL" ]]; then
+    if grep -q 'beginTransaction' "$PARKING_CTRL"; then
+        pass "beginTransaction found in ParkingController"
+    else
+        fail "No beginTransaction in ParkingController -- parking ops lack ACID safety"
+    fi
+else
+    fail "ParkingController.php not found"
+fi
+
+###############################################################################
+# 15. HMAC STRICT MODE
+###############################################################################
+section "15. HMAC strict mode in frontend"
+
+HMAC_JS="${PROJECT_ROOT}/frontend/src/lib/hmac.js"
+if [[ -f "$HMAC_JS" ]]; then
+    if grep -qE 'throw|HMAC_KEY_MISSING' "$HMAC_JS"; then
+        pass "HMAC strict mode enforced (throw/HMAC_KEY_MISSING found in hmac.js)"
+    else
+        fail "HMAC strict mode NOT enforced in hmac.js -- missing throw or HMAC_KEY_MISSING"
+    fi
+else
+    fail "frontend/src/lib/hmac.js not found"
+fi
+
+###############################################################################
+# 16. SOURCE MAPS DISABLED
+###############################################################################
+section "16. Source maps disabled in production build"
+
+VITE_CONFIG="${PROJECT_ROOT}/frontend/vite.config.js"
+if [[ -f "$VITE_CONFIG" ]]; then
+    if grep -qE 'sourcemap.*false' "$VITE_CONFIG"; then
+        pass "Source maps disabled in vite.config.js"
+    else
+        warn "sourcemap: false NOT found in vite.config.js -- source maps may leak code"
+    fi
+else
+    warn "vite.config.js not found"
+fi
+
+###############################################################################
+# 17. CSP IN NGINX
+###############################################################################
+section "17. Content-Security-Policy in nginx"
+
+NGINX_CONF="${PROJECT_ROOT}/nginx/default.conf"
+if [[ -f "$NGINX_CONF" ]]; then
+    if grep -q 'Content-Security-Policy' "$NGINX_CONF"; then
+        pass "Content-Security-Policy header found in nginx config"
+    else
+        fail "Content-Security-Policy header NOT found in nginx config"
+    fi
+else
+    warn "nginx/default.conf not found"
+fi
+
+###############################################################################
+# 18. PWA PROMPT STRATEGY
+###############################################################################
+section "18. PWA prompt strategy"
+
+if [[ -f "$VITE_CONFIG" ]]; then
+    if grep -q 'prompt' "$VITE_CONFIG"; then
+        pass "PWA registerType prompt strategy found in vite.config.js"
+    else
+        warn "PWA prompt strategy NOT found in vite.config.js"
+    fi
+else
+    warn "vite.config.js not found"
+fi
+
+###############################################################################
+# 19. GUEST RATE LIMITING
+###############################################################################
+section "19. Guest rate limiting"
+
+GUEST_CTRL="${PROJECT_ROOT}/backend/src/Controllers/GuestController.php"
+if [[ -f "$GUEST_CTRL" ]]; then
+    if grep -qE 'rate_limit|429|Retry-After' "$GUEST_CTRL"; then
+        pass "Rate limiting found in GuestController (rate_limit/429/Retry-After)"
+    else
+        fail "No rate limiting in GuestController -- missing rate_limit, 429, or Retry-After"
+    fi
+else
+    fail "GuestController.php not found"
+fi
+
+###############################################################################
+# 20. ORGANIZER_ID NO FALLBACK IN WEBHOOK
+###############################################################################
+section "20. organizer_id no user-id fallback in PaymentWebhookController"
+
+if [[ -f "$WEBHOOK_CTRL" ]]; then
+    if grep -qE "\\\$user\['id'\]" "$WEBHOOK_CTRL"; then
+        fail "PaymentWebhookController uses \$user['id'] fallback -- organizer_id must come from JWT"
+    else
+        pass "PaymentWebhookController does NOT use \$user['id'] fallback"
+    fi
+else
+    fail "PaymentWebhookController.php not found"
+fi
+
+###############################################################################
 # SUMMARY
 ###############################################################################
 echo ""

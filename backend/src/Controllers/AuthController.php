@@ -885,14 +885,24 @@ function authClientIp(): string
 
 function authShouldUseRefreshCookie(): bool
 {
+    // SECURITY: In production, ALWAYS use HttpOnly cookie — no opt-out allowed.
+    // Body transport is only permitted in development (Postman/legacy tooling).
+    if (!isDevelopmentEnvironment()) {
+        return true;
+    }
     $raw = strtolower(trim((string)(getenv('AUTH_REFRESH_COOKIE_MODE') ?: '1')));
     return !in_array($raw, ['0', 'false', 'off', 'no'], true);
 }
 
 function authShouldUseAccessCookie(): bool
 {
-    // Default ON — access token is transported via HttpOnly cookie.
-    // Set AUTH_ACCESS_COOKIE_MODE=0 to fall back to body-only (Postman/legacy).
+    // SECURITY: In production, ALWAYS use HttpOnly cookie — no opt-out allowed.
+    // Body transport (AUTH_ACCESS_COOKIE_MODE=0) is only permitted in development
+    // to support Postman/legacy tooling. In production, tokens NEVER go in the
+    // JSON body, preventing exposure via sessionStorage or JS access.
+    if (!isDevelopmentEnvironment()) {
+        return true;
+    }
     $raw = strtolower(trim((string)(getenv('AUTH_ACCESS_COOKIE_MODE') ?: '1')));
     return !in_array($raw, ['0', 'false', 'off', 'no'], true);
 }
