@@ -487,7 +487,7 @@ AI_SPENDING_CAP_BRL=500.00  # Cap mensal em R$
 
 ### Gate 4 — Operacional (desejavel)
 
-- [ ] Prova de carga basica nos endpoints criticos (k6 ou Artillery)
+- [ ] Prova de carga: `k6 run --env BASE_URL=http://host:porta/api --env EVENT_ID=90001 tests/load_test_k6.js`
 - [ ] Smoke E2E completo com dados reais em staging
 - [ ] Teste de cashless + sync offline com 10+ devices simultaneos
 - [ ] Teste de scanner com 500+ registros offline

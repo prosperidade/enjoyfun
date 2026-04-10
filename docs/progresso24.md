@@ -111,11 +111,20 @@ Sprint focado em preparar o sistema para o primeiro teste real em evento com 500
 - [x] CSP headers no nginx/default.conf — ja resolvido em `b63620c`
 - [x] SW update strategy: prompt em vez de skipWaiting — `2671d2f`
 - [x] Rate limiting no guest ticket endpoint (30 req/min por IP) — `2671d2f`
+- [x] Cookie transport forcado em producao (body so em dev) — `62b6130`
+- [x] k6 load test script (11 endpoints, ramp-up 0->100 VUs) — `62b6130`
+- [x] Security scan atualizado (20 checks, +10 novos) — `62b6130`
+- [x] Dockerfile multi-stage (node:20 + php:8.2-fpm + nginx) — `62b6130`
+- [x] Seed data para staging (5000 tickets, 200 workforce, 500 sales) — `62b6130`
 - [ ] Rotacionar credenciais expostas (Gemini, OpenAI, JWT) — MANUAL
-- [ ] Prova de carga basica (k6 ou Artillery nos endpoints criticos)
 
 ### Semana 3 (D-7 a D-Day) — Smoke operacional
 
+- [ ] Rotacionar credenciais (Gemini, OpenAI, Asaas, JWT_SECRET) — ver runbook secao "Rotacao de credenciais"
+- [ ] Icone PWA branded (192x192 + 512x512 PNG + maskable)
+- [ ] `docker build -t enjoyfun .` — validar Dockerfile
+- [ ] `psql -f scripts/seed_staging_data.sql` — popular staging
+- [ ] `k6 run tests/load_test_k6.js` — prova de carga
 - [ ] Deploy em ambiente de staging
 - [ ] Smoke E2E completo com dados reais
 - [ ] Teste de cashless + sync offline com 10+ devices simultaneos

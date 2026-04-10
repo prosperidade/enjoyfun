@@ -92,6 +92,11 @@ super_admin / admin (André)
 | **RLS vendors + otp_codes** | `database/061_*.sql` | RLS nullable-safe em tabelas que faltavam |
 | **PWA prompt update** | `vite.config.js` + `AppVersionGuard.jsx` | Operador controla quando o SW ativa — sem interrupcao POS |
 | **Guest ticket rate limit** | `GuestController.php` | 30 req/min por IP no endpoint publico |
+| **Cookie transport forced** | `AuthController.php` | Body transport so em APP_ENV=development, prod sempre cookie |
+| **k6 load test** | `tests/load_test_k6.js` | 11 endpoints, ramp-up 0→100 VUs, thresholds p95<500ms |
+| **Security scan expanded** | `tests/security_scan.sh` | 20 checks estaticos (10 novos cobrindo hardening recente) |
+| **Dockerfile multi-stage** | `Dockerfile` | node:20 + php:8.2-fpm-alpine + nginx, ~150MB |
+| **Seed data staging** | `scripts/seed_staging_data.sql` | 5000 tickets, 200 workforce, 500 sales, idempotente |
 
 ### 🟡 PENDÊNCIAS DE SEGURANÇA (pré-evento real ~2026-04-29)
 
