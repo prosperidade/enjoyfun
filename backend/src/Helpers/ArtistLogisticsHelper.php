@@ -243,6 +243,7 @@ function updateArtistLogistics(int $logisticsId, array $body): void
     ");
     $payload = artistBuildLogisticsMutationPayload($organizerId, (int)$current['event_id'], (int)$current['event_artist_id'], $body, $current);
     $payload[':logistics_id'] = $logisticsId;
+    unset($payload[':event_id'], $payload[':event_artist_id']);
     $stmt->execute($payload);
 
     jsonSuccess(artistRequireLogisticsById($db, $organizerId, $logisticsId), 'Logistica atualizada com sucesso.');
