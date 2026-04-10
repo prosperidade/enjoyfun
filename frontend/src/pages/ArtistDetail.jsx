@@ -3062,11 +3062,11 @@ export default function ArtistDetail() {
         <ArtistAIAssistant
           eventId={scopedEventId}
           artistsTotal={1}
-          confirmedCount={1}
-          pendingCount={0}
-          totalCost={Number(artist.cache_amount || 0)}
-          openAlertsCount={0}
-          criticalAlertsCount={0}
+          confirmedCount={currentBooking?.booking_status === "confirmed" ? 1 : 0}
+          pendingCount={currentBooking?.booking_status === "pending" ? 1 : 0}
+          totalCost={Number(currentBooking?.cache_amount || 0) + Number(currentLogisticsCost || 0)}
+          openAlertsCount={alerts.filter((a) => a.status !== "resolved").length}
+          criticalAlertsCount={alerts.filter((a) => a.severity === "red" && a.status !== "resolved").length}
           focusArtistName={artist.stage_name}
           focusArtistId={artist.id}
         />
