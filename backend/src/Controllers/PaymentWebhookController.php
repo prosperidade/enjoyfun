@@ -67,6 +67,31 @@ function handleWebhook(array $body): void
         jsonError('Assinatura do webhook ausente.', 401);
     }
 
+    // Timestamp validation — reject replayed webhooks outside ±5 min window
+    $webhookTimestamp = $body['dateCreated'] ?? $body['date'] ?? ($_SERVER['HTTP_X_WEBHOOK_TIMESTAMP'] ?? null);
+    if ($webhookTimestamp !== null) {
+        $ts = strtotime((string)$webhookTimestamp);
+        if ($ts !== false) {
+            $drift = abs(time() - $ts);
+            if ($drift > 300) {
+                if (class_exists('AuditService')) {
+                    AuditService::log(
+                        defined('AuditService::WEBHOOK_REJECTED') ? AuditService::WEBHOOK_REJECTED : 'webhook.rejected',
+                        'payment_webhook',
+                        null,
+                        null,
+                        ['reason' => 'timestamp_out_of_window', 'drift_seconds' => $drift, 'timestamp' => $webhookTimestamp],
+                        null,
+                        'failure'
+                    );
+                }
+                jsonError('Webhook timestamp fora da janela permitida.', 401);
+            }
+        }
+    } else {
+        error_log('[PaymentWebhookController] Warning: webhook payload sem campo de timestamp — aceito por backward compatibility.');
+    }
+
     try {
         $db = Database::getInstance();
         $result = PaymentGatewayService::processWebhook($db, $body, $signature);
@@ -93,10 +118,11 @@ function handleWebhook(array $body): void
 function handleListCharges(array $query): void
 {
     $user = requireAuth();
-    $organizerId = (int)($user['organizer_id'] ?? $user['id'] ?? 0);
-    if ($organizerId <= 0) {
-        jsonError('organizer_id ausente no token.', 403);
+    $organizerId = $user['organizer_id'] ?? null;
+    if (!$organizerId) {
+        jsonError('Organizer ID ausente no token de autenticação.', 403);
     }
+    $organizerId = (int)$organizerId;
 
     try {
         $db = Database::getInstance();
@@ -135,10 +161,11 @@ function handleListCharges(array $query): void
 function handleCreateCharge(array $body): void
 {
     $user = requireAuth();
-    $organizerId = (int)($user['organizer_id'] ?? $user['id'] ?? 0);
-    if ($organizerId <= 0) {
-        jsonError('organizer_id ausente no token.', 403);
+    $organizerId = $user['organizer_id'] ?? null;
+    if (!$organizerId) {
+        jsonError('Organizer ID ausente no token de autenticação.', 403);
     }
+    $organizerId = (int)$organizerId;
 
     try {
         $db = Database::getInstance();
@@ -159,10 +186,11 @@ function handleCreateCharge(array $body): void
 function handleGetChargeStatus(string $chargeId): void
 {
     $user = requireAuth();
-    $organizerId = (int)($user['organizer_id'] ?? $user['id'] ?? 0);
-    if ($organizerId <= 0) {
-        jsonError('organizer_id ausente no token.', 403);
+    $organizerId = $user['organizer_id'] ?? null;
+    if (!$organizerId) {
+        jsonError('Organizer ID ausente no token de autenticação.', 403);
     }
+    $organizerId = (int)$organizerId;
 
     try {
         $db = Database::getInstance();

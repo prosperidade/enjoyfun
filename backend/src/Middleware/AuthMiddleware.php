@@ -12,7 +12,8 @@ function requireAuth(?array $allowedRoles = null): array
     }
     
     // Forçamos o cast para (array) para garantir que possamos ler as chaves com []
-    $payload = (array) JWT::decode($token);
+    // Audience enforcement: all access tokens must carry aud='enjoyfun-api'.
+    $payload = (array) JWT::decode($token, 'enjoyfun-api');
 
     if (!$payload) {
         error_log("❌ [AuthMiddleware] JWT::decode retornou null para o token: " . substr($token, 0, 15) . "...");
@@ -46,7 +47,7 @@ function optionalAuth(): ?array
     $token = accessTokenFromRequest();
     if (!$token) return null;
 
-    return (array) JWT::decode($token);
+    return (array) JWT::decode($token, 'enjoyfun-api');
 }
 
 function requireRole(array $allowedRoles): array

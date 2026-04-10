@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createOfflineQueueRecord, db } from "../../../lib/db";
 import { signPayload } from "../../../lib/hmac";
-import { getHmacKey } from "../../../lib/session";
+
 
 function hasValidEventId(eventId) {
   return Number(eventId) > 0;
@@ -74,13 +74,16 @@ export function usePosOfflineSync({ currentSector, syncOfflineData }) {
       // HMAC-SHA256 signing (C07) — integrity proof for offline payloads
       let hmac = null;
       try {
-        const hmacKey = getHmacKey();
-        if (hmacKey) {
-          hmac = await signPayload(item.payload, hmacKey);
+        hmac = await signPayload(item.payload);
+      } catch (hmacErr) {
+        if (hmacErr?.code === 'HMAC_KEY_MISSING') {
+          // Key missing means session is invalid — propagate so caller can
+          // prompt re-login instead of queuing unsigned payloads.
+          throw hmacErr;
         }
-      } catch {
-        // HMAC signing is best-effort; the sale must still be queued even if
-        // Web Crypto is unavailable (e.g. non-secure context in dev).
+        // Web Crypto unavailable (e.g. non-secure context in dev) —
+        // queue anyway; backend will reject in production.
+        console.warn('[OfflineSync] HMAC signing failed, queuing without signature:', hmacErr?.message);
       }
 
       const record = createOfflineQueueRecord({

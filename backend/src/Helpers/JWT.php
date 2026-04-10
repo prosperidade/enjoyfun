@@ -101,10 +101,12 @@ class JWT
                 return null;
             }
 
-            // aud — validate audience when expected (backward compatible: skip if not requested or absent)
-            if ($expectedAudience !== '' && isset($payload['aud'])) {
-                if ($payload['aud'] !== $expectedAudience) {
-                    error_log("❌ [JWT] Audience (aud) invalido. Esperado: {$expectedAudience}");
+            // aud — validate audience when caller specifies an expected value.
+            // Strict: if expectedAudience is set, the token MUST contain a matching aud claim.
+            if ($expectedAudience !== '') {
+                $tokenAud = $payload['aud'] ?? null;
+                if ($tokenAud === null || $tokenAud !== $expectedAudience) {
+                    error_log("❌ [JWT] Audience (aud) invalido. Esperado: {$expectedAudience}, recebido: " . ($tokenAud ?? '(ausente)'));
                     return null;
                 }
             }

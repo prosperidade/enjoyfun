@@ -257,13 +257,14 @@ function refresh(array $body): void
         jsonError('Usuário inativo.', 403);
     }
 
-    $refreshAudience = ($userData['role'] ?? '') === 'customer' ? 'customer' : 'admin';
+    // All access tokens use the same audience ('enjoyfun-api'); role-based
+    // distinction is handled by the 'role' claim, not by aud.
     $tokens   = issueTokens($db, $userData, authRefreshContext([
         'session_id' => $stored['session_id'] ?? null,
         'device_id' => $stored['device_id'] ?? null,
         'user_agent' => $stored['user_agent'] ?? null,
         'ip_address' => $stored['ip_address'] ?? null,
-    ]), $refreshAudience);
+    ]));
 
     authRespondWithTokens($userData, $tokens);
 }
@@ -632,7 +633,7 @@ function verifyAccessCode(array $body): void
         }
 
         $userData = buildUserPayload($db, $user);
-        $tokens   = issueTokens($db, $userData, [], 'customer');
+        $tokens   = issueTokens($db, $userData, []);
 
         authRespondWithTokens($userData, $tokens, 'Acesso concedido.');
 
@@ -689,7 +690,7 @@ function buildUserPayload(PDO $db, array $user): array
     return $user;
 }
 
-function issueTokens(PDO $db, array $user, array $context = [], string $audience = 'admin'): array
+function issueTokens(PDO $db, array $user, array $context = [], string $audience = 'enjoyfun-api'): array
 {
     $expiry  = (int)(getenv('JWT_EXPIRY')  ?: 3600);
     $refresh = (int)(getenv('JWT_REFRESH') ?: 2592000);

@@ -74,8 +74,9 @@ function canonicalize(payload) {
 export async function signPayload(payload, hmacKeyHex) {
   const keyHex = hmacKeyHex || getHmacKey();
   if (!keyHex) {
-    console.warn('[HMAC] hmac_key not available in session — signing skipped.');
-    return null;
+    const err = new Error('[HMAC] hmac_key not available in session. Re-login required to sign offline payloads.');
+    err.code = 'HMAC_KEY_MISSING';
+    throw err;
   }
   const key = await importHmacKey(keyHex);
   const data = encoder.encode(canonicalize(payload));

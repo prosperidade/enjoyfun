@@ -31,51 +31,62 @@ function validateParkingTicket(array $body): void
 
     try {
         $db = Database::getInstance();
+        $db->beginTransaction();
 
-        // CADEADO: Busca o registro via JOIN para garantir que o evento pertence ao organizador
-        $stmt = $db->prepare("
-            SELECT p.*, e.name as event_name 
-            FROM parking_records p
-            JOIN events e ON p.event_id = e.id
-            WHERE p.qr_token = ? AND e.organizer_id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$token, $organizerId]);
-        $record = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$record) {
-            jsonError("Ticket não reconhecido ou pertence a outra organização.", 404);
-        }
-
-        $id = $record['id'];
-        $plate = $record['license_plate'];
-        $status = $record['status'];
-        $message = '';
-        $type = '';
-
-        if ($status !== 'parked') {
-            $stmtUpdate = $db->prepare("
-                UPDATE parking_records 
-                SET status = 'parked', entry_at = NOW(), exit_at = NULL, updated_at = NOW() 
-                WHERE id = ?
+        try {
+            // CADEADO: Busca o registro via JOIN para garantir que o evento pertence ao organizador
+            // FOR UPDATE serializa scans concorrentes no mesmo ticket
+            $stmt = $db->prepare("
+                SELECT p.*, e.name as event_name
+                FROM parking_records p
+                JOIN events e ON p.event_id = e.id
+                WHERE p.qr_token = ? AND e.organizer_id = ?
+                LIMIT 1
+                FOR UPDATE OF p
             ");
-            $stmtUpdate->execute([$id]);
-            $message = "🚗 ENTRADA: Veículo {$plate} liberado.";
-            $type = 'entry';
-            $status = 'parked'; // update local para o JSON de retorno
-        } else {
-            $stmtUpdate = $db->prepare("
-                UPDATE parking_records 
-                SET status = 'exited', exit_at = NOW(), updated_at = NOW() 
-                WHERE id = ?
-            ");
-            $stmtUpdate->execute([$id]);
-            $message = "✅ SAÍDA: Veículo {$plate} registrado com sucesso.";
-            $type = 'exit';
-            $status = 'exited'; // update local
-        }
+            $stmt->execute([$token, $organizerId]);
+            $record = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        AuditService::log("parking.scan.$type", "parking", $id, null, ['plate' => $plate], $operator);
+            if (!$record) {
+                $db->rollBack();
+                jsonError("Ticket não reconhecido ou pertence a outra organização.", 404);
+            }
+
+            $id = $record['id'];
+            $plate = $record['license_plate'];
+            $status = $record['status'];
+            $message = '';
+            $type = '';
+
+            if ($status !== 'parked') {
+                $stmtUpdate = $db->prepare("
+                    UPDATE parking_records
+                    SET status = 'parked', entry_at = NOW(), exit_at = NULL, updated_at = NOW()
+                    WHERE id = ?
+                ");
+                $stmtUpdate->execute([$id]);
+                $message = "🚗 ENTRADA: Veículo {$plate} liberado.";
+                $type = 'entry';
+                $status = 'parked'; // update local para o JSON de retorno
+            } else {
+                $stmtUpdate = $db->prepare("
+                    UPDATE parking_records
+                    SET status = 'exited', exit_at = NOW(), updated_at = NOW()
+                    WHERE id = ?
+                ");
+                $stmtUpdate->execute([$id]);
+                $message = "✅ SAÍDA: Veículo {$plate} registrado com sucesso.";
+                $type = 'exit';
+                $status = 'exited'; // update local
+            }
+
+            AuditService::log("parking.scan.$type", "parking", $id, null, ['plate' => $plate], $operator);
+
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
 
         jsonSuccess([
             'license_plate'  => $plate,

@@ -247,10 +247,19 @@ class SalesDomainService
                 $db->commit();
             }
 
-            // Logging de sucesso genérico do domínio
+            // Logging de sucesso do checkout POS
             \AuditService::log(
                 \AuditService::SALE_CHECKOUT, 'sale', $saleId,
-                [], ['total' => $calculatedTotal, 'items_count' => count($items)],
+                [],
+                [
+                    'total'          => $calculatedTotal,
+                    'items_count'    => count($resolvedItems),
+                    'payment_method' => 'cashless',
+                    'card_id'        => $cardId,
+                    'sector'         => $sector,
+                    'event_id'       => $eventId,
+                    'is_offline'     => !empty($options['is_offline']),
+                ],
                 $operator, 'success',
                 ['event_id' => $eventId, 'metadata' => ['sector' => $sector]]
             );
