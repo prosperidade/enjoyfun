@@ -88,6 +88,10 @@ super_admin / admin (André)
 | **HMAC offline strict** | `hmac.js` + `OfflineSyncService.php` | Frontend throws em key ausente, backend rejeita em prod |
 | **CSP producao** | `nginx/default.conf` | Content-Security-Policy + X-Frame-Options + nosniff no frontend |
 | **Sourcemap disabled** | `vite.config.js` | sourcemap:false explicito no build |
+| **VALIDATE CONSTRAINT (11 FKs)** | `database/060_*.sql` | Todas as FKs NOT VALID de organizer_id validadas retroativamente |
+| **RLS vendors + otp_codes** | `database/061_*.sql` | RLS nullable-safe em tabelas que faltavam |
+| **PWA prompt update** | `vite.config.js` + `AppVersionGuard.jsx` | Operador controla quando o SW ativa — sem interrupcao POS |
+| **Guest ticket rate limit** | `GuestController.php` | 30 req/min por IP no endpoint publico |
 
 ### 🟡 PENDÊNCIAS DE SEGURANÇA (pré-evento real ~2026-04-29)
 
@@ -100,8 +104,8 @@ super_admin / admin (André)
 | ~~Rejeitar payloads offline sem HMAC~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` | ~~WARN~~ |
 | ~~Validar audience claim no AuthMiddleware~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` aud=enjoyfun-api | ~~WARN~~ |
 | **Rotacionar API keys externas** | Semana 2 | Gemini e OpenAI ainda sao as do historico Git | HIGH |
-| **VALIDATE CONSTRAINT nas FKs NOT VALID** | Semana 2 | Integridade referencial nao retroativa | WARN |
-| **RLS em vendors e otp_codes** | Semana 2 | Gap no defense-in-depth | WARN |
+| ~~VALIDATE CONSTRAINT nas FKs NOT VALID~~ | ~~Semana 2~~ | ✅ Resolvido migration 060 `2671d2f` | ~~WARN~~ |
+| ~~RLS em vendors e otp_codes~~ | ~~Semana 2~~ | ✅ Resolvido migration 061 `2671d2f` | ~~WARN~~ |
 | ~~CSP headers em producao (nginx)~~ | ~~Semana 2~~ | ✅ Resolvido `b63620c` | ~~FAIL~~ |
 | **Redis rate limiting** | Pos-evento | Rate limiting atual e DB-based, Redis e mais performante | LOW |
 | **Cloudflare WAF** | No deploy | Sem protecao de edge | LOW |
@@ -113,7 +117,7 @@ super_admin / admin (André)
 
 **PostgreSQL 18.2 | DB: `enjoyfun` | host: 127.0.0.1:5432 | user: postgres**
 
-### Migrations versionadas até 059
+### Migrations versionadas até 061
 
 | Faixa | Conteúdo |
 |-------|---------|

@@ -473,16 +473,16 @@ AI_SPENDING_CAP_BRL=500.00  # Cap mensal em R$
 
 ### Gate 2 — Banco (bloqueante)
 
-- [ ] VALIDATE CONSTRAINT em todas as FKs NOT VALID (janela controlada)
-- [ ] RLS ativo em vendors e otp_codes
-- [ ] Migrations 049-059 aplicadas em ambiente de staging/producao
+- [x] VALIDATE CONSTRAINT em todas as 11 FKs NOT VALID — migration 060 (`2671d2f`)
+- [x] RLS ativo em vendors e otp_codes (nullable-safe) — migration 061 (`2671d2f`)
+- [ ] Migrations 049-061 aplicadas em ambiente de staging/producao
 - [ ] Schema validado: `psql -f tests/validate_schema.sql`
 
 ### Gate 3 — Frontend (importante)
 
-- [ ] `build.sourcemap: false` explicito no vite.config.js
+- [x] `build.sourcemap: false` explicito no vite.config.js — `b63620c`
 - [ ] Icone PWA real (192x192 + 512x512 PNG + maskable)
-- [ ] SW update strategy: prompt em vez de skipWaiting para nao interromper POS
+- [x] SW update strategy: prompt em vez de skipWaiting — `2671d2f`
 - [ ] Confirmar backend emite access_transport=cookie (nunca body em prod)
 
 ### Gate 4 — Operacional (desejavel)
@@ -492,7 +492,7 @@ AI_SPENDING_CAP_BRL=500.00  # Cap mensal em R$
 - [ ] Teste de cashless + sync offline com 10+ devices simultaneos
 - [ ] Teste de scanner com 500+ registros offline
 - [ ] Teste de POS sob carga (50 checkouts simultaneos)
-- [ ] Rate limiting no guest ticket endpoint publico
+- [x] Rate limiting no guest ticket endpoint publico (30 req/min por IP) — `2671d2f`
 
 ### D-Day — No dia do evento
 

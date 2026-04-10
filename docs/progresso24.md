@@ -106,12 +106,12 @@ Sprint focado em preparar o sistema para o primeiro teste real em evento com 500
 
 ### Semana 2 (D-14 a D-7) — Hardening operacional
 
-- [ ] VALIDATE CONSTRAINT em todas as FKs NOT VALID
-- [ ] RLS em vendors e otp_codes
-- [ ] CSP headers no nginx/default.conf
-- [ ] SW update strategy: prompt em vez de skipWaiting
-- [ ] Rate limiting no guest ticket endpoint
-- [ ] Rotacionar credenciais expostas (Gemini, OpenAI, JWT)
+- [x] VALIDATE CONSTRAINT em todas as 11 FKs NOT VALID — migration 060, `2671d2f`
+- [x] RLS em vendors e otp_codes (nullable-safe) — migration 061, `2671d2f`
+- [x] CSP headers no nginx/default.conf — ja resolvido em `b63620c`
+- [x] SW update strategy: prompt em vez de skipWaiting — `2671d2f`
+- [x] Rate limiting no guest ticket endpoint (30 req/min por IP) — `2671d2f`
+- [ ] Rotacionar credenciais expostas (Gemini, OpenAI, JWT) — MANUAL
 - [ ] Prova de carga basica (k6 ou Artillery nos endpoints criticos)
 
 ### Semana 3 (D-7 a D-Day) — Smoke operacional
