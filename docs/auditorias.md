@@ -11,10 +11,12 @@ Este arquivo e a porta de entrada unica para auditorias e prontidao operacional.
 | Arquivo | Papel |
 |---|---|
 | `README.md` | Contrato de stack, setup e governanca do repositorio |
-| `docs/runbook_local.md` | Bootstrap local, smoke minimo e criterios de readiness |
+| `CLAUDE.md` | Estado real do sistema, modulos, seguranca, roadmap |
+| `docs/runbook_local.md` | Bootstrap local, smoke minimo, checklist pre-evento real |
 | `docs/auth_strategy.md` | Estado atual de autenticacao |
-| `docs/auditoria_prontidao_operacional_2026_04_09.md` | Parecer atual de seguranca, operacionalidade e escala |
-| `docs/inventario_documental_e_artefatos_2026_04_09.md` | Inventario de documentacao viva, historica e artefatos candidatos a arquivo |
+| `docs/progresso24.md` | Readiness Sprint + Auditoria pre-evento real (2026-04-09) |
+| `docs/auditoria_prontidao_operacional_2026_04_09.md` | Parecer de seguranca, operacionalidade e escala |
+| `docs/inventario_documental_e_artefatos_2026_04_09.md` | Inventario de documentacao viva e historica |
 | `backend/.env.example` | Contrato atual de variaveis de ambiente |
 
 ## Documentos historicos relevantes

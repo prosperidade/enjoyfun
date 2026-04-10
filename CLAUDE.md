@@ -1,6 +1,6 @@
 # CLAUDE.md — EnjoyFun Platform
 ## Guia Completo para IA: Arquitetura, Estado Real e Visão de Negócio
-### Atualizado: 2026-04-04
+### Atualizado: 2026-04-09
 
 ---
 
@@ -82,14 +82,23 @@ super_admin / admin (André)
 | **AI feature flags** | `AIController.php` + `AIToolRuntimeService.php` | `FEATURE_AI_INSIGHTS`, `FEATURE_AI_TOOLS`, `FEATURE_AI_TOOL_WRITE` |
 | **Recharge Asaas PIX real** | `CustomerController.php` | Pix QR real via Asaas API, webhook credita saldo automaticamente |
 
-### 🟡 PENDÊNCIAS DE SEGURANÇA (pré-produção)
+### 🟡 PENDÊNCIAS DE SEGURANÇA (pré-evento real ~2026-04-29)
 
-| Recurso | Quando fazer | Risco |
-|---------|-------------|-------|
-| **Rotacionar API keys externas** | AGORA | Gemini e OpenAI ainda são as do histórico Git |
-| **Redis rate limiting** | Pré-produção | Rate limiting atual é DB-based, Redis é mais performante |
-| **Cloudflare WAF** | No deploy | Sem proteção de edge |
-| **jti blacklist (Redis)** | Pré-produção | jti é gerado mas sem blacklist — replay possível até expiração do token |
+| Recurso | Quando fazer | Risco | Severidade |
+|---------|-------------|-------|------------|
+| **AuditService::log em checkouts POS** | Semana 1 | Sem trilha auditavel em vendas cashless | HIGH |
+| **organizer_id fallback no WebhookController** | Semana 1 | Cross-tenant em edge case | MEDIUM |
+| **Transacao atomica em ParkingController** | Semana 1 | Estado parcial em scans concorrentes | MEDIUM |
+| **Timestamp validation em webhooks** | Semana 1 | Replay de webhooks com HMAC valido | FAIL |
+| **Rejeitar payloads offline sem HMAC** | Semana 1 | Integridade offline bypassavel | WARN |
+| **Validar audience claim no AuthMiddleware** | Semana 1 | Tokens cross-audience aceitos | WARN |
+| **Rotacionar API keys externas** | Semana 1 | Gemini e OpenAI ainda sao as do historico Git | HIGH |
+| **VALIDATE CONSTRAINT nas FKs NOT VALID** | Semana 2 | Integridade referencial nao retroativa | WARN |
+| **RLS em vendors e otp_codes** | Semana 2 | Gap no defense-in-depth | WARN |
+| **CSP headers em producao (nginx)** | Semana 2 | Sem Content-Security-Policy em prod | FAIL |
+| **Redis rate limiting** | Pos-evento | Rate limiting atual e DB-based, Redis e mais performante | LOW |
+| **Cloudflare WAF** | No deploy | Sem protecao de edge | LOW |
+| **jti blacklist (Redis)** | Pos-evento | jti e gerado mas sem blacklist — replay possivel ate expiracao do token | LOW |
 
 ---
 
@@ -97,7 +106,7 @@ super_admin / admin (André)
 
 **PostgreSQL 18.2 | DB: `enjoyfun` | host: 127.0.0.1:5432 | user: postgres**
 
-### Migrations versionadas até 054
+### Migrations versionadas até 059
 
 | Faixa | Conteúdo |
 |-------|---------|
@@ -452,14 +461,18 @@ REGRAS INVIOLÁVEIS:
 
 | Documento | Problema |
 |-----------|---------|
-| `pendencias.md` | Seção 3.2 (POS) pendente de smoke confirmado |
 | `docs/diagnostico.md` | Deve continuar alinhado com o estado real do código |
-| `docs/progresso18.md` | Diário da rodada Sprint 1 governance + Audit #7 |
-| `docs/progresso19.md` | Diário ativo — Hub de IA Multi-Agentes (overhaul completo) |
+| `docs/progresso19.md` | Diário — Hub de IA Multi-Agentes (overhaul completo) |
+| `docs/progresso24.md` | Diário ativo — Readiness Sprint + Auditoria Pre-Evento Real |
 
-Auditorias técnicas agora entram por `docs/auditorias.md`; os arquivos antigos ficam apenas como arquivo externo fora da operação do repo.
+Auditorias técnicas entram por `docs/auditorias.md`; arquivos legados estão em `docs/archive/root_legacy/`.
+
+### 🎯 EVENTO REAL — D-Day ~2026-04-29 (5000+ pessoas)
+
+Checklist completa em `docs/runbook_local.md` secao "Checklist pre-evento real".
+Plano de acao detalhado em `docs/progresso24.md`.
 
 ---
 
 *EnjoyFun Platform v2.0 — SaaS White Label Multi-tenant*
-*Atualizado: 2026-04-04 — Baseado em leitura completa de código, banco e documentação + Auditoria Claude #7*
+*Atualizado: 2026-04-09 — Readiness Sprint + Auditoria pre-evento real (5000+ pessoas, D-Day ~2026-04-29)*

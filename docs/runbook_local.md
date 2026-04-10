@@ -454,6 +454,55 @@ AI_SPENDING_CAP_BRL=500.00  # Cap mensal em R$
 
 ---
 
+## Checklist pre-evento real (5000+ pessoas)
+
+### Gate 1 — Seguranca (bloqueante)
+
+- [ ] AuditService::log em todos os checkouts POS (Bar/Food/Shop via SalesDomainService)
+- [ ] Remover fallback `$user['id']` como organizer_id no PaymentWebhookController
+- [ ] Transacao atomica no ParkingController::validateParkingTicket
+- [ ] Timestamp validation no webhook (rejeitar fora de +/- 5 min)
+- [ ] Rejeitar payloads offline sem HMAC no SyncController (nao apenas warning)
+- [ ] Validar audience claim no AuthMiddleware (passar expectedAudience no requireAuth)
+- [ ] Rotacionar todas as credenciais expostas (Gemini, OpenAI, JWT_SECRET)
+- [ ] pg_hba.conf como scram-sha-256
+- [ ] APP_ENV=production no .env
+- [ ] HTTPS ativo (Nginx + Cloudflare ou cert)
+- [ ] CSP headers no nginx/default.conf
+
+### Gate 2 — Banco (bloqueante)
+
+- [ ] VALIDATE CONSTRAINT em todas as FKs NOT VALID (janela controlada)
+- [ ] RLS ativo em vendors e otp_codes
+- [ ] Migrations 049-059 aplicadas em ambiente de staging/producao
+- [ ] Schema validado: `psql -f tests/validate_schema.sql`
+
+### Gate 3 — Frontend (importante)
+
+- [ ] `build.sourcemap: false` explicito no vite.config.js
+- [ ] Icone PWA real (192x192 + 512x512 PNG + maskable)
+- [ ] SW update strategy: prompt em vez de skipWaiting para nao interromper POS
+- [ ] Confirmar backend emite access_transport=cookie (nunca body em prod)
+
+### Gate 4 — Operacional (desejavel)
+
+- [ ] Prova de carga basica nos endpoints criticos (k6 ou Artillery)
+- [ ] Smoke E2E completo com dados reais em staging
+- [ ] Teste de cashless + sync offline com 10+ devices simultaneos
+- [ ] Teste de scanner com 500+ registros offline
+- [ ] Teste de POS sob carga (50 checkouts simultaneos)
+- [ ] Rate limiting no guest ticket endpoint publico
+
+### D-Day — No dia do evento
+
+- [ ] Monitorar `/health/deep` a cada 5 min
+- [ ] Ter acesso SSH/remote ao servidor
+- [ ] Backup do banco antes de abrir portoes
+- [ ] Ter fallback manual para operacao POS se sistema cair
+- [ ] Smartphone de teste com app carregado e cache offline sincronizado
+
+---
+
 ## Quando algo divergir
 
 1. conferir `README.md`
