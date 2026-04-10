@@ -311,6 +311,7 @@ function workforceProcessImportParticipantRow(
         'root_manager_event_role_id' => $rootManagerEventRoleId ?: null,
         'public_id' => !empty(($context['assignment_support'] ?? [])['supports_public_id']) ? trim((string)($row['public_id'] ?? '')) : '',
         'support_flags' => is_array($context['assignment_support'] ?? null) ? $context['assignment_support'] : [],
+        'organizer_id' => $organizerId,
     ]);
 
     return [

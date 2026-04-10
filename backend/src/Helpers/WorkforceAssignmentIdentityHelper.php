@@ -209,14 +209,22 @@ function workforceUpsertAssignment(PDO $db, array $payload): array
         ];
     }
 
+    $organizerId = (int)($payload['organizer_id'] ?? 0);
     $columns = ['participant_id', 'role_id', 'sector', 'event_shift_id', 'created_at'];
     $values = [':participant_id', ':role_id', ':sector', ':event_shift_id', 'NOW()'];
+    if ($organizerId > 0) {
+        $columns[] = 'organizer_id';
+        $values[] = ':organizer_id';
+    }
     $params = [
         ':participant_id' => $participantId,
         ':role_id' => $roleId,
         ':sector' => $sector !== '' ? $sector : null,
         ':event_shift_id' => $eventShiftId,
     ];
+    if ($organizerId > 0) {
+        $params[':organizer_id'] = $organizerId;
+    }
 
     if (!empty($supportFlags['supports_manager_binding'])) {
         $columns[] = 'manager_user_id';

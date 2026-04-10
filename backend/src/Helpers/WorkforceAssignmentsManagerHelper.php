@@ -506,6 +506,7 @@ function createAssignment(array $body): void
             'event_role_id' => $resolvedEventRole ? (int)$resolvedEventRole['id'] : null,
             'root_manager_event_role_id' => $rootManagerEventRoleId ?: null,
             'public_id' => $requestedAssignmentPublicId,
+            'organizer_id' => $organizerId,
         ]);
         $db->commit();
 

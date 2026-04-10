@@ -962,6 +962,7 @@ function syncLeadershipAssignmentForEventRole(PDO $db, int $organizerId, array $
         'event_shift_id',
         'event_role_id',
         'root_manager_event_role_id',
+        'organizer_id',
         'created_at',
     ];
     $values = [
@@ -971,6 +972,7 @@ function syncLeadershipAssignmentForEventRole(PDO $db, int $organizerId, array $
         'NULL',
         ':event_role_id',
         ':root_manager_event_role_id',
+        ':organizer_id',
         'NOW()',
     ];
     $params = [
@@ -979,6 +981,7 @@ function syncLeadershipAssignmentForEventRole(PDO $db, int $organizerId, array $
         ':sector' => $sector,
         ':event_role_id' => $eventRoleId,
         ':root_manager_event_role_id' => $rootEventRoleId,
+        ':organizer_id' => $organizerId,
     ];
 
     if ($supportsManagerBinding) {
