@@ -188,10 +188,15 @@ function getMessagingHistory(): void
     $db = Database::getInstance();
     messagingEnsureReady($db);
     $orgId = resolveOrgId($user);
-    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
-
-    $history = \EnjoyFun\Services\MessagingDeliveryService::listHistory($db, $orgId, $limit);
-    jsonSuccess($history, 'Histórico de mensagens.');
+    $history = \EnjoyFun\Services\MessagingDeliveryService::listHistory($db, $orgId, $_GET);
+    $meta = $history['meta'] ?? enjoyBuildPaginationMeta(1, 25, 0);
+    jsonPaginated(
+        $history['items'] ?? [],
+        (int)($meta['total'] ?? 0),
+        (int)($meta['page'] ?? 1),
+        (int)($meta['per_page'] ?? 25),
+        'Histórico de mensagens.'
+    );
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -676,14 +681,15 @@ function messagingEnsureRateLimitTable(PDO $db): void
     static $checked = false;
     if ($checked) return;
 
-    $db->exec("
-        CREATE TABLE IF NOT EXISTS messaging_rate_limits (
-            id SERIAL PRIMARY KEY,
-            organizer_id INTEGER NOT NULL,
-            attempted_at TIMESTAMP NOT NULL DEFAULT NOW()
-        )
-    ");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_messaging_rate_limits_org_time ON messaging_rate_limits (organizer_id, attempted_at)");
+    $stmt = $db->query("SELECT to_regclass('public.messaging_rate_limits') IS NOT NULL");
+    $exists = (bool)$stmt->fetchColumn();
+    if (!$exists) {
+        jsonError(
+            'Infra de rate limit de mensageria ausente. Aplique a migration 058_rate_limits_schema_foundation.sql.',
+            503
+        );
+    }
+
     $checked = true;
 }
 

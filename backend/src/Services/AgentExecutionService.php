@@ -670,6 +670,7 @@ final class AgentExecutionService
             'execution_status' => $row['execution_status'] ?? 'failed',
             'prompt_preview' => $row['prompt_preview'] ?? null,
             'response_preview' => $row['response_preview'] ?? null,
+            'impact_summary' => self::buildImpactSummary(is_array($toolCalls) ? $toolCalls : []),
             'context_snapshot' => is_array($contextSnapshot) ? $contextSnapshot : [],
             'tool_calls' => is_array($toolCalls) ? $toolCalls : [],
             'tool_call_count' => is_array($toolCalls) ? count($toolCalls) : 0,
@@ -678,5 +679,117 @@ final class AgentExecutionService
             'created_at' => $row['created_at'] ?? null,
             'completed_at' => $row['completed_at'] ?? null,
         ];
+    }
+
+    private static function buildImpactSummary(array $toolCalls): ?string
+    {
+        if ($toolCalls === []) {
+            return null;
+        }
+
+        $summaries = [];
+        foreach (array_slice($toolCalls, 0, 3) as $toolCall) {
+            if (!is_array($toolCall)) {
+                continue;
+            }
+
+            $toolName = self::truncate(
+                self::sanitizeText((string)($toolCall['tool_name'] ?? $toolCall['name'] ?? 'tool')),
+                80
+            ) ?: 'tool';
+            $toolRisk = self::nullableText($toolCall['risk_level'] ?? null, 20);
+            $preview = self::buildToolArgumentsPreview($toolCall);
+
+            $parts = [];
+            if ($toolRisk !== null) {
+                $parts[] = $toolRisk;
+            }
+            if ($preview !== null) {
+                $parts[] = $preview;
+            }
+
+            $summaries[] = $parts === []
+                ? $toolName
+                : $toolName . ' (' . implode(' • ', $parts) . ')';
+        }
+
+        if ($summaries === []) {
+            return null;
+        }
+
+        $remaining = count($toolCalls) - count($summaries);
+        if ($remaining > 0) {
+            $summaries[] = '+' . $remaining . ' tool(s)';
+        }
+
+        return implode(' | ', $summaries);
+    }
+
+    private static function buildToolArgumentsPreview(array $toolCall): ?string
+    {
+        $previewSource = $toolCall['arguments_preview'] ?? null;
+        if (is_array($previewSource) && $previewSource !== []) {
+            $priorityKeys = ['event_id', 'event_artist_id', 'participant_id', 'card_id', 'checkpoint', 'timestamp', 'sector', 'role_id'];
+            $parts = [];
+
+            foreach ($priorityKeys as $key) {
+                if (!array_key_exists($key, $previewSource)) {
+                    continue;
+                }
+
+                $parts[] = $key . '=' . self::previewValueForSummary($previewSource[$key]);
+            }
+
+            if ($parts === []) {
+                foreach (array_slice($previewSource, 0, 3, true) as $key => $value) {
+                    if (!is_string($key) || $key === '') {
+                        continue;
+                    }
+
+                    $parts[] = $key . '=' . self::previewValueForSummary($value);
+                }
+            }
+
+            if ($parts !== []) {
+                return self::truncate(implode(', ', $parts), 160);
+            }
+        }
+
+        $arguments = is_array($toolCall['arguments'] ?? null) ? $toolCall['arguments'] : [];
+        if ($arguments === []) {
+            return null;
+        }
+
+        $parts = [];
+        foreach (['event_id', 'event_artist_id', 'participant_id', 'card_id', 'checkpoint', 'timestamp', 'sector', 'role_id'] as $key) {
+            if (!array_key_exists($key, $arguments)) {
+                continue;
+            }
+
+            $parts[] = $key . '=' . self::previewValueForSummary($arguments[$key]);
+        }
+
+        return $parts === [] ? null : self::truncate(implode(', ', $parts), 160);
+    }
+
+    private static function previewValueForSummary(mixed $value): string
+    {
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (string)$value;
+        }
+
+        if ($value === null) {
+            return 'null';
+        }
+
+        if (is_array($value)) {
+            return '[array:' . count($value) . ']';
+        }
+
+        return self::truncate(self::sanitizeText((string)$value), 40);
     }
 }

@@ -25,6 +25,7 @@ import {
 } from "../../lib/offlineScanner";
 
 const SCANNER_SECTORS_CACHE_PREFIX = "enjoyfun_scanner_sectors_v1";
+const SCANNER_DUMP_PAGE_SIZE = 1000;
 
 function normalizeScannerModeValue(value = "") {
   return String(value || "")
@@ -95,37 +96,47 @@ function selectDefaultEventId(events = [], requestedEventId = "", currentEventId
   return ongoing ? String(ongoing.id) : (events[0] ? String(events[0].id) : "");
 }
 
-function deriveOperationalModes(assignments = []) {
-  const grouped = new Map();
+function calculateScannerDumpPages(total = 0, perPage = SCANNER_DUMP_PAGE_SIZE) {
+  const normalizedTotal = Number(total || 0);
+  const normalizedPerPage = Math.max(1, Number(perPage || SCANNER_DUMP_PAGE_SIZE));
+  return Math.max(1, Math.ceil(normalizedTotal / normalizedPerPage));
+}
 
-  assignments.forEach((item) => {
-    const sectorId = normalizeScannerModeValue(item?.sector || "");
-    const costBucket = normalizeScannerModeValue(item?.cost_bucket || "operational");
-    if (!sectorId || costBucket === "managerial") {
-      return;
-    }
+async function purgeStaleScannerCacheEntries(eventId, snapshotId) {
+  const numericEventId = Number(eventId || 0);
+  if (numericEventId <= 0 || !snapshotId) {
+    return 0;
+  }
 
-    const current = grouped.get(sectorId) || {
-      id: sectorId,
-      label: formatSectorLabel(sectorId),
-      assignments: 0,
-      members: new Set(),
-    };
+  const existingRecords = await db.scannerCache.where("event_id").equals(numericEventId).toArray();
+  const staleKeys = existingRecords
+    .filter((item) => String(item?.snapshot_id || "") !== String(snapshotId))
+    .map((item) => String(item?.token || "").trim())
+    .filter(Boolean);
 
-    current.assignments += 1;
-    if (item?.participant_id) {
-      current.members.add(String(item.participant_id));
-    }
-    grouped.set(sectorId, current);
-  });
+  if (staleKeys.length > 0) {
+    await db.scannerCache.bulkDelete(staleKeys);
+  }
 
-  return Array.from(grouped.values())
-    .map((entry) => ({
-      id: entry.id,
-      label: entry.label,
-      assignments: entry.assignments,
-      members: entry.members.size,
-    }))
+  return existingRecords.length - staleKeys.length;
+}
+
+function normalizeOperationalModes(rows = []) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((item) => {
+      const sectorId = normalizeScannerModeValue(item?.id || item?.sector || item?.label || "");
+      if (!sectorId) {
+        return null;
+      }
+
+      return {
+        id: sectorId,
+        label: String(item?.label || item?.sector || formatSectorLabel(sectorId)).trim() || formatSectorLabel(sectorId),
+        assignments: Number(item?.assignments || item?.assignment_rows_total || 0),
+        members: Number(item?.members || item?.members_total || 0),
+      };
+    })
+    .filter(Boolean)
     .sort((left, right) => left.label.localeCompare(right.label, "pt-BR"));
 }
 
@@ -184,15 +195,65 @@ export default function Scanner() {
     if (!eventId) return;
     setIsSyncing(true);
     try {
-      const res = await api.get("/scanner/dump", { params: { event_id: eventId } });
-      const items = res.data?.data?.items || [];
-      
-      await db.scannerCache.where("event_id").equals(parseFloat(eventId)).delete();
-      const docs = items.map((item) => buildScannerCacheRecord(item, eventId));
-      await db.scannerCache.bulkPut(docs);
-      
-      setOfflineCount(docs.length);
-      toast.success(docs.length + " registros guardados (offline).");
+      const manifestResponse = await api.get("/scanner/dump", { params: { event_id: eventId } });
+      const manifest = manifestResponse.data?.data || {};
+      const snapshotId = String(manifest?.snapshot_id || "").trim();
+      const scopes = Array.isArray(manifest?.scopes) ? manifest.scopes : [];
+      const numericEventId = Number(eventId);
+
+      if (!snapshotId) {
+        throw new Error("Manifesto offline do scanner sem snapshot_id.");
+      }
+
+      let syncedCount = 0;
+      for (const scopeConfig of scopes) {
+        const scope = String(scopeConfig?.scope || "").trim();
+        if (!scope) continue;
+
+        const totalPages = Math.max(
+          Number(scopeConfig?.total_pages || 0),
+          calculateScannerDumpPages(scopeConfig?.total, SCANNER_DUMP_PAGE_SIZE)
+        );
+
+        if (Number(scopeConfig?.total || 0) <= 0) {
+          continue;
+        }
+
+        for (let page = 1; page <= totalPages; page += 1) {
+          const scopeResponse = await api.get("/scanner/dump", {
+            params: {
+              event_id: eventId,
+              scope,
+              snapshot_id: snapshotId,
+              page,
+              per_page: SCANNER_DUMP_PAGE_SIZE,
+            },
+          });
+
+          const items = scopeResponse.data?.data?.items || [];
+          if (items.length === 0) {
+            continue;
+          }
+
+          const docs = items.map((item) =>
+            buildScannerCacheRecord(item, eventId, { snapshotId, scope })
+          );
+          await db.scannerCache.bulkPut(docs);
+          syncedCount += docs.length;
+        }
+      }
+
+      const cachedCount =
+        scopes.length === 0
+          ? 0
+          : await purgeStaleScannerCacheEntries(numericEventId, snapshotId);
+
+      if (scopes.length === 0) {
+        await db.scannerCache.where("event_id").equals(numericEventId).delete();
+      }
+
+      setOfflineCount(cachedCount);
+      toast.success(`${cachedCount} registros guardados (offline). ${syncedCount} item(ns) atualizados nesta sincronização.`);
     } catch (err) {
       console.error(err);
       toast.error("Erro ao sincronizar cofre offline.");
@@ -305,12 +366,12 @@ export default function Scanner() {
     const loadSectorModes = async () => {
       setCatalogLoading(true);
       try {
-        const res = await api.get("/workforce/assignments", {
+        const res = await api.get("/workforce/summary", {
           params: { event_id: eventId },
         });
         if (cancelled) return;
 
-        const nextModes = deriveOperationalModes(res.data?.data || []);
+        const nextModes = normalizeOperationalModes(res.data?.data?.operational_modes || []);
         setSectorModes(nextModes);
         setSectorsFromCache(false);
         writeJsonCache(cacheKey, { data: nextModes });

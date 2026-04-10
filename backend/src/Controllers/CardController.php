@@ -36,6 +36,8 @@ function listCards(array $query): void
     if ($organizerId <= 0) {
         jsonError('Organizer inválido', 403);
     }
+    $pagination = enjoyNormalizePagination($query, 25, 200);
+    $search = trim((string)($query['search'] ?? ''));
 
     try {
         $db = Database::getInstance();
@@ -43,20 +45,48 @@ function listCards(array $query): void
         if ($eventId !== null) {
             CardAssignmentService::ensureTableExists($db);
         }
+        $assignmentsReady = CardAssignmentService::tableExists($db);
         $assignmentJoin = '';
         $eventSelect = 'NULL::integer AS event_id';
         $eventNameSelect = "'Sem evento' AS event_name";
         $userNameSelect = "COALESCE(u.name, 'Cartão Avulso') AS user_name";
-        $params = [$organizerId];
 
-        if (CardAssignmentService::tableExists($db)) {
+        if ($assignmentsReady) {
             $assignmentJoin = cardControllerActiveAssignmentJoinSql();
             $eventSelect = 'a.event_id';
             $eventNameSelect = "COALESCE(e.name, 'Sem evento') AS event_name";
             $userNameSelect = cardControllerUserNameSelectSql();
         }
 
-        $sql = "
+        $fromSql = "
+            FROM public.digital_cards c
+            LEFT JOIN public.users u ON c.user_id = u.id
+            {$assignmentJoin}
+            WHERE c.organizer_id = :organizer_id
+        ";
+
+        if ($eventId !== null && $assignmentsReady) {
+            $fromSql .= ' AND a.event_id = :event_id';
+        }
+
+        if ($search !== '') {
+            if ($assignmentsReady) {
+                $fromSql .= " AND (
+                    c.id::text LIKE :search
+                    OR LOWER(COALESCE(u.name, '')) LIKE LOWER(:search)
+                    OR LOWER(COALESCE(p_holder.name, '')) LIKE LOWER(:search)
+                    OR LOWER(COALESCE(a.holder_name_snapshot, '')) LIKE LOWER(:search)
+                )";
+            } else {
+                $fromSql .= " AND (
+                    c.id::text LIKE :search
+                    OR LOWER(COALESCE(u.name, '')) LIKE LOWER(:search)
+                )";
+            }
+        }
+
+        $countStmt = $db->prepare("SELECT COUNT(DISTINCT c.id) {$fromSql}");
+        $dataStmt = $db->prepare("
             SELECT
                 c.id::text AS id,
                 c.id::text AS card_id,
@@ -65,24 +95,29 @@ function listCards(array $query): void
                 CASE WHEN c.is_active THEN 'active' ELSE 'inactive' END AS status,
                 {$eventSelect},
                 {$eventNameSelect}
-            FROM public.digital_cards c
-            LEFT JOIN public.users u ON c.user_id = u.id
-            {$assignmentJoin}
-            WHERE c.organizer_id = ?
-        ";
+            {$fromSql}
+            ORDER BY COALESCE(c.updated_at, c.created_at) DESC
+            LIMIT :limit OFFSET :offset
+        ");
 
-        if ($eventId !== null && CardAssignmentService::tableExists($db)) {
-            $sql .= ' AND a.event_id = ?';
-            $params[] = $eventId;
+        foreach ([$countStmt, $dataStmt] as $stmt) {
+            $stmt->bindValue(':organizer_id', $organizerId, PDO::PARAM_INT);
+            if ($eventId !== null && $assignmentsReady) {
+                $stmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+            }
+            if ($search !== '') {
+                $stmt->bindValue(':search', '%' . $search . '%', PDO::PARAM_STR);
+            }
         }
 
-        $sql .= ' ORDER BY COALESCE(c.updated_at, c.created_at) DESC';
+        $countStmt->execute();
+        $total = (int)$countStmt->fetchColumn();
 
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
-        $cards = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        enjoyBindPagination($dataStmt, $pagination);
+        $dataStmt->execute();
+        $cards = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        jsonSuccess($cards);
+        jsonPaginated($cards, $total, $pagination['page'], $pagination['per_page']);
     } catch (Exception $e) {
         jsonError("Falha ao buscar cartões: " . $e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 500);
     }
@@ -137,6 +172,7 @@ function listTransactions(string $cardReference, array $query): void
     if ($organizerId <= 0) {
         jsonError('Organizer inválido', 403);
     }
+    $pagination = enjoyNormalizePagination($query, 15, 100);
 
     try {
         $db = Database::getInstance();
@@ -144,29 +180,43 @@ function listTransactions(string $cardReference, array $query): void
         if ($eventId !== null) {
             CardAssignmentService::ensureTableExists($db);
         }
-        $cardId = resolveCardIdForOrganizer($db, $cardReference, $organizerId, $eventId);
+        $cardId = resolveCardIdForOrganizer($db, $cardReference, $organizerId, $eventId, true);
 
-        $sql = "
-            SELECT t.id, t.type, CAST(t.amount AS FLOAT) AS amount, t.created_at, t.description
+        $fromSql = "
             FROM public.card_transactions t
             JOIN public.digital_cards c ON t.card_id = c.id
-            WHERE t.card_id = ?::uuid
-              AND c.organizer_id = ?
+            WHERE t.card_id = CAST(:card_id AS uuid)
+              AND c.organizer_id = :organizer_id
         ";
-        $params = [$cardId, $organizerId];
+        $params = [
+            ':card_id' => $cardId,
+            ':organizer_id' => $organizerId,
+        ];
 
         if ($eventId !== null && cardControllerColumnExists($db, 'card_transactions', 'event_id')) {
-            $sql .= ' AND t.event_id = ?';
-            $params[] = $eventId;
+            $fromSql .= ' AND t.event_id = :event_id';
+            $params[':event_id'] = $eventId;
         }
 
-        $sql .= ' ORDER BY t.created_at DESC';
+        $countStmt = $db->prepare("SELECT COUNT(*) {$fromSql}");
+        $dataStmt = $db->prepare("
+            SELECT t.id, t.type, CAST(t.amount AS FLOAT) AS amount, t.created_at, t.description
+            {$fromSql}
+            ORDER BY t.created_at DESC
+            LIMIT :limit OFFSET :offset
+        ");
 
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
-        $txs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetchColumn();
 
-        jsonSuccess($txs);
+        foreach ($params as $key => $value) {
+            $dataStmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        enjoyBindPagination($dataStmt, $pagination);
+        $dataStmt->execute();
+        $txs = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        jsonPaginated($txs, $total, $pagination['page'], $pagination['per_page']);
     } catch (Exception $e) {
         jsonError("Falha ao buscar transações: " . $e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 500);
     }
@@ -529,7 +579,7 @@ function loadCardAdminSnapshot(PDO $db, string $reference, int $organizerId, ?in
     return $card;
 }
 
-function resolveCardIdForOrganizer(PDO $db, string $reference, int $organizerId, ?int $eventId = null): string
+function resolveCardIdForOrganizer(PDO $db, string $reference, int $organizerId, ?int $eventId = null, bool $allowInactive = false): string
 {
     $reference = trim($reference);
     if ($reference === '') {
@@ -541,6 +591,7 @@ function resolveCardIdForOrganizer(PDO $db, string $reference, int $organizerId,
 
     $card = \WalletSecurityService::resolveCardReference($db, $reference, $organizerId, [
         'allow_legacy_token' => false,
+        'allow_inactive' => $allowInactive,
         'event_id' => $eventId,
         'require_event_match' => $eventId !== null && $eventId > 0,
     ]);

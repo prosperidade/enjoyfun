@@ -52,13 +52,13 @@ assert_status() {
 
     if [[ "$actual" == "$expected" ]]; then
         echo -e "${GREEN}[PASS]${NC} ${description} (HTTP ${actual})"
-        ((PASS++))
+        ((PASS += 1))
     else
         echo -e "${RED}[FAIL]${NC} ${description} (expected HTTP ${expected}, got ${actual})"
         if [[ -n "$body" ]]; then
             echo "       Response: ${body:0:200}"
         fi
-        ((FAIL++))
+        ((FAIL += 1))
     fi
 }
 
@@ -69,11 +69,11 @@ assert_body_contains() {
 
     if echo "$body" | grep -qi "$needle"; then
         echo -e "${GREEN}[PASS]${NC} ${description}"
-        ((PASS++))
+        ((PASS += 1))
     else
         echo -e "${RED}[FAIL]${NC} ${description} (body does not contain '${needle}')"
         echo "       Response: ${body:0:200}"
-        ((FAIL++))
+        ((FAIL += 1))
     fi
 }
 
@@ -85,16 +85,16 @@ assert_body_not_contains() {
     if echo "$body" | grep -qi "$needle"; then
         echo -e "${RED}[FAIL]${NC} ${description} (body unexpectedly contains '${needle}')"
         echo "       Response: ${body:0:200}"
-        ((FAIL++))
+        ((FAIL += 1))
     else
         echo -e "${GREEN}[PASS]${NC} ${description}"
-        ((PASS++))
+        ((PASS += 1))
     fi
 }
 
 skip_test() {
     echo -e "${YELLOW}[SKIP]${NC} $1"
-    ((SKIP++))
+    ((SKIP += 1))
 }
 
 # Perform a curl request and capture both status and body
@@ -172,10 +172,10 @@ for i in $(seq 1 6); do
 done
 if $RATE_LIMITED; then
     echo -e "${GREEN}[PASS]${NC} Rate limiting active (429 after rapid attempts)"
-    ((PASS++))
+    ((PASS += 1))
 else
     echo -e "${YELLOW}[SKIP]${NC} Rate limiting not triggered in 6 attempts (may need more or Redis)"
-    ((SKIP++))
+    ((SKIP += 1))
 fi
 
 # B3. request-access-code should use event_slug, not organizer_id from body
@@ -194,15 +194,15 @@ if [[ -n "$ADMIN_EMAIL" && -n "$ADMIN_PASSWORD" ]]; then
         fi
         if [[ -n "$TOKEN" ]]; then
             echo -e "${GREEN}[PASS]${NC} Login with valid credentials succeeded, JWT obtained"
-            ((PASS++))
+            ((PASS += 1))
         else
             echo -e "${RED}[FAIL]${NC} Login succeeded but could not extract token from response"
             echo "       Response: ${RESP_BODY:0:200}"
-            ((FAIL++))
+            ((FAIL += 1))
         fi
     else
         echo -e "${RED}[FAIL]${NC} Login with valid credentials failed (HTTP ${RESP_STATUS})"
-        ((FAIL++))
+        ((FAIL += 1))
     fi
 else
     skip_test "Login with valid credentials (no ADMIN_EMAIL/ADMIN_PASSWORD provided)"
@@ -245,10 +245,10 @@ if [[ -n "$TOKEN" ]]; then
     do_request GET "${API}/events"
     if [[ "$RESP_STATUS" == "401" || "$RESP_STATUS" == "403" ]]; then
         echo -e "${GREEN}[PASS]${NC} Forged JWT rejected (HTTP ${RESP_STATUS})"
-        ((PASS++))
+        ((PASS += 1))
     else
         echo -e "${RED}[FAIL]${NC} Forged JWT not rejected (HTTP ${RESP_STATUS})"
-        ((FAIL++))
+        ((FAIL += 1))
     fi
     TOKEN="$OLD_TOKEN"
 
@@ -256,10 +256,10 @@ if [[ -n "$TOKEN" ]]; then
     do_request DELETE "${API}/participants/999999"
     if [[ "$RESP_STATUS" == "404" || "$RESP_STATUS" == "403" || "$RESP_STATUS" == "400" ]]; then
         echo -e "${GREEN}[PASS]${NC} DELETE non-existent participant returns safe error (HTTP ${RESP_STATUS})"
-        ((PASS++))
+        ((PASS += 1))
     else
         echo -e "${RED}[FAIL]${NC} DELETE participant unexpected status (HTTP ${RESP_STATUS})"
-        ((FAIL++))
+        ((FAIL += 1))
     fi
 else
     skip_test "IDOR tests (no auth token available)"
@@ -275,20 +275,20 @@ if [[ -n "$TOKEN" ]]; then
     do_request POST "${API}/bar/checkout" '{"event_id":1,"items":[{"product_id":1,"quantity":-5}]}'
     if [[ "$RESP_STATUS" -ge 400 ]]; then
         echo -e "${GREEN}[PASS]${NC} Checkout with negative quantity rejected (HTTP ${RESP_STATUS})"
-        ((PASS++))
+        ((PASS += 1))
     else
         echo -e "${RED}[FAIL]${NC} Checkout with negative quantity not rejected (HTTP ${RESP_STATUS})"
-        ((FAIL++))
+        ((FAIL += 1))
     fi
 
     # E2. Quantity > 1000
     do_request POST "${API}/bar/checkout" '{"event_id":1,"items":[{"product_id":1,"quantity":1001}]}'
     if [[ "$RESP_STATUS" -ge 400 ]]; then
         echo -e "${GREEN}[PASS]${NC} Checkout with qty > 1000 rejected (HTTP ${RESP_STATUS})"
-        ((PASS++))
+        ((PASS += 1))
     else
         echo -e "${RED}[FAIL]${NC} Checkout with qty > 1000 not rejected (HTTP ${RESP_STATUS})"
-        ((FAIL++))
+        ((FAIL += 1))
     fi
 
     # E3. More than 100 items in a single checkout
@@ -302,10 +302,10 @@ print(json.dumps({'event_id': 1, 'items': items}))
         do_request POST "${API}/bar/checkout" "$MANY_ITEMS"
         if [[ "$RESP_STATUS" -ge 400 ]]; then
             echo -e "${GREEN}[PASS]${NC} Checkout with > 100 items rejected (HTTP ${RESP_STATUS})"
-            ((PASS++))
+            ((PASS += 1))
         else
             echo -e "${RED}[FAIL]${NC} Checkout with > 100 items not rejected (HTTP ${RESP_STATUS})"
-            ((FAIL++))
+            ((FAIL += 1))
         fi
     else
         skip_test "Checkout > 100 items (python3 not available to generate payload)"
@@ -319,16 +319,16 @@ fi
 ###############################################################################
 section "F. AI Rate Limiting"
 
-# F1. AI endpoint without auth -> 401
+# F1. AI endpoint without auth -> 401/403
 OLD_TOKEN="$TOKEN"
 TOKEN=""
-do_request POST "${API}/ai/insights" '{"prompt":"test"}'
+do_request POST "${API}/ai/insight" '{"prompt":"test"}'
 if [[ "$RESP_STATUS" == "401" || "$RESP_STATUS" == "403" ]]; then
     echo -e "${GREEN}[PASS]${NC} AI endpoint without auth returns ${RESP_STATUS}"
-    ((PASS++))
+    ((PASS += 1))
 else
     echo -e "${RED}[FAIL]${NC} AI endpoint without auth returned ${RESP_STATUS} (expected 401/403)"
-    ((FAIL++))
+    ((FAIL += 1))
 fi
 TOKEN="$OLD_TOKEN"
 
@@ -349,10 +349,10 @@ print(json.dumps({'items': items}))
         do_request POST "${API}/sync" "$MANY_SYNC"
         if [[ "$RESP_STATUS" -ge 400 ]]; then
             echo -e "${GREEN}[PASS]${NC} Sync with > 500 items rejected (HTTP ${RESP_STATUS})"
-            ((PASS++))
+            ((PASS += 1))
         else
             echo -e "${YELLOW}[SKIP]${NC} Sync with > 500 items returned ${RESP_STATUS} (limit may not be enforced yet)"
-            ((SKIP++))
+            ((SKIP += 1))
         fi
     else
         skip_test "Sync > 500 items (python3 not available to generate payload)"
@@ -373,10 +373,10 @@ print(json.dumps({'items': items}))
     # Both should succeed, but second should indicate deduplication
     if echo "$SECOND_BODY" | grep -qi "dedup\|skipped\|already\|duplicate\|idempoten"; then
         echo -e "${GREEN}[PASS]${NC} Sync deduplication: second submission recognized as duplicate"
-        ((PASS++))
+        ((PASS += 1))
     else
         echo -e "${YELLOW}[SKIP]${NC} Sync deduplication: could not confirm dedup (may need specific event/product data)"
-        ((SKIP++))
+        ((SKIP += 1))
     fi
 else
     skip_test "Sync tests (no auth token available)"
@@ -393,10 +393,10 @@ if [[ -n "$TOKEN" ]]; then
     if [[ "$RESP_STATUS" == "200" ]]; then
         assert_body_contains "Split returns platform fee (1%)" "1" "$RESP_BODY"
         echo -e "${GREEN}[PASS]${NC} GET /payments/split returns 200"
-        ((PASS++))
+        ((PASS += 1))
     else
         echo -e "${YELLOW}[SKIP]${NC} GET /payments/split returned ${RESP_STATUS} (gateway may not be configured)"
-        ((SKIP++))
+        ((SKIP += 1))
     fi
 else
     skip_test "Payment split test (no auth token available)"
@@ -407,10 +407,10 @@ TOKEN=""
 do_request POST "${API}/payments/webhook" '{"event":"payment_confirmed","id":"test123"}'
 if [[ "$RESP_STATUS" == "401" || "$RESP_STATUS" == "403" ]]; then
     echo -e "${GREEN}[PASS]${NC} Webhook without HMAC signature rejected (HTTP ${RESP_STATUS})"
-    ((PASS++))
+    ((PASS += 1))
 else
     echo -e "${RED}[FAIL]${NC} Webhook without HMAC returned ${RESP_STATUS} (expected 401/403)"
-    ((FAIL++))
+    ((FAIL += 1))
 fi
 TOKEN="$OLD_TOKEN"
 
@@ -425,10 +425,10 @@ TOKEN=""
 do_request POST "${API}/messaging/webhook" '{"timestamp":1000000000,"payload":"stale"}'
 if [[ "$RESP_STATUS" == "401" || "$RESP_STATUS" == "403" || "$RESP_STATUS" == "422" ]]; then
     echo -e "${GREEN}[PASS]${NC} Messaging webhook with stale/no auth rejected (HTTP ${RESP_STATUS})"
-    ((PASS++))
+    ((PASS += 1))
 else
     echo -e "${YELLOW}[SKIP]${NC} Messaging webhook returned ${RESP_STATUS} (endpoint may not validate timestamps yet)"
-    ((SKIP++))
+    ((SKIP += 1))
 fi
 TOKEN="$OLD_TOKEN"
 

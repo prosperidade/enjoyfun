@@ -1,52 +1,50 @@
+import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
 import { EventScopeProvider } from "./context/EventScopeContext";
 import PrivateRoute from "./components/PrivateRoute";
 import DashboardLayout from "./layouts/DashboardLayout";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import AnalyticalDashboard from "./pages/AnalyticalDashboard";
-import Events from "./pages/Events";
-import EventDetails from "./pages/EventDetails";
-import Tickets from "./pages/Tickets";
-import Cards from "./pages/Cards";
-import SuperAdminPanel from "./pages/SuperAdminPanel";
-import Guests from "./pages/Guests";
-import GuestTicket from "./pages/GuestTicket";
 import AppVersionGuard from "./components/AppVersionGuard";
+import CustomerPrivateRoute from "./components/CustomerPrivateRoute";
 import { useOfflineSync } from "./hooks/useOfflineSync";
 
-// Nossos arquivos independentes
-import Bar from "./pages/Bar";
-import Food from "./pages/Food";
-import Shop from "./pages/Shop";
-import Parking from "./pages/Parking";
-import Messaging from "./pages/Messaging";
-import AIAgents from "./pages/AIAgents";
-import Users from "./pages/Users";
-import Settings from "./pages/Settings";
-import Scanner from "./pages/Operations/Scanner";
-import ParticipantsHub from "./pages/ParticipantsHub";
-import MealsControl from "./pages/MealsControl";
-import ArtistsCatalog from "./pages/ArtistsCatalog";
-import ArtistDetail from "./pages/ArtistDetail";
-import ArtistImport from "./pages/ArtistImport";
-import OrganizerFiles from "./pages/OrganizerFiles";
-import CustomerLogin from "./pages/CustomerApp/CustomerLogin";
-import CustomerDashboard from "./pages/CustomerApp/CustomerDashboard";
-import CustomerRecharge from "./pages/CustomerApp/CustomerRecharge";
-import CustomerPrivateRoute from "./components/CustomerPrivateRoute";
-
-// Módulo Financeiro do Evento
-import EventFinanceDashboard from "./pages/EventFinanceDashboard";
-import EventFinancePayables from "./pages/EventFinancePayables";
-import EventFinancePayableDetail from "./pages/EventFinancePayableDetail";
-import EventFinanceSuppliers from "./pages/EventFinanceSuppliers";
-import EventFinanceBudget from "./pages/EventFinanceBudget";
-import EventFinanceImport from "./pages/EventFinanceImport";
-import EventFinanceExport from "./pages/EventFinanceExport";
-import EventFinanceSettings from "./pages/EventFinanceSettings";
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const AnalyticalDashboard = lazy(() => import("./pages/AnalyticalDashboard"));
+const Events = lazy(() => import("./pages/Events"));
+const EventDetails = lazy(() => import("./pages/EventDetails"));
+const Tickets = lazy(() => import("./pages/Tickets"));
+const Cards = lazy(() => import("./pages/Cards"));
+const SuperAdminPanel = lazy(() => import("./pages/SuperAdminPanel"));
+const Guests = lazy(() => import("./pages/Guests"));
+const GuestTicket = lazy(() => import("./pages/GuestTicket"));
+const Bar = lazy(() => import("./pages/Bar"));
+const Food = lazy(() => import("./pages/Food"));
+const Shop = lazy(() => import("./pages/Shop"));
+const Parking = lazy(() => import("./pages/Parking"));
+const Messaging = lazy(() => import("./pages/Messaging"));
+const AIAgents = lazy(() => import("./pages/AIAgents"));
+const Users = lazy(() => import("./pages/Users"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Scanner = lazy(() => import("./pages/Operations/Scanner"));
+const ParticipantsHub = lazy(() => import("./pages/ParticipantsHub"));
+const MealsControl = lazy(() => import("./pages/MealsControl"));
+const ArtistsCatalog = lazy(() => import("./pages/ArtistsCatalog"));
+const ArtistDetail = lazy(() => import("./pages/ArtistDetail"));
+const ArtistImport = lazy(() => import("./pages/ArtistImport"));
+const OrganizerFiles = lazy(() => import("./pages/OrganizerFiles"));
+const CustomerLogin = lazy(() => import("./pages/CustomerApp/CustomerLogin"));
+const CustomerDashboard = lazy(() => import("./pages/CustomerApp/CustomerDashboard"));
+const CustomerRecharge = lazy(() => import("./pages/CustomerApp/CustomerRecharge"));
+const EventFinanceDashboard = lazy(() => import("./pages/EventFinanceDashboard"));
+const EventFinancePayables = lazy(() => import("./pages/EventFinancePayables"));
+const EventFinancePayableDetail = lazy(() => import("./pages/EventFinancePayableDetail"));
+const EventFinanceSuppliers = lazy(() => import("./pages/EventFinanceSuppliers"));
+const EventFinanceBudget = lazy(() => import("./pages/EventFinanceBudget"));
+const EventFinanceImport = lazy(() => import("./pages/EventFinanceImport"));
+const EventFinanceExport = lazy(() => import("./pages/EventFinanceExport"));
+const EventFinanceSettings = lazy(() => import("./pages/EventFinanceSettings"));
 
 function NotFound() {
   return (
@@ -68,6 +66,16 @@ function GlobalSyncMount() {
   return null;
 }
 
+function RouteLoading() {
+  return (
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center text-center">
+      <div className="rounded-2xl border border-gray-800 bg-gray-900/70 px-6 py-5 text-sm text-gray-300">
+        Carregando módulo...
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -85,64 +93,66 @@ export default function App() {
           }}
         />
         <AppVersionGuard />
-        <Routes>
-          <Route path="/login" element={<Login />} />
+        <Suspense fallback={<RouteLoading />}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
 
-          {/* ── Customer App (WebApp Mobile) ────────────────────────── */}
-          <Route path="/app/:slug" element={<CustomerLogin />} />
-          {/* H14 — Customer pages protected by auth guard */}
-          <Route path="/app/:slug" element={<CustomerPrivateRoute />}>
-            <Route path="home"     element={<CustomerDashboard />} />
-            <Route path="recharge" element={<CustomerRecharge />} />
-          </Route>
-          <Route path="/invite" element={<GuestTicket />} />
-
-          <Route element={<PrivateRoute />}>
-            <Route element={<EventScopeProvider><DashboardLayout /></EventScopeProvider>}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/analytics" element={<AnalyticalDashboard />} />
-              <Route path="/events" element={<Events />} />
-              <Route path="/events/:id" element={<EventDetails />} />
-              <Route path="/tickets" element={<Tickets />} />
-              <Route path="/cards" element={<Cards />} />
-              <Route path="/superadmin" element={<SuperAdminPanel />} />
-
-
-              {/* PDVs Independentes */}
-              <Route path="/bar" element={<Bar />} />
-              <Route path="/food" element={<Food />} />
-              <Route path="/shop" element={<Shop />} />
-
-              <Route path="/parking" element={<Parking />} />
-              <Route path="/messaging" element={<Messaging />} />
-              <Route path="/ai" element={<AIAgents />} />
-              <Route path="/files" element={<OrganizerFiles />} />
-              <Route path="/users" element={<Users />} />
-              <Route path="/guests" element={<Guests />} />
-              <Route path="/participants" element={<ParticipantsHub />} />
-              <Route path="/artists" element={<ArtistsCatalog />} />
-              <Route path="/artists/import" element={<ArtistImport />} />
-              <Route path="/artists/:id" element={<ArtistDetail />} />
-              <Route path="/meals-control" element={<MealsControl />} />
-              <Route path="/scanner" element={<Scanner />} />
-
-              {/* Módulo Financeiro do Evento */}
-              <Route path="/finance" element={<EventFinanceDashboard />} />
-              <Route path="/finance/payables" element={<EventFinancePayables />} />
-              <Route path="/finance/payables/:id" element={<EventFinancePayableDetail />} />
-              <Route path="/finance/suppliers" element={<EventFinanceSuppliers />} />
-              <Route path="/finance/budget" element={<EventFinanceBudget />} />
-              <Route path="/finance/import" element={<EventFinanceImport />} />
-              <Route path="/finance/export" element={<EventFinanceExport />} />
-              <Route path="/finance/settings" element={<EventFinanceSettings />} />
-
-              {/* Configurações */}
-              <Route path="/settings" element={<Settings />} />
+            {/* ── Customer App (WebApp Mobile) ────────────────────────── */}
+            <Route path="/app/:slug" element={<CustomerLogin />} />
+            {/* H14 — Customer pages protected by auth guard */}
+            <Route path="/app/:slug" element={<CustomerPrivateRoute />}>
+              <Route path="home"     element={<CustomerDashboard />} />
+              <Route path="recharge" element={<CustomerRecharge />} />
             </Route>
-          </Route>
+            <Route path="/invite" element={<GuestTicket />} />
 
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            <Route element={<PrivateRoute />}>
+              <Route element={<EventScopeProvider><DashboardLayout /></EventScopeProvider>}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/analytics" element={<AnalyticalDashboard />} />
+                <Route path="/events" element={<Events />} />
+                <Route path="/events/:id" element={<EventDetails />} />
+                <Route path="/tickets" element={<Tickets />} />
+                <Route path="/cards" element={<Cards />} />
+                <Route path="/superadmin" element={<SuperAdminPanel />} />
+
+
+                {/* PDVs Independentes */}
+                <Route path="/bar" element={<Bar />} />
+                <Route path="/food" element={<Food />} />
+                <Route path="/shop" element={<Shop />} />
+
+                <Route path="/parking" element={<Parking />} />
+                <Route path="/messaging" element={<Messaging />} />
+                <Route path="/ai" element={<AIAgents />} />
+                <Route path="/files" element={<OrganizerFiles />} />
+                <Route path="/users" element={<Users />} />
+                <Route path="/guests" element={<Guests />} />
+                <Route path="/participants" element={<ParticipantsHub />} />
+                <Route path="/artists" element={<ArtistsCatalog />} />
+                <Route path="/artists/import" element={<ArtistImport />} />
+                <Route path="/artists/:id" element={<ArtistDetail />} />
+                <Route path="/meals-control" element={<MealsControl />} />
+                <Route path="/scanner" element={<Scanner />} />
+
+                {/* Módulo Financeiro do Evento */}
+                <Route path="/finance" element={<EventFinanceDashboard />} />
+                <Route path="/finance/payables" element={<EventFinancePayables />} />
+                <Route path="/finance/payables/:id" element={<EventFinancePayableDetail />} />
+                <Route path="/finance/suppliers" element={<EventFinanceSuppliers />} />
+                <Route path="/finance/budget" element={<EventFinanceBudget />} />
+                <Route path="/finance/import" element={<EventFinanceImport />} />
+                <Route path="/finance/export" element={<EventFinanceExport />} />
+                <Route path="/finance/settings" element={<EventFinanceSettings />} />
+
+                {/* Configurações */}
+                <Route path="/settings" element={<Settings />} />
+              </Route>
+            </Route>
+
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -1031,6 +1031,7 @@ class PaymentGatewayService
      */
     public static function listCharges(PDO $db, int $organizerId, array $filters = []): array
     {
+        $pagination = enjoyNormalizePagination($filters, 25, 100);
         $where = ['organizer_id = :organizer_id'];
         $params = [':organizer_id' => $organizerId];
 
@@ -1044,6 +1045,14 @@ class PaymentGatewayService
         }
 
         $whereClause = implode(' AND ', $where);
+        $countStmt = $db->prepare("
+            SELECT COUNT(*)
+            FROM payment_charges
+            WHERE {$whereClause}
+        ");
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetchColumn();
+
         $stmt = $db->prepare("
             SELECT id, organizer_id, event_id, sale_id, external_id, gateway,
                    amount, platform_fee, organizer_amount, status, billing_type,
@@ -1052,12 +1061,19 @@ class PaymentGatewayService
             FROM payment_charges
             WHERE {$whereClause}
             ORDER BY created_at DESC
-            LIMIT 100
+            LIMIT :limit OFFSET :offset
         ");
-        $stmt->execute($params);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        enjoyBindPagination($stmt, $pagination);
+        $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        return array_map([self::class, 'formatChargeRow'], $rows);
+        return [
+            'items' => array_map([self::class, 'formatChargeRow'], $rows),
+            'meta' => enjoyBuildPaginationMeta($pagination['page'], $pagination['per_page'], $total),
+        ];
     }
 
     // ── Private Charge Helpers ─────────────────────────────────────────────────
@@ -1471,4 +1487,3 @@ class PaymentGatewayService
         return '{' . implode(',', $escaped) . '}';
     }
 }
-

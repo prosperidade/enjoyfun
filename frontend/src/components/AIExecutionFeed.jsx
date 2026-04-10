@@ -8,6 +8,7 @@ const EXECUTION_STATUS_META = {
   failed: { label: "Falha", className: "badge-red" },
   blocked: { label: "Bloqueado", className: "badge-yellow" },
   pending: { label: "Pendente", className: "badge-yellow" },
+  running: { label: "Executando", className: "badge-blue" },
 };
 
 const APPROVAL_STATUS_META = {
@@ -18,10 +19,10 @@ const APPROVAL_STATUS_META = {
 };
 
 const RISK_LEVEL_META = {
-  low: { label: "Baixo", className: "text-green-300 border-green-800/50 bg-green-950/30" },
-  medium: { label: "Medio", className: "text-amber-300 border-amber-800/50 bg-amber-950/30" },
-  high: { label: "Alto", className: "text-red-300 border-red-800/50 bg-red-950/30" },
-  critical: { label: "Critico", className: "text-red-200 border-red-600/50 bg-red-900/40" },
+  none: { label: "Nenhum", className: "text-gray-300 border-gray-800/50 bg-gray-950/40" },
+  read: { label: "Leitura", className: "text-green-300 border-green-800/50 bg-green-950/30" },
+  write: { label: "Escrita", className: "text-amber-300 border-amber-800/50 bg-amber-950/30" },
+  destructive: { label: "Destrutivo", className: "text-red-200 border-red-600/50 bg-red-900/40" },
 };
 
 function resolveExecutionStatusMeta(status) {
@@ -97,6 +98,56 @@ function parseToolCalls(execution) {
   return [];
 }
 
+function buildApprovalPayload(execution, reason) {
+  const payload = {};
+
+  if (Number(execution?.event_id) > 0) {
+    payload.event_id = Number(execution.event_id);
+  }
+
+  if (execution?.approval_scope_key) {
+    payload.approval_scope_key = execution.approval_scope_key;
+  }
+
+  if (typeof reason === "string" && reason.trim() !== "") {
+    payload.reason = reason.trim();
+  }
+
+  return payload;
+}
+
+function formatToolPreview(tool) {
+  const preview = tool?.arguments_preview ?? tool?.arguments ?? tool?.params ?? null;
+  if (!preview) return null;
+
+  if (typeof preview === "string") {
+    return preview.slice(0, 220);
+  }
+
+  try {
+    return JSON.stringify(preview).slice(0, 220);
+  } catch {
+    return null;
+  }
+}
+
+function buildImpactSummaryFromToolCalls(toolCalls) {
+  if (!Array.isArray(toolCalls) || toolCalls.length === 0) return null;
+
+  const summary = toolCalls.slice(0, 3).map((tool) => {
+    const name = tool?.tool_name || tool?.name || "tool desconhecida";
+    const risk = tool?.risk_level ? `risco=${tool.risk_level}` : null;
+    const preview = formatToolPreview(tool);
+    return [name, risk, preview].filter(Boolean).join(" | ");
+  });
+
+  if (toolCalls.length > 3) {
+    summary.push(`+${toolCalls.length - 3} tool(s)`);
+  }
+
+  return summary.join(" || ");
+}
+
 function parseResultSummary(execution) {
   if (execution.execution_status === "failed") {
     return normalizePreview(execution.error_message, "Sem detalhe de erro salvo.");
@@ -144,21 +195,15 @@ export default function AIExecutionFeed() {
     loadExecutions();
   }, [loadExecutions]);
 
-  const handleApprove = useCallback(async (executionId) => {
+  const handleApprove = useCallback(async (execution) => {
     try {
-      const result = await approveAIExecution(executionId);
+      const payload = buildApprovalPayload(execution);
+      const result = await approveAIExecution(execution.id, payload);
       toast.success("Execucao aprovada e processada.");
       setExecutions((prev) =>
         prev.map((ex) =>
-          ex.id === executionId
-            ? {
-                ...ex,
-                approval_status: "approved",
-                execution_status: result?.execution_status || "succeeded",
-                response_preview: result?.response_preview || ex.response_preview,
-                error_message: result?.error_message || ex.error_message,
-                completed_at: result?.completed_at || new Date().toISOString(),
-              }
+          ex.id === execution.id
+            ? { ...ex, ...result }
             : ex
         )
       );
@@ -167,14 +212,21 @@ export default function AIExecutionFeed() {
     }
   }, []);
 
-  const handleReject = useCallback(async (executionId, reason) => {
+  const handleReject = useCallback(async (execution, reason) => {
     try {
-      await rejectAIExecution(executionId, { reason });
+      const payload = buildApprovalPayload(execution, reason);
+      const result = await rejectAIExecution(execution.id, payload);
       toast.success("Execucao rejeitada.");
       setExecutions((prev) =>
         prev.map((ex) =>
-          ex.id === executionId
-            ? { ...ex, approval_status: "rejected", execution_status: "blocked" }
+          ex.id === execution.id
+            ? {
+                ...ex,
+                ...result,
+                approval_status: result?.approval_status || "rejected",
+                execution_status: result?.execution_status || "blocked",
+                approval_decision_reason: payload.reason || ex.approval_decision_reason,
+              }
             : ex
         )
       );
@@ -288,13 +340,17 @@ function PendingApprovalCard({ execution, onApprove, onReject }) {
   const [showRejectInput, setShowRejectInput] = useState(false);
 
   const toolCalls = parseToolCalls(execution);
-  const riskMeta = resolveRiskMeta(execution.risk_level);
+  const riskMeta = resolveRiskMeta(execution.approval_risk_level);
   const scopeKey = execution.approval_scope_key || execution.agent_key || "escopo n/d";
+  const impactSummary = normalizePreview(
+    execution.impact_summary || buildImpactSummaryFromToolCalls(toolCalls),
+    "Sem resumo de impacto calculado."
+  );
 
   const handleApprove = async () => {
     setActing(true);
     try {
-      await onApprove(execution.id);
+      await onApprove(execution);
     } finally {
       setActing(false);
     }
@@ -303,7 +359,7 @@ function PendingApprovalCard({ execution, onApprove, onReject }) {
   const handleReject = async () => {
     setActing(true);
     try {
-      await onReject(execution.id, rejectReason || undefined);
+      await onReject(execution, rejectReason || undefined);
     } finally {
       setActing(false);
       setShowRejectInput(false);
@@ -359,11 +415,9 @@ function PendingApprovalCard({ execution, onApprove, onReject }) {
               </span>
               <div className="min-w-0">
                 <p className="font-semibold text-white">{tool.tool_name || tool.name || "tool desconhecida"}</p>
-                {tool.arguments || tool.params ? (
+                {formatToolPreview(tool) ? (
                   <p className="text-gray-400 mt-0.5 break-all">
-                    {typeof (tool.arguments || tool.params) === "string"
-                      ? (tool.arguments || tool.params).slice(0, 200)
-                      : JSON.stringify(tool.arguments || tool.params).slice(0, 200)}
+                    {formatToolPreview(tool)}
                   </p>
                 ) : null}
               </div>
@@ -379,13 +433,11 @@ function PendingApprovalCard({ execution, onApprove, onReject }) {
       />
 
       {/* Diff / impact summary */}
-      {execution.diff_summary || execution.impact_summary ? (
-        <PreviewBox
-          title="Impacto esperado"
-          text={normalizePreview(execution.diff_summary || execution.impact_summary, "")}
-          tone="warning"
-        />
-      ) : null}
+      <PreviewBox
+        title="Impacto esperado"
+        text={impactSummary}
+        tone="warning"
+      />
 
       {/* Action buttons */}
       <div className="flex flex-col gap-3 mt-1">
@@ -540,11 +592,13 @@ function ExecutionCard({ execution }) {
   );
 }
 
-function MetaBox({ icon: Icon, label, value }) {
+function MetaBox({ icon, label, value }) {
+  const IconComponent = icon;
+
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-2">
       <div className="flex items-center gap-2 text-gray-500 mb-1">
-        <Icon size={12} />
+        <IconComponent size={12} />
         <span>{label}</span>
       </div>
       <p className="text-gray-200">{value}</p>

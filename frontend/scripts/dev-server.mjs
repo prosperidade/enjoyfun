@@ -105,7 +105,7 @@ function getListeningPids(port) {
       `if ($connections) {`,
       `  $connections | Select-Object -ExpandProperty OwningProcess -Unique | ConvertTo-Json -Compress`,
       `}`,
-    ].join(' ')
+    ].join('; ')
     const result = runCommand('powershell.exe', ['-NoProfile', '-Command', script])
 
     if (result.error || result.status !== 0 || !result.stdout.trim()) {
@@ -140,21 +140,19 @@ function getProcessCommandLine(pid) {
 
 function isFrontendAutoReclaimCandidate(commandLine) {
   if (!commandLine) {
-    return false
-  }
-
-  const normalized = commandLine.toLowerCase()
-  const normalizedRoot = frontendRoot.toLowerCase()
-
-  if (normalized.includes(normalizedRoot) && normalized.includes('vite')) {
+    // Unknown process — still reclaim on our dedicated dev port
     return true
   }
 
+  const normalized = commandLine.toLowerCase()
+
+  // Reclaim any node/vite/npm process on our dev port
   return (
+    normalized.includes('node') ||
     normalized.includes('vite') ||
-    normalized.includes('npm run dev') ||
-    normalized.includes('pnpm dev') ||
-    normalized.includes('yarn dev')
+    normalized.includes('npm') ||
+    normalized.includes('pnpm') ||
+    normalized.includes('yarn')
   )
 }
 

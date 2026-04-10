@@ -17,19 +17,13 @@ function authEnsureRateLimitTable(PDO $db): void
         return;
     }
 
-    $db->exec("
-        CREATE TABLE IF NOT EXISTS auth_rate_limits (
-            id BIGSERIAL PRIMARY KEY,
-            rate_key VARCHAR(255) NOT NULL,
-            attempted_at TIMESTAMP NOT NULL DEFAULT NOW()
-        )
-    ");
-
-    // Best-effort index creation (ignore if already exists)
-    try {
-        $db->exec("CREATE INDEX IF NOT EXISTS idx_auth_rate_limits_key_time ON auth_rate_limits (rate_key, attempted_at)");
-    } catch (\Throwable $e) {
-        // Index may already exist; safe to ignore
+    $stmt = $db->query("SELECT to_regclass('public.auth_rate_limits') IS NOT NULL");
+    $exists = (bool)$stmt->fetchColumn();
+    if (!$exists) {
+        jsonError(
+            'Infra de rate limit de autenticacao ausente. Aplique a migration 058_rate_limits_schema_foundation.sql.',
+            503
+        );
     }
 
     $checked = true;
@@ -140,12 +134,22 @@ function login(array $body): void
         authRecordAttempt($db, 'login_email', $email);
 
         error_log("[AUTH][{$correlationId}] Falha de login.");
+        $auditUser = null;
+        if ($user) {
+            $auditUser = [
+                'id' => (int)($user['id'] ?? 0),
+                'email' => $user['email'] ?? $email,
+                'organizer_id' => (int)($user['organizer_id'] ?? 0) > 0
+                    ? (int)$user['organizer_id']
+                    : (int)($user['id'] ?? 0),
+            ];
+        }
         AuditService::logFailure(
             AuditService::USER_LOGIN_FAILED,
             'user',
             null,
             'Credenciais inválidas',
-            null,
+            $auditUser,
             ['metadata' => ['correlation_id' => $correlationId]]
         );
         jsonError('Credenciais inválidas.', 401);
@@ -161,7 +165,7 @@ function login(array $body): void
         $userData['id'],
         null,
         ['email' => $userData['email'], 'role' => $userData['role'], 'correlation_id' => $correlationId],
-        ['sub' => $userData['id'], 'email' => $userData['email']],
+        $userData,
         'success'
     );
 

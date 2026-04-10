@@ -13,6 +13,10 @@ require_once __DIR__ . '/AuditService.php';
 
 final class AIToolRuntimeService
 {
+    private const ROLLOUT_WRITE_TOOL_FLAGS = [
+        'update_timeline_checkpoint' => 'FEATURE_AI_WRITE_TIMELINE_CHECKPOINT',
+    ];
+
     // ──────────────────────────────────────────────────────────────
     //  Tool Registry — all tool definitions in one place
     // ──────────────────────────────────────────────────────────────
@@ -619,7 +623,7 @@ final class AIToolRuntimeService
             $matchesSurface = $surface === '' || in_array($surface, $tool['surfaces'] ?? [], true);
             $matchesAgent = $agentKey === '' || in_array($agentKey, $tool['agent_keys'] ?? [], true);
 
-            if ($matchesSurface || $matchesAgent) {
+            if (($matchesSurface || $matchesAgent) && self::shouldExposeToolToModel($tool)) {
                 $tools[] = $tool;
             }
         }
@@ -629,13 +633,56 @@ final class AIToolRuntimeService
         if ($db !== null && $organizerId !== null && $organizerId > 0) {
             try {
                 $mcpTools = AIMCPClientService::buildMCPToolCatalog($db, $organizerId, $surface, $agentKey);
-                $tools = array_merge($tools, $mcpTools);
+                $tools = array_merge(
+                    $tools,
+                    array_values(array_filter($mcpTools, static fn(array $tool): bool => self::shouldExposeToolToModel($tool)))
+                );
             } catch (\Throwable $e) {
                 error_log('[AIToolRuntimeService] MCP catalog merge failed: ' . $e->getMessage());
             }
         }
 
         return $tools;
+    }
+
+    private static function shouldExposeToolToModel(array $tool): bool
+    {
+        $toolType = strtolower(trim((string)($tool['type'] ?? 'read')));
+        if ($toolType !== 'write') {
+            return true;
+        }
+
+        $toolName = (string)($tool['name'] ?? '');
+        return self::envFlagEnabled('FEATURE_AI_TOOL_WRITE') && self::isWriteToolEnabledForRollout($toolName);
+    }
+
+    private static function isWriteToolEnabledForRollout(string $toolName): bool
+    {
+        $normalizedTool = strtolower(trim($toolName));
+        $flagName = self::ROLLOUT_WRITE_TOOL_FLAGS[$normalizedTool] ?? null;
+        if ($flagName === null) {
+            return false;
+        }
+
+        return self::envFlagEnabled($flagName);
+    }
+
+    private static function buildWriteToolDisabledMessage(string $toolName): string
+    {
+        $normalizedTool = strtolower(trim($toolName));
+        $flagName = self::ROLLOUT_WRITE_TOOL_FLAGS[$normalizedTool] ?? null;
+
+        if ($flagName !== null) {
+            return "Tool write '{$toolName}' exige rollout explicito via {$flagName}=true.";
+        }
+
+        return "Tool write '{$toolName}' ainda nao esta liberada no rollout operacional da IA.";
+    }
+
+    private static function envFlagEnabled(string $flagName): bool
+    {
+        $raw = strtolower(trim((string)(getenv($flagName) ?: '')));
+        return in_array($raw, ['1', 'true', 'yes', 'on'], true);
     }
 
     public static function buildOpenAiToolDefinitions(array $catalog): array
@@ -798,6 +845,28 @@ final class AIToolRuntimeService
                 $updatedCall['runtime_duration_ms'] = max(0, (int)round(microtime(true) * 1000) - $startedAt);
                 $updatedCall['resolved_tool_name'] = $resolvedTool['name'];
                 $updatedToolCalls[] = $updatedCall;
+                continue;
+            }
+
+            if ($toolType === 'write' && !self::isWriteToolEnabledForRollout((string)$resolvedTool['name'])) {
+                $failedCount++;
+                $blockedMessage = self::buildWriteToolDisabledMessage((string)$resolvedTool['name']);
+                $updatedCall['runtime_status'] = 'blocked';
+                $updatedCall['runtime_message'] = $blockedMessage;
+                $updatedCall['runtime_duration_ms'] = max(0, (int)round(microtime(true) * 1000) - $startedAt);
+                $updatedCall['resolved_tool_name'] = $resolvedTool['name'];
+                $updatedCall['tool_type'] = $toolType;
+                $updatedToolCalls[] = $updatedCall;
+                $toolResults[] = [
+                    'provider_call_id' => $toolCall['provider_call_id'] ?? null,
+                    'tool_name' => $resolvedTool['name'],
+                    'tool_type' => $toolType,
+                    'status' => 'failed',
+                    'duration_ms' => $updatedCall['runtime_duration_ms'],
+                    'result_preview' => $blockedMessage,
+                    'error_message' => $blockedMessage,
+                    'result' => null,
+                ];
                 continue;
             }
 
@@ -1911,8 +1980,8 @@ final class AIToolRuntimeService
     private static function executeUpdateTimelineCheckpoint(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
     {
         // ── S4-01: Specific feature flag gate for the first write path ──
-        if (getenv('FEATURE_AI_WRITE_TIMELINE_CHECKPOINT') === 'false') {
-            throw new RuntimeException('update_timeline_checkpoint desabilitado por FEATURE_AI_WRITE_TIMELINE_CHECKPOINT=false', 403);
+        if (!self::isWriteToolEnabledForRollout('update_timeline_checkpoint')) {
+            throw new RuntimeException('update_timeline_checkpoint exige FEATURE_AI_WRITE_TIMELINE_CHECKPOINT=true', 403);
         }
 
         self::requireEventId($eventId, 'update_timeline_checkpoint');

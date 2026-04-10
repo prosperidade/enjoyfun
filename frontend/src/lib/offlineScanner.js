@@ -78,11 +78,15 @@ export function buildOfflineScannerLookupCandidates(rawValue = "") {
   };
 }
 
-export function buildScannerCacheRecord(item = {}, eventId) {
+export function buildScannerCacheRecord(item = {}, eventId, metadata = {}) {
   const normalizedToken = extractScannerPayloadValue(item?.token);
+  const fallbackKey = trimScannerValue(item?.ref).toUpperCase() || `${trimScannerValue(item?.type) || "scanner"}:${trimScannerValue(item?.id) || Date.now()}`;
   return {
     ...item,
+    token: normalizedToken || fallbackKey,
     event_id: Number(eventId),
+    snapshot_id: trimScannerValue(metadata?.snapshotId),
+    sync_scope: trimScannerValue(metadata?.scope),
     used_offline: 0,
     token_lookup: normalizedToken,
     ref_lookup: trimScannerValue(item?.ref).toUpperCase(),

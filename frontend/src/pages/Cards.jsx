@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useState } from 'react';
 import api from '../lib/api';
 import { CreditCard, Lock, Plus, RefreshCw, Search, Trash2, TrendingDown, TrendingUp, Unlock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useEventScope } from '../context/EventScopeContext';
+import Pagination from '../components/Pagination';
+import { DEFAULT_PAGINATION_META, extractPaginationMeta } from '../lib/pagination';
+
+const CARD_PAGE_SIZE = 20;
+const TX_PAGE_SIZE = 10;
 
 export default function Cards() {
   const { eventId, setEventId } = useEventScope();
@@ -20,6 +25,11 @@ export default function Cards() {
   const [newUserCpf, setNewUserCpf] = useState('');
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [cardMeta, setCardMeta] = useState({ ...DEFAULT_PAGINATION_META, per_page: CARD_PAGE_SIZE });
+  const [txMeta, setTxMeta] = useState({ ...DEFAULT_PAGINATION_META, per_page: TX_PAGE_SIZE });
+  const [txPage, setTxPage] = useState(1);
+  const deferredSearch = useDeferredValue(search);
 
   useEffect(() => { api.get('/events').then(r => setEvents(r.data.data || [])).catch(() => {}); }, []);
 
@@ -27,21 +37,31 @@ export default function Cards() {
     setSelected(null);
     setTransactions([]);
     setTopupAmt('');
+    setPage(1);
+    setTxPage(1);
   }, [eventId]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [deferredSearch]);
 
   const getCardId = (card) => String(card?.card_id || '').trim();
 
-  const matchesScopedEvent = (card, scopedEventId = Number(eventId || 0)) =>
-    scopedEventId <= 0 || Number(card?.event_id || 0) === scopedEventId;
-
-  const loadTransactions = useCallback(async (cardId, scopedEventId) => {
+  const loadTransactions = useCallback(async (cardId, scopedEventId, targetPage = 1) => {
     setTxLoading(true);
     try {
-      const params = scopedEventId > 0 ? { event_id: scopedEventId } : {};
+      const params = {
+        ...(scopedEventId > 0 ? { event_id: scopedEventId } : {}),
+        page: targetPage,
+        per_page: TX_PAGE_SIZE,
+      };
       const { data } = await api.get(`/cards/${cardId}/transactions`, { params });
       setTransactions(data.data || []);
+      setTxMeta(extractPaginationMeta(data.meta, { ...DEFAULT_PAGINATION_META, per_page: TX_PAGE_SIZE, page: targetPage }));
+      setTxPage(targetPage);
     } catch {
       setTransactions([]);
+      setTxMeta({ ...DEFAULT_PAGINATION_META, per_page: TX_PAGE_SIZE, page: 1 });
     } finally {
       setTxLoading(false);
     }
@@ -50,23 +70,28 @@ export default function Cards() {
   const loadCards = useCallback(async () => {
     setLoading(true);
     const scopedEventId = Number(eventId || 0);
-    const params = scopedEventId > 0 ? { event_id: scopedEventId } : {};
+    const params = {
+      ...(scopedEventId > 0 ? { event_id: scopedEventId } : {}),
+      page,
+      per_page: CARD_PAGE_SIZE,
+      ...(deferredSearch.trim() ? { search: deferredSearch.trim() } : {}),
+    };
     try {
       const { data } = await api.get('/cards', { params });
-      const nextCards = (data.data || []).filter(
-        card => scopedEventId <= 0 || Number(card?.event_id || 0) === scopedEventId
-      );
+      const nextCards = data.data || [];
+      setCardMeta(extractPaginationMeta(data.meta, { ...DEFAULT_PAGINATION_META, per_page: CARD_PAGE_SIZE, page }));
       setCards(nextCards);
       setSelected(current => {
         if (!current) return null;
         return nextCards.find(card => card.id === current.id) || null;
       });
     } catch {
+      setCardMeta({ ...DEFAULT_PAGINATION_META, per_page: CARD_PAGE_SIZE, page: 1 });
       toast.error('Erro ao carregar cartões.');
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [deferredSearch, eventId, page]);
 
   useEffect(() => { void loadCards(); }, [loadCards]);
 
@@ -79,7 +104,8 @@ export default function Cards() {
 
     setSelected(card);
     const scopedEventId = Number(card.event_id || eventId || 0);
-    void loadTransactions(cardId, scopedEventId);
+    setTxPage(1);
+    void loadTransactions(cardId, scopedEventId, 1);
   };
 
   const handleCreateCard = async (e) => {
@@ -136,7 +162,7 @@ export default function Cards() {
       );
       setSelected(current => (current ? { ...current, balance: nextBalance } : current));
       setTopupAmt('');
-      await loadTransactions(cardId, scopedEventId);
+      await loadTransactions(cardId, scopedEventId, txPage);
       await loadCards();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erro na recarga.');
@@ -217,12 +243,6 @@ export default function Cards() {
     }
   };
 
-  const filtered = cards.filter(c =>
-    matchesScopedEvent(c) && (
-    !search ||
-    (c.card_id || '').includes(search) ||
-    (c.user_name || '').toLowerCase().includes(search.toLowerCase())
-  ));
   const selectedIsActive = selected?.status === 'active';
   const cardActionBusy = cardActionLoading !== '';
 
@@ -231,7 +251,7 @@ export default function Cards() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="page-title flex items-center gap-2"><CreditCard size={22} className="text-purple-400" /> Cartão Digital</h1>
-          <p className="text-gray-500 text-sm mt-1">{cards.length} cartão(ões) emitido(s)</p>
+          <p className="text-gray-500 text-sm mt-1">{cardMeta.total} cartão(ões) emitido(s)</p>
         </div>
         <div className="flex gap-2">
           <select className="select w-auto min-w-[200px]" value={eventId} onChange={e => setEventId(e.target.value)}>
@@ -258,11 +278,11 @@ export default function Cards() {
         <div>
           {loading ? (
             <div className="flex items-center justify-center py-20"><div className="spinner w-10 h-10" /></div>
-          ) : filtered.length === 0 ? (
+          ) : cards.length === 0 ? (
             <div className="empty-state"><CreditCard size={40} className="text-gray-700" /><p>Nenhum cartão emitido</p></div>
           ) : (
             <div className="space-y-2">
-              {filtered.map(card => (
+              {cards.map(card => (
                 <div
                   key={card.id}
                   onClick={() => viewCard(card)}
@@ -282,6 +302,14 @@ export default function Cards() {
                   </div>
                 </div>
               ))}
+              {cardMeta.total_pages > 1 ? (
+                <Pagination
+                  page={cardMeta.page}
+                  totalPages={cardMeta.total_pages}
+                  onPrev={() => setPage((current) => Math.max(1, current - 1))}
+                  onNext={() => setPage((current) => Math.min(cardMeta.total_pages, current + 1))}
+                />
+              ) : null}
             </div>
           )}
         </div>
@@ -360,21 +388,43 @@ export default function Cards() {
               ) : transactions.length === 0 ? (
                 <p className="text-center text-gray-500 text-sm py-6">Nenhuma transação</p>
               ) : (
-                <div className="space-y-2 max-h-72 overflow-y-auto">
-                  {transactions.map(tx => (
-                    <div key={tx.id} className="flex items-center gap-3 py-2 border-b border-gray-800/50 last:border-0">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${tx.amount < 0 ? 'bg-red-900/30' : 'bg-green-900/30'}`}>
-                        {tx.amount < 0 ? <TrendingDown size={14} className="text-red-400" /> : <TrendingUp size={14} className="text-green-400" />}
+                <div className="space-y-3">
+                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                    {transactions.map(tx => (
+                      <div key={tx.id} className="flex items-center gap-3 py-2 border-b border-gray-800/50 last:border-0">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${tx.amount < 0 ? 'bg-red-900/30' : 'bg-green-900/30'}`}>
+                          {tx.amount < 0 ? <TrendingDown size={14} className="text-red-400" /> : <TrendingUp size={14} className="text-green-400" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-300 truncate">{tx.description || tx.type}</p>
+                          <p className="text-xs text-gray-500">{new Date(tx.created_at).toLocaleString('pt-BR')}</p>
+                        </div>
+                        <p className={`font-semibold text-sm ${tx.amount < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                          {tx.amount < 0 ? '' : '+'} R$ {Math.abs(parseFloat(tx.amount)).toFixed(2)}
+                        </p>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-300 truncate">{tx.description || tx.type}</p>
-                        <p className="text-xs text-gray-500">{new Date(tx.created_at).toLocaleString('pt-BR')}</p>
-                      </div>
-                      <p className={`font-semibold text-sm ${tx.amount < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                        {tx.amount < 0 ? '' : '+'} R$ {Math.abs(parseFloat(tx.amount)).toFixed(2)}
-                      </p>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                  {txMeta.total_pages > 1 ? (
+                    <Pagination
+                      page={txMeta.page}
+                      totalPages={txMeta.total_pages}
+                      onPrev={() => {
+                        const scopedEventId = Number(selected?.event_id || eventId || 0);
+                        const cardId = getCardId(selected);
+                        if (cardId) {
+                          void loadTransactions(cardId, scopedEventId, Math.max(1, txPage - 1));
+                        }
+                      }}
+                      onNext={() => {
+                        const scopedEventId = Number(selected?.event_id || eventId || 0);
+                        const cardId = getCardId(selected);
+                        if (cardId) {
+                          void loadTransactions(cardId, scopedEventId, Math.min(txMeta.total_pages, txPage + 1));
+                        }
+                      }}
+                    />
+                  ) : null}
                 </div>
               )}
             </div>

@@ -82,6 +82,8 @@ export default function WorkforceRoleSettingsModal({
   const [eventParticipants, setEventParticipants] = useState([]);
   const [organizerUsers, setOrganizerUsers] = useState([]);
   const [treeRoles, setTreeRoles] = useState([]);
+  const [participantSearch, setParticipantSearch] = useState("");
+  const [participantOptionsLoading, setParticipantOptionsLoading] = useState(false);
   const [structuralLinkValue, setStructuralLinkValue] = useState("");
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [roleNameInput, setRoleNameInput] = useState("");
@@ -252,7 +254,7 @@ export default function WorkforceRoleSettingsModal({
         toast.error(err.response?.data?.message || "Erro ao carregar configuração do cargo.");
       })
       .finally(() => setLoading(false));
-  }, [isOpen, role?.id, role?.event_role_id, role?.event_role_public_id, role?.parent_event_role_id, role?.parent_public_id, role?.authority_level, eventId, normalizedSector]);
+  }, [isOpen, role?.id, role?.name, role?.sector, role?.event_role_id, role?.event_role_public_id, role?.parent_event_role_id, role?.parent_public_id, role?.authority_level, eventId, normalizedSector]);
 
   useEffect(() => {
     if (!isOpen || !selectedRoleOption) return;
@@ -265,6 +267,7 @@ export default function WorkforceRoleSettingsModal({
       setEventParticipants([]);
       setOrganizerUsers([]);
       setTreeRoles([]);
+      setParticipantSearch("");
       setStructuralLinkValue("");
       return;
     }
@@ -281,15 +284,13 @@ export default function WorkforceRoleSettingsModal({
           treeQuery.set("root_public_id", currentTreeRootPublicId);
         }
 
-        const [participantsRes, usersRes, treeRolesRes] = await Promise.all([
-          api.get(`/participants?event_id=${eventId}`),
+        const [usersRes, treeRolesRes] = await Promise.all([
           api.get("/users"),
           currentTreeRootId > 0 || currentTreeRootPublicId
             ? api.get(`/workforce/event-roles?${treeQuery.toString()}`)
             : Promise.resolve({ data: { data: [] } })
         ]);
         if (cancelled) return;
-        setEventParticipants(Array.isArray(participantsRes.data?.data) ? participantsRes.data.data : []);
         setOrganizerUsers(Array.isArray(usersRes.data?.data) ? usersRes.data.data : []);
         setTreeRoles(Array.isArray(treeRolesRes.data?.data) ? treeRolesRes.data.data : []);
       } catch {
@@ -311,6 +312,55 @@ export default function WorkforceRoleSettingsModal({
       cancelled = true;
     };
   }, [currentTreeRootId, currentTreeRootPublicId, eventId, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !eventId) {
+      setEventParticipants([]);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      setParticipantOptionsLoading(true);
+      try {
+        const fallbackSearch =
+          Number(form.leader_participant_id || 0) > 0
+            ? String(form.leader_cpf || form.leader_name || "").trim()
+            : "";
+        const res = await api.get("/participants", {
+          params: {
+            event_id: eventId,
+            per_page: 50,
+            search: String(participantSearch || fallbackSearch).trim() || undefined,
+          },
+        });
+        if (cancelled) return;
+        const nextItems = Array.isArray(res.data?.data) ? res.data.data : [];
+        setEventParticipants((current) => {
+          const selectedId = Number(form.leader_participant_id || 0);
+          if (selectedId <= 0 || nextItems.some((item) => Number(item?.participant_id || 0) === selectedId)) {
+            return nextItems;
+          }
+          const selectedItem =
+            current.find((item) => Number(item?.participant_id || 0) === selectedId) || null;
+          return selectedItem ? [selectedItem, ...nextItems] : nextItems;
+        });
+      } catch {
+        if (!cancelled) {
+          setEventParticipants([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setParticipantOptionsLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [eventId, form.leader_cpf, form.leader_name, form.leader_participant_id, isOpen, participantSearch]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -598,19 +648,31 @@ export default function WorkforceRoleSettingsModal({
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="text-xs text-gray-400">
                   Participante do Evento
+                  <input
+                    type="text"
+                    className="input mt-1 w-full"
+                    placeholder="Buscar participante por nome, email, CPF ou telefone"
+                    value={participantSearch}
+                    onChange={(e) => setParticipantSearch(e.target.value)}
+                  />
                   <select
                     className="input mt-1 w-full"
                     value={form.leader_participant_id}
                     onChange={(e) => handleLeaderParticipantChange(e.target.value)}
-                    disabled={bindingOptionsLoading}
+                    disabled={bindingOptionsLoading || participantOptionsLoading}
                   >
-                    <option value="">Sem vínculo de participante</option>
+                    <option value="">
+                      {participantOptionsLoading ? "Carregando participantes..." : "Sem vínculo de participante"}
+                    </option>
                     {eventParticipants.map((participant) => (
                       <option key={participant.participant_id} value={participant.participant_id}>
                         {participant.name} {participant.email ? `• ${participant.email}` : `• REF #${participant.participant_id}`}
                       </option>
                     ))}
                   </select>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Busca remota limitada a 50 resultados por vez para não cortar eventos grandes.
+                  </p>
                 </label>
 
                 <label className="text-xs text-gray-400">

@@ -1,5 +1,7 @@
 # Diagnóstico Técnico Atualizado — EnjoyFun
 
+> Atualizacao de 2026-04-09: este diagnostico passou a ser **historico**. Para prontidao operacional, seguranca, escala e inventario documental, usar `docs/auditoria_prontidao_operacional_2026_04_09.md` e `docs/inventario_documental_e_artefatos_2026_04_09.md`.
+
 > Data da varredura: 2026-03-08  
 > Fonte de verdade: código atual do repositório (`backend/`, `frontend/`, `database/`)  
 > Fonte complementar histórica: `docs/progresso.md`

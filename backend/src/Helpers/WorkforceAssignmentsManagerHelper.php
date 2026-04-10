@@ -35,6 +35,7 @@ function listAssignments(array $query): void
     $organizerId = resolveOrganizerId($user);
     $userSector = resolveUserSector($db, $user);
     $canBypassSector = canBypassSectorAcl($user);
+    $pagination = enjoyNormalizePagination($query, 100, 500);
 
     $eventId = $query['event_id'] ?? null;
     if (!$eventId) {
@@ -101,7 +102,7 @@ function listAssignments(array $query): void
         ? "root_wer.public_id AS root_manager_event_role_public_id"
         : "NULL::uuid AS root_manager_event_role_public_id";
 
-    $sql = "
+    $selectSql = "
         SELECT wa.id, {$assignmentPublicIdSelect}, wa.sector, wa.created_at, wa.manager_user_id,
                {$eventRoleIdSelect},
                {$rootManagerEventRoleIdSelect},
@@ -118,6 +119,8 @@ function listAssignments(array $query): void
                {$configParts['payment_expr']}::numeric AS payment_amount,
                {$configParts['bucket_expr']}::varchar AS cost_bucket,
                {$configParts['source_expr']} AS config_source
+    ";
+    $fromSql = "
         FROM workforce_assignments wa
         JOIN event_participants ep ON ep.id = wa.participant_id
         JOIN people p ON p.id = ep.person_id
@@ -130,12 +133,24 @@ function listAssignments(array $query): void
         {$legacyJoin}
         WHERE ep.event_id = :evt_id AND p.organizer_id = :org_id
         {$whereParams}
-        ORDER BY p.name ASC
     ";
 
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $countStmt = $db->prepare("SELECT COUNT(*) {$fromSql}");
+    $dataStmt = $db->prepare("
+        {$selectSql}
+        {$fromSql}
+        ORDER BY p.name ASC
+        LIMIT :limit OFFSET :offset
+    ");
+    $countStmt->execute($params);
+    $total = (int)$countStmt->fetchColumn();
+
+    foreach ($params as $key => $value) {
+        $dataStmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    enjoyBindPagination($dataStmt, $pagination);
+    $dataStmt->execute();
+    $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $missingQrTokens = 0;
     foreach ($rows as &$row) {
@@ -152,7 +167,150 @@ function listAssignments(array $query): void
         $message = "{$missingQrTokens} participante(s) sem qr_token. A leitura não executa mais backfill automático; regularize pelo fluxo explícito de escrita.";
     }
 
-    jsonSuccess($rows, $message);
+    jsonPaginated($rows, $total, $pagination['page'], $pagination['per_page'], $message);
+}
+
+function listAssignmentSummary(array $query): void
+{
+    $user = requireAuth(['admin', 'organizer', 'manager', 'staff', 'parking_staff']);
+    $db = Database::getInstance();
+    $organizerId = resolveOrganizerId($user);
+    $userSector = resolveUserSector($db, $user);
+    $canBypassSector = canBypassSectorAcl($user);
+
+    $eventId = $query['event_id'] ?? null;
+    if (!$eventId) {
+        jsonError('event_id é obrigatório para consultar o resumo operacional.', 400);
+    }
+
+    $requestedSector = normalizeSector((string)($query['sector'] ?? ''));
+    $effectiveSector = null;
+
+    if ($canBypassSector) {
+        $effectiveSector = $requestedSector ?: null;
+    } else {
+        $effectiveSector = $userSector !== 'all' ? $userSector : ($requestedSector ?: null);
+    }
+
+    $configParts = workforceBuildOperationalConfigSqlParts($db, 'wa', 'wms', 'wrs', 'wer', 'r.name');
+    $legacyJoin = $configParts['has_legacy_settings']
+        ? "LEFT JOIN workforce_role_settings wrs ON wrs.role_id = wa.role_id AND wrs.organizer_id = :org_id"
+        : '';
+
+    $params = [
+        ':evt_id' => (int)$eventId,
+        ':org_id' => $organizerId,
+    ];
+    $whereParams = '';
+
+    if ($effectiveSector) {
+        $whereParams .= ' AND LOWER(COALESCE(wa.sector, \'\')) = :sector';
+        $params[':sector'] = $effectiveSector;
+    }
+
+    $externalExpr = "(
+        LOWER(COALESCE(wa.sector, '')) IN ('externo', 'external')
+        OR LOWER(COALESCE(r.name, '')) LIKE '%extern%'
+    )";
+    $normalizedSectorExpr = "LOWER(NULLIF(TRIM(COALESCE(wa.sector, '')), ''))";
+
+    $fromSql = "
+        FROM workforce_assignments wa
+        JOIN event_participants ep ON ep.id = wa.participant_id
+        JOIN people p ON p.id = ep.person_id
+        JOIN workforce_roles r ON r.id = wa.role_id
+        LEFT JOIN workforce_member_settings wms ON wms.participant_id = ep.id
+        {$configParts['event_role_join']}
+        {$legacyJoin}
+        WHERE ep.event_id = :evt_id
+          AND p.organizer_id = :org_id
+          {$whereParams}
+    ";
+
+    $summaryStmt = $db->prepare("
+        SELECT
+            COUNT(DISTINCT CASE WHEN NOT {$externalExpr} THEN ep.id END) AS members_total,
+            COUNT(CASE WHEN NOT {$externalExpr} THEN 1 END) AS assignment_rows_total,
+            COUNT(DISTINCT CASE WHEN {$externalExpr} THEN ep.id END) AS external_members_total,
+            COUNT(CASE WHEN {$externalExpr} THEN 1 END) AS external_assignment_rows_total,
+            COUNT(DISTINCT CASE WHEN NOT {$externalExpr} THEN {$normalizedSectorExpr} END) AS sectors_total,
+            COUNT(CASE WHEN NOT {$externalExpr} AND wa.event_shift_id IS NOT NULL THEN 1 END) AS assignments_with_shift_total,
+            COALESCE(SUM(CASE WHEN NOT {$externalExpr} THEN {$configParts['meals_expr']} ELSE 0 END), 0) AS meals_per_day_total
+        {$fromSql}
+    ");
+    $summaryStmt->execute($params);
+    $summaryRow = $summaryStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    $bySectorStmt = $db->prepare("
+        SELECT
+            COALESCE({$normalizedSectorExpr}, '') AS sector,
+            COUNT(*) AS assignment_rows_total,
+            COUNT(DISTINCT ep.id) AS members_total,
+            COUNT(CASE WHEN wa.event_shift_id IS NOT NULL THEN 1 END) AS assignments_with_shift_total,
+            COALESCE(SUM({$configParts['meals_expr']}), 0) AS meals_per_day_total,
+            COUNT(CASE WHEN {$externalExpr} THEN 1 END) AS external_assignment_rows_total,
+            COUNT(DISTINCT CASE WHEN {$externalExpr} THEN ep.id END) AS external_members_total,
+            COUNT(CASE WHEN NOT {$externalExpr} AND LOWER(COALESCE({$configParts['bucket_expr']}, 'operational')) = 'operational' THEN 1 END) AS operational_assignments_total,
+            COUNT(DISTINCT CASE WHEN NOT {$externalExpr} AND LOWER(COALESCE({$configParts['bucket_expr']}, 'operational')) = 'operational' THEN ep.id END) AS operational_members_total
+        {$fromSql}
+        GROUP BY COALESCE({$normalizedSectorExpr}, '')
+        ORDER BY COALESCE({$normalizedSectorExpr}, '') ASC
+    ");
+    $bySectorStmt->execute($params);
+    $bySectorRows = $bySectorStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $bySector = array_map(static function (array $row): array {
+        return [
+            'sector' => (string)($row['sector'] ?? ''),
+            'assignment_rows_total' => (int)($row['assignment_rows_total'] ?? 0),
+            'members_total' => (int)($row['members_total'] ?? 0),
+            'assignments_with_shift_total' => (int)($row['assignments_with_shift_total'] ?? 0),
+            'assignments_without_shift_total' => max(
+                0,
+                (int)($row['assignment_rows_total'] ?? 0) - (int)($row['assignments_with_shift_total'] ?? 0)
+            ),
+            'meals_per_day_total' => (int)round((float)($row['meals_per_day_total'] ?? 0)),
+            'external_assignment_rows_total' => (int)($row['external_assignment_rows_total'] ?? 0),
+            'external_members_total' => (int)($row['external_members_total'] ?? 0),
+            'operational_assignments_total' => (int)($row['operational_assignments_total'] ?? 0),
+            'operational_members_total' => (int)($row['operational_members_total'] ?? 0),
+        ];
+    }, $bySectorRows);
+
+    $operationalModes = array_values(array_map(
+        static fn(array $row): array => [
+            'id' => (string)$row['sector'],
+            'label' => (string)$row['sector'],
+            'assignments' => (int)$row['operational_assignments_total'],
+            'members' => (int)$row['operational_members_total'],
+        ],
+        array_filter(
+            $bySector,
+            static fn(array $row): bool =>
+                (string)($row['sector'] ?? '') !== '' &&
+                (int)($row['operational_assignments_total'] ?? 0) > 0
+        )
+    ));
+
+    jsonSuccess([
+        'event_id' => (int)$eventId,
+        'sector_filter' => $effectiveSector ?: null,
+        'summary' => [
+            'members' => (int)($summaryRow['members_total'] ?? 0),
+            'assignment_rows' => (int)($summaryRow['assignment_rows_total'] ?? 0),
+            'sectors_count' => (int)($summaryRow['sectors_total'] ?? 0),
+            'meals_per_day_total' => (int)round((float)($summaryRow['meals_per_day_total'] ?? 0)),
+            'assignments_with_shift' => (int)($summaryRow['assignments_with_shift_total'] ?? 0),
+            'assignments_without_shift' => max(
+                0,
+                (int)($summaryRow['assignment_rows_total'] ?? 0) - (int)($summaryRow['assignments_with_shift_total'] ?? 0)
+            ),
+            'external_members' => (int)($summaryRow['external_members_total'] ?? 0),
+            'external_assignment_rows' => (int)($summaryRow['external_assignment_rows_total'] ?? 0),
+        ],
+        'by_sector' => $bySector,
+        'operational_modes' => $operationalModes,
+    ], 'Resumo operacional do Workforce carregado.');
 }
 
 function createAssignment(array $body): void

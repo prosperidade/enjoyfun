@@ -87,12 +87,14 @@ function listPayables(array $query): void
     $db      = Database::getInstance();
     $orgId   = resolveOrganizerId($user);
     $eventId = (int)($query['event_id'] ?? 0);
+    $pagination = enjoyNormalizePagination($query, 25, 200);
+    $search = trim((string)($query['search'] ?? ''));
 
     if ($eventId <= 0) {
         jsonError('event_id é obrigatório para listar contas a pagar.', 422);
     }
 
-    $sql = "
+    $selectSql = "
         SELECT p.id, p.event_id, p.category_id, c.name AS category_name,
                p.cost_center_id, cc.name AS cost_center_name,
                p.supplier_id, s.legal_name AS supplier_name,
@@ -105,6 +107,9 @@ function listPayables(array $query): void
                p.due_date, p.payment_method, p.status, p.notes,
                p.cancelled_at, p.cancellation_reason,
                p.created_at, p.updated_at
+    ";
+
+    $fromSql = "
         FROM event_payables p
         JOIN event_cost_categories c  ON c.id  = p.category_id
                                        AND c.organizer_id = p.organizer_id
@@ -123,43 +128,68 @@ function listPayables(array $query): void
     $params = [':organizer_id' => $orgId, ':event_id' => $eventId];
 
     if (!empty($query['status'])) {
-        $sql .= " AND p.status = :status";
+        $fromSql .= " AND p.status = :status";
         $params[':status'] = $query['status'];
     }
     if (!empty($query['category_id'])) {
-        $sql .= " AND p.category_id = :category_id";
+        $fromSql .= " AND p.category_id = :category_id";
         $params[':category_id'] = (int)$query['category_id'];
     }
     if (!empty($query['cost_center_id'])) {
-        $sql .= " AND p.cost_center_id = :cost_center_id";
+        $fromSql .= " AND p.cost_center_id = :cost_center_id";
         $params[':cost_center_id'] = (int)$query['cost_center_id'];
     }
     if (!empty($query['supplier_id'])) {
-        $sql .= " AND p.supplier_id = :supplier_id";
+        $fromSql .= " AND p.supplier_id = :supplier_id";
         $params[':supplier_id'] = (int)$query['supplier_id'];
     }
     if (!empty($query['source_type'])) {
-        $sql .= " AND p.source_type = :source_type";
+        $fromSql .= " AND p.source_type = :source_type";
         $params[':source_type'] = trim((string)$query['source_type']);
     }
     if (!empty($query['event_artist_id'])) {
-        $sql .= " AND p.event_artist_id = :event_artist_id";
+        $fromSql .= " AND p.event_artist_id = :event_artist_id";
         $params[':event_artist_id'] = (int)$query['event_artist_id'];
     }
     if (!empty($query['due_from'])) {
-        $sql .= " AND p.due_date >= :due_from";
+        $fromSql .= " AND p.due_date >= :due_from";
         $params[':due_from'] = $query['due_from'];
     }
     if (!empty($query['due_until'])) {
-        $sql .= " AND p.due_date <= :due_until";
+        $fromSql .= " AND p.due_date <= :due_until";
         $params[':due_until'] = $query['due_until'];
     }
+    if ($search !== '') {
+        $fromSql .= " AND (
+            LOWER(COALESCE(p.description, '')) LIKE LOWER(:search)
+            OR LOWER(COALESCE(s.legal_name, '')) LIKE LOWER(:search)
+            OR LOWER(COALESCE(a.stage_name, '')) LIKE LOWER(:search)
+        )";
+        $params[':search'] = '%' . $search . '%';
+    }
 
-    $sql .= " ORDER BY p.due_date ASC, p.created_at DESC";
+    $countStmt = $db->prepare("SELECT COUNT(DISTINCT p.id) {$fromSql}");
+    $dataStmt = $db->prepare("
+        {$selectSql}
+        {$fromSql}
+        ORDER BY p.due_date ASC, p.created_at DESC
+        LIMIT :limit OFFSET :offset
+    ");
+    $countStmt->execute($params);
+    $total = (int)$countStmt->fetchColumn();
 
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC), 'Contas a pagar carregadas.');
+    foreach ($params as $key => $value) {
+        $dataStmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    enjoyBindPagination($dataStmt, $pagination);
+    $dataStmt->execute();
+    jsonPaginated(
+        $dataStmt->fetchAll(PDO::FETCH_ASSOC),
+        $total,
+        $pagination['page'],
+        $pagination['per_page'],
+        'Contas a pagar carregadas.'
+    );
 }
 
 function getPayable(int $id): void

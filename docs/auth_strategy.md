@@ -1,42 +1,68 @@
 # Authentication Strategy
 
-## 1. Algoritmo Adotado (HS256)
-Historicamente, o sistema apresentava comentários de código referenciando **RS256** (chaves assimétricas). Contudo, a implementação estruturada de produção rodando no helper `JWT.php` utiliza **HS256** (chave simétrica HMAC), valendo-se da variável de ambiente `JWT_SECRET`.
-Esta decisão foi oficializada e consolidada para o runtime atual. O uso de HS256 segue sendo a estratégia ativa em produção neste momento.
+## Estado Atual
 
-## 1.1 Roadmap oficial
+O runtime atual de autenticacao ja opera com **JWT RS256** no helper `backend/src/Helpers/JWT.php`.
 
-- O destino de hardening para access token passa a ser assinatura assimétrica.
-- Algoritmo preferido: `EdDSA` (`Ed25519`).
-- Fallback operacional aceito: `RS256`.
-- Essa migração ainda **não** foi implementada no runtime; ela foi planejada e documentada para rollout controlado.
-- Referências canônicas:
-  - `docs/adr_auth_jwt_strategy_v1.md`
-  - `docs/plano_migracao_jwt_assimetrico_v1.md`
+- O access token e assinado pela chave privada e validado pela chave publica.
+- As chaves podem vir de `private.pem` / `public.pem` ou de `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY`.
+- O helper valida `alg`, `typ`, assinatura, `iss`, `exp` e, quando presentes, `nbf`, `aud` e `jti`.
 
-## 2. Estrutura do Payload
-Todos os tokens JWT de acesso (`access_token`) garantem o seguinte contrato base (claims):
-- `sub`: ID do usuário.
-- `name`: Nome legível.
-- `email`: E-mail oficial.
-- `role`: Nível hierárquico principal (`admin`, `organizer`, `manager`, `staff`, `customer`).
-- `roles`: Backwards-compatibility para o array de permissões do frontend legado.
-- `sector`: Setor operacional alocado (`all` para gestores gerais).
-- **`organizer_id`**: Chave de restrição Multi-tenant. Absolutamente vital para o White Label. O usuário cliente isola suas requisições baseadas nisso.
-- `iat` e `exp`: Padrões da RFC.
+## Claims Contratuais
 
-## 3. Fluxo de Refresh
-- Refresh tokens são emitidos como hashes longos randômicos `bin2hex(random_bytes(32))` e armazenados na tabela `refresh_tokens`.
-- Possuem `expires_at` longo configurado em `JWT_REFRESH` (ex: 30 dias).
-- Trocar um access token por um novo consome o `refresh_token` atual (ele é destruído no DB) e devolve um novo par (Rotating Refresh Tokens).
+Os tokens de acesso carregam, no minimo:
 
-## 4. Remoção de Bypasses
-Não há credenciais ou escapes (`bypass`) em hardcode ativos nos métodos do `AuthController`. Todo login passa compulsoriamente por verificação na tabela `users` (`password_verify` para senhas e `hash_equals` longo na verificação do `JWT_SECRET`).
+- `sub`
+- `name`
+- `email`
+- `role`
+- `roles`
+- `sector`
+- `organizer_id`
+- `iss`
+- `iat`
+- `nbf`
+- `exp`
+- `jti`
 
-## 5. Observação operacional
+`organizer_id` continua sendo a chave principal de isolamento multi-tenant no runtime da aplicacao.
 
-- `JWT_SECRET` não pode ser removido automaticamente junto com a futura troca do algoritmo de access token.
-- Hoje ele ainda aparece como fallback em OTP e em fluxos auxiliares de cifragem.
-- A limpeza dessas dependências fica em frente separada do rollout assimétrico do JWT.
+## Refresh e Sessao
 
-*Documento mantido pela arquitetura estrutural da EnjoyFun.*
+- O access token pode trafegar por cookie HttpOnly ou por body, conforme configuracao do ambiente.
+- Refresh tokens continuam opacos e persistidos como hash em `refresh_tokens`.
+- O frontend usa `sessionStorage` para o estado de sessao e faz refresh automatico em `401`.
+
+## Segredos Correlatos
+
+`JWT_SECRET` **nao** foi removido do sistema.
+
+Ele ainda participa de:
+
+- OTP
+- HMAC offline
+- cifragem auxiliar
+- fallback criptografico em servicos legados
+
+Isso significa que a postura atual de auth e hibrida:
+
+- `RS256` para access token
+- `JWT_SECRET` para subsistemas auxiliares
+
+## RLS no Runtime
+
+O isolamento multi-tenant autenticado depende de `Database::activateTenantScope()` em `backend/config/Database.php`.
+
+- o runtime abre uma conexao separada com `DB_USER_APP` e `DB_PASS_APP`
+- essa conexao faz `SET app.current_organizer_id` por request autenticada
+- se a ativacao falhar, a request falha em modo fail-closed
+- a conexao superuser permanece separada para operacoes administrativas explicitas
+
+Esse desenho reduz o risco de uma request autenticada operar fora do escopo tenant esperado por erro de ambiente.
+
+## Documentos Historicos
+
+- `docs/adr_auth_jwt_strategy_v1.md`
+- `docs/plano_migracao_jwt_assimetrico_v1.md`
+
+Esses documentos permanecem uteis para rastreabilidade, mas nao devem ser usados como retrato fiel do runtime atual sem esta atualizacao.

@@ -110,7 +110,7 @@ class AuditService
                 ':pdv_id' => self::nullableText($extra['pdv_id'] ?? null, 64),
                 ':metadata' => $metadata,
                 ':result' => $result,
-                ':organizer_id' => self::resolveOrganizerId($userPayload, $extra),
+                ':organizer_id' => self::resolveOrganizerId($db, $userPayload, $extra),
             ];
 
             self::appendOptionalColumn(
@@ -330,14 +330,35 @@ class AuditService
         return self::encodeJson($metadata);
     }
 
-    private static function resolveOrganizerId(?array $userPayload, array $extra): ?int
+    private static function resolveOrganizerId(PDO $db, ?array $userPayload, array $extra): int
     {
         $candidate = self::nullablePositiveInt($extra['organizer_id'] ?? null);
         if ($candidate !== null) {
             return $candidate;
         }
 
-        return self::nullablePositiveInt($userPayload['organizer_id'] ?? null);
+        $candidate = self::nullablePositiveInt($userPayload['organizer_id'] ?? null);
+        if ($candidate !== null) {
+            return $candidate;
+        }
+
+        $candidate = self::resolveEventOrganizerId($db, self::nullablePositiveInt($extra['event_id'] ?? null));
+        if ($candidate !== null) {
+            return $candidate;
+        }
+
+        $candidate = self::resolveUserScopeOrganizerId($db, self::resolveAuditUserId($userPayload));
+        if ($candidate !== null) {
+            return $candidate;
+        }
+
+        $candidate = self::resolveUserScopeOrganizerIdByEmail($db, self::nullableText($userPayload['email'] ?? null, 255));
+        if ($candidate !== null) {
+            return $candidate;
+        }
+
+        // Bucket 0 is reserved for platform/global audit events with no resolvable tenant.
+        return 0;
     }
 
     private static function resolveAuditUserId(?array $userPayload): ?int
@@ -381,6 +402,88 @@ class AuditService
     {
         $normalized = (int)$value;
         return $normalized > 0 ? $normalized : null;
+    }
+
+    private static function resolveEventOrganizerId(PDO $db, ?int $eventId): ?int
+    {
+        if ($eventId === null) {
+            return null;
+        }
+
+        static $cache = [];
+        $cacheKey = 'event:' . $eventId;
+        if (array_key_exists($cacheKey, $cache)) {
+            return $cache[$cacheKey];
+        }
+
+        try {
+            $stmt = $db->prepare('SELECT organizer_id FROM public.events WHERE id = ? LIMIT 1');
+            $stmt->execute([$eventId]);
+            $cache[$cacheKey] = self::nullablePositiveInt($stmt->fetchColumn());
+        } catch (\Throwable) {
+            $cache[$cacheKey] = null;
+        }
+
+        return $cache[$cacheKey];
+    }
+
+    private static function resolveUserScopeOrganizerId(PDO $db, ?int $userId): ?int
+    {
+        if ($userId === null) {
+            return null;
+        }
+
+        static $cache = [];
+        $cacheKey = 'user:' . $userId;
+        if (array_key_exists($cacheKey, $cache)) {
+            return $cache[$cacheKey];
+        }
+
+        try {
+            $stmt = $db->prepare('SELECT COALESCE(organizer_id, id) FROM public.users WHERE id = ? LIMIT 1');
+            $stmt->execute([$userId]);
+            $cache[$cacheKey] = self::nullablePositiveInt($stmt->fetchColumn());
+        } catch (\Throwable) {
+            $cache[$cacheKey] = null;
+        }
+
+        return $cache[$cacheKey];
+    }
+
+    private static function resolveUserScopeOrganizerIdByEmail(PDO $db, ?string $email): ?int
+    {
+        if ($email === null) {
+            return null;
+        }
+
+        $normalizedEmail = strtolower(trim($email));
+        if ($normalizedEmail === '') {
+            return null;
+        }
+
+        static $cache = [];
+        $cacheKey = 'email:' . $normalizedEmail;
+        if (array_key_exists($cacheKey, $cache)) {
+            return $cache[$cacheKey];
+        }
+
+        try {
+            $stmt = $db->prepare("
+                SELECT CASE
+                    WHEN COUNT(DISTINCT COALESCE(organizer_id, id)) = 1
+                        THEN MIN(COALESCE(organizer_id, id))
+                    ELSE NULL
+                END AS organizer_scope
+                FROM public.users
+                WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+            ");
+            $stmt->execute([$normalizedEmail]);
+            $cache[$cacheKey] = self::nullablePositiveInt($stmt->fetchColumn());
+        } catch (\Throwable) {
+            $cache[$cacheKey] = null;
+        }
+
+        return $cache[$cacheKey];
     }
 
     private static function nullableText(mixed $value, int $maxLength): ?string

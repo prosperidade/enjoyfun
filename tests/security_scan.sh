@@ -40,17 +40,17 @@ section() {
 
 pass() {
     echo -e "${GREEN}[PASS]${NC} $1"
-    ((PASS++))
+    ((PASS += 1))
 }
 
 fail() {
     echo -e "${RED}[FAIL]${NC} $1"
-    ((FAIL++))
+    ((FAIL += 1))
 }
 
 warn() {
     echo -e "${YELLOW}[WARN]${NC} $1"
-    ((WARN++))
+    ((WARN += 1))
 }
 
 ###############################################################################

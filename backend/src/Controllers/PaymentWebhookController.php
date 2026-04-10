@@ -107,9 +107,22 @@ function handleListCharges(array $query): void
         if (!empty($query['status'])) {
             $filters['status'] = $query['status'];
         }
+        if (isset($query['page'])) {
+            $filters['page'] = $query['page'];
+        }
+        if (isset($query['per_page'])) {
+            $filters['per_page'] = $query['per_page'];
+        }
 
         $charges = PaymentGatewayService::listCharges($db, $organizerId, $filters);
-        jsonSuccess($charges, 'Cobranças listadas.');
+        $meta = $charges['meta'] ?? enjoyBuildPaginationMeta(1, 25, 0);
+        jsonPaginated(
+            $charges['items'] ?? [],
+            (int)($meta['total'] ?? 0),
+            (int)($meta['page'] ?? 1),
+            (int)($meta['per_page'] ?? 25),
+            'Cobranças listadas.'
+        );
     } catch (\Throwable $e) {
         jsonError($e->getMessage(), 400);
     }

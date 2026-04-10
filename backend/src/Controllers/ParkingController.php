@@ -96,6 +96,7 @@ function listParking(array $query): void
 {
     $operator = requireAuth();
     $organizerId = $operator['organizer_id'];
+    $pagination = enjoyNormalizePagination($query, 50, 200);
 
     try {
         $db = Database::getInstance();
@@ -117,19 +118,31 @@ function listParking(array $query): void
 
         $whereClause = 'WHERE ' . implode(' AND ', $where);
 
-        $stmt = $db->prepare("
+        $countStmt = $db->prepare("
+            SELECT COUNT(*)
+            FROM parking_records p
+            JOIN events e ON p.event_id = e.id
+            $whereClause
+        ");
+        $dataStmt = $db->prepare("
             SELECT p.id, p.license_plate, p.vehicle_type, p.entry_at, p.exit_at, p.status, p.qr_token,
                    e.name as event_name
             FROM parking_records p
             JOIN events e ON p.event_id = e.id
             $whereClause
             ORDER BY p.entry_at DESC
-            LIMIT 100
+            LIMIT ? OFFSET ?
         ");
-        $stmt->execute($params);
-        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetchColumn();
+        $dataStmt->execute([
+            ...$params,
+            $pagination['per_page'],
+            $pagination['offset'],
+        ]);
+        $records = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        jsonSuccess($records);
+        jsonPaginated($records, $total, $pagination['page'], $pagination['per_page']);
     } catch (Exception $e) {
         jsonError("Erro ao listar estacionamento: " . $e->getMessage(), 500);
     }

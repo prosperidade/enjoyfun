@@ -226,7 +226,7 @@ if (fs.existsSync(driftManifestPath)) {
 const logPath = relativePath('database', 'migrations_applied.log');
 if (fs.existsSync(logPath)) {
   const logContent = readText('database', 'migrations_applied.log');
-  const loggedMigrations = [...logContent.matchAll(/database[\\/](\d{3}_[^\s]+\.sql)/g)].map((match) => match[1]);
+  const loggedMigrations = [...logContent.matchAll(/(?:database[\\/])?(\d{3}_[^|\s]+\.sql)/g)].map((match) => match[1]);
 
   if (loggedMigrations.length === 0) {
     failures.push('migrations_applied.log: nenhuma migration numerada encontrada no log');
@@ -322,7 +322,7 @@ if (fs.existsSync(schemaRealPath)) {
 const runbookPath = relativePath('docs', 'runbook_local.md');
 if (fs.existsSync(runbookPath)) {
   const runbookContent = readText('docs', 'runbook_local.md');
-  for (const token of ['schema_current.sql', 'apply_migration.bat', 'dump_schema.bat', 'progresso18.md', 'definition_of_ready_ambiente_v1.md', 'check_schema_drift_replay.mjs', 'drift_replay_manifest.json', 'migration_history_registry.json']) {
+  for (const token of ['schema_current.sql', 'apply_migration.bat', 'dump_schema.bat', 'auditoria_prontidao_operacional_2026_04_09.md', 'definition_of_ready_ambiente_v1.md', 'check_schema_drift_replay.mjs', 'drift_replay_manifest.json', 'migration_history_registry.json']) {
     if (!runbookContent.includes(token)) {
       failures.push(`runbook_local.md: referencia obrigatoria ausente para ${token}`);
     }

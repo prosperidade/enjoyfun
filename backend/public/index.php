@@ -149,7 +149,12 @@ function setCurrentRequestActor(array $user): void
     // migration 051 effective, providing defense-in-depth multi-tenant isolation.
     $organizerId = isset($user['organizer_id']) ? (int)$user['organizer_id'] : 0;
     if ($organizerId > 0 && class_exists('Database')) {
-        Database::activateTenantScope($organizerId);
+        try {
+            Database::activateTenantScope($organizerId);
+        } catch (\Throwable $e) {
+            error_log('[Database] Tenant scope fail-closed: ' . $e->getMessage());
+            jsonError('Escopo tenant indisponivel. Verifique a configuracao de RLS da aplicacao.', 503);
+        }
     }
 }
 
@@ -190,6 +195,9 @@ function resolveCriticalEndpointLabel(array $context): ?string
     }
     if ($resource === 'workforce' && $id === 'managers' && $method === 'GET') {
         return 'GET /workforce/managers';
+    }
+    if ($resource === 'workforce' && $id === 'summary' && $method === 'GET') {
+        return 'GET /workforce/summary';
     }
     if ($resource === 'workforce' && $id === 'assignments' && $method === 'GET') {
         return 'GET /workforce/assignments';
@@ -312,6 +320,7 @@ ob_start();
 // ── Imports Essenciais ────────────────────────────────────────────────────────
 require_once BASE_PATH . '/config/Database.php';
 require_once BASE_PATH . '/src/Helpers/JWT.php';
+require_once BASE_PATH . '/src/Helpers/PaginationHelper.php';
 require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/src/Services/WalletSecurityService.php';
 
@@ -336,6 +345,25 @@ function jsonError($message = '', $code = 400, array $meta = []): never {
         $response['meta'] = $meta;
     }
     echo json_encode($response, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+function jsonPaginated(array $items, int $total, int $page, int $perPage, string $message = '', int $code = 200): never
+{
+    if (ob_get_length()) ob_clean();
+    observeApiRequestTelemetry(true, $code, $message, [
+        'paginated' => true,
+        'page' => $page,
+        'per_page' => $perPage,
+        'total' => $total,
+    ]);
+    http_response_code($code);
+    echo json_encode([
+        'success' => true,
+        'data' => $items,
+        'meta' => enjoyBuildPaginationMeta($page, $perPage, $total),
+        'message' => $message,
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

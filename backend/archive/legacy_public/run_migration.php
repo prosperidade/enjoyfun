@@ -1,5 +1,7 @@
 <?php
-require_once dirname(__DIR__) . '/public/index.php'; // Load env, DB, etc.
+// Historical only. This script was removed from backend/public because it is
+// outside the official migration flow and should not stay exposed in the docroot.
+require_once dirname(__DIR__, 2) . '/public/index.php'; // Load env, DB, etc.
 
 try {
     $db = Database::getInstance();

@@ -1,7 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MessageCircle, Mail, Send, History, CheckCircle, AlertCircle } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import Pagination from '../components/Pagination';
+import { DEFAULT_PAGINATION_META, extractPaginationMeta } from '../lib/pagination';
+
+const PAGE_SIZE = 25;
 
 const CHANNEL_TABS = [
   { id: 'wa',    icon: MessageCircle, label: 'WhatsApp',       color: 'text-green-400' },
@@ -26,6 +30,23 @@ export default function Messaging() {
   // ── History ───────────────────────────────────────────────────
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyMeta, setHistoryMeta] = useState({ ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE });
+
+  const loadHistory = useCallback((targetPage = 1) => {
+    setHistoryLoading(true);
+    api.get('/messaging/history', { params: { page: targetPage, per_page: PAGE_SIZE } })
+      .then(r => {
+        setHistory(r.data.data || []);
+        setHistoryMeta(extractPaginationMeta(r.data?.meta, { ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE, page: targetPage }));
+        setHistoryPage(targetPage);
+      })
+      .catch(() => {
+        setHistory([]);
+        setHistoryMeta({ ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE, page: 1 });
+      })
+      .finally(() => setHistoryLoading(false));
+  }, []);
 
   useEffect(() => {
     api.get('/organizer-messaging-settings')
@@ -38,12 +59,11 @@ export default function Messaging() {
         setWaStatus('err');
         setEmailStatus('err');
       });
-
-    api.get('/messaging/history')
-      .then(r => setHistory(r.data.data || []))
-      .catch(() => setHistory([]))
-      .finally(() => setHistoryLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadHistory(historyPage);
+  }, [historyPage, loadHistory]);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -67,7 +87,7 @@ export default function Messaging() {
         toast.success('E-mail enviado!');
         setEmailTo(''); setMessage('');
       }
-      api.get('/messaging/history').then(r => setHistory(r.data.data || []));
+      loadHistory(1);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erro ao enviar mensagem.');
     } finally {
@@ -172,29 +192,39 @@ export default function Messaging() {
 
       {/* ── History ───────────────────────────────────────────────── */}
       {mainTab === 'history' && (
-        <div className="table-wrapper">
-          <table className="table">
-            <thead><tr>
-              <th>Canal</th><th>Destino</th><th>Mensagem</th><th>Status</th><th>Data</th>
-            </tr></thead>
-            <tbody>
-              {historyLoading
-                ? <tr><td colSpan={5} className="text-center text-gray-500 py-8">Carregando histórico...</td></tr>
-                : history.length === 0
-                ? <tr><td colSpan={5} className="text-center text-gray-500 py-8">Nenhuma mensagem no histórico</td></tr>
-                : history.map(msg => (
-                  <tr key={msg.id}>
-                    <td>{msg.direction === 'in' ? 'Recebida' : 'Enviada'}</td>
-                    <td className="font-mono text-xs">{msg.phone || msg.to || msg.email || '-'}</td>
-                    <td className="max-w-xs truncate">{msg.content || msg.message || '-'}</td>
-                    <td><span className={`badge ${msg.status === 'sent' || msg.status === 'read' ? 'badge-green' : msg.status === 'failed' ? 'badge-red' : 'badge-yellow'}`}>{msg.status}</span></td>
-                    <td className="text-xs text-gray-400">{msg.created_at ? new Date(msg.created_at).toLocaleString('pt-BR') : '-'}</td>
-                  </tr>
-                ))
-              }
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className="table-wrapper">
+            <table className="table">
+              <thead><tr>
+                <th>Canal</th><th>Destino</th><th>Mensagem</th><th>Status</th><th>Data</th>
+              </tr></thead>
+              <tbody>
+                {historyLoading
+                  ? <tr><td colSpan={5} className="text-center text-gray-500 py-8">Carregando histórico...</td></tr>
+                  : history.length === 0
+                  ? <tr><td colSpan={5} className="text-center text-gray-500 py-8">Nenhuma mensagem no histórico</td></tr>
+                  : history.map(msg => (
+                    <tr key={msg.id}>
+                      <td>{msg.direction === 'in' ? 'Recebida' : 'Enviada'}</td>
+                      <td className="font-mono text-xs">{msg.phone || msg.to || msg.email || '-'}</td>
+                      <td className="max-w-xs truncate">{msg.content || msg.message || '-'}</td>
+                      <td><span className={`badge ${msg.status === 'sent' || msg.status === 'read' ? 'badge-green' : msg.status === 'failed' ? 'badge-red' : 'badge-yellow'}`}>{msg.status}</span></td>
+                      <td className="text-xs text-gray-400">{msg.created_at ? new Date(msg.created_at).toLocaleString('pt-BR') : '-'}</td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>
+          </div>
+          {!historyLoading && historyMeta.total_pages > 1 ? (
+            <Pagination
+              page={historyMeta.page}
+              totalPages={historyMeta.total_pages}
+              onPrev={() => setHistoryPage((current) => Math.max(1, current - 1))}
+              onNext={() => setHistoryPage((current) => Math.min(historyMeta.total_pages, current + 1))}
+            />
+          ) : null}
+        </>
       )}
     </div>
   );

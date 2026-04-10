@@ -1,5 +1,7 @@
 # ADR - Estrategia Oficial de JWT/Auth v1
 
+> Atualizacao de 2026-04-09: este ADR permanece **historico**. O runtime atual ja opera com `RS256` em `backend/src/Helpers/JWT.php`. Use `docs/auth_strategy.md` e `README.md` como fonte viva.
+
 ## Status
 
 Aceita - 2026-03-08

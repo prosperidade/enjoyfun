@@ -83,6 +83,14 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         return;
     }
 
+    if ($id === 'summary') {
+        match (true) {
+            $method === 'GET'    => listAssignmentSummary($query),
+            default => jsonError('Endpoint de resumo operacional do Workforce não encontrado.', 404),
+        };
+        return;
+    }
+
     if ($id === 'member-settings') {
         match (true) {
             $method === 'GET' && $sub !== null => getMemberSettings((int)$sub),
@@ -120,7 +128,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         return;
     }
 
-    jsonError('Endpoint de Workforce não encontrado (utilize /workforce/roles, /workforce/event-roles, /workforce/tree-status, /workforce/tree-backfill, /workforce/tree-sanitize, /workforce/assignments, /workforce/member-settings, /workforce/role-settings ou /workforce/card-issuance).', 404);
+    jsonError('Endpoint de Workforce não encontrado (utilize /workforce/roles, /workforce/event-roles, /workforce/tree-status, /workforce/tree-backfill, /workforce/tree-sanitize, /workforce/managers, /workforce/summary, /workforce/assignments, /workforce/member-settings, /workforce/role-settings ou /workforce/card-issuance).', 404);
 }
 
 // ----------------------------------------------------

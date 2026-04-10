@@ -255,6 +255,7 @@ function getImportBatch(int $id): void
     $user  = requireAuth(['admin', 'organizer']);
     $db    = Database::getInstance();
     $orgId = resolveOrganizerId($user);
+    $pagination = enjoyNormalizePagination($_GET, 50, 200);
 
     $stmt = $db->prepare("SELECT * FROM financial_import_batches WHERE id = :id AND organizer_id = :organizer_id");
     $stmt->execute([':id' => $id, ':organizer_id' => $orgId]);
@@ -264,12 +265,26 @@ function getImportBatch(int $id): void
         jsonError('Batch de importação não encontrado.', 404);
     }
 
+    $countStmt = $db->prepare("
+        SELECT COUNT(*)
+        FROM financial_import_rows
+        WHERE batch_id = :batch_id
+    ");
+    $countStmt->execute([':batch_id' => $id]);
+    $totalRows = (int)$countStmt->fetchColumn();
+
     $rowsStmt = $db->prepare("
         SELECT id, row_number, row_status, raw_payload, error_messages, created_record_id
-        FROM financial_import_rows WHERE batch_id = :batch_id ORDER BY row_number
+        FROM financial_import_rows
+        WHERE batch_id = :batch_id
+        ORDER BY row_number
+        LIMIT :limit OFFSET :offset
     ");
-    $rowsStmt->execute([':batch_id' => $id]);
+    $rowsStmt->bindValue(':batch_id', $id, PDO::PARAM_INT);
+    enjoyBindPagination($rowsStmt, $pagination);
+    $rowsStmt->execute();
     $batch['rows'] = $rowsStmt->fetchAll(PDO::FETCH_ASSOC);
+    $batch['rows_meta'] = enjoyBuildPaginationMeta($pagination['page'], $pagination['per_page'], $totalRows);
 
     jsonSuccess($batch, 'Batch de importação carregado.');
 }

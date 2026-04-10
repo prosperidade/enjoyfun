@@ -14,8 +14,11 @@ import { QRCodeCanvas } from "qrcode.react";
 import { Link, useSearchParams } from "react-router-dom";
 import * as otplib from "otplib";
 import { useEventScope } from "../context/EventScopeContext";
+import Pagination from "../components/Pagination";
+import { DEFAULT_PAGINATION_META, extractPaginationMeta } from "../lib/pagination";
 
 const { totp } = otplib;
+const PAGE_SIZE = 25;
 
 const statusBadge = {
   pending: "badge-yellow",
@@ -46,6 +49,8 @@ export default function Tickets() {
   const [commissaries, setCommissaries] = useState([]);
   const [batchFilter, setBatchFilter] = useState("");
   const [commissaryFilter, setCommissaryFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [ticketMeta, setTicketMeta] = useState({ ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE });
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const requestedEventId = searchParams.get("event_id");
@@ -198,7 +203,7 @@ export default function Tickets() {
 
   const fetchTickets = useCallback(() => {
     setLoading(true);
-    const params = {};
+    const params = { page, per_page: PAGE_SIZE };
     if (effectiveEventId) params.event_id = effectiveEventId;
     if (effectiveBatchFilter) params.ticket_batch_id = effectiveBatchFilter;
     if (effectiveCommissaryFilter) params.commissary_id = effectiveCommissaryFilter;
@@ -206,6 +211,7 @@ export default function Tickets() {
     api.get("/tickets", { params })
       .then((r) => {
         const data = r.data.data || [];
+        setTicketMeta(extractPaginationMeta(r.data?.meta, { ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE, page }));
         const commercialOnly = data.filter((ticket) => {
           const ref = String(ticket?.order_reference || "");
           return !ref.startsWith("EF-GUEST-") && !ref.startsWith("EF-IMP-");
@@ -224,13 +230,14 @@ export default function Tickets() {
               })
             : [];
           setTickets(commercialOnly);
+          setTicketMeta({ ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE, page: 1 });
           toast("Modo Offline: Usando cache.");
         } else {
           toast.error("Erro ao carregar ingressos.");
         }
       })
       .finally(() => setLoading(false));
-  }, [effectiveBatchFilter, effectiveCommissaryFilter, effectiveEventId]);
+  }, [effectiveBatchFilter, effectiveCommissaryFilter, effectiveEventId, page]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -240,6 +247,7 @@ export default function Tickets() {
   }, [fetchTickets]);
 
   const handleEventChange = (nextEventId) => {
+    setPage(1);
     setEventId(nextEventId);
     setBatchFilter("");
     setCommissaryFilter("");
@@ -306,7 +314,7 @@ export default function Tickets() {
           <h1 className="page-title flex items-center gap-2">
             <Ticket size={22} className="text-brand" /> Ingressos Comerciais
           </h1>
-          <p className="text-gray-500 text-sm mt-1">{tickets.length} ingressos comerciais ativos</p>
+          <p className="text-gray-500 text-sm mt-1">{ticketMeta.total} ingressos comerciais ativos</p>
         </div>
         <div className="flex flex-wrap gap-3 w-full sm:w-auto">
           <Link
@@ -331,13 +339,13 @@ export default function Tickets() {
               <option key={event.id} value={event.id}>{event.name}</option>
             ))}
           </select>
-          <select className="select" name="ticket_batch_filter" value={effectiveBatchFilter} onChange={(e) => setBatchFilter(e.target.value)} disabled={!effectiveEventId}>
+          <select className="select" name="ticket_batch_filter" value={effectiveBatchFilter} onChange={(e) => { setPage(1); setBatchFilter(e.target.value); }} disabled={!effectiveEventId}>
             <option value="">Todos os lotes</option>
             {batches.map((batch) => (
               <option key={batch.id} value={batch.id}>{batch.name}</option>
             ))}
           </select>
-          <select className="select" name="ticket_commissary_filter" value={effectiveCommissaryFilter} onChange={(e) => setCommissaryFilter(e.target.value)} disabled={!effectiveEventId}>
+          <select className="select" name="ticket_commissary_filter" value={effectiveCommissaryFilter} onChange={(e) => { setPage(1); setCommissaryFilter(e.target.value); }} disabled={!effectiveEventId}>
             <option value="">Todos os comissários</option>
             {commissaries.map((commissary) => (
               <option key={commissary.id} value={commissary.id}>{commissary.name}</option>
@@ -392,6 +400,15 @@ export default function Tickets() {
           </table>
         </div>
       )}
+
+      {!loading && ticketMeta.total_pages > 1 ? (
+        <Pagination
+          page={ticketMeta.page}
+          totalPages={ticketMeta.total_pages}
+          onPrev={() => setPage((current) => Math.max(1, current - 1))}
+          onNext={() => setPage((current) => Math.min(ticketMeta.total_pages, current + 1))}
+        />
+      ) : null}
 
       {selectedTicket ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">

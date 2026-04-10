@@ -29,13 +29,7 @@ class Database
         if (self::$instance === null) {
             try {
                 $obj = new self();
-                $dsn = "pgsql:host={$obj->host};port={$obj->port};dbname={$obj->dbname}";
-                self::$instance = new PDO($dsn, $obj->username, $obj->password, [
-                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES   => false,
-                ]);
-                self::$instance->exec("SET CLIENT_ENCODING TO 'UTF8'");
+                self::$instance = $obj->createPdo($obj->username, $obj->password);
             } catch (Throwable $e) {
                 self::abortBootstrap($e);
             }
@@ -68,43 +62,29 @@ class Database
             return;
         }
 
-        try {
-            $obj = new self();
-            $appUser = trim((string)(getenv('DB_USER_APP') ?: ($_ENV['DB_USER_APP'] ?? 'app_user')));
-            $appPass = trim((string)(getenv('DB_PASS_APP') ?: ($_ENV['DB_PASS_APP'] ?? '')));
+        $obj = new self();
+        $appUser = trim((string)(getenv('DB_USER_APP') ?: ($_ENV['DB_USER_APP'] ?? 'app_user')));
+        $appPass = trim((string)(getenv('DB_PASS_APP') ?: ($_ENV['DB_PASS_APP'] ?? '')));
 
-            // Fall back to the main DB password if no dedicated app_user password is set.
-            // In production, app_user SHOULD have its own password.
-            if ($appPass === '') {
-                $appPass = $obj->password;
-            }
-
-            $dsn = "pgsql:host={$obj->host};port={$obj->port};dbname={$obj->dbname}";
-            $pdo = new PDO($dsn, $appUser, $appPass, [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES   => false,
-            ]);
-            $pdo->exec("SET CLIENT_ENCODING TO 'UTF8'");
-
-            // SET (session-level) works without requiring an explicit transaction.
-            // Safe: $organizerId is already cast to int above.
-            $pdo->exec("SET app.current_organizer_id = " . $organizerId);
-
-            // Preserve original superadmin connection before swapping
-            if (self::$superInstance === null && self::$instance !== null) {
-                self::$superInstance = self::$instance;
-            }
-
-            self::$instance = $pdo;
-            self::$tenantScopeActive = true;
-        } catch (\Throwable $e) {
-            // If app_user connection fails (role doesn't exist yet, etc.),
-            // log the error but do NOT break the request. The existing
-            // postgres connection continues to work — RLS just won't be active.
-            error_log('[Database] RLS tenant scope activation failed: ' . $e->getMessage()
-                . ' — falling back to superuser connection (RLS inactive)');
+        if ($appUser === '' || $appPass === '') {
+            throw new RuntimeException('Tenant scope credentials are missing. Configure DB_USER_APP and DB_PASS_APP.');
         }
+
+        if (self::$superInstance === null) {
+            self::$superInstance = self::$instance ?? $obj->createPdo($obj->username, $obj->password);
+        }
+
+        $pdo = $obj->createPdo($appUser, $appPass);
+        $pdo->exec("SET app.current_organizer_id = " . $organizerId);
+
+        $stmt = $pdo->query("SELECT current_setting('app.current_organizer_id', true)");
+        $resolvedScope = (int)$stmt->fetchColumn();
+        if ($resolvedScope !== $organizerId) {
+            throw new RuntimeException('Tenant scope session variable was not applied correctly.');
+        }
+
+        self::$instance = $pdo;
+        self::$tenantScopeActive = true;
     }
 
     /**
@@ -183,6 +163,19 @@ class Database
         }
 
         return $value;
+    }
+
+    private function createPdo(string $username, string $password): PDO
+    {
+        $dsn = "pgsql:host={$this->host};port={$this->port};dbname={$this->dbname}";
+        $pdo = new PDO($dsn, $username, $password, [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ]);
+        $pdo->exec("SET CLIENT_ENCODING TO 'UTF8'");
+
+        return $pdo;
     }
 
     private static function abortBootstrap(Throwable $e): never

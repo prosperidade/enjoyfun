@@ -28,3 +28,6 @@ backend/.env.*
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated local artifacts
+/frontend/vite.config.js.timestamp-*

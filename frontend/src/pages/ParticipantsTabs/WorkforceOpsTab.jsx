@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useState } from "react";
 import {
   Activity,
   ArrowLeft,
@@ -22,17 +22,18 @@ import {
 import api from "../../lib/api";
 import toast from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
-import AddWorkforceAssignmentModal from "./AddWorkforceAssignmentModal";
-import CsvImportModal from "./CsvImportModal";
-import BulkMessageModal from "./BulkMessageModal";
-import EditParticipantModal from "./EditParticipantModal";
-import WorkforceMemberSettingsModal from "./WorkforceMemberSettingsModal";
-import BulkWorkforceSettingsModal from "./BulkWorkforceSettingsModal";
-import WorkforceCardIssuanceModal from "./WorkforceCardIssuanceModal";
-import WorkforceRoleSettingsModal from "./WorkforceRoleSettingsModal";
-import WorkforceSectorCostsModal from "./WorkforceSectorCostsModal";
-import WorkforceAIAssistant from "../../components/WorkforceAIAssistant";
 import { reportOperationalTelemetry } from "../../lib/operationalTelemetry";
+
+const AddWorkforceAssignmentModal = lazy(() => import("./AddWorkforceAssignmentModal"));
+const CsvImportModal = lazy(() => import("./CsvImportModal"));
+const BulkMessageModal = lazy(() => import("./BulkMessageModal"));
+const EditParticipantModal = lazy(() => import("./EditParticipantModal"));
+const WorkforceMemberSettingsModal = lazy(() => import("./WorkforceMemberSettingsModal"));
+const BulkWorkforceSettingsModal = lazy(() => import("./BulkWorkforceSettingsModal"));
+const WorkforceCardIssuanceModal = lazy(() => import("./WorkforceCardIssuanceModal"));
+const WorkforceRoleSettingsModal = lazy(() => import("./WorkforceRoleSettingsModal"));
+const WorkforceSectorCostsModal = lazy(() => import("./WorkforceSectorCostsModal"));
+const WorkforceAIAssistant = lazy(() => import("../../components/WorkforceAIAssistant"));
 
 const normalizeSector = (value = "") =>
   String(value || "")
@@ -750,7 +751,7 @@ export default function WorkforceOpsTab({ eventId }) {
       const [mgrRes, roleRes, assignmentRes, treeRes, healthRes] = await Promise.all([
         api.get(`/workforce/managers?event_id=${eventId}`),
         api.get(`/workforce/roles?event_id=${eventId}`),
-        api.get(`/workforce/assignments?event_id=${eventId}`),
+        api.get(`/workforce/assignments?event_id=${eventId}&per_page=500`),
         api.get(`/workforce/tree-status?event_id=${eventId}`),
         api.get(`/health/workforce?event_id=${eventId}&window_minutes=60`).catch((error) => {
           console.error(error);
@@ -893,6 +894,7 @@ export default function WorkforceOpsTab({ eventId }) {
         return;
       }
 
+      params.set("per_page", "200");
       const res = await api.get(`/workforce/assignments?${params.toString()}`);
       setParticipants(res.data.data || []);
       setSelectedIds([]);
@@ -1645,6 +1647,7 @@ export default function WorkforceOpsTab({ eventId }) {
           </div>
         ) : null}
 
+        <Suspense fallback={null}>
         <WorkforceAIAssistant
           eventId={eventId}
           assignmentsTotal={Number(treeStatus?.assignments_total || assignments.length || 0)}
@@ -1670,6 +1673,7 @@ export default function WorkforceOpsTab({ eventId }) {
           healthStatusLabel={operationalHealthStatus.label}
           syncFailureRate={syncFailureRate}
         />
+        </Suspense>
 
         {activeOverviewTab === "operation" && (
           <div className="card p-4 border border-gray-800 bg-gray-900/40">
@@ -2088,6 +2092,7 @@ export default function WorkforceOpsTab({ eventId }) {
           </div>
         )}
 
+        <Suspense fallback={null}>
         <WorkforceRoleSettingsModal
           isOpen={isRoleSettingsModalOpen}
           role={roleSettingsRole}
@@ -2111,6 +2116,7 @@ export default function WorkforceOpsTab({ eventId }) {
             setSectorCostsRole(null);
           }}
         />
+        </Suspense>
       </div>
     );
   }
@@ -2635,6 +2641,7 @@ export default function WorkforceOpsTab({ eventId }) {
         </table>
       </div>
 
+      <Suspense fallback={null}>
       <AddWorkforceAssignmentModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
@@ -2744,6 +2751,7 @@ export default function WorkforceOpsTab({ eventId }) {
           setSectorCostsRole(null);
         }}
       />
+      </Suspense>
     </div>
   );
 }

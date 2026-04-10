@@ -214,13 +214,24 @@ class MessagingDeliveryService
         ]);
     }
 
-    public static function listHistory(PDO $db, int $organizerId, int $limit = 100): array
+    public static function listHistory(PDO $db, int $organizerId, array $query = []): array
     {
         if ($organizerId <= 0 || !self::ensureSchema($db)) {
-            return [];
+            return [
+                'items' => [],
+                'meta' => enjoyBuildPaginationMeta(1, 20, 0),
+            ];
         }
 
-        $limit = max(1, min(200, $limit));
+        $pagination = enjoyNormalizePagination($query, 25, 200);
+        $countStmt = $db->prepare("
+            SELECT COUNT(*)
+            FROM public.message_deliveries
+            WHERE organizer_id = :organizer_id
+        ");
+        $countStmt->execute([':organizer_id' => $organizerId]);
+        $total = (int)$countStmt->fetchColumn();
+
         $stmt = $db->prepare("
             SELECT
                 id,
@@ -242,11 +253,16 @@ class MessagingDeliveryService
             FROM public.message_deliveries
             WHERE organizer_id = :organizer_id
             ORDER BY created_at DESC, id DESC
-            LIMIT {$limit}
+            LIMIT :limit OFFSET :offset
         ");
-        $stmt->execute([':organizer_id' => $organizerId]);
+        $stmt->bindValue(':organizer_id', $organizerId, PDO::PARAM_INT);
+        enjoyBindPagination($stmt, $pagination);
+        $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return [
+            'items' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'meta' => enjoyBuildPaginationMeta($pagination['page'], $pagination['per_page'], $total),
+        ];
     }
 
     public static function captureWebhookEvent(PDO $db, array $payload, array $context = []): array

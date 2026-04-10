@@ -61,7 +61,17 @@ WITH fingerprint AS (
         rel.relname,
         con.conname,
         con.contype,
-        regexp_replace(pg_get_constraintdef(con.oid, true), '\s+', ' ', 'g')
+        regexp_replace(
+            regexp_replace(
+                regexp_replace(pg_get_constraintdef(con.oid, true), '\s+', ' ', 'g'),
+                '::character varying::text',
+                '::character varying',
+                'g'
+            ),
+            '\]::text\[\]',
+            ']',
+            'g'
+        )
     ) AS line
       FROM pg_constraint con
       JOIN pg_class rel ON rel.oid = con.conrelid

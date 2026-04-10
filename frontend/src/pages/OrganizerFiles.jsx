@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
 import {
   FileSpreadsheet,
@@ -14,6 +14,10 @@ import {
 } from "lucide-react";
 import api from "../lib/api";
 import { useEventScope } from "../context/EventScopeContext";
+import Pagination from "../components/Pagination";
+import { DEFAULT_PAGINATION_META, extractPaginationMeta } from "../lib/pagination";
+
+const PAGE_SIZE = 20;
 
 const CATEGORIES = [
   { value: "general", label: "Geral" },
@@ -52,6 +56,8 @@ function formatDate(dateStr) {
 export default function OrganizerFiles() {
   const { eventId } = useEventScope();
   const [files, setFiles] = useState([]);
+  const [page, setPage] = useState(1);
+  const [filesMeta, setFilesMeta] = useState({ ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE });
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [filterCategory, setFilterCategory] = useState("");
@@ -62,22 +68,30 @@ export default function OrganizerFiles() {
   const [uploadNotes, setUploadNotes] = useState("");
   const fileInputRef = useRef(null);
 
-  const fetchFiles = async () => {
+  const fetchFiles = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (eventId) params.set("event_id", eventId);
       if (filterCategory) params.set("category", filterCategory);
+      params.set("page", String(page));
+      params.set("per_page", String(PAGE_SIZE));
       const response = await api.get(`/organizer-files?${params.toString()}`);
       setFiles(response.data?.data || []);
+      setFilesMeta(extractPaginationMeta(response.data?.meta, { ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE, page }));
     } catch {
+      setFilesMeta({ ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE, page: 1 });
       toast.error("Erro ao carregar arquivos.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId, filterCategory, page]);
 
-  useEffect(() => { fetchFiles(); }, [eventId, filterCategory]);
+  useEffect(() => {
+    setPage(1);
+  }, [eventId, filterCategory]);
+
+  useEffect(() => { fetchFiles(); }, [fetchFiles]);
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -156,6 +170,7 @@ export default function OrganizerFiles() {
           <p className="mt-1 text-sm text-gray-400">
             Suba arquivos (CSV, Excel, PDF, JSON) para que os agentes de IA analisem, categorizem e organizem automaticamente.
           </p>
+          <p className="mt-2 text-xs text-gray-500">{filesMeta.total} arquivo(s) neste recorte.</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -286,6 +301,14 @@ export default function OrganizerFiles() {
           </tbody>
         </table>
       </div>
+      {!loading && filesMeta.total_pages > 1 ? (
+        <Pagination
+          page={filesMeta.page}
+          totalPages={filesMeta.total_pages}
+          onPrev={() => setPage((current) => Math.max(1, current - 1))}
+          onNext={() => setPage((current) => Math.min(filesMeta.total_pages, current + 1))}
+        />
+      ) : null}
 
       {/* Parsed data viewer */}
       {selectedFile && (

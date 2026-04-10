@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useDeferredValue } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Receipt,
@@ -12,6 +12,10 @@ import {
 import { useEventScope } from "../context/EventScopeContext";
 import api from "../lib/api";
 import toast from "react-hot-toast";
+import Pagination from "../components/Pagination";
+import { DEFAULT_PAGINATION_META, extractPaginationMeta } from "../lib/pagination";
+
+const PAGE_SIZE = 25;
 
 const fmt = (value) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -257,6 +261,9 @@ export default function EventFinancePayables() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
+  const [page, setPage] = useState(1);
+  const [payablesMeta, setPayablesMeta] = useState({ ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE });
+  const deferredSearch = useDeferredValue(search);
 
   useEffect(() => {
     api.get("/events").then((response) => setEvents(response.data.data || [])).catch(() => toast.error("Erro ao carregar eventos."));
@@ -266,9 +273,11 @@ export default function EventFinancePayables() {
 
   useEffect(() => {
     if (!eventId) {
-      setCostCenters([]);
-      setArtistBookings([]);
-      return;
+      const timer = setTimeout(() => {
+        setCostCenters([]);
+        setArtistBookings([]);
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     api.get("/event-finance/cost-centers", { params: { event_id: eventId } })
@@ -282,29 +291,36 @@ export default function EventFinancePayables() {
 
   const fetchPayables = useCallback(() => {
     if (!eventId) {
+      setPayables([]);
+      setPayablesMeta({ ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE, page: 1 });
       return;
     }
 
     setLoading(true);
-    const params = { event_id: eventId };
+    const params = { event_id: eventId, page, per_page: PAGE_SIZE };
     if (filterStatus) params.status = filterStatus;
     if (filterCategory) params.category_id = filterCategory;
+    if (deferredSearch.trim()) params.search = deferredSearch.trim();
 
     api.get("/event-finance/payables", { params })
-      .then((response) => setPayables(response.data.data || []))
-      .catch(() => toast.error("Erro ao carregar contas."))
+      .then((response) => {
+        setPayables(response.data.data || []);
+        setPayablesMeta(extractPaginationMeta(response.data?.meta, { ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE, page }));
+      })
+      .catch(() => {
+        setPayables([]);
+        setPayablesMeta({ ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE, page: 1 });
+        toast.error("Erro ao carregar contas.");
+      })
       .finally(() => setLoading(false));
-  }, [eventId, filterCategory, filterStatus]);
+  }, [deferredSearch, eventId, filterCategory, filterStatus, page]);
 
   useEffect(() => {
-    fetchPayables();
+    const timer = setTimeout(() => {
+      fetchPayables();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchPayables]);
-
-  const filtered = payables.filter((payable) =>
-    payable.description?.toLowerCase().includes(search.toLowerCase()) ||
-    payable.supplier_name?.toLowerCase().includes(search.toLowerCase()) ||
-    payable.artist_stage_name?.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
     <div className="space-y-6">
@@ -328,10 +344,10 @@ export default function EventFinancePayables() {
           <h1 className="page-title flex items-center gap-2">
             <Receipt size={22} className="text-cyan-400" /> Contas a Pagar
           </h1>
-          <p className="text-sm text-gray-500">{filtered.length} conta(s) encontrada(s)</p>
+          <p className="text-sm text-gray-500">{payablesMeta.total} conta(s) encontrada(s)</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select className="select w-auto" value={eventId} onChange={(event) => setEventId(event.target.value)}>
+          <select className="select w-auto" value={eventId} onChange={(event) => { setPage(1); setEventId(event.target.value); }}>
             <option value="">Selecionar evento...</option>
             {events.map((eventItem) => (
               <option key={eventItem.id} value={eventItem.id}>{eventItem.name}</option>
@@ -352,20 +368,29 @@ export default function EventFinancePayables() {
       <div className="flex flex-wrap gap-3">
         <div className="relative min-w-[200px] flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-          <input
-            className="input pl-8"
-            placeholder="Buscar descrição, fornecedor ou artista..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
-        <select className="select w-auto" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
+            <input
+              className="input pl-8"
+              placeholder="Buscar descrição, fornecedor ou artista..."
+              value={search}
+              onChange={(event) => {
+                setPage(1);
+                setSearch(event.target.value);
+              }}
+            />
+          </div>
+        <select className="select w-auto" value={filterStatus} onChange={(event) => {
+          setPage(1);
+          setFilterStatus(event.target.value);
+        }}>
           <option value="">Todos os status</option>
           {Object.entries(STATUS_LABELS).map(([key, value]) => (
             <option key={key} value={key}>{value.label}</option>
           ))}
         </select>
-        <select className="select w-auto" value={filterCategory} onChange={(event) => setFilterCategory(event.target.value)}>
+        <select className="select w-auto" value={filterCategory} onChange={(event) => {
+          setPage(1);
+          setFilterCategory(event.target.value);
+        }}>
           <option value="">Todas as categorias</option>
           {categories.map((category) => (
             <option key={category.id} value={category.id}>{category.name}</option>
@@ -374,6 +399,7 @@ export default function EventFinancePayables() {
         {(filterStatus || filterCategory || search) && (
           <button
             onClick={() => {
+              setPage(1);
               setFilterStatus("");
               setFilterCategory("");
               setSearch("");
@@ -392,66 +418,76 @@ export default function EventFinancePayables() {
       )}
 
       {eventId && (
-        <div className="table-wrapper">
-          {loading ? (
-            <p className="py-10 text-center text-gray-500">Carregando...</p>
-          ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Descrição</th>
-                  <th>Categoria</th>
-                  <th>Centro</th>
-                  <th>Vencimento</th>
-                  <th className="text-right">Valor</th>
-                  <th className="text-right">Pago</th>
-                  <th className="text-right">Saldo</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
+        <>
+          <div className="table-wrapper">
+            {loading ? (
+              <p className="py-10 text-center text-gray-500">Carregando...</p>
+            ) : (
+              <table className="table">
+                <thead>
                   <tr>
-                    <td colSpan={9} className="py-10 text-center text-gray-500">
-                      <AlertCircle className="mr-2 inline text-gray-600" size={16} />
-                      Nenhuma conta encontrada
-                    </td>
+                    <th>Descrição</th>
+                    <th>Categoria</th>
+                    <th>Centro</th>
+                    <th>Vencimento</th>
+                    <th className="text-right">Valor</th>
+                    <th className="text-right">Pago</th>
+                    <th className="text-right">Saldo</th>
+                    <th>Status</th>
+                    <th></th>
                   </tr>
-                ) : (
-                  filtered.map((payable) => {
-                    const statusMeta = STATUS_LABELS[payable.status] || { label: payable.status, cls: "badge-gray" };
-                    const isOverdue = payable.status === "overdue";
-                    return (
-                      <tr
-                        key={payable.id}
-                        className={`cursor-pointer hover:bg-white/5 ${isOverdue ? "bg-red-900/5" : ""}`}
-                        onClick={() => navigate(buildScopedPath(`/finance/payables/${payable.id}`))}
-                      >
-                        <td className="max-w-[240px]">
-                          <p className="truncate font-medium text-white">{payable.description}</p>
-                          <p className="mt-1 text-xs text-gray-500">{resolveSourceLabel(payable)}</p>
-                        </td>
-                        <td className="text-sm text-gray-400">{payable.category_name}</td>
-                        <td className="text-sm text-gray-400">{payable.cost_center_name}</td>
-                        <td className={`text-sm font-mono ${isOverdue ? "text-red-400" : "text-gray-400"}`}>
-                          {payable.due_date}
-                        </td>
-                        <td className="text-right tabular-nums">{fmt(payable.amount)}</td>
-                        <td className="text-right tabular-nums text-green-400">{fmt(payable.paid_amount)}</td>
-                        <td className="text-right tabular-nums text-yellow-400">{fmt(payable.remaining_amount)}</td>
-                        <td><span className={statusMeta.cls}>{statusMeta.label}</span></td>
-                        <td>
-                          <ChevronRight size={16} className="text-gray-600" />
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
+                </thead>
+                <tbody>
+                  {payables.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-10 text-center text-gray-500">
+                        <AlertCircle className="mr-2 inline text-gray-600" size={16} />
+                        Nenhuma conta encontrada
+                      </td>
+                    </tr>
+                  ) : (
+                    payables.map((payable) => {
+                      const statusMeta = STATUS_LABELS[payable.status] || { label: payable.status, cls: "badge-gray" };
+                      const isOverdue = payable.status === "overdue";
+                      return (
+                        <tr
+                          key={payable.id}
+                          className={`cursor-pointer hover:bg-white/5 ${isOverdue ? "bg-red-900/5" : ""}`}
+                          onClick={() => navigate(buildScopedPath(`/finance/payables/${payable.id}`))}
+                        >
+                          <td className="max-w-[240px]">
+                            <p className="truncate font-medium text-white">{payable.description}</p>
+                            <p className="mt-1 text-xs text-gray-500">{resolveSourceLabel(payable)}</p>
+                          </td>
+                          <td className="text-sm text-gray-400">{payable.category_name}</td>
+                          <td className="text-sm text-gray-400">{payable.cost_center_name}</td>
+                          <td className={`text-sm font-mono ${isOverdue ? "text-red-400" : "text-gray-400"}`}>
+                            {payable.due_date}
+                          </td>
+                          <td className="text-right tabular-nums">{fmt(payable.amount)}</td>
+                          <td className="text-right tabular-nums text-green-400">{fmt(payable.paid_amount)}</td>
+                          <td className="text-right tabular-nums text-yellow-400">{fmt(payable.remaining_amount)}</td>
+                          <td><span className={statusMeta.cls}>{statusMeta.label}</span></td>
+                          <td>
+                            <ChevronRight size={16} className="text-gray-600" />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+          {!loading && payablesMeta.total_pages > 1 ? (
+            <Pagination
+              page={payablesMeta.page}
+              totalPages={payablesMeta.total_pages}
+              onPrev={() => setPage((current) => Math.max(1, current - 1))}
+              onNext={() => setPage((current) => Math.min(payablesMeta.total_pages, current + 1))}
+            />
+          ) : null}
+        </>
       )}
     </div>
   );

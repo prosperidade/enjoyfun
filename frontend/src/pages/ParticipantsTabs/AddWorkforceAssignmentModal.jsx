@@ -1,5 +1,5 @@
 import { useState, useEffect, useEffectEvent } from "react";
-import { X, Save, Plus, Calendar } from "lucide-react";
+import { X, Save, Plus, Calendar, Search } from "lucide-react";
 import api from "../../lib/api";
 import toast from "react-hot-toast";
 
@@ -31,6 +31,8 @@ export default function AddWorkforceAssignmentModal({
   const [eventDays, setEventDays] = useState([]);
   const [isCreatingRole, setIsCreatingRole] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
+  const [participantSearch, setParticipantSearch] = useState("");
+  const [participantLoading, setParticipantLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     participant_id: "",
@@ -53,14 +55,12 @@ export default function AddWorkforceAssignmentModal({
 
   const loadData = useEffectEvent(async () => {
     if (!isOpen || !eventId) return;
-    try {
-      const [partRes, roleRes, dayRes, shiftRes] = await Promise.all([
-        api.get(`/participants?event_id=${eventId}`),
+      try {
+        const [roleRes, dayRes, shiftRes] = await Promise.all([
         api.get(`/workforce/roles?event_id=${eventId}`),
         api.get(`/event-days?event_id=${eventId}`),
         api.get(`/event-shifts?event_id=${eventId}`)
       ]);
-      setStaffList(partRes.data.data || []);
       setRoles(roleRes.data.data || []);
       setEventDays(dayRes.data.data || []);
       setShifts(shiftRes.data.data || []);
@@ -74,9 +74,52 @@ export default function AddWorkforceAssignmentModal({
     }
   });
 
+  const loadParticipants = useEffectEvent(async (searchValue = "") => {
+    if (!isOpen || !eventId) return;
+    setParticipantLoading(true);
+    try {
+      const res = await api.get("/participants", {
+        params: {
+          event_id: eventId,
+          per_page: 50,
+          search: String(searchValue || "").trim() || undefined,
+        },
+      });
+      const nextItems = Array.isArray(res.data?.data) ? res.data.data : [];
+      setStaffList((current) => {
+        const selectedId = Number(formData.participant_id || 0);
+        if (selectedId <= 0 || nextItems.some((item) => Number(item?.participant_id || 0) === selectedId)) {
+          return nextItems;
+        }
+        const selectedItem =
+          current.find((item) => Number(item?.participant_id || 0) === selectedId) || null;
+        return selectedItem ? [selectedItem, ...nextItems] : nextItems;
+      });
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao carregar participantes.");
+    } finally {
+      setParticipantLoading(false);
+    }
+  });
+
   useEffect(() => {
     loadData();
   }, [isOpen, eventId]);
+
+  useEffect(() => {
+    if (!isOpen || !eventId) {
+      setStaffList([]);
+      setParticipantSearch("");
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      loadParticipants(participantSearch);
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [eventId, isOpen, loadParticipants, participantSearch]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -197,19 +240,34 @@ export default function AddWorkforceAssignmentModal({
             {/* Escolha do Membro */}
             <div>
               <label className="text-[10px] font-black text-gray-500 mb-1.5 block uppercase tracking-[0.15em]">Participante Integramte *</label>
+              <div className="relative mb-2">
+                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                  type="text"
+                  className="input w-full pl-9"
+                  placeholder="Buscar por nome, email, CPF ou telefone"
+                  value={participantSearch}
+                  onChange={(e) => setParticipantSearch(e.target.value)}
+                />
+              </div>
               <select 
                 className="select w-full block bg-gray-800 border-gray-700 h-12 text-sm font-medium focus:border-brand/40" 
                 required
                 value={formData.participant_id}
                 onChange={e => setFormData({...formData, participant_id: e.target.value})}
               >
-                <option value="">Selecione um membro...</option>
+                <option value="">
+                  {participantLoading ? "Carregando participantes..." : "Selecione um membro..."}
+                </option>
                 {staffList.map(s => (
                   <option key={s.participant_id} value={s.participant_id}>
                     {s.name} ({s.category_name})
                   </option>
                 ))}
               </select>
+              <p className="mt-1 text-[11px] text-gray-500">
+                Busca remota limitada a 50 resultados por vez para não truncar eventos grandes.
+              </p>
             </div>
 
              {/* Cargo com Sugestões e Criação */}

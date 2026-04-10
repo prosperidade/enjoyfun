@@ -389,11 +389,347 @@ function scannerTableExists(PDO $db, string $table): bool
     return $cache[$table];
 }
 
+function scannerColumnExists(PDO $db, string $table, string $column): bool
+{
+    static $cache = [];
+    $key = $table . '.' . $column;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = :table
+          AND column_name = :column
+        LIMIT 1
+    ");
+    $stmt->execute([
+        ':table' => $table,
+        ':column' => $column,
+    ]);
+
+    $cache[$key] = (bool)$stmt->fetchColumn();
+    return $cache[$key];
+}
+
+function scannerDumpScopes(): array
+{
+    return [
+        'tickets' => 'ticket',
+        'guests' => 'guest',
+        'participants' => 'participant',
+    ];
+}
+
+function scannerDumpScopeIsValid(string $scope): bool
+{
+    return array_key_exists($scope, scannerDumpScopes());
+}
+
+function scannerResolveDumpSnapshotId(?string $rawSnapshotId = null): string
+{
+    $candidate = trim((string)$rawSnapshotId);
+    if ($candidate === '') {
+        return gmdate('c');
+    }
+
+    $timestamp = strtotime($candidate);
+    if ($timestamp === false) {
+        jsonError('snapshot_id inválido para a carga offline.', 422);
+    }
+
+    return gmdate('c', $timestamp);
+}
+
+function scannerResolveTimestampExpression(PDO $db, string $table, string $alias): string
+{
+    $parts = [];
+
+    if (scannerColumnExists($db, $table, 'updated_at')) {
+        $parts[] = "{$alias}.updated_at";
+    }
+    if (scannerColumnExists($db, $table, 'created_at')) {
+        $parts[] = "{$alias}.created_at";
+    }
+
+    if ($parts === []) {
+        return 'NOW()';
+    }
+
+    return 'COALESCE(' . implode(', ', $parts) . ')';
+}
+
+function scannerCountDumpScopeItems(PDO $db, string $scope, int $eventId, int $organizerId, string $snapshotId): int
+{
+    return match ($scope) {
+        'tickets' => scannerCountTicketDumpItems($db, $eventId, $organizerId, $snapshotId),
+        'guests' => scannerCountGuestDumpItems($db, $eventId, $organizerId, $snapshotId),
+        'participants' => scannerCountParticipantDumpItems($db, $eventId, $organizerId, $snapshotId),
+        default => 0,
+    };
+}
+
+function scannerFetchDumpScopeItems(PDO $db, string $scope, int $eventId, int $organizerId, string $snapshotId, array $pagination): array
+{
+    return match ($scope) {
+        'tickets' => scannerFetchTicketDumpItems($db, $eventId, $organizerId, $snapshotId, $pagination),
+        'guests' => scannerFetchGuestDumpItems($db, $eventId, $organizerId, $snapshotId, $pagination),
+        'participants' => scannerFetchParticipantDumpItems($db, $eventId, $organizerId, $snapshotId, $pagination),
+        default => [],
+    };
+}
+
+function scannerCountTicketDumpItems(PDO $db, int $eventId, int $organizerId, string $snapshotId): int
+{
+    if (!scannerTableExists($db, 'tickets')) {
+        return 0;
+    }
+
+    $timestampExpr = scannerResolveTimestampExpression($db, 'tickets', 't');
+    $stmt = $db->prepare("
+        SELECT COUNT(*)
+        FROM tickets t
+        WHERE t.event_id = :event_id
+          AND t.organizer_id = :organizer_id
+          AND t.status IN ('paid', 'used')
+          AND (
+                NULLIF(TRIM(COALESCE(t.qr_token, '')), '') IS NOT NULL
+                OR NULLIF(TRIM(COALESCE(t.order_reference, '')), '') IS NOT NULL
+              )
+          AND {$timestampExpr} <= :snapshot_at
+    ");
+    $stmt->execute([
+        ':event_id' => $eventId,
+        ':organizer_id' => $organizerId,
+        ':snapshot_at' => $snapshotId,
+    ]);
+
+    return (int)$stmt->fetchColumn();
+}
+
+function scannerFetchTicketDumpItems(PDO $db, int $eventId, int $organizerId, string $snapshotId, array $pagination): array
+{
+    if (!scannerTableExists($db, 'tickets')) {
+        return [];
+    }
+
+    $timestampExpr = scannerResolveTimestampExpression($db, 'tickets', 't');
+    $stmt = $db->prepare("
+        SELECT
+            t.id::text AS id,
+            TRIM(COALESCE(t.qr_token, '')) AS token,
+            TRIM(COALESCE(t.order_reference, '')) AS ref,
+            COALESCE(t.holder_name, '') AS holder_name,
+            COALESCE(t.status, '') AS status
+        FROM tickets t
+        WHERE t.event_id = :event_id
+          AND t.organizer_id = :organizer_id
+          AND t.status IN ('paid', 'used')
+          AND (
+                NULLIF(TRIM(COALESCE(t.qr_token, '')), '') IS NOT NULL
+                OR NULLIF(TRIM(COALESCE(t.order_reference, '')), '') IS NOT NULL
+              )
+          AND {$timestampExpr} <= :snapshot_at
+        ORDER BY {$timestampExpr} DESC, t.id DESC
+        LIMIT :limit OFFSET :offset
+    ");
+    $stmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+    $stmt->bindValue(':organizer_id', $organizerId, PDO::PARAM_INT);
+    $stmt->bindValue(':snapshot_at', $snapshotId, PDO::PARAM_STR);
+    enjoyBindPagination($stmt, $pagination);
+    $stmt->execute();
+
+    return array_map(static fn(array $row): array => [
+        'type' => 'ticket',
+        'id' => $row['id'],
+        'token' => (string)($row['token'] ?? ''),
+        'ref' => (string)($row['ref'] ?? ''),
+        'holder_name' => (string)($row['holder_name'] ?? ''),
+        'status' => (string)($row['status'] ?? ''),
+    ], $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+}
+
+function scannerCountGuestDumpItems(PDO $db, int $eventId, int $organizerId, string $snapshotId): int
+{
+    if (!scannerTableExists($db, 'guests')) {
+        return 0;
+    }
+
+    $timestampExpr = scannerResolveTimestampExpression($db, 'guests', 'g');
+    $stmt = $db->prepare("
+        SELECT COUNT(*)
+        FROM guests g
+        WHERE g.event_id = :event_id
+          AND g.organizer_id = :organizer_id
+          AND NULLIF(TRIM(COALESCE(g.qr_code_token, '')), '') IS NOT NULL
+          AND {$timestampExpr} <= :snapshot_at
+    ");
+    $stmt->execute([
+        ':event_id' => $eventId,
+        ':organizer_id' => $organizerId,
+        ':snapshot_at' => $snapshotId,
+    ]);
+
+    return (int)$stmt->fetchColumn();
+}
+
+function scannerFetchGuestDumpItems(PDO $db, int $eventId, int $organizerId, string $snapshotId, array $pagination): array
+{
+    if (!scannerTableExists($db, 'guests')) {
+        return [];
+    }
+
+    $timestampExpr = scannerResolveTimestampExpression($db, 'guests', 'g');
+    $stmt = $db->prepare("
+        SELECT
+            g.id::text AS id,
+            TRIM(COALESCE(g.qr_code_token, '')) AS token,
+            COALESCE(g.name, '') AS holder_name,
+            COALESCE(g.status, '') AS status
+        FROM guests g
+        WHERE g.event_id = :event_id
+          AND g.organizer_id = :organizer_id
+          AND NULLIF(TRIM(COALESCE(g.qr_code_token, '')), '') IS NOT NULL
+          AND {$timestampExpr} <= :snapshot_at
+        ORDER BY {$timestampExpr} DESC, g.id DESC
+        LIMIT :limit OFFSET :offset
+    ");
+    $stmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+    $stmt->bindValue(':organizer_id', $organizerId, PDO::PARAM_INT);
+    $stmt->bindValue(':snapshot_at', $snapshotId, PDO::PARAM_STR);
+    enjoyBindPagination($stmt, $pagination);
+    $stmt->execute();
+
+    return array_map(static fn(array $row): array => [
+        'type' => 'guest',
+        'id' => $row['id'],
+        'token' => (string)($row['token'] ?? ''),
+        'holder_name' => (string)($row['holder_name'] ?? ''),
+        'status' => (string)($row['status'] ?? ''),
+    ], $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+}
+
+function scannerCountParticipantDumpItems(PDO $db, int $eventId, int $organizerId, string $snapshotId): int
+{
+    if (!scannerTableExists($db, 'event_participants')) {
+        return 0;
+    }
+
+    $timestampExpr = scannerResolveTimestampExpression($db, 'event_participants', 'ep');
+    $stmt = $db->prepare("
+        SELECT COUNT(*)
+        FROM event_participants ep
+        JOIN events e ON e.id = ep.event_id
+        WHERE ep.event_id = :event_id
+          AND e.organizer_id = :organizer_id
+          AND NULLIF(TRIM(COALESCE(ep.qr_token, '')), '') IS NOT NULL
+          AND {$timestampExpr} <= :snapshot_at
+    ");
+    $stmt->execute([
+        ':event_id' => $eventId,
+        ':organizer_id' => $organizerId,
+        ':snapshot_at' => $snapshotId,
+    ]);
+
+    return (int)$stmt->fetchColumn();
+}
+
+function scannerFetchParticipantDumpItems(PDO $db, int $eventId, int $organizerId, string $snapshotId, array $pagination): array
+{
+    if (!scannerTableExists($db, 'event_participants')) {
+        return [];
+    }
+
+    $timestampExpr = scannerResolveTimestampExpression($db, 'event_participants', 'ep');
+    $stmt = $db->prepare("
+        SELECT
+            ep.id::text AS id,
+            TRIM(COALESCE(ep.qr_token, '')) AS token,
+            COALESCE(p.name, '') AS participant_name,
+            COALESCE(ep.status, '') AS status,
+            COALESCE(c.name, '') AS category_name,
+            COALESCE(
+                (
+                    SELECT string_agg(
+                        DISTINCT LOWER(REGEXP_REPLACE(COALESCE(wa.sector, ''), '\s+', '_', 'g')),
+                        ','
+                    )
+                    FROM workforce_assignments wa
+                    WHERE wa.participant_id = ep.id
+                      AND NULLIF(TRIM(COALESCE(wa.sector, '')), '') IS NOT NULL
+                ),
+                ''
+            ) AS allowed_sectors
+        FROM event_participants ep
+        JOIN events e ON e.id = ep.event_id
+        JOIN people p ON p.id = ep.person_id
+        LEFT JOIN participant_categories c ON c.id = ep.category_id
+        WHERE ep.event_id = :event_id
+          AND e.organizer_id = :organizer_id
+          AND NULLIF(TRIM(COALESCE(ep.qr_token, '')), '') IS NOT NULL
+          AND {$timestampExpr} <= :snapshot_at
+        ORDER BY {$timestampExpr} DESC, ep.id DESC
+        LIMIT :limit OFFSET :offset
+    ");
+    $stmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+    $stmt->bindValue(':organizer_id', $organizerId, PDO::PARAM_INT);
+    $stmt->bindValue(':snapshot_at', $snapshotId, PDO::PARAM_STR);
+    enjoyBindPagination($stmt, $pagination);
+    $stmt->execute();
+
+    return array_map(static function (array $row): array {
+        $allowedSectors = array_values(array_filter(array_map(
+            static fn(string $value): string => trim($value),
+            explode(',', (string)($row['allowed_sectors'] ?? ''))
+        )));
+
+        return [
+            'type' => 'participant',
+            'id' => $row['id'],
+            'token' => (string)($row['token'] ?? ''),
+            'holder_name' => (string)($row['participant_name'] ?? ''),
+            'category' => (string)($row['category_name'] ?? ''),
+            'status' => (string)($row['status'] ?? ''),
+            'allowed_sectors' => array_values(array_unique($allowedSectors)),
+        ];
+    }, $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+}
+
+function scannerBuildDumpManifest(PDO $db, int $eventId, int $organizerId, string $snapshotId, int $recommendedPerPage): array
+{
+    $scopes = [];
+    $total = 0;
+
+    foreach (scannerDumpScopes() as $scope => $entityType) {
+        $scopeTotal = scannerCountDumpScopeItems($db, $scope, $eventId, $organizerId, $snapshotId);
+        $total += $scopeTotal;
+        $scopes[] = [
+            'scope' => $scope,
+            'entity_type' => $entityType,
+            'total' => $scopeTotal,
+            'total_pages' => (int)ceil($scopeTotal / max($recommendedPerPage, 1)),
+        ];
+    }
+
+    return [
+        'event_id' => $eventId,
+        'snapshot_id' => $snapshotId,
+        'generated_at' => $snapshotId,
+        'recommended_per_page' => $recommendedPerPage,
+        'total' => $total,
+        'scopes' => $scopes,
+    ];
+}
+
 function dumpScannerCache(array $query): void
 {
     $operator = requireAuth(['admin', 'organizer', 'manager', 'staff', 'bartender', 'parking_staff']);
     $organizerId = resolveScannerOrganizerId($operator);
     $eventId = (int)($query['event_id'] ?? 0);
+    $scope = strtolower(trim((string)($query['scope'] ?? '')));
+    $pagination = enjoyNormalizePagination($query, 1000, 5000);
 
     if ($eventId <= 0) {
         jsonError('O event_id é obrigatório para a carga offline.', 422);
@@ -401,76 +737,30 @@ function dumpScannerCache(array $query): void
 
     try {
         $db = Database::getInstance();
-        $cache = [];
+        $snapshotId = scannerResolveDumpSnapshotId((string)($query['snapshot_id'] ?? ''));
 
-        if (scannerTableExists($db, 'tickets')) {
-            $stmtTickets = $db->prepare("
-                SELECT id, qr_token, order_reference, holder_name, status
-                FROM tickets
-                WHERE event_id = ? AND organizer_id = ?
-                  AND status IN ('paid', 'used')
-            ");
-            $stmtTickets->execute([$eventId, $organizerId]);
-            foreach ($stmtTickets->fetchAll(PDO::FETCH_ASSOC) as $t) {
-                $cache[] = [
-                    'type' => 'ticket',
-                    'id' => $t['id'],
-                    'token' => trim((string)$t['qr_token']),
-                    'ref' => trim((string)$t['order_reference']),
-                    'holder_name' => $t['holder_name'],
-                    'status' => $t['status']
-                ];
-            }
+        if ($scope === '') {
+            jsonSuccess(
+                scannerBuildDumpManifest($db, $eventId, $organizerId, $snapshotId, $pagination['per_page']),
+                'Manifesto offline gerado com sucesso.'
+            );
         }
 
-        if (scannerTableExists($db, 'guests')) {
-            $stmtGuests = $db->prepare("
-                SELECT id, qr_code_token, name, status
-                FROM guests
-                WHERE event_id = ? AND organizer_id = ?
-            ");
-            $stmtGuests->execute([$eventId, $organizerId]);
-            foreach ($stmtGuests->fetchAll(PDO::FETCH_ASSOC) as $g) {
-                $cache[] = [
-                    'type' => 'guest',
-                    'id' => $g['id'],
-                    'token' => trim((string)$g['qr_code_token']),
-                    'holder_name' => $g['name'],
-                    'status' => $g['status']
-                ];
-            }
+        if (!scannerDumpScopeIsValid($scope)) {
+            jsonError('scope inválido para a carga offline.', 422);
         }
 
-        if (scannerTableExists($db, 'event_participants')) {
-            $stmtPart = $db->prepare("
-                SELECT ep.id, ep.qr_token, p.name AS participant_name, ep.status, c.name AS category_name,
-                       (SELECT string_agg(LOWER(REGEXP_REPLACE(COALESCE(wa.sector, ''), '\s+', '_', 'g')), ',') 
-                        FROM workforce_assignments wa WHERE wa.participant_id = ep.id) as allowed_sectors
-                FROM event_participants ep
-                JOIN events e ON e.id = ep.event_id
-                JOIN people p ON p.id = ep.person_id
-                LEFT JOIN participant_categories c ON c.id = ep.category_id
-                WHERE ep.event_id = ? AND e.organizer_id = ?
-            ");
-            $stmtPart->execute([$eventId, $organizerId]);
-            foreach ($stmtPart->fetchAll(PDO::FETCH_ASSOC) as $ep) {
-                $cache[] = [
-                    'type' => 'participant',
-                    'id' => $ep['id'],
-                    'token' => trim((string)$ep['qr_token']),
-                    'holder_name' => $ep['participant_name'],
-                    'category' => $ep['category_name'],
-                    'status' => $ep['status'],
-                    'allowed_sectors' => empty($ep['allowed_sectors']) ? [] : explode(',', $ep['allowed_sectors'])
-                ];
-            }
-        }
+        $total = scannerCountDumpScopeItems($db, $scope, $eventId, $organizerId, $snapshotId);
+        $items = scannerFetchDumpScopeItems($db, $scope, $eventId, $organizerId, $snapshotId, $pagination);
 
         jsonSuccess([
             'event_id' => $eventId,
-            'generated_at' => date('c'),
-            'total' => count($cache),
-            'items' => $cache
+            'scope' => $scope,
+            'snapshot_id' => $snapshotId,
+            'generated_at' => $snapshotId,
+            'total' => $total,
+            'items' => $items,
+            'meta' => enjoyBuildPaginationMeta($pagination['page'], $pagination['per_page'], $total),
         ], 'Carga offline gerada com sucesso.');
     } catch (Throwable $e) {
         $ref = uniqid();

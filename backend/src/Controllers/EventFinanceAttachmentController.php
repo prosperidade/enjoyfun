@@ -27,34 +27,61 @@ function listAttachments(array $query): void
     $db      = Database::getInstance();
     $orgId   = resolveOrganizerId($user);
     $eventId = (int)($query['event_id'] ?? 0);
+    $payableId = (int)($query['payable_id'] ?? 0);
+    $paymentId = (int)($query['payment_id'] ?? 0);
+    $pagination = enjoyNormalizePagination($query, 25, 100);
 
-    if ($eventId <= 0) {
-        jsonError('event_id é obrigatório.', 422);
+    if ($eventId <= 0 && $payableId <= 0 && $paymentId <= 0) {
+        jsonError('event_id, payable_id ou payment_id é obrigatório.', 422);
     }
 
-    $sql = "
+    $selectSql = "
         SELECT id, payable_id, payment_id, attachment_type,
                original_name, storage_path, mime_type, file_size_bytes, notes,
                created_at, updated_at
-        FROM event_payment_attachments
-        WHERE organizer_id = :organizer_id AND event_id = :event_id
     ";
-    $params = [':organizer_id' => $orgId, ':event_id' => $eventId];
+    $fromSql = "
+        FROM event_payment_attachments
+        WHERE organizer_id = :organizer_id
+    ";
+    $params = [':organizer_id' => $orgId];
 
-    if (!empty($query['payable_id'])) {
-        $sql .= " AND payable_id = :payable_id";
-        $params[':payable_id'] = (int)$query['payable_id'];
+    if ($eventId > 0) {
+        $fromSql .= " AND event_id = :event_id";
+        $params[':event_id'] = $eventId;
     }
-    if (!empty($query['payment_id'])) {
-        $sql .= " AND payment_id = :payment_id";
-        $params[':payment_id'] = (int)$query['payment_id'];
+
+    if ($payableId > 0) {
+        $fromSql .= " AND payable_id = :payable_id";
+        $params[':payable_id'] = $payableId;
+    }
+    if ($paymentId > 0) {
+        $fromSql .= " AND payment_id = :payment_id";
+        $params[':payment_id'] = $paymentId;
     }
 
-    $sql .= " ORDER BY created_at DESC";
+    $countStmt = $db->prepare("SELECT COUNT(*) {$fromSql}");
+    $dataStmt = $db->prepare("
+        {$selectSql}
+        {$fromSql}
+        ORDER BY created_at DESC
+        LIMIT :limit OFFSET :offset
+    ");
+    $countStmt->execute($params);
+    $total = (int)$countStmt->fetchColumn();
 
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC), 'Anexos carregados.');
+    foreach ($params as $key => $value) {
+        $dataStmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    enjoyBindPagination($dataStmt, $pagination);
+    $dataStmt->execute();
+    jsonPaginated(
+        $dataStmt->fetchAll(PDO::FETCH_ASSOC),
+        $total,
+        $pagination['page'],
+        $pagination['per_page'],
+        'Anexos carregados.'
+    );
 }
 
 function getAttachment(int $id): void

@@ -75,7 +75,7 @@ Novo builder que puxa dados de 11 tabelas do modulo de artistas:
 
 **Decisao arquitetural:** MCP para ferramentas EXTERNAS. Upload nativo para arquivos do organizador.
 
-**Migration 055 (aplicada):**
+**Migration 056 (aplicada):**
 - `organizer_mcp_servers` — servidores MCP por organizador (URL, auth, agentes permitidos)
 - `organizer_mcp_server_tools` — tools descobertas automaticamente por servidor
 
@@ -92,7 +92,7 @@ Novo builder que puxa dados de 11 tabelas do modulo de artistas:
 
 ### 5. Organizer File Hub
 
-**Migration 056 (aplicada):**
+**Migration 057 (aplicada):**
 - `organizer_files` — hub de arquivos do organizador com parsing automatico
   - Categorias: general, financial, contracts, logistics, marketing, operational, reports, spreadsheets
   - Parsed status: pending, parsing, parsed, failed, skipped
@@ -130,8 +130,8 @@ Novo builder que puxa dados de 11 tabelas do modulo de artistas:
 
 | Arquivo | Tipo |
 |---------|------|
-| `database/055_mcp_servers.sql` | Migration |
-| `database/056_organizer_file_hub.sql` | Migration |
+| `database/056_mcp_servers.sql` | Migration |
+| `database/057_organizer_file_hub.sql` | Migration |
 | `backend/src/Services/AIMCPClientService.php` | Service |
 | `backend/src/Controllers/MCPServerController.php` | Controller |
 | `backend/src/Controllers/OrganizerFileController.php` | Controller |

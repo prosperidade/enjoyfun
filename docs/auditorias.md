@@ -1,76 +1,48 @@
-# Auditorias — índice consolidado
+# Auditorias - indice consolidado
 
 ## Objetivo
 
-Centralizar a leitura das auditorias técnicas e separar:
+Definir quais documentos representam o estado vivo do sistema em `2026-04-09`, quais sao historicos e quais ja entraram em fila de arquivamento.
 
-- o que é **fonte viva de operação**
-- o que é **snapshot histórico**
-- o que já pode entrar em **fila de exclusão/arquivamento**
-
-Este arquivo passa a ser a porta de entrada única para auditorias do projeto.
+Este arquivo e a porta de entrada unica para auditorias e prontidao operacional.
 
 ## Fonte viva atual
 
 | Arquivo | Papel |
 |---|---|
-| `docs/progresso10.md` | Diário ativo da rodada corrente |
-| `docs/progresso9.md` | Fechamento da rodada anterior e base de decisão |
-| `README.md` | Contrato de setup, stack e governança de schema |
-| `CLAUDE.md` | Estado arquitetural operacional para IA/Codex |
-| `docs/runbook_local.md` | Bootstrap local e smoke mínimo operacional |
-| `docs/diagnostico.md` | Diagnóstico técnico único mantido no repo |
-| `docs/cardsemassa.md` | Registro específico da frente de cartões em massa |
-| `analise_enjoyfun_2026_03_22.md` | Análise ampla do estado real, riscos e roadmap |
-| `auditoriaCodex.md` | Auditoria técnica consolidada por risco/ação |
+| `README.md` | Contrato de stack, setup e governanca do repositorio |
+| `docs/runbook_local.md` | Bootstrap local, smoke minimo e criterios de readiness |
+| `docs/auth_strategy.md` | Estado atual de autenticacao |
+| `docs/auditoria_prontidao_operacional_2026_04_09.md` | Parecer atual de seguranca, operacionalidade e escala |
+| `docs/inventario_documental_e_artefatos_2026_04_09.md` | Inventario de documentacao viva, historica e artefatos candidatos a arquivo |
+| `backend/.env.example` | Contrato atual de variaveis de ambiente |
 
-## Arquivos aprovados para mover ao arquivo externo
+## Documentos historicos relevantes
 
-Estes arquivos ainda podem ficar disponíveis temporariamente no workspace, mas **saem do conjunto operacional do repositório**:
-
-- `docs/auditoriaPOS.md`
-- `docs/auditoriaworkforce.md`
-- `docs/auditoriamelas.md`
-- `docs/auditoriafinalworkforcemeals.md`
-- `docs/diagnostico_sistema.md`
-- `docs/security_audit_enjoyfun_v2.md`
-- `docs/EnjoyFun_Blueprint_V5.md`
-- `docs/enjoyfun_blueprint_dashboard_v_1.md`
-- `docs/enjoyfun_backlog_oficial_v_1.md`
-- `docs/enjoyfun_arquitetura_modulos_servicos_v_1.md`
-- `docs/enjoyfun_kpis_formulas_oficiais_v_1.md`
-- `docs/enjoyfun_modelagem_oficial_banco_v_1.md`
-- `docs/enjoyfun_mvps_oficiais_v_1.md`
-- `docs/enjoyfun_orientacao_operacional_a_partir_de_hoje.md`
-- `docs/enjoyfun_plano_execucao_fase_1_v_1.md`
-- `docs/enjoyfun_prompts_oficiais_codex_v_1.md`
-- `docs/enjoyfun_roadmap_implementacao_v_1.md`
-- `docs/enjoyfun_sprint_1_v_1.md`
-- `docs/enjoyfun_tenant_settings_hub_v_1.md`
-
-## Análises-base complementares da rodada atual
-
-| Arquivo | Situação |
+| Arquivo | Observacao |
 |---|---|
-| `analise_enjoyfun_2026_03_22.md` | Mantida como base complementar de leitura, além do resumo em `docs/progresso9.md` |
-| `auditoriaCodex.md` | Mantida como base complementar de leitura, além do resumo em `docs/progresso9.md` |
+| `docs/archive/root_legacy/auditoria+backlogexecutavel.md` | Backlog tematico da frente anterior; nao e retrato integral da prontidao atual |
+| `docs/diagnostico.md` | Diagnostico anterior, hoje superado em varios pontos |
+| `docs/adr_auth_jwt_strategy_v1.md` | ADR historico de migracao JWT |
+| `docs/plano_migracao_jwt_assimetrico_v1.md` | Plano historico de rollout JWT |
+| `docs/progresso*.md` | Trilha historica de execucao e investigacao |
+| `docs/archive/root_legacy/` | Snapshots historicos uteis para comparacao, nao para operacao corrente |
 
-## Regra de organização adotada
+## Arquivamento executado nesta rodada
 
-1. `docs/auditorias.md` vira o índice único das auditorias.
-2. O estado vivo da operação não deve depender de snapshots antigos.
-3. O estado vivo da operação deve partir de:
-   - `docs/progresso10.md`
-   - `docs/progresso9.md`
-   - `README.md`
-   - `CLAUDE.md`
-   - `analise_enjoyfun_2026_03_22.md`
-   - `auditoriaCodex.md`
-4. Toda nova auditoria relevante deve ser:
-   - registrada primeiro no arquivo próprio
-   - resumida depois em `docs/progresso10.md`
-   - catalogada aqui
+Foi executado nesta rodada:
 
-## Observação sobre os `progresso*.md`
+- limpeza da raiz do repositorio, mantendo apenas `README.md` e `CLAUDE.md`
+- movimentacao das auditorias e analises historicas para `docs/archive/root_legacy/`
+- movimentacao de SQL legado avulso para `database/archive/legacy_sql/`
+- remocao dos artefatos gerados `frontend/vite.config.js.timestamp-*`
+- bloqueio de recorrencia desses artefatos no `.gitignore`
 
-Todos os `docs/progresso*.md` permanecem no repositório como trilha histórica de pesquisa.
+Os proximos candidatos seguem detalhados em `docs/inventario_documental_e_artefatos_2026_04_09.md`.
+
+## Regra de manutencao daqui para frente
+
+1. Novas auditorias devem nascer em `docs/`, nunca na raiz do projeto.
+2. O README e o runbook precisam ser atualizados na mesma rodada sempre que o runtime mudar.
+3. Documentos historicos devem receber aviso explicito quando deixarem de refletir o estado real.
+4. Artefatos gerados nao devem voltar a ser versionados sem justificativa operacional.

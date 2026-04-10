@@ -206,6 +206,7 @@ class WalletSecurityService
 
         $forUpdate = !empty($options['for_update']);
         $allowLegacyToken = !empty($options['allow_legacy_token']);
+        $allowInactive = !empty($options['allow_inactive']);
         $includePresentation = !empty($options['include_presentation']);
         $eventId = isset($options['event_id']) ? (int)$options['event_id'] : 0;
         $requireEventMatch = !empty($options['require_event_match']);
@@ -216,6 +217,7 @@ class WalletSecurityService
                 $cardReference,
                 $organizerId,
                 $forUpdate,
+                $allowInactive,
                 $includePresentation,
                 $eventId,
                 $requireEventMatch
@@ -231,6 +233,7 @@ class WalletSecurityService
                 $cardReference,
                 $organizerId,
                 $forUpdate,
+                $allowInactive,
                 $includePresentation,
                 $eventId,
                 $requireEventMatch
@@ -262,12 +265,14 @@ class WalletSecurityService
         string $cardId,
         int $organizerId,
         bool $forUpdate,
+        bool $allowInactive,
         bool $includePresentation,
         int $eventId = 0,
         bool $requireEventMatch = false
     ): array|bool
     {
         $lockClause = $forUpdate ? ' FOR UPDATE' : '';
+        $activeClause = $allowInactive ? '' : "\n               AND c.is_active = true";
         $assignmentScope = self::buildAssignmentScope($db, $eventId, $requireEventMatch, $includePresentation);
         $selectFields = self::buildWalletSelectFields($db, $includePresentation, $assignmentScope['assignments_enabled']);
         $userJoin = $includePresentation ? 'LEFT JOIN users u ON u.id = c.user_id' : '';
@@ -277,10 +282,10 @@ class WalletSecurityService
              FROM digital_cards c
              {$userJoin}
              {$assignmentScope['joins']}
-             WHERE c.id = ?::uuid
-               AND c.organizer_id = ?
-               AND c.is_active = true
-             {$lockClause}"
+              WHERE c.id = ?::uuid
+                AND c.organizer_id = ?
+             {$activeClause}
+              {$lockClause}"
         );
         $stmtById->execute(array_merge($assignmentScope['params'], [$cardId, $organizerId]));
         $wallet = $stmtById->fetch(PDO::FETCH_ASSOC);
@@ -293,12 +298,14 @@ class WalletSecurityService
         string $cardToken,
         int $organizerId,
         bool $forUpdate,
+        bool $allowInactive,
         bool $includePresentation,
         int $eventId = 0,
         bool $requireEventMatch = false
     ): array|bool
     {
         $lockClause = $forUpdate ? ' FOR UPDATE' : '';
+        $activeClause = $allowInactive ? '' : "\n               AND c.is_active = true";
         $assignmentScope = self::buildAssignmentScope($db, $eventId, $requireEventMatch, $includePresentation);
         $selectFields = self::buildWalletSelectFields($db, $includePresentation, $assignmentScope['assignments_enabled']);
         $userJoin = $includePresentation ? 'LEFT JOIN users u ON u.id = c.user_id' : '';
@@ -307,10 +314,10 @@ class WalletSecurityService
              FROM digital_cards c
              {$userJoin}
              {$assignmentScope['joins']}
-             WHERE c.card_token = ?
-               AND c.organizer_id = ?
-               AND c.is_active = true
-             {$lockClause}"
+              WHERE c.card_token = ?
+                AND c.organizer_id = ?
+             {$activeClause}
+              {$lockClause}"
         );
         $stmtByToken->execute(array_merge($assignmentScope['params'], [$cardToken, $organizerId]));
         $wallet = $stmtByToken->fetch(PDO::FETCH_ASSOC);

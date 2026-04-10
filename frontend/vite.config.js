@@ -82,6 +82,17 @@ export default defineConfig(({ mode }) => {
         }
       })
     ],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-ui': ['react-hot-toast', 'lucide-react'],
+            'vendor-data': ['axios', 'dexie'],
+          },
+        },
+      },
+    },
     server: {
       port: devServerPort,
       strictPort: true,

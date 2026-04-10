@@ -16,10 +16,10 @@ Padronizar o bootstrap local mínimo do projeto e o primeiro smoke operacional.
 - `README.md`
 - `CLAUDE.md`
 - `docs/auditorias.md`
-- `docs/progresso18.md`
-- `docs/backlog_auditoria_sistema_2026_04_01.md`
-- `docs/adr_auth_jwt_strategy_v1.md`
-- `docs/plano_migracao_jwt_assimetrico_v1.md`
+- `docs/auditoria_prontidao_operacional_2026_04_09.md`
+- `docs/inventario_documental_e_artefatos_2026_04_09.md`
+- `docs/auth_strategy.md`
+- `docs/adr_auth_jwt_strategy_v1.md` (histórico)
 - `docs/definition_of_ready_ambiente_v1.md`
 - `database/migration_history_registry.json`
 - `database/drift_replay_manifest.json`
@@ -40,10 +40,13 @@ Padronizar o bootstrap local mínimo do projeto e o primeiro smoke operacional.
 2. Preencher:
    - `DB_HOST`
    - `DB_PORT`
-   - `DB_DATABASE`
+   - `DB_NAME`
    - `DB_USER`
    - `DB_PASS`
-   - `JWT_SECRET` com pelo menos `32` caracteres
+   - `DB_USER_APP`
+   - `DB_PASS_APP`
+   - `JWT_SECRET` com pelo menos `64` caracteres hex
+   - `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` ou os arquivos `private.pem` / `public.pem`
 3. Subir o banco
 4. Aplicar o baseline:
 
@@ -69,6 +72,8 @@ database\dump_schema.bat
 cd backend
 php -d opcache.enable=0 -d opcache.enable_cli=0 -S localhost:8080 -t public router_dev.php
 ```
+
+Requests autenticadas so passam se o tenant scope puder ser ativado com `DB_USER_APP` e `DB_PASS_APP`. Falha de RLS no runtime agora retorna erro e nao cai mais para a conexao superuser.
 
 ### 2. Frontend
 
@@ -125,6 +130,20 @@ Antes de mexer em frentes críticas, validar pelo menos:
    - `POST /api/auth/refresh`
    - `GET /api/auth/me`
    - transporte por cookie e por body quando o ambiente suportar ambos
+9. quando a rodada mexer em listagens operacionais grandes, validar tambem:
+   - `page`, `per_page`, `total` e `total_pages`
+   - navegacao entre pagina `1`, pagina intermediaria e ultima pagina
+   - filtros combinados sem perder contagem total
+   - ao menos `participants`, `tickets`, `cards`, `parking`, `messaging` e `event-finance/payables`
+   - consumidores internos que ainda pedem `per_page` alto em modo transitorio, principalmente:
+      - modais de workforce
+      - scanner operacional fora do dump offline
+      - base de meals
+10. quando a rodada mexer no scanner offline, validar tambem:
+   - `GET /api/scanner/dump?event_id={id}` devolvendo manifesto com `snapshot_id`, `recommended_per_page` e totais por `scope`
+   - `GET /api/scanner/dump?event_id={id}&scope=tickets&page=1&per_page=1000&snapshot_id=...`
+   - `GET /api/scanner/dump?event_id={id}&scope=participants&page=1&per_page=1000&snapshot_id=...`
+   - sincronizacao do app mantendo o cache antigo ate o fim e purgando apenas registros com `snapshot_id` stale depois de concluir todos os lotes
 
 Referências vivas:
 
@@ -168,7 +187,7 @@ Contrato atual do replay:
   - excecoes em que uma migration foi apenas versionada, aplicada fora do fluxo oficial, subsumida por corte posterior ou nao materializada no baseline local
 - manifesto versionado em `database/drift_replay_manifest.json`
 - seed honesto em `database/schema_dump_20260331.sql`
-- replay suportado atual da janela `039..048`
+- replay suportado atual da janela `039..059`
 - comparacao por fingerprint do catalogo PostgreSQL, sem depender de `pg_dump` para o diff
 - `DRIFT_REPLAY_MANIFEST_PATH` existe apenas para ensaio de janelas candidatas; nao alterar o workflow oficial sem promover antes o manifesto versionado
 - qualquer tentativa de empurrar o replay para antes de `039` precisa primeiro reconciliar a divergencia da `036_artist_logistics_bigint_keys.sql`, porque o baseline vivo ainda mantem colunas do modulo de artistas em `INTEGER`
@@ -196,7 +215,7 @@ Contrato atual do replay:
 - em rodada de governanca de banco ou release, rodar `node scripts/ci/check_database_governance.mjs` antes de encerrar a frente
 - em rodada que altere o topo do schema ou a janela suportada de replay, rodar `node scripts/ci/check_schema_drift_replay.mjs` antes de encerrar a frente
 - não versionar `backend/.env`
-- nao abrir sprint, subtarefa de sprint ou frente nova antes de registrar objetivo e resultado no `docs/progresso18.md`
+- nao abrir sprint, subtarefa de sprint ou frente nova antes de registrar objetivo e resultado no documento vivo da rodada (`docs/auditoria_prontidao_operacional_2026_04_09.md`)
 - sempre atualizar `docs/runbook_local.md` na mesma rodada quando a mudanca alterar bootstrap, smoke, validacao, gate tecnico, rotina operacional ou criterio de encerramento
 
 ## Rotacao de credenciais
@@ -256,7 +275,13 @@ ASAAS_API_KEY=<nova_key>
 ASAAS_WEBHOOK_TOKEN=<novo_token>
 ```
 
-**Impacto da troca do `JWT_SECRET`:** todas as sessoes ativas sao invalidadas. Usuarios precisam fazer login novamente.
+**Impacto da troca do `JWT_SECRET`:** OTP, HMAC offline e cifragem auxiliar podem ser afetados. A troca desse segredo exige janela controlada.
+
+## Observacoes de auditoria do ambiente
+
+- O backend vivo le `DB_NAME`; `DB_DATABASE` existe hoje apenas como compatibilidade em `docker-compose.yml`.
+- Os scripts `tests/smoke_test.sh` e `tests/security_scan.sh` foram validados em `2026-04-09` pelo Git Bash no Windows.
+- Para Windows local, prefira Git Bash para os scripts POSIX em `tests/` e `scripts/`.
 
 ## Aplicacao de migrations pendentes (alternativa ao `apply_migration.bat`)
 
@@ -307,7 +332,7 @@ psql -U postgres -c "SELECT pg_reload_conf();"
 
 ### CRITICO — Bugs descobertos na Auditoria Sistema 8 (bloqueiam producao)
 
-Esses 3 itens foram identificados na `auditoriasistema8.md` e confirmados contra o codigo real:
+Esses 3 itens foram identificados na auditoria historica agora arquivada em `docs/archive/root_legacy/auditoriasistema8.md` e confirmados contra o codigo real:
 
 - [x] **A8-01: RLS ativo no runtime PHP** — `Database.php` agora conecta como `app_user` e faz `SET app.current_organizer_id` por request. Testado: tenant 999 retorna 0 rows. Resolvido em `2026-04-05`
 - [x] **A8-02: PaymentWebhookController auth corrigido** — trocado `AuthMiddleware::authenticate()` por `requireAuth()` nas 4 ocorrencias. Resolvido em `2026-04-05`
@@ -391,8 +416,10 @@ Definidas em `AIToolRuntimeService::allToolDefinitions()`. Cada tool tem:
 041 — workforce AI integrity triggers
 046 — AI tool approval enforcement
 048 — AI tenant isolation hardening
-055 — organizer_mcp_servers, organizer_mcp_server_tools
-056 — organizer_files (file hub)
+056 — organizer_mcp_servers, organizer_mcp_server_tools
+057 — organizer_files (file hub)
+058 — auth_rate_limits formalizado em migration
+059 — schema tenancy follow-up (audit_log, ticket_types, idx_events_organizer_id)
 ```
 
 ### Smoke test de IA

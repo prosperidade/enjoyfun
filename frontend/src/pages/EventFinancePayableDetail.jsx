@@ -144,8 +144,8 @@ export default function EventFinancePayableDetail() {
     try {
       const [pRes, payRes, attRes] = await Promise.all([
         api.get(`/event-finance/payables/${id}`),
-        api.get("/event-finance/payments", { params: { payable_id: id } }),
-        api.get("/event-finance/attachments", { params: { payable_id: id, event_id: 0 } }),
+        api.get("/event-finance/payments", { params: { payable_id: id, per_page: 100 } }),
+        api.get("/event-finance/attachments", { params: { payable_id: id, per_page: 100 } }),
       ]);
       setPayable(pRes.data.data);
       setPayments(payRes.data.data || []);

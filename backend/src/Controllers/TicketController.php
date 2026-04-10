@@ -33,10 +33,12 @@ function listTickets(array $query): void
     $user = requireAuth(['admin', 'organizer', 'manager', 'staff']);
     $organizerId = (int)($user['organizer_id'] ?? 0);
     if ($organizerId <= 0) jsonError('Organizador inválido.', 403);
+    $pagination = enjoyNormalizePagination($query, 50, 500);
 
     $eventId = isset($query['event_id']) && is_numeric($query['event_id']) ? (int)$query['event_id'] : null;
     $ticketBatchId = isset($query['ticket_batch_id']) && is_numeric($query['ticket_batch_id']) ? (int)$query['ticket_batch_id'] : null;
     $commissaryId = isset($query['commissary_id']) && is_numeric($query['commissary_id']) ? (int)$query['commissary_id'] : null;
+    $search = trim((string)($query['search'] ?? ''));
 
     try {
         $db = Database::getInstance();
@@ -59,7 +61,7 @@ function listTickets(array $query): void
         $joinCommissary = $hasCommissarySupport ? 'LEFT JOIN commissaries c ON c.id = t.commissary_id' : '';
         $joinCommission = $hasCommissionSnapshot ? 'LEFT JOIN ticket_commissions tc ON tc.ticket_id = t.id' : '';
 
-        $sql = "
+        $fromSql = "
             SELECT
                 t.id,
                 t.order_reference,
@@ -88,26 +90,53 @@ function listTickets(array $query): void
               AND t.order_reference NOT LIKE 'EF-IMP-%'
         ";
 
-        if ($eventId) $sql .= ' AND t.event_id = :event_id';
+        if ($eventId) $fromSql .= ' AND t.event_id = :event_id';
         if ($ticketBatchId) {
             if (!$hasBatchSupport) jsonError('Filtro de lote indisponível: aplique migration 008.', 409);
-            $sql .= ' AND t.ticket_batch_id = :ticket_batch_id';
+            $fromSql .= ' AND t.ticket_batch_id = :ticket_batch_id';
         }
         if ($commissaryId) {
             if (!$hasCommissarySupport) jsonError('Filtro de comissário indisponível: aplique migration 008.', 409);
-            $sql .= ' AND t.commissary_id = :commissary_id';
+            $fromSql .= ' AND t.commissary_id = :commissary_id';
+        }
+        if ($search !== '') {
+            $fromSql .= " AND (
+                LOWER(COALESCE(t.order_reference, '')) LIKE LOWER(:search)
+                OR LOWER(COALESCE(t.holder_name, '')) LIKE LOWER(:search)
+                OR LOWER(COALESCE(t.holder_email, '')) LIKE LOWER(:search)
+                OR COALESCE(t.holder_phone, '') LIKE :search
+            )";
         }
 
-        $sql .= ' ORDER BY t.created_at DESC';
+        $countStmt = $db->prepare("SELECT COUNT(*) FROM ({$fromSql}) AS base_count");
+        $dataStmt = $db->prepare("
+            {$fromSql}
+            ORDER BY t.created_at DESC
+            LIMIT :limit OFFSET :offset
+        ");
+        foreach ([$countStmt, $dataStmt] as $stmt) {
+            $stmt->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
+            if ($eventId) {
+                $stmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+            }
+            if ($ticketBatchId) {
+                $stmt->bindValue(':ticket_batch_id', $ticketBatchId, PDO::PARAM_INT);
+            }
+            if ($commissaryId) {
+                $stmt->bindValue(':commissary_id', $commissaryId, PDO::PARAM_INT);
+            }
+            if ($search !== '') {
+                $stmt->bindValue(':search', '%' . $search . '%', PDO::PARAM_STR);
+            }
+        }
 
-        $stmt = $db->prepare($sql);
-        $stmt->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
-        if ($eventId) $stmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
-        if ($ticketBatchId) $stmt->bindValue(':ticket_batch_id', $ticketBatchId, PDO::PARAM_INT);
-        if ($commissaryId) $stmt->bindValue(':commissary_id', $commissaryId, PDO::PARAM_INT);
-        $stmt->execute();
+        $countStmt->execute();
+        $total = (int)$countStmt->fetchColumn();
 
-        jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC));
+        enjoyBindPagination($dataStmt, $pagination);
+        $dataStmt->execute();
+
+        jsonPaginated($dataStmt->fetchAll(PDO::FETCH_ASSOC), $total, $pagination['page'], $pagination['per_page']);
     } catch (Throwable $e) {
         jsonError('Erro ao listar ingressos comerciais: ' . $e->getMessage(), 500);
     }

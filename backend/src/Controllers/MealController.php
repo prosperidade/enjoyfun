@@ -531,7 +531,7 @@ function listMeals(array $query): void
     $eventShiftId = (int)($query['event_shift_id'] ?? 0);
     $mealServiceId = (int)($query['meal_service_id'] ?? 0);
     $sector = mealResolveRequestedSectorScope($db, $user, (string)($query['sector'] ?? ''));
-    $limit = max(1, min(100, (int)($query['limit'] ?? 30)));
+    $pagination = enjoyNormalizePagination($query, 25, 100);
 
     if ($eventId <= 0 && $eventDayId <= 0) {
         jsonError('event_id ou event_day_id é obrigatório.', 400);
@@ -545,7 +545,7 @@ function listMeals(array $query): void
         $eventShiftId > 0 ? $eventShiftId : null
     );
 
-    $sql = "
+    $selectSql = "
         SELECT pm.id, pm.consumed_at,
                ep.id as participant_id,
                ep.event_id as event_id,
@@ -558,6 +558,8 @@ function listMeals(array $query): void
                ems.service_code as meal_service_code,
                ems.label as meal_service_label,
                COALESCE(pm.unit_cost_applied, ems.unit_cost, 0) AS unit_cost_applied
+    ";
+    $fromSql = "
         FROM participant_meals pm
         JOIN event_participants ep ON ep.id = pm.participant_id
         JOIN people p ON p.id = ep.person_id
@@ -570,23 +572,23 @@ function listMeals(array $query): void
     $params = [':org_id' => $organizerId];
 
     if ($eventId > 0) {
-        $sql .= " AND ep.event_id = :evt_id";
+        $fromSql .= " AND ep.event_id = :evt_id";
         $params[':evt_id'] = $eventId;
     }
     if ($eventDayId > 0) {
-        $sql .= " AND pm.event_day_id = :day_id";
+        $fromSql .= " AND pm.event_day_id = :day_id";
         $params[':day_id'] = $eventDayId;
     }
     if ($eventShiftId > 0) {
-        $sql .= " AND pm.event_shift_id = :shift_id";
+        $fromSql .= " AND pm.event_shift_id = :shift_id";
         $params[':shift_id'] = $eventShiftId;
     }
     if ($mealServiceId > 0) {
-        $sql .= " AND pm.meal_service_id = :meal_service_id";
+        $fromSql .= " AND pm.meal_service_id = :meal_service_id";
         $params[':meal_service_id'] = $mealServiceId;
     }
     if ($sector !== '') {
-        $sql .= "
+        $fromSql .= "
             AND EXISTS (
                 SELECT 1
                 FROM workforce_assignments wa_scope
@@ -604,12 +606,28 @@ function listMeals(array $query): void
         $params[':sector'] = $sector;
     }
 
-    $sql .= " ORDER BY pm.consumed_at DESC LIMIT {$limit}";
+    $countStmt = $db->prepare("SELECT COUNT(*) {$fromSql}");
+    $dataStmt = $db->prepare("
+        {$selectSql}
+        {$fromSql}
+        ORDER BY pm.consumed_at DESC
+        LIMIT :limit OFFSET :offset
+    ");
+    $countStmt->execute($params);
+    $total = (int)$countStmt->fetchColumn();
 
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
+    foreach ($params as $key => $value) {
+        $dataStmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    enjoyBindPagination($dataStmt, $pagination);
+    $dataStmt->execute();
 
-    jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC));
+    jsonPaginated(
+        $dataStmt->fetchAll(PDO::FETCH_ASSOC),
+        $total,
+        $pagination['page'],
+        $pagination['per_page']
+    );
 }
 
 function registerMeal(array $body): void

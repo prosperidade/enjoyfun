@@ -32,37 +32,63 @@ function listPayments(array $query): void
     $db      = Database::getInstance();
     $orgId   = resolveOrganizerId($user);
     $eventId = (int)($query['event_id'] ?? 0);
+    $payableId = (int)($query['payable_id'] ?? 0);
+    $pagination = enjoyNormalizePagination($query, 25, 100);
 
-    if ($eventId <= 0) {
-        jsonError('event_id é obrigatório.', 422);
+    if ($eventId <= 0 && $payableId <= 0) {
+        jsonError('event_id ou payable_id é obrigatório.', 422);
     }
 
-    $sql = "
+    $selectSql = "
         SELECT pay.id, pay.payable_id, p.description AS payable_description,
                pay.payment_date, pay.amount, pay.payment_method,
                pay.reference_code, pay.status, pay.reversed_at,
                pay.reversal_reason, pay.notes, pay.created_at, pay.updated_at
+    ";
+    $fromSql = "
         FROM event_payments pay
         JOIN event_payables p ON p.id = pay.payable_id
-        WHERE pay.organizer_id = :organizer_id AND pay.event_id = :event_id
+        WHERE pay.organizer_id = :organizer_id
     ";
 
-    $params = [':organizer_id' => $orgId, ':event_id' => $eventId];
+    $params = [':organizer_id' => $orgId];
 
-    if (!empty($query['payable_id'])) {
-        $sql .= " AND pay.payable_id = :payable_id";
-        $params[':payable_id'] = (int)$query['payable_id'];
+    if ($eventId > 0) {
+        $fromSql .= " AND pay.event_id = :event_id";
+        $params[':event_id'] = $eventId;
     }
+    if ($payableId > 0) {
+        $fromSql .= " AND pay.payable_id = :payable_id";
+        $params[':payable_id'] = $payableId;
+    }
+
     if (!empty($query['status'])) {
-        $sql .= " AND pay.status = :status";
+        $fromSql .= " AND pay.status = :status";
         $params[':status'] = $query['status'];
     }
 
-    $sql .= " ORDER BY pay.payment_date DESC, pay.created_at DESC";
+    $countStmt = $db->prepare("SELECT COUNT(*) {$fromSql}");
+    $dataStmt = $db->prepare("
+        {$selectSql}
+        {$fromSql}
+        ORDER BY pay.payment_date DESC, pay.created_at DESC
+        LIMIT :limit OFFSET :offset
+    ");
+    $countStmt->execute($params);
+    $total = (int)$countStmt->fetchColumn();
 
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC), 'Pagamentos carregados.');
+    foreach ($params as $key => $value) {
+        $dataStmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    enjoyBindPagination($dataStmt, $pagination);
+    $dataStmt->execute();
+    jsonPaginated(
+        $dataStmt->fetchAll(PDO::FETCH_ASSOC),
+        $total,
+        $pagination['page'],
+        $pagination['per_page'],
+        'Pagamentos carregados.'
+    );
 }
 
 function getPayment(int $id): void

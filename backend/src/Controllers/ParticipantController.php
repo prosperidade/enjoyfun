@@ -27,6 +27,7 @@ function listParticipants(array $query): void
     $organizerId = resolveOrganizerId($user);
     $userSector = resolveUserSectorFromDb($db, $user);
     $canBypassSector = canBypassParticipantSectorAcl($user);
+    $pagination = enjoyNormalizePagination($query, 50, 500);
 
     $eventId = $query['event_id'] ?? null;
     if (!$eventId) jsonError('event_id é obrigatório.', 400);
@@ -39,11 +40,13 @@ function listParticipants(array $query): void
     $categoryId = $query['category_id'] ?? null;
     $assignedOnly = ($query['assigned_only'] ?? '0') === '1';
     $roleId = (int)($query['role_id'] ?? 0);
-    $whereCat = $categoryId ? " AND ep.category_id = :cat_id" : "";
     $joinAssignments = $assignedOnly ? "JOIN workforce_assignments wa ON wa.participant_id = ep.id" : "";
-    $whereRole = ($assignedOnly && $roleId > 0) ? " AND wa.role_id = :role_id" : "";
+    $search = trim((string)($query['search'] ?? ''));
 
-    $whereSector = "";
+    $whereParts = [
+        'ep.event_id = :evt_id',
+        'p.organizer_id = :org_id',
+    ];
     if ($assignedOnly) {
         $requestedSector = normalizeParticipantSector((string)($query['sector'] ?? ''));
         $effectiveSector = null;
@@ -54,43 +57,73 @@ function listParticipants(array $query): void
         }
 
         if ($effectiveSector) {
-            $whereSector = " AND LOWER(COALESCE(wa.sector, '')) = :sector";
+            $whereParts[] = "LOWER(COALESCE(wa.sector, '')) = :sector";
+        }
+        if ($roleId > 0) {
+            $whereParts[] = 'wa.role_id = :role_id';
         }
     }
 
-    $sql = "
-        SELECT DISTINCT ep.id as participant_id, ep.category_id, ep.status, ep.qr_token, ep.created_at,
-               CASE WHEN ep.qr_token IS NULL OR TRIM(ep.qr_token) = '' THEN true ELSE false END AS qr_token_missing,
-               p.id as person_id, p.name, p.email, p.document, p.phone,
-               c.name as category_name, c.type as category_type
+    if ($categoryId) {
+        $whereParts[] = 'ep.category_id = :cat_id';
+    }
+
+    if ($search !== '') {
+        $whereParts[] = "(
+            LOWER(p.name) LIKE LOWER(:search)
+            OR LOWER(COALESCE(p.email, '')) LIKE LOWER(:search)
+            OR COALESCE(p.document, '') LIKE :search
+            OR COALESCE(p.phone, '') LIKE :search
+        )";
+    }
+
+    $fromSql = "
         FROM event_participants ep
         JOIN people p ON p.id = ep.person_id
         JOIN participant_categories c ON c.id = ep.category_id
         {$joinAssignments}
-        WHERE ep.event_id = :evt_id AND p.organizer_id = :org_id
-        $whereCat
-        $whereSector
-        $whereRole
-        ORDER BY p.name ASC
-    ";
+        WHERE " . implode(' AND ', $whereParts);
 
-    $stmt = $db->prepare($sql);
-    $stmt->bindValue(':evt_id', $eventId, PDO::PARAM_INT);
-    $stmt->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
-    if ($categoryId) $stmt->bindValue(':cat_id', $categoryId, PDO::PARAM_INT);
+    $countStmt = $db->prepare("SELECT COUNT(DISTINCT ep.id) {$fromSql}");
+    $dataStmt = $db->prepare("
+        SELECT DISTINCT ep.id as participant_id, ep.category_id, ep.status, ep.qr_token, ep.created_at,
+               CASE WHEN ep.qr_token IS NULL OR TRIM(ep.qr_token) = '' THEN true ELSE false END AS qr_token_missing,
+               p.id as person_id, p.name, p.email, p.document, p.phone,
+               c.name as category_name, c.type as category_type
+        {$fromSql}
+        ORDER BY p.name ASC
+        LIMIT :limit OFFSET :offset
+    ");
+
+    foreach ([$countStmt, $dataStmt] as $stmt) {
+        $stmt->bindValue(':evt_id', $eventId, PDO::PARAM_INT);
+        $stmt->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
+        if ($categoryId) {
+            $stmt->bindValue(':cat_id', $categoryId, PDO::PARAM_INT);
+        }
+        if ($search !== '') {
+            $stmt->bindValue(':search', '%' . $search . '%', PDO::PARAM_STR);
+        }
+    }
     if ($assignedOnly) {
         $requestedSector = normalizeParticipantSector((string)($query['sector'] ?? ''));
         $effectiveSector = $canBypassSector ? ($requestedSector ?: null) : ($userSector !== 'all' ? $userSector : ($requestedSector ?: null));
         if ($effectiveSector) {
-            $stmt->bindValue(':sector', $effectiveSector, PDO::PARAM_STR);
+            $countStmt->bindValue(':sector', $effectiveSector, PDO::PARAM_STR);
+            $dataStmt->bindValue(':sector', $effectiveSector, PDO::PARAM_STR);
         }
         if ($roleId > 0) {
-            $stmt->bindValue(':role_id', $roleId, PDO::PARAM_INT);
+            $countStmt->bindValue(':role_id', $roleId, PDO::PARAM_INT);
+            $dataStmt->bindValue(':role_id', $roleId, PDO::PARAM_INT);
         }
     }
 
-    $stmt->execute();
-    $participants = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $countStmt->execute();
+    $total = (int)$countStmt->fetchColumn();
+
+    enjoyBindPagination($dataStmt, $pagination);
+    $dataStmt->execute();
+    $participants = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
     $missingQrCount = 0;
 
     foreach ($participants as &$participant) {
@@ -106,7 +139,7 @@ function listParticipants(array $query): void
         ? "Existem {$missingQrCount} participante(s) sem QR token. A listagem não faz mais backfill automático; use POST /participants/backfill-qrs para regularizar o evento."
         : '';
 
-    jsonSuccess($participants, $message);
+    jsonPaginated($participants, $total, $pagination['page'], $pagination['per_page'], $message);
 }
 
 function createParticipant(array $body): void
@@ -852,5 +885,4 @@ function participantAudit(string $action, int $participantId, $before, $after, a
         $extra
     );
 }
-
 

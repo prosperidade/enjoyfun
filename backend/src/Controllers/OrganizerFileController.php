@@ -3,11 +3,9 @@
 require_once BASE_PATH . '/src/Middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/src/Helpers/Response.php';
 
-use EnjoyFun\Middleware\AuthMiddleware;
-
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
-    global $db;
+    $db = Database::getInstance();
 
     match (true) {
         $method === 'GET' && $id === null => orgFileList($db, $query),
@@ -22,8 +20,9 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
 function orgFileList(PDO $db, array $query): void
 {
-    $operator = AuthMiddleware::requireAuth($db, ['admin', 'organizer', 'manager']);
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
     $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    $pagination = enjoyNormalizePagination($query, 20, 100);
 
     $conditions = ['organizer_id = :org'];
     $params = [':org' => $organizerId];
@@ -41,22 +40,39 @@ function orgFileList(PDO $db, array $query): void
     }
 
     $where = implode(' AND ', $conditions);
+    $countStmt = $db->prepare("
+        SELECT COUNT(*)
+        FROM public.organizer_files
+        WHERE {$where}
+    ");
+    $countStmt->execute($params);
+    $total = (int)$countStmt->fetchColumn();
+
     $stmt = $db->prepare("
         SELECT id, event_id, category, file_type, original_name, mime_type, file_size_bytes,
                parsed_status, parsed_at, notes, uploaded_by_user_id, created_at
         FROM public.organizer_files
         WHERE {$where}
         ORDER BY created_at DESC
-        LIMIT 50
+        LIMIT :limit OFFSET :offset
     ");
-    $stmt->execute($params);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    enjoyBindPagination($stmt, $pagination);
+    $stmt->execute();
 
-    jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+    jsonPaginated(
+        $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+        $total,
+        $pagination['page'],
+        $pagination['per_page']
+    );
 }
 
 function orgFileUpload(PDO $db): void
 {
-    $operator = AuthMiddleware::requireAuth($db, ['admin', 'organizer', 'manager']);
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
     $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
     $userId = (int)($operator['id'] ?? $operator['sub'] ?? 0);
 
@@ -159,7 +175,7 @@ function orgFileUpload(PDO $db): void
 
 function orgFileGet(PDO $db, int $fileId): void
 {
-    $operator = AuthMiddleware::requireAuth($db, ['admin', 'organizer', 'manager']);
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
     $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
 
     $stmt = $db->prepare("
@@ -181,7 +197,7 @@ function orgFileGet(PDO $db, int $fileId): void
 
 function orgFileGetParsed(PDO $db, int $fileId): void
 {
-    $operator = AuthMiddleware::requireAuth($db, ['admin', 'organizer', 'manager']);
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
     $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
 
     $stmt = $db->prepare("
@@ -205,7 +221,7 @@ function orgFileGetParsed(PDO $db, int $fileId): void
 
 function orgFileReparse(PDO $db, int $fileId): void
 {
-    $operator = AuthMiddleware::requireAuth($db, ['admin', 'organizer', 'manager']);
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
     $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
 
     $stmt = $db->prepare("SELECT storage_path, file_type FROM public.organizer_files WHERE id = :id AND organizer_id = :org LIMIT 1");
@@ -231,7 +247,7 @@ function orgFileReparse(PDO $db, int $fileId): void
 
 function orgFileDelete(PDO $db, int $fileId): void
 {
-    $operator = AuthMiddleware::requireAuth($db, ['admin', 'organizer']);
+    $operator = requireAuth(['admin', 'organizer']);
     $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
 
     $stmt = $db->prepare("SELECT storage_path FROM public.organizer_files WHERE id = :id AND organizer_id = :org LIMIT 1");

@@ -75,7 +75,7 @@ super_admin / admin (André)
 | **Webhook timestamp validation** | `backend/src/Controllers/PaymentWebhookController.php` | Rejeita webhooks com timestamp fora da janela |
 | **Messaging idempotency** | `backend/src/Controllers/MessagingController.php` | Deduplicação via correlation_id |
 | **RLS policies** | `database/051_rls_policies.sql` | Row-Level Security em 15 tabelas |
-| **RLS ativo no runtime PHP** | `backend/config/Database.php` | `activateTenantScope()` conecta como `app_user` e faz `SET app.current_organizer_id` por request |
+| **RLS ativo no runtime PHP** | `backend/config/Database.php` | `activateTenantScope()` exige `DB_USER_APP`/`DB_PASS_APP`, conecta como `app_user`, faz `SET app.current_organizer_id` e falha em modo fail-closed |
 | **HMAC contrato unificado** | `AuthController.php` + `hmac.js` | Backend envia `hmac_key` no login, frontend usa para assinar — key material identico |
 | **PaymentWebhookController auth** | `PaymentWebhookController.php` | Corrigido de `AuthMiddleware::authenticate()` para `requireAuth()` |
 | **JWT claims (aud, nbf, jti)** | `backend/src/Helpers/JWT.php` | Audience, not-before e JWT ID em todos os tokens |
@@ -113,21 +113,22 @@ super_admin / admin (André)
 | 029–032 | Reconcile financeiro/banco, webhook secret, refresh token tracking |
 | 033 | Gap reservado (historico documentado) |
 | 034–038 | Event finance, artist logistics, offline queue, cashless hardening |
-| 039–048 | AI execution/memory, workforce integrity, organizer_id backfill, cashless indices, AI approval/isolation |
+| 039–059 | AI execution/memory, workforce integrity, organizer_id backfill, cashless indices, AI approval/isolation, organizer_id hardening, RLS/app_user, payment gateway, MCP/file hub, rate limits formalizados e follow-up final de tenancy |
 | 049 | organizer_id hardening (NOT NULL, FKs, novas colunas) |
 | 050 | Performance indexes |
 | 051 | RLS policies em 15 tabelas |
 | 052 | Messaging hardening |
 | 053 | Payment gateway tables |
 | 054 | organizer_id meals/workforce hardening |
-| 055 | MCP servers + MCP server tools (AI hub) |
-| 056 | Organizer file hub (AI document parsing) |
+| 056 | MCP servers + MCP server tools (AI hub) |
+| 057 | Organizer file hub (AI document parsing) |
+| 058 | Schema foundation para auth_rate_limits |
+| 059 | Schema tenancy follow-up (`audit_log`, `ticket_types`, `events`) |
 
 **Pendências de banco:**
 - Migration `009`: não aplicada (escopo reduzido ao seguro)
 - Aplicar migrations recentes nos ambientes ativos conforme janela de manutenção
-- Revisar `audit_log` para índice composto dedicado
-- Drift replay suportado: janela `039..048` provada; `034..038` com divergência pendente de reconciliação
+- Drift replay suportado: janela `039..059` provada; `034..038` com divergência pendente de reconciliação
 
 ### Tabelas com `organizer_id` (multi-tenant ativo):
 `events` · `products` · `sales` · `tickets` · `ticket_types` · `digital_cards` · `parking_records` · `users` · `guests` · `event_participants` · `event_days` · `event_shifts` · `event_meal_services` · `workforce_assignments` · `workforce_roles` · `workforce_event_roles` · `participant_meals` · `ai_usage_logs` · `audit_log` · `card_issue_batches` · `refresh_tokens` · `vendors` · `organizer_mcp_servers` · `organizer_mcp_server_tools` · `organizer_files` · `organizer_ai_providers` · `organizer_ai_agents` · `ai_agent_executions` · `ai_agent_memories` · `ai_event_reports`
@@ -257,7 +258,7 @@ enjoyfun/
 │   ├── schema_current.sql             ✅ Baseline oficial reconciliado no topo atual
 │   ├── 001–053_*.sql                  ✅ Trilha versionada com exceções históricas documentadas
 │   ├── migrations_applied.log         ✅ Log append-only
-│   ├── drift_replay_manifest.json     ✅ Janela suportada de replay (039..048)
+│   ├── drift_replay_manifest.json     ✅ Janela suportada de replay (039..059)
 │   └── migration_history_registry.json ✅ Exceções históricas classificadas
 │
 ├── tests/                             ✅ Diretório de testes

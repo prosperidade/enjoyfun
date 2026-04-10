@@ -15,6 +15,10 @@ import { createOfflineQueueRecord, db } from "../lib/db";
 import toast from "react-hot-toast";
 import { useEventScope } from "../context/EventScopeContext";
 import ParkingAIAssistant from "../components/ParkingAIAssistant";
+import Pagination from "../components/Pagination";
+import { DEFAULT_PAGINATION_META, extractPaginationMeta } from "../lib/pagination";
+
+const PAGE_SIZE = 50;
 
 export default function Parking() {
   const { eventId, setEventId } = useEventScope();
@@ -22,6 +26,8 @@ export default function Parking() {
   const parkingRecordsCacheKey = eventId ? `enjoyfun_parking_records_${eventId}` : "";
   const [tab, setTab] = useState("parking");
   const [records, setRecords] = useState([]);
+  const [page, setPage] = useState(1);
+  const [recordsMeta, setRecordsMeta] = useState({ ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE });
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -77,6 +83,7 @@ export default function Parking() {
       ...current,
       event_id: String(eventId || ""),
     }));
+    setPage(1);
   }, [eventId]);
 
   const setRecordsWithCache = useCallback((nextValue) => {
@@ -91,12 +98,18 @@ export default function Parking() {
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
-    const params = eventId ? { event_id: eventId } : {};
+    const params = {
+      ...(eventId ? { event_id: eventId } : {}),
+      page,
+      per_page: PAGE_SIZE,
+    };
 
     try {
       const response = await api.get("/parking", { params });
       setRecordsWithCache(response.data.data || []);
+      setRecordsMeta(extractPaginationMeta(response.data?.meta, { ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE, page }));
     } catch {
+      setRecordsMeta({ ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE, page: 1 });
       if (parkingRecordsCacheKey) {
         const cached = localStorage.getItem(parkingRecordsCacheKey);
         if (cached) {
@@ -115,7 +128,7 @@ export default function Parking() {
     } finally {
       setLoading(false);
     }
-  }, [eventId, parkingRecordsCacheKey, setRecordsWithCache]);
+  }, [eventId, page, parkingRecordsCacheKey, setRecordsWithCache]);
 
   useEffect(() => {
     fetchRecords();
@@ -627,6 +640,14 @@ export default function Parking() {
               </table>
             )}
           </div>
+          {!loading && recordsMeta.total_pages > 1 ? (
+            <Pagination
+              page={recordsMeta.page}
+              totalPages={recordsMeta.total_pages}
+              onPrev={() => setPage((current) => Math.max(1, current - 1))}
+              onNext={() => setPage((current) => Math.min(recordsMeta.total_pages, current + 1))}
+            />
+          ) : null}
         </>
       )}
 
