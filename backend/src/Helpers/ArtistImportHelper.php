@@ -1040,10 +1040,10 @@ function artistApplyTeamImportRow(array $payload, int $organizerId, int $eventId
         ':role_name' => $payload['role_name'] ?? null,
         ':document_number' => $payload['document_number'] ?? null,
         ':phone' => $payload['phone'] ?? null,
-        ':needs_hotel' => artistNormalizeBoolean($payload['needs_hotel'] ?? null, false),
-        ':needs_transfer' => artistNormalizeBoolean($payload['needs_transfer'] ?? null, false),
+        ':needs_hotel' => artistNormalizeBoolean($payload['needs_hotel'] ?? null, false) ? 'true' : 'false',
+        ':needs_transfer' => artistNormalizeBoolean($payload['needs_transfer'] ?? null, false) ? 'true' : 'false',
         ':notes' => $payload['notes'] ?? null,
-        ':is_active' => artistNormalizeBoolean($payload['is_active'] ?? null, true),
+        ':is_active' => artistNormalizeBoolean($payload['is_active'] ?? null, true) ? 'true' : 'false',
     ]);
 
     return [

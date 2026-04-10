@@ -170,10 +170,10 @@ function createArtistTeamMember(array $body): void
         ':role_name' => artistNormalizeOptionalText($body['role_name'] ?? null, 120),
         ':document_number' => artistNormalizeOptionalText($body['document_number'] ?? null, 40),
         ':phone' => artistNormalizeOptionalText($body['phone'] ?? null, 40),
-        ':needs_hotel' => artistNormalizeBoolean($body['needs_hotel'] ?? null, false),
-        ':needs_transfer' => artistNormalizeBoolean($body['needs_transfer'] ?? null, false),
+        ':needs_hotel' => artistNormalizeBoolean($body['needs_hotel'] ?? null, false) ? 'true' : 'false',
+        ':needs_transfer' => artistNormalizeBoolean($body['needs_transfer'] ?? null, false) ? 'true' : 'false',
         ':notes' => artistNormalizeOptionalText($body['notes'] ?? null),
-        ':is_active' => artistNormalizeBoolean($body['is_active'] ?? null, true),
+        ':is_active' => artistNormalizeBoolean($body['is_active'] ?? null, true) ? 'true' : 'false',
     ]);
 
     $memberId = (int)$stmt->fetchColumn();
@@ -238,18 +238,18 @@ function updateArtistTeamMember(int $memberId, array $body): void
         ':phone' => array_key_exists('phone', $body)
             ? artistNormalizeOptionalText($body['phone'], 40)
             : $current['phone'],
-        ':needs_hotel' => array_key_exists('needs_hotel', $body)
+        ':needs_hotel' => (array_key_exists('needs_hotel', $body)
             ? artistNormalizeBoolean($body['needs_hotel'], false)
-            : artistNormalizeBoolean($current['needs_hotel'], false),
-        ':needs_transfer' => array_key_exists('needs_transfer', $body)
+            : artistNormalizeBoolean($current['needs_hotel'], false)) ? 'true' : 'false',
+        ':needs_transfer' => (array_key_exists('needs_transfer', $body)
             ? artistNormalizeBoolean($body['needs_transfer'], false)
-            : artistNormalizeBoolean($current['needs_transfer'], false),
+            : artistNormalizeBoolean($current['needs_transfer'], false)) ? 'true' : 'false',
         ':notes' => array_key_exists('notes', $body)
             ? artistNormalizeOptionalText($body['notes'])
             : $current['notes'],
-        ':is_active' => array_key_exists('is_active', $body)
+        ':is_active' => (array_key_exists('is_active', $body)
             ? artistNormalizeBoolean($body['is_active'], true)
-            : artistNormalizeBoolean($current['is_active'], true),
+            : artistNormalizeBoolean($current['is_active'], true)) ? 'true' : 'false',
         ':member_id' => $memberId,
         ':organizer_id' => $organizerId,
     ]);

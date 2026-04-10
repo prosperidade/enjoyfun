@@ -233,7 +233,7 @@ function createArtist(array $body): void
         ':default_contact_name' => artistNormalizeOptionalText($body['default_contact_name'] ?? null, 150),
         ':default_contact_phone' => artistNormalizeOptionalText($body['default_contact_phone'] ?? null, 40),
         ':notes' => artistNormalizeOptionalText($body['notes'] ?? null),
-        ':is_active' => artistNormalizeBoolean($body['is_active'] ?? null, true),
+        ':is_active' => artistNormalizeBoolean($body['is_active'] ?? null, true) ? 'true' : 'false',
     ]);
 
     $artistId = (int)$stmt->fetchColumn();
@@ -307,7 +307,7 @@ function updateArtist(int $artistId, array $body): void
         ':default_contact_name' => array_key_exists('default_contact_name', $body) ? artistNormalizeOptionalText($body['default_contact_name'], 150) : $current['default_contact_name'],
         ':default_contact_phone' => array_key_exists('default_contact_phone', $body) ? artistNormalizeOptionalText($body['default_contact_phone'], 40) : $current['default_contact_phone'],
         ':notes' => array_key_exists('notes', $body) ? artistNormalizeOptionalText($body['notes']) : $current['notes'],
-        ':is_active' => array_key_exists('is_active', $body) ? artistNormalizeBoolean($body['is_active'], (bool)$current['is_active']) : (bool)$current['is_active'],
+        ':is_active' => (array_key_exists('is_active', $body) ? artistNormalizeBoolean($body['is_active'], (bool)$current['is_active']) : (bool)$current['is_active']) ? 'true' : 'false',
         ':artist_id' => $artistId,
         ':organizer_id' => $organizerId,
     ]);
