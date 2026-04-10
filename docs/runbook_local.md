@@ -458,17 +458,18 @@ AI_SPENDING_CAP_BRL=500.00  # Cap mensal em R$
 
 ### Gate 1 — Seguranca (bloqueante)
 
-- [ ] AuditService::log em todos os checkouts POS (Bar/Food/Shop via SalesDomainService)
-- [ ] Remover fallback `$user['id']` como organizer_id no PaymentWebhookController
-- [ ] Transacao atomica no ParkingController::validateParkingTicket
-- [ ] Timestamp validation no webhook (rejeitar fora de +/- 5 min)
-- [ ] Rejeitar payloads offline sem HMAC no SyncController (nao apenas warning)
-- [ ] Validar audience claim no AuthMiddleware (passar expectedAudience no requireAuth)
+- [x] AuditService::log em todos os checkouts POS — `b63620c` (2026-04-09)
+- [x] Remover fallback `$user['id']` como organizer_id no PaymentWebhookController — `b63620c`
+- [x] Transacao atomica + FOR UPDATE no ParkingController::validateParkingTicket — `b63620c`
+- [x] Timestamp validation no webhook (rejeitar fora de +/- 5 min) — `b63620c`
+- [x] Rejeitar payloads offline sem HMAC (frontend throws, backend rejeita em prod) — `b63620c`
+- [x] Validar audience claim no AuthMiddleware (aud='enjoyfun-api') — `b63620c`
+- [x] CSP + security headers no nginx/default.conf — `b63620c`
+- [x] Sourcemap desabilitado em producao (vite.config sourcemap:false) — `b63620c`
 - [ ] Rotacionar todas as credenciais expostas (Gemini, OpenAI, JWT_SECRET)
 - [ ] pg_hba.conf como scram-sha-256
 - [ ] APP_ENV=production no .env
 - [ ] HTTPS ativo (Nginx + Cloudflare ou cert)
-- [ ] CSP headers no nginx/default.conf
 
 ### Gate 2 — Banco (bloqueante)
 

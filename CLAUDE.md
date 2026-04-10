@@ -81,21 +81,28 @@ super_admin / admin (André)
 | **JWT claims (aud, nbf, jti)** | `backend/src/Helpers/JWT.php` | Audience, not-before e JWT ID em todos os tokens |
 | **AI feature flags** | `AIController.php` + `AIToolRuntimeService.php` | `FEATURE_AI_INSIGHTS`, `FEATURE_AI_TOOLS`, `FEATURE_AI_TOOL_WRITE` |
 | **Recharge Asaas PIX real** | `CustomerController.php` | Pix QR real via Asaas API, webhook credita saldo automaticamente |
+| **POS audit trail** | `SalesDomainService.php` | AuditService::log em todo checkout POS com sucesso |
+| **Webhook timestamp validation** | `PaymentWebhookController.php` | Rejeita webhooks com timestamp fora de +-5min |
+| **Parking transacao atomica** | `ParkingController.php` | beginTransaction + FOR UPDATE em validateParkingTicket |
+| **JWT audience enforcement** | `AuthMiddleware.php` + `JWT.php` | aud='enjoyfun-api' validado em todas as rotas |
+| **HMAC offline strict** | `hmac.js` + `OfflineSyncService.php` | Frontend throws em key ausente, backend rejeita em prod |
+| **CSP producao** | `nginx/default.conf` | Content-Security-Policy + X-Frame-Options + nosniff no frontend |
+| **Sourcemap disabled** | `vite.config.js` | sourcemap:false explicito no build |
 
 ### 🟡 PENDÊNCIAS DE SEGURANÇA (pré-evento real ~2026-04-29)
 
 | Recurso | Quando fazer | Risco | Severidade |
 |---------|-------------|-------|------------|
-| **AuditService::log em checkouts POS** | Semana 1 | Sem trilha auditavel em vendas cashless | HIGH |
-| **organizer_id fallback no WebhookController** | Semana 1 | Cross-tenant em edge case | MEDIUM |
-| **Transacao atomica em ParkingController** | Semana 1 | Estado parcial em scans concorrentes | MEDIUM |
-| **Timestamp validation em webhooks** | Semana 1 | Replay de webhooks com HMAC valido | FAIL |
-| **Rejeitar payloads offline sem HMAC** | Semana 1 | Integridade offline bypassavel | WARN |
-| **Validar audience claim no AuthMiddleware** | Semana 1 | Tokens cross-audience aceitos | WARN |
-| **Rotacionar API keys externas** | Semana 1 | Gemini e OpenAI ainda sao as do historico Git | HIGH |
+| ~~AuditService::log em checkouts POS~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` | ~~HIGH~~ |
+| ~~organizer_id fallback no WebhookController~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` | ~~MEDIUM~~ |
+| ~~Transacao atomica em ParkingController~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` + FOR UPDATE | ~~MEDIUM~~ |
+| ~~Timestamp validation em webhooks~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` +-5min | ~~FAIL~~ |
+| ~~Rejeitar payloads offline sem HMAC~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` | ~~WARN~~ |
+| ~~Validar audience claim no AuthMiddleware~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` aud=enjoyfun-api | ~~WARN~~ |
+| **Rotacionar API keys externas** | Semana 2 | Gemini e OpenAI ainda sao as do historico Git | HIGH |
 | **VALIDATE CONSTRAINT nas FKs NOT VALID** | Semana 2 | Integridade referencial nao retroativa | WARN |
 | **RLS em vendors e otp_codes** | Semana 2 | Gap no defense-in-depth | WARN |
-| **CSP headers em producao (nginx)** | Semana 2 | Sem Content-Security-Policy em prod | FAIL |
+| ~~CSP headers em producao (nginx)~~ | ~~Semana 2~~ | ✅ Resolvido `b63620c` | ~~FAIL~~ |
 | **Redis rate limiting** | Pos-evento | Rate limiting atual e DB-based, Redis e mais performante | LOW |
 | **Cloudflare WAF** | No deploy | Sem protecao de edge | LOW |
 | **jti blacklist (Redis)** | Pos-evento | jti e gerado mas sem blacklist — replay possivel ate expiracao do token | LOW |

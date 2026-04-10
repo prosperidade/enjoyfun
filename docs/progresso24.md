@@ -94,13 +94,14 @@ Sprint focado em preparar o sistema para o primeiro teste real em evento com 500
 
 ### Semana 1 (D-20 a D-14) — Fixes criticos
 
-- [ ] Adicionar AuditService::log em SalesDomainService (checkouts POS)
-- [ ] Remover fallback organizer_id no PaymentWebhookController
-- [ ] Envolver ParkingController::validateParkingTicket em transacao
-- [ ] Adicionar timestamp validation no webhook
-- [ ] Rejeitar payloads offline sem HMAC no backend (SyncController)
-- [ ] Validar audience claim no AuthMiddleware
-- [ ] Adicionar sourcemap:false no vite.config
+- [x] Adicionar AuditService::log em SalesDomainService (checkouts POS) — `b63620c`
+- [x] Remover fallback organizer_id no PaymentWebhookController — `b63620c`
+- [x] Envolver ParkingController::validateParkingTicket em transacao + FOR UPDATE — `b63620c`
+- [x] Adicionar timestamp validation no webhook (+-5min) — `b63620c`
+- [x] Rejeitar payloads offline sem HMAC (frontend throws, backend ja rejeitava em prod) — `b63620c`
+- [x] Validar audience claim no AuthMiddleware (aud='enjoyfun-api') — `b63620c`
+- [x] Adicionar sourcemap:false no vite.config — `b63620c`
+- [x] CSP + security headers no nginx/default.conf — `b63620c`
 - [ ] Substituir icone PWA placeholder
 
 ### Semana 2 (D-14 a D-7) — Hardening operacional
