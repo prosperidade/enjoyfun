@@ -3068,7 +3068,7 @@ export default function ArtistDetail() {
           openAlertsCount={alerts.filter((a) => a.status !== "resolved").length}
           criticalAlertsCount={alerts.filter((a) => a.severity === "red" && a.status !== "resolved").length}
           focusArtistName={artist.stage_name}
-          focusArtistId={artist.id}
+          focusArtistId={currentBooking?.id || artist.id}
         />
       )}
     </div>
