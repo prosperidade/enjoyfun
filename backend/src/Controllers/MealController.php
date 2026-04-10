@@ -910,8 +910,8 @@ function generateExternalMealQr(array $body): void
         // Criar event_participant com QR token
         $qrToken = bin2hex(random_bytes(20));
         $stmtParticipant = $db->prepare("
-            INSERT INTO event_participants (person_id, event_id, category_id, qr_token, created_at)
-            VALUES (:person_id, :event_id, :category_id, :qr_token, NOW())
+            INSERT INTO event_participants (person_id, event_id, category_id, qr_token, organizer_id, created_at)
+            VALUES (:person_id, :event_id, :category_id, :qr_token, :organizer_id, NOW())
             RETURNING id
         ");
         $stmtParticipant->execute([
@@ -919,17 +919,19 @@ function generateExternalMealQr(array $body): void
             ':event_id' => $eventId,
             ':category_id' => $categoryId,
             ':qr_token' => $qrToken,
+            ':organizer_id' => $organizerId,
         ]);
         $participantId = (int)$stmtParticipant->fetchColumn();
 
         // Criar workforce_assignment mínimo (sem setor, sem turno)
         $stmtAssign = $db->prepare("
-            INSERT INTO workforce_assignments (participant_id, role_id, sector, created_at)
-            VALUES (:participant_id, :role_id, 'externo', NOW())
+            INSERT INTO workforce_assignments (participant_id, role_id, sector, organizer_id, created_at)
+            VALUES (:participant_id, :role_id, 'externo', :organizer_id, NOW())
         ");
         $stmtAssign->execute([
             ':participant_id' => $participantId,
             ':role_id' => $roleId,
+            ':organizer_id' => $organizerId,
         ]);
 
         // Mantém max_shifts_event por compatibilidade, mas a validade real do QR externo

@@ -187,21 +187,12 @@ function registerEntry(array $body): void
 
         $qrToken = 'PRK-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
 
-        if (parkingRecordHasOrganizerColumn($db)) {
-            $stmt = $db->prepare("
-                INSERT INTO parking_records (event_id, organizer_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
-                VALUES (?, ?, ?, ?, NULL, 'pending', ?, NOW())
-                RETURNING id, license_plate, qr_token, status
-            ");
-            $stmt->execute([(int)$eventId, $organizerId, $licensePlate, $vehicleType, $qrToken]);
-        } else {
-            $stmt = $db->prepare("
-                INSERT INTO parking_records (event_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
-                VALUES (?, ?, ?, NULL, 'pending', ?, NOW())
-                RETURNING id, license_plate, qr_token, status
-            ");
-            $stmt->execute([(int)$eventId, $licensePlate, $vehicleType, $qrToken]);
-        }
+        $stmt = $db->prepare("
+            INSERT INTO parking_records (event_id, organizer_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
+            VALUES (?, ?, ?, ?, NULL, 'pending', ?, NOW())
+            RETURNING id, license_plate, qr_token, status
+        ");
+        $stmt->execute([(int)$eventId, $organizerId, $licensePlate, $vehicleType, $qrToken]);
         $record = $stmt->fetch(PDO::FETCH_ASSOC);
 
         jsonSuccess($record, "Venda Portaria: Veículo $licensePlate registrado.", 201);

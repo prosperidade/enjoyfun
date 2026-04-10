@@ -201,8 +201,8 @@ function createParticipant(array $body): void
 
         $qrToken = 'PT_' . bin2hex(random_bytes(16));
 
-        $stmtEp = $db->prepare("INSERT INTO event_participants (event_id, person_id, category_id, qr_token, created_at) VALUES (?, ?, ?, ?, NOW()) RETURNING id");
-        $stmtEp->execute([$eventId, $personId, $categoryId, $qrToken]);
+        $stmtEp = $db->prepare("INSERT INTO event_participants (event_id, person_id, category_id, qr_token, organizer_id, created_at) VALUES (?, ?, ?, ?, ?, NOW()) RETURNING id");
+        $stmtEp->execute([$eventId, $personId, $categoryId, $qrToken, $organizerId]);
         $participantId = $stmtEp->fetchColumn();
 
         $db->commit();
@@ -293,8 +293,8 @@ function importParticipants(array $body): void
             
             if (!$stmtCheck->fetchColumn()) {
                 $qrToken = 'PT_' . bin2hex(random_bytes(16));
-                $stmtEp = $db->prepare("INSERT INTO event_participants (event_id, person_id, category_id, qr_token, created_at) VALUES (?, ?, ?, ?, NOW())");
-                $stmtEp->execute([$eventId, $personId, $categoryId, $qrToken]);
+                $stmtEp = $db->prepare("INSERT INTO event_participants (event_id, person_id, category_id, qr_token, organizer_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+                $stmtEp->execute([$eventId, $personId, $categoryId, $qrToken, $organizerId]);
                 $successCount++;
             }
         }
@@ -856,8 +856,8 @@ function migrateLegacyGuests(): void
 
             // 6. Insert into event_participants
             $status = $g['status'] === 'presente' ? 'present' : 'expected';
-            $stmtEp = $db->prepare("INSERT INTO event_participants (event_id, person_id, category_id, status, qr_token, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmtEp->execute([$eventId, $personId, $defaultCategoryId, $status, $g['qr_code_token'], $g['created_at'], $g['updated_at']]);
+            $stmtEp = $db->prepare("INSERT INTO event_participants (event_id, person_id, category_id, status, qr_token, organizer_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtEp->execute([$eventId, $personId, $defaultCategoryId, $status, $g['qr_code_token'], $organizerId, $g['created_at'], $g['updated_at']]);
             $migrated++;
         }
 

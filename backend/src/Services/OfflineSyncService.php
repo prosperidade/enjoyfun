@@ -541,20 +541,11 @@ class OfflineSyncService
         }
 
         $qrToken = 'PRK-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
-        if (self::parkingRecordHasOrganizerColumn($db)) {
-            $stmt = $db->prepare("
-                INSERT INTO parking_records (event_id, organizer_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
-                VALUES (?, ?, ?, ?, NULL, 'pending', ?, NOW())
-            ");
-            $stmt->execute([$eventId, $organizerId, $licensePlate, $vehicleType, $qrToken]);
-            return;
-        }
-
         $stmt = $db->prepare("
-            INSERT INTO parking_records (event_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
-            VALUES (?, ?, ?, NULL, 'pending', ?, NOW())
+            INSERT INTO parking_records (event_id, organizer_id, license_plate, vehicle_type, entry_at, status, qr_token, created_at)
+            VALUES (?, ?, ?, ?, NULL, 'pending', ?, NOW())
         ");
-        $stmt->execute([$eventId, $licensePlate, $vehicleType, $qrToken]);
+        $stmt->execute([$eventId, $organizerId, $licensePlate, $vehicleType, $qrToken]);
     }
 
     private static function processParkingExit(PDO $db, array $operator, array $payload): void

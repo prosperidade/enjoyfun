@@ -302,11 +302,11 @@ function workforceEnsureImportedParticipant(
     if (!$participantId) {
         $qrToken = 'PT_' . bin2hex(random_bytes(16));
         $stmtInsertParticipant = $db->prepare("
-            INSERT INTO event_participants (event_id, person_id, category_id, qr_token, created_at)
-            VALUES (?, ?, ?, ?, NOW())
+            INSERT INTO event_participants (event_id, person_id, category_id, qr_token, organizer_id, created_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
             RETURNING id
         ");
-        $stmtInsertParticipant->execute([$eventId, $personId, $categoryId, $qrToken]);
+        $stmtInsertParticipant->execute([$eventId, $personId, $categoryId, $qrToken, $organizerId]);
         $participantId = (int)$stmtInsertParticipant->fetchColumn();
         $participantCreated = true;
     } else {
@@ -559,11 +559,11 @@ function ensureLeadershipParticipantFromIdentity(
         $categoryId = resolveDefaultCategoryId($db, $organizerId);
         $qrToken = 'PT_' . bin2hex(random_bytes(16));
         $stmtInsertParticipant = $db->prepare("
-            INSERT INTO event_participants (event_id, person_id, category_id, qr_token, created_at)
-            VALUES (?, ?, ?, ?, NOW())
+            INSERT INTO event_participants (event_id, person_id, category_id, qr_token, organizer_id, created_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
             RETURNING id
         ");
-        $stmtInsertParticipant->execute([$eventId, $personId, $categoryId, $qrToken]);
+        $stmtInsertParticipant->execute([$eventId, $personId, $categoryId, $qrToken, $organizerId]);
         $participantId = (int)$stmtInsertParticipant->fetchColumn();
     } else {
         ensureParticipantQrToken($db, $participantId);
