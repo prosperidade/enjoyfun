@@ -37,6 +37,16 @@ function healthDeepCheck(): void
         $checks['redis'] = checkRedis($redisHost);
     }
 
+    // Housekeeping: expire old AI conversation sessions (fire-and-forget)
+    try {
+        require_once BASE_PATH . '/src/Services/AIConversationService.php';
+        $expired = \EnjoyFun\Services\AIConversationService::expireOldSessions(Database::getInstance());
+        $checks['ai_session_cleanup'] = ['status' => 'ok', 'expired' => $expired];
+    } catch (\Throwable $e) {
+        // Non-critical — don't degrade health status
+        $checks['ai_session_cleanup'] = ['status' => 'ok', 'note' => 'skipped'];
+    }
+
     // Determine overall status
     $statuses = array_column($checks, 'status');
     $hasError = in_array('error', $statuses, true);

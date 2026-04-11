@@ -97,6 +97,24 @@ super_admin / admin (André)
 | **Security scan expanded** | `tests/security_scan.sh` | 20 checks estaticos (10 novos cobrindo hardening recente) |
 | **Dockerfile multi-stage** | `Dockerfile` | node:20 + php:8.2-fpm-alpine + nginx, ~150MB |
 | **Seed data staging** | `scripts/seed_staging_data.sql` | 5000 tickets, 200 workforce, 500 sales, idempotente |
+| **AI Agent Registry (DB-driven)** | `AIAgentRegistryService.php` | 12 agentes em `ai_agent_registry`, fallback para hardcoded. Gated por `FEATURE_AI_AGENT_REGISTRY` |
+| **AI Skills Warehouse (DB-driven)** | `AISkillRegistryService.php` | 33 skills em `ai_skill_registry`, import MCP, assign dinâmico. Gated por `FEATURE_AI_SKILL_REGISTRY` |
+| **AI Intent Router** | `AIIntentRouterService.php` | Tier 1 keyword (0 custo LLM) + Tier 2 LLM-assisted. Gated por `FEATURE_AI_INTENT_ROUTER` |
+| **AI Chat Conversacional** | `AIController.php` (POST /ai/chat) | Multi-turn, sessoes 24h, PII scrub, content_type adaptivo. Gated por `FEATURE_AI_CHAT` |
+| **AI Conversation Sessions** | `AIConversationService.php` | Sessoes com organizer_id isolation, 100 msgs/sessao, auto-expire |
+| **RLS AI v2** | `database/064_rls_ai_v2_tables.sql` | RLS em ai_conversation_sessions + ai_conversation_messages |
+| **UI Simplificada (AI-first)** | `AIAssistants.jsx` + `UnifiedAIChat.jsx` | Chat flutuante global, cards amigaveis, zero jargao tecnico. Gated por `VITE_FEATURE_AI_V2_UI` |
+| **Adaptive UI Engine** | `AdaptiveResponseService.php` + `AdaptiveUIRenderer.{jsx,tsx}` | 10 tipos de bloco (insight/chart/table/card_grid/actions/text/timeline/lineup/map/image) retornados em `POST /ai/chat`. Gated por `FEATURE_ADAPTIVE_UI` |
+| **App nativo Expo (iOS+Android)** | `enjoyfun-app/` | Expo SDK 52 + TS, ChatScreen + 10 blocks RN, biometria real, EventContext com seletor de evento, EAS Build (TestFlight + APK) |
+| **PWA instalavel** | `frontend/vite.config.js` + `Download.jsx` | Manifest endurecido, `/baixar` com deteccao de plataforma e 3 CTAs (App Store / Play / Install PWA) |
+| **Auth mobile (X-Client header)** | `AuthController.php` | Backend detecta `X-Client: mobile`, devolve JWT no body para mobile (SecureStore). Web continua HttpOnly |
+| **i18n global (pt/en/es)** | `lib/i18n.{ts,js}` + `aiResolveLocaleLanguage()` | Locale detectado via `Intl.DateTimeFormat`/`navigator.language`, enviado em `context.locale`, backend injeta system message forcando LLM a responder no idioma. 15 idiomas mapeados |
+| **Auto-welcome zero-typing** | `ChatScreen.tsx` + `UnifiedAIChat.jsx` | Primeira abertura dispara pergunta localizada automaticamente, usuario ve lineup+timeline+map sem digitar |
+| **Voz nativa (STT + TTS)** | `enjoyfun-app/src/lib/voice.ts` | Botao mic no ChatInput grava via expo-audio → Whisper → envia. Toggle TTS no header com auto-speak em cada resposta. Cleanup no unmount |
+| **App nativo ao vivo (Expo Go)** | `enjoyfun-app/` | Primeiro chat ponta-a-ponta mobile → PHP 8.4 → OpenAI funcionando 2026-04-10. Login + chat + voz + event selector + i18n |
+| **Runbook PHP 8.4 Windows** | `docs/runbook_local.md` secao 1.1 | PHP 8.5.1 bandido por bug do dispatcher, setup completo do 8.4 + cacert documentado |
+| **Event selector global (web)** | `frontend/src/context/EventScopeContext.jsx` | Carrega lista de eventos, auto-select, dropdown no chat flutuante. Fix do R$0 no dashboard sem evento |
+| **Adaptive prompt engineering** | `AIPromptCatalogService::adaptiveResponseContract()` | System prompt instrui LLM a invocar tools de dados e deixar blocos visuais renderizarem as metricas em vez de texto |
 
 ### 🟡 PENDÊNCIAS DE SEGURANÇA (pré-evento real ~2026-04-29)
 
@@ -109,6 +127,9 @@ super_admin / admin (André)
 | ~~Rejeitar payloads offline sem HMAC~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` | ~~WARN~~ |
 | ~~Validar audience claim no AuthMiddleware~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` aud=enjoyfun-api | ~~WARN~~ |
 | **Rotacionar API keys externas** | Semana 2 | Gemini e OpenAI ainda sao as do historico Git | HIGH |
+| **Rotacionar pgcrypto key de `organizer_ai_providers`** | Pre D-Day | `decrypt` falha pro openai/org 2 com "Assinatura do payload cifrado invalida". Fallback env cobre mas vaza warning no log a cada /ai/chat | MEDIUM |
+| **Mover Whisper para endpoint backend** | Pos D-Day | `EXPO_PUBLIC_OPENAI_KEY` vaza no bundle JS do mobile. APK decompilavel expoe a chave | HIGH |
+| **Ticket upstream PHP 8.5.1 dispatcher bug** | Pos D-Day | Windows NTS x64 + `php -S` + `extension=curl` corrompe function table. Reproducer em `docs/runbook_local.md` secao 1.1 | LOW |
 | ~~VALIDATE CONSTRAINT nas FKs NOT VALID~~ | ~~Semana 2~~ | ✅ Resolvido migration 060 `2671d2f` | ~~WARN~~ |
 | ~~RLS em vendors e otp_codes~~ | ~~Semana 2~~ | ✅ Resolvido migration 061 `2671d2f` | ~~WARN~~ |
 | ~~CSP headers em producao (nginx)~~ | ~~Semana 2~~ | ✅ Resolvido `b63620c` | ~~FAIL~~ |
@@ -122,7 +143,7 @@ super_admin / admin (André)
 
 **PostgreSQL 18.2 | DB: `enjoyfun` | host: 127.0.0.1:5432 | user: postgres**
 
-### Migrations versionadas até 061
+### Migrations versionadas até 064
 
 | Faixa | Conteúdo |
 |-------|---------|
@@ -149,6 +170,8 @@ super_admin / admin (André)
 | 057 | Organizer file hub (AI document parsing) |
 | 058 | Schema foundation para auth_rate_limits |
 | 059 | Schema tenancy follow-up (`audit_log`, `ticket_types`, `events`) |
+| 062 | AI Agent Registry + Skills Warehouse + Conversation Sessions (5 tabelas, 12 agentes, 33 skills) |
+| 064 | RLS policies para ai_conversation_sessions + ai_conversation_messages |
 
 **Pendências de banco:**
 - Migration `009`: não aplicada (escopo reduzido ao seguro)
@@ -156,7 +179,7 @@ super_admin / admin (André)
 - Drift replay suportado: janela `039..059` provada; `034..038` com divergência pendente de reconciliação
 
 ### Tabelas com `organizer_id` (multi-tenant ativo):
-`events` · `products` · `sales` · `tickets` · `ticket_types` · `digital_cards` · `parking_records` · `users` · `guests` · `event_participants` · `event_days` · `event_shifts` · `event_meal_services` · `workforce_assignments` · `workforce_roles` · `workforce_event_roles` · `participant_meals` · `ai_usage_logs` · `audit_log` · `card_issue_batches` · `refresh_tokens` · `vendors` · `organizer_mcp_servers` · `organizer_mcp_server_tools` · `organizer_files` · `organizer_ai_providers` · `organizer_ai_agents` · `ai_agent_executions` · `ai_agent_memories` · `ai_event_reports`
+`events` · `products` · `sales` · `tickets` · `ticket_types` · `digital_cards` · `parking_records` · `users` · `guests` · `event_participants` · `event_days` · `event_shifts` · `event_meal_services` · `workforce_assignments` · `workforce_roles` · `workforce_event_roles` · `participant_meals` · `ai_usage_logs` · `audit_log` · `card_issue_batches` · `refresh_tokens` · `vendors` · `organizer_mcp_servers` · `organizer_mcp_server_tools` · `organizer_files` · `organizer_ai_providers` · `organizer_ai_agents` · `ai_agent_executions` · `ai_agent_memories` · `ai_event_reports` · `ai_conversation_sessions` · `ai_conversation_messages`
 
 ### Regra de Ouro — NUNCA violar:
 ```sql
@@ -264,7 +287,11 @@ enjoyfun/
 │   │   ├── MetricsDefinitionService.php ✅
 │   │   ├── OrganizerMessagingConfigService.php ✅
 │   │   ├── ProductService.php         ✅
-│   │   └── AIMCPClientService.php     ✅ MCP discover + execute + catalog merge
+│   │   ├── AIMCPClientService.php     ✅ MCP discover + execute + catalog merge
+│   │   ├── AIAgentRegistryService.php ✅ Agent Registry DB-driven (gated FEATURE_AI_AGENT_REGISTRY)
+│   │   ├── AISkillRegistryService.php ✅ Skills Warehouse DB-driven (gated FEATURE_AI_SKILL_REGISTRY)
+│   │   ├── AIIntentRouterService.php  ✅ Tier 1 keyword + Tier 2 LLM routing
+│   │   └── AIConversationService.php  ✅ Multi-turn sessions, 24h expiry, PII scrub
 │   ├── Helpers/
 │   │   ├── JWT.php                    ✅ RS256 com chaves PEM (evoluído de HS256)
 │   │   ├── Response.php               ✅
@@ -311,7 +338,9 @@ enjoyfun/
     ├── progresso1..9.md               ✅ Histórico de pesquisa
     ├── progresso10.md                 ✅ Diário de rodadas anteriores
     ├── progresso18.md                 ✅ Diário (Sprint 1 governance)
-    ├── progresso19.md                 ✅ Diário ativo (Hub de IA Multi-Agentes)
+    ├── progresso19.md                 ✅ Diário (Hub de IA Multi-Agentes)
+    ├── progresso24.md                 ✅ Diário (Readiness Sprint pré-evento real)
+    ├── progresso25.md                 ✅ Diário ativo (Sprint AI v2 — Registry, Skills, Chat)
     └── qa/                            ✅ Playbooks e coleções Postman
 ```
 
@@ -339,6 +368,9 @@ enjoyfun/
 | IA (insights setoriais) | ✅ Hardened | Rate limiting, prompt sanitization, PII scrub, spending caps |
 | Health Check | ✅ Real | Deep check + métricas (não mais dummy) |
 | Agents Hub | ✅ Implementado | 12 agentes, 33+ tools, prompts profissionais, approval workflow |
+| AI V2 (Agent Registry) | ✅ Implementado | DB-driven agents/skills, pluggable. Gated por feature flags |
+| AI V2 (Chat Conversacional) | ✅ Implementado | POST /ai/chat, multi-turn, IntentRouter, PII scrub, RLS |
+| AI V2 (UI Simplificada) | ✅ Implementado | UnifiedAIChat flutuante, AIAssistants cards, zero jargao |
 | Embedded Support Bot | ✅ Parcial | ArtistAIAssistant embarcado. WorkforceAI, ParkingAI, POS existentes |
 | MCP Server Integration | ✅ Foundation | CRUD + discovery + tool execution + merge no catalog |
 | Organizer File Hub | ✅ Foundation | Upload, auto-parse CSV/JSON, UI /files, agente documents |
@@ -479,7 +511,8 @@ REGRAS INVIOLÁVEIS:
 |-----------|---------|
 | `docs/diagnostico.md` | Deve continuar alinhado com o estado real do código |
 | `docs/progresso19.md` | Diário — Hub de IA Multi-Agentes (overhaul completo) |
-| `docs/progresso24.md` | Diário ativo — Readiness Sprint + Auditoria Pre-Evento Real |
+| `docs/progresso24.md` | Diário — Readiness Sprint + Auditoria Pre-Evento Real |
+| `docs/progresso25.md` | Diário ativo — Sprint AI v2 (Agent Registry, Skills Warehouse, Chat Conversacional, UI AI-first) |
 
 Auditorias técnicas entram por `docs/auditorias.md`; arquivos legados estão em `docs/archive/root_legacy/`.
 

@@ -2357,6 +2357,7 @@ final class AIContextBuilderService
 
         // --- Focused artist detail (if event_artist_id provided) ---
         $focusArtistId = (int)($context['event_artist_id'] ?? ($context['artist_id'] ?? 0));
+        error_log("[AIContextBuilder] focus_artist_id={$focusArtistId}, event_id={$eventId}, organizer_id={$organizerId}, raw_event_artist_id=" . json_encode($context['event_artist_id'] ?? 'NOT_SET'));
         $context['focus_artist_name'] = null;
         $context['focus_artist_id'] = $focusArtistId > 0 ? $focusArtistId : null;
         $context['focus_artist_detail'] = [];
@@ -2374,6 +2375,7 @@ final class AIContextBuilderService
             ");
             $stmt->execute([':eaid' => $focusArtistId, ':org' => $organizerId, ':evt' => $eventId]);
             $focusArtist = $stmt->fetch(\PDO::FETCH_ASSOC);
+            error_log("[AIContextBuilder] focusArtist found=" . ($focusArtist ? 'YES: ' . ($focusArtist['stage_name'] ?? '?') : 'NO'));
 
             if ($focusArtist) {
                 $context['focus_artist_name'] = $focusArtist['stage_name'] ?? null;
@@ -2417,6 +2419,7 @@ final class AIContextBuilderService
                     'alerts' => $focusAlerts,
                     'team' => $focusTeam,
                 ];
+                error_log("[AIContextBuilder] focus_artist_detail keys=" . implode(',', array_keys($context['focus_artist_detail'])) . " logistics=" . ($focusLogistics ? 'YES' : 'NULL') . " team_count=" . count($focusTeam) . " items_count=" . count($focusItems));
             }
         }
 

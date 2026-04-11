@@ -883,10 +883,19 @@ function authClientIp(): string
     return '';
 }
 
+function authIsMobileClient(): bool
+{
+    // Native apps cannot share a browser cookie jar — SecureStore (Keychain/Keystore)
+    // is the secure transport for them. Web continues to use HttpOnly cookies.
+    $hdr = strtolower(trim((string)($_SERVER['HTTP_X_CLIENT'] ?? '')));
+    return in_array($hdr, ['mobile', 'ios', 'android', 'expo'], true);
+}
+
 function authShouldUseRefreshCookie(): bool
 {
-    // SECURITY: In production, ALWAYS use HttpOnly cookie — no opt-out allowed.
-    // Body transport is only permitted in development (Postman/legacy tooling).
+    if (authIsMobileClient()) {
+        return false;
+    }
     if (!isDevelopmentEnvironment()) {
         return true;
     }
@@ -896,10 +905,9 @@ function authShouldUseRefreshCookie(): bool
 
 function authShouldUseAccessCookie(): bool
 {
-    // SECURITY: In production, ALWAYS use HttpOnly cookie — no opt-out allowed.
-    // Body transport (AUTH_ACCESS_COOKIE_MODE=0) is only permitted in development
-    // to support Postman/legacy tooling. In production, tokens NEVER go in the
-    // JSON body, preventing exposure via sessionStorage or JS access.
+    if (authIsMobileClient()) {
+        return false;
+    }
     if (!isDevelopmentEnvironment()) {
         return true;
     }

@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import api from "../lib/api";
+import { useAuth } from "./AuthContext";
 
 const EventScopeContext = createContext(null);
 
@@ -94,6 +96,9 @@ function writeStoredEventId(eventId) {
 export function EventScopeProvider({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [events, setEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
   const [eventId, setEventIdState] = useState(() => {
     if (typeof window === "undefined") {
       return "";
@@ -105,6 +110,51 @@ export function EventScopeProvider({ children }) {
 
     return routeEventId || readStoredEventId();
   });
+
+  // Load events list once authenticated. Events list drives the header dropdown
+  // and the auto-select default so the AI chat never falls back to aggregated
+  // (empty) metrics on the dashboard.
+  useEffect(() => {
+    if (!user) {
+      setEvents([]);
+      return;
+    }
+    let cancelled = false;
+    setEventsLoading(true);
+    api
+      .get("/events", { params: { per_page: 100 } })
+      .then((r) => {
+        if (cancelled) return;
+        const payload = r?.data?.data;
+        const list = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.events)
+            ? payload.events
+            : [];
+        setEvents(list);
+        if (!eventId && list.length > 0) {
+          const firstId = normalizeEventId(list[0].id);
+          if (firstId) {
+            setEventIdState(firstId);
+            writeStoredEventId(firstId);
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      })
+      .finally(() => {
+        if (!cancelled) setEventsLoading(false);
+      });
+    return () => { cancelled = true; };
+    // eventId intentionally excluded — we only auto-select on first load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const activeEvent = useMemo(
+    () => events.find((e) => String(e.id) === String(eventId)) ?? null,
+    [events, eventId],
+  );
 
   const setEventId = useCallback((value, options = {}) => {
     const nextEventId = normalizeEventId(value);
@@ -192,7 +242,10 @@ export function EventScopeProvider({ children }) {
     hasEventId: Boolean(eventId),
     isEventScopedPath,
     setEventId,
-  }), [buildScopedPath, eventId, setEventId]);
+    events,
+    eventsLoading,
+    activeEvent,
+  }), [buildScopedPath, eventId, setEventId, events, eventsLoading, activeEvent]);
 
   return (
     <EventScopeContext.Provider value={value}>

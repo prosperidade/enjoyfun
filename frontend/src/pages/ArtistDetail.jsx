@@ -19,6 +19,9 @@ import api from "../lib/api";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import ArtistAIAssistant from "../components/ArtistAIAssistant";
+import AIChatTrigger from "../components/AIChatTrigger";
+
+const AI_V2_UI_ENABLED = import.meta.env.VITE_FEATURE_AI_V2_UI === 'true';
 import { useEventScope } from "../context/EventScopeContext";
 import {
   ALERT_SEVERITY_META,
@@ -3059,17 +3062,30 @@ export default function ArtistDetail() {
       )}
 
       {scopedEventId && artist && (
-        <ArtistAIAssistant
-          eventId={scopedEventId}
-          artistsTotal={1}
-          confirmedCount={currentBooking?.booking_status === "confirmed" ? 1 : 0}
-          pendingCount={currentBooking?.booking_status === "pending" ? 1 : 0}
-          totalCost={Number(currentBooking?.cache_amount || 0) + Number(currentLogisticsCost || 0)}
-          openAlertsCount={alerts.filter((a) => a.status !== "resolved").length}
-          criticalAlertsCount={alerts.filter((a) => a.severity === "red" && a.status !== "resolved").length}
-          focusArtistName={artist.stage_name}
-          focusArtistId={currentBooking?.id || artist.id}
-        />
+        AI_V2_UI_ENABLED ? (
+          <AIChatTrigger
+            title={`Assistente de ${artist.stage_name}`}
+            description="Pergunte sobre logistica, timeline, alertas, custos e equipe deste artista."
+            agentKey="artists"
+            surface="artists"
+            context={{
+              event_artist_id: currentBooking?.id || artist.id,
+              focus_artist_name: artist.stage_name,
+            }}
+          />
+        ) : (
+          <ArtistAIAssistant
+            eventId={scopedEventId}
+            artistsTotal={1}
+            confirmedCount={currentBooking?.booking_status === "confirmed" ? 1 : 0}
+            pendingCount={currentBooking?.booking_status === "pending" ? 1 : 0}
+            totalCost={Number(currentBooking?.cache_amount || 0) + Number(currentLogisticsCost || 0)}
+            openAlertsCount={alerts.filter((a) => a.status !== "resolved").length}
+            criticalAlertsCount={alerts.filter((a) => a.severity === "red" && a.status !== "resolved").length}
+            focusArtistName={artist.stage_name}
+            focusArtistId={currentBooking?.id || artist.id}
+          />
+        )
       )}
     </div>
   );

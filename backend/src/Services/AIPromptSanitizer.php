@@ -36,9 +36,12 @@ final class AIPromptSanitizer
         // Trim whitespace
         $clean = trim($clean);
 
-        // Enforce max length
-        if (mb_strlen($clean) > self::MAX_QUESTION_LENGTH) {
-            $clean = mb_substr($clean, 0, self::MAX_QUESTION_LENGTH);
+        // Enforce max length (use mbstring if available, fallback to byte-safe)
+        $len = function_exists('mb_strlen') ? mb_strlen($clean) : strlen($clean);
+        if ($len > self::MAX_QUESTION_LENGTH) {
+            $clean = function_exists('mb_substr')
+                ? mb_substr($clean, 0, self::MAX_QUESTION_LENGTH)
+                : substr($clean, 0, self::MAX_QUESTION_LENGTH);
         }
 
         // Reject empty input after sanitization

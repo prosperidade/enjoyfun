@@ -44,7 +44,7 @@ const nav = [
   {
     to: "/analytics",
     icon: BarChart3,
-    label: "Dashboard Analítico",
+    label: "Relatórios",
     roles: ["admin", "organizer"],
   },
   {
@@ -63,31 +63,31 @@ const nav = [
   {
     to: "/scanner",
     icon: Scan,
-    label: "Scanner",
+    label: "Credenciamento",
     roles: ["admin", "organizer", "staff"],
   },
   {
     to: "/participants",
     icon: Briefcase,
-    label: "Participants Hub",
+    label: "Público e Participantes",
     roles: ["admin", "organizer", "manager", "staff"],
   },
   {
     to: "/artists",
     icon: MicVocal,
-    label: "Artistas",
+    label: "Artistas / Lineup",
     roles: ["admin", "organizer", "manager", "staff"],
   },
   {
     to: "/artists/import",
     icon: Upload,
-    label: "Importar Artistas",
+    label: "Importar Lineup",
     roles: ["admin", "organizer", "manager"],
   },
   {
     to: "/meals-control",
     icon: UtensilsCrossed,
-    label: "Meals Control",
+    label: "Controle de Refeições",
     roles: ["admin", "organizer", "manager", "staff"],
   },
   {
@@ -106,9 +106,9 @@ const nav = [
       { to: "/finance/settings",  label: "Configurações",  icon: Settings    },
     ],
   },
-  { to: "/cards", icon: CreditCard, label: "Cartão Digital", roles: [] },
+  { to: "/cards", icon: CreditCard, label: "Cashless", roles: [] },
   {
-    label: "Vendas (PDV)",
+    label: "Vendas no Local",
     icon: ShoppingCart,
     roles: ["admin", "organizer", "bartender", "staff"],
     isParent: true,
@@ -128,13 +128,13 @@ const nav = [
   {
     to: "/messaging",
     icon: MessageCircle,
-    label: "Mensageria",
+    label: "Comunicação",
     roles: ["admin", "organizer"],
   },
   {
     to: "/ai",
     icon: Bot,
-    label: "Agentes de IA",
+    label: import.meta.env.VITE_FEATURE_AI_V2_UI === 'true' ? "Assistente IA" : "Agentes de IA",
     roles: ["admin", "organizer"],
   },
   {
@@ -146,7 +146,7 @@ const nav = [
   {
     to: "/users",
     icon: Users,
-    label: "Usuários",
+    label: "Equipe e Acessos",
     roles: ["admin", "organizer"],
   },
 ];

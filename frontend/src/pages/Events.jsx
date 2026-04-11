@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "../lib/api";
+import EventTemplateSelector from "../components/EventTemplateSelector";
 import {
   CalendarDays,
   Plus,
@@ -49,6 +50,7 @@ function createEmptyEventForm() {
     status: "draft",
     capacity: "",
     event_timezone: getBrowserTimeZone(),
+    event_type: "",
   };
 }
 
@@ -551,6 +553,7 @@ export default function Events() {
   const payload = {
       ...form,
       capacity: form.capacity === "" ? 0 : Number(form.capacity),
+      event_type: form.event_type || null,
       commercial_config: {
         ticket_types: ticketTypesForSave.map(serializeTicketType),
         batches: batchesForSave.map(serializeBatch),
@@ -643,6 +646,15 @@ export default function Events() {
             </div>
           ) : (
             <form onSubmit={handleSaveEvent} className="space-y-6">
+              {/* Template Selector — only for new events */}
+              {!editingEventId && (
+                <EventTemplateSelector
+                  selected={form.event_type}
+                  onSelect={(key) => setForm((f) => ({ ...f, event_type: key }))}
+                  disabled={saving}
+                />
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className="input-label">Nome do Evento *</label>

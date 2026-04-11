@@ -34,6 +34,9 @@ const WorkforceCardIssuanceModal = lazy(() => import("./WorkforceCardIssuanceMod
 const WorkforceRoleSettingsModal = lazy(() => import("./WorkforceRoleSettingsModal"));
 const WorkforceSectorCostsModal = lazy(() => import("./WorkforceSectorCostsModal"));
 const WorkforceAIAssistant = lazy(() => import("../../components/WorkforceAIAssistant"));
+const AIChatTrigger = lazy(() => import("../../components/AIChatTrigger"));
+
+const AI_V2_UI_ENABLED = import.meta.env.VITE_FEATURE_AI_V2_UI === 'true';
 
 const normalizeSector = (value = "") =>
   String(value || "")
@@ -1648,31 +1651,44 @@ export default function WorkforceOpsTab({ eventId }) {
         ) : null}
 
         <Suspense fallback={null}>
-        <WorkforceAIAssistant
-          eventId={eventId}
-          assignmentsTotal={Number(treeStatus?.assignments_total || assignments.length || 0)}
-          missingBindings={Number(treeStatus?.assignments_missing_bindings || 0)}
-          managerRootsCount={Number(treeStatus?.manager_roots_count || managerRows.length || 0)}
-          selectedManagerName={selectedManager?.person_name || selectedManager?.name || ""}
-          selectedManagerRoleName={selectedManager?.role_name || ""}
-          selectedManagerEventRoleId={selectedManager?.event_role_id || null}
-          selectedManagerRootEventRoleId={
-            selectedManager?.root_event_role_id || selectedManager?.event_role_id || null
-          }
-          selectedManagerRoleClass={selectedManager?.role_class || ""}
-          selectedManagerSector={selectedManagerSector}
-          selectedManagerPlannedTeamSize={selectedManagerPlannedTeamSize}
-          selectedManagerFilledTeamSize={selectedManagerFilledTeamSize}
-          selectedManagerLeadershipTotal={selectedManagerLeadershipTotal}
-          selectedManagerLeadershipFilledTotal={selectedManagerLeadershipFilledTotal}
-          selectedManagerOperationalTotal={selectedManagerOperationalTotal}
-          selectedTeamMembersLoaded={teamMembers.length}
-          eventStructure={eventStructure}
-          treeUsable={Boolean(treeStatus?.tree_usable)}
-          loadedFromSnapshot={loadedFromSnapshot}
-          healthStatusLabel={operationalHealthStatus.label}
-          syncFailureRate={syncFailureRate}
-        />
+          {AI_V2_UI_ENABLED ? (
+            <AIChatTrigger
+              title="Assistente da equipe"
+              description={`Pergunte sobre cobertura, lacunas, lideranças e binds da equipe deste evento. ${Number(treeStatus?.assignments_total || assignments.length || 0)} pessoas, ${Number(treeStatus?.manager_roots_count || managerRows.length || 0)} liderancas.`}
+              agentKey="logistics"
+              surface="workforce"
+              context={{
+                selected_manager_event_role_id: selectedManager?.event_role_id || null,
+                selected_manager_sector: selectedManagerSector,
+              }}
+            />
+          ) : (
+            <WorkforceAIAssistant
+              eventId={eventId}
+              assignmentsTotal={Number(treeStatus?.assignments_total || assignments.length || 0)}
+              missingBindings={Number(treeStatus?.assignments_missing_bindings || 0)}
+              managerRootsCount={Number(treeStatus?.manager_roots_count || managerRows.length || 0)}
+              selectedManagerName={selectedManager?.person_name || selectedManager?.name || ""}
+              selectedManagerRoleName={selectedManager?.role_name || ""}
+              selectedManagerEventRoleId={selectedManager?.event_role_id || null}
+              selectedManagerRootEventRoleId={
+                selectedManager?.root_event_role_id || selectedManager?.event_role_id || null
+              }
+              selectedManagerRoleClass={selectedManager?.role_class || ""}
+              selectedManagerSector={selectedManagerSector}
+              selectedManagerPlannedTeamSize={selectedManagerPlannedTeamSize}
+              selectedManagerFilledTeamSize={selectedManagerFilledTeamSize}
+              selectedManagerLeadershipTotal={selectedManagerLeadershipTotal}
+              selectedManagerLeadershipFilledTotal={selectedManagerLeadershipFilledTotal}
+              selectedManagerOperationalTotal={selectedManagerOperationalTotal}
+              selectedTeamMembersLoaded={teamMembers.length}
+              eventStructure={eventStructure}
+              treeUsable={Boolean(treeStatus?.tree_usable)}
+              loadedFromSnapshot={loadedFromSnapshot}
+              healthStatusLabel={operationalHealthStatus.label}
+              syncFailureRate={syncFailureRate}
+            />
+          )}
         </Suspense>
 
         {activeOverviewTab === "operation" && (

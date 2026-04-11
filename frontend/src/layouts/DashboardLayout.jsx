@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import OfflineQueueReconciliationPanel from '../components/OfflineQueueReconciliationPanel';
+import UnifiedAIChat from '../components/UnifiedAIChat';
 import { useAuth } from '../context/AuthContext';
+import { useEventScope } from '../context/EventScopeContext';
 import { useNetwork } from '../hooks/useNetwork';
 import { Menu, LogOut, Zap, Bell, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
 export default function DashboardLayout() {
   const { user, logout } = useAuth();
   const { isOnline, isSyncing } = useNetwork();
+  const { eventId } = useEventScope();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
@@ -99,8 +102,13 @@ export default function DashboardLayout() {
             <Outlet />
           </div>
         </main>
-        
+
       </div>
+
+      {/* Unified AI Chat — floating widget */}
+      {import.meta.env.VITE_FEATURE_AI_V2_UI === 'true' && (
+        <UnifiedAIChat eventId={eventId} />
+      )}
     </div>
   );
 }

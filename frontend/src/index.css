@@ -6,8 +6,12 @@
 ═══════════════════════════════════════════════════ */
 
 :root {
-  --color-primary: #7C3AED;
+  --color-primary: #A78BFA;
+  --color-primary-strong: #8B5CF6;
   --color-secondary: #DB2777;
+  --color-bg: #1A0B2E;
+  --color-surface: #2A1750;
+  --color-surface-alt: #231445;
 }
 
 /* ── Utilitários de Marca (White Label) ───────────── */
@@ -24,8 +28,8 @@
   box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 55%, transparent);
 }
 
-.sidebar-bg { background-color: #030712; }
-.sidebar-border { border-color: #1f2937; }
+.sidebar-bg { background-color: var(--color-bg); }
+.sidebar-border { border-color: color-mix(in srgb, var(--color-primary) 18%, transparent); }
 
 .nav-active-brand {
   background-color: color-mix(in srgb, var(--color-primary) 16%, transparent) !important;
@@ -47,31 +51,31 @@
 
 /* ── Base ─────────────────────────────────────────── */
 body {
-  background-color: #030712;  /* gray-950 - Mantido escuro para o Dark Mode */
+  background-color: var(--color-bg);
   color: #f9fafb;
   font-family: Inter, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 *::-webkit-scrollbar { width: 6px; }
-*::-webkit-scrollbar-track { background: #111827; }
-*::-webkit-scrollbar-thumb { 
-  background: var(--color-primary); 
-  border-radius: 9999px; 
+*::-webkit-scrollbar-track { background: var(--color-surface-alt); }
+*::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 9999px;
 }
 
 /* ── Cards (Borda agora absorve 20% da Cor Primária) ── */
 .card {
-  background-color: #111827;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, #1f2937);
+  background-color: var(--color-surface);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, transparent);
   border-radius: 1rem;
   box-shadow: 0 20px 25px -5px rgba(0,0,0,0.4), 0 8px 10px -6px rgba(0,0,0,0.3);
   padding: 1.5rem;
 }
 
 .card-hover {
-  background-color: #111827;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, #1f2937);
+  background-color: var(--color-surface);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, transparent);
   border-radius: 1rem;
   box-shadow: 0 20px 25px -5px rgba(0,0,0,0.4);
   padding: 1.5rem;

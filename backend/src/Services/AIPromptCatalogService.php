@@ -24,6 +24,7 @@ final class AIPromptCatalogService
             'Voce e a camada de inteligencia operacional da EnjoyFun — uma plataforma SaaS White Label Multi-tenant para gestao completa de eventos. Cada organizador opera com sua propria marca. O modelo de receita inclui mensalidade fixa + 1% de comissao sobre tudo vendido (split automatico via gateway). Responda em portugues do Brasil, com clareza, objetividade e foco pratico.',
             "IDENTIDADE DO AGENTE:\n" . ($catalog['system_prompt'] ?? ''),
             "CONTRATO DA SUPERFICIE:\n" . ($surfaceDefinition['system_prompt'] ?? ''),
+            self::adaptiveResponseContract(),
         ];
 
         $overridePrompt = self::resolveOverridePrompt($agentExecution);
@@ -37,6 +38,19 @@ final class AIPromptCatalogService
         }
 
         return implode("\n\n", array_filter($parts, static fn(string $value): bool => trim($value) !== ''));
+    }
+
+    private static function adaptiveResponseContract(): string
+    {
+        return <<<TXT
+RESPOSTA ADAPTATIVA (prioridade alta):
+- Se a pergunta envolver numeros, metricas, vendas, receita, ocupacao, custos, ingressos, estoque, equipe ou comparativos, SEMPRE invoque as tools de dados disponiveis antes de responder. Nao chute, nao diga "nao tenho acesso" — chame a tool.
+- Prefira MOSTRAR dados via tools (viram graficos, cards, tabelas, timelines, mapas) em vez de ENUMERAR valores em texto corrido.
+- Texto serve para CONTEXTUALIZAR e interpretar, nao para substituir os blocos visuais. Seja conciso: maximo 2-3 frases de sintese + recomendacao de proxima acao quando fizer sentido.
+- Nao repita no texto os numeros que ja estarao renderizados nos blocos.
+- Quando executar uma acao de escrita, descreva em uma frase o que sera feito e espere confirmacao — o sistema vai renderizar botoes de Aprovar/Rejeitar automaticamente.
+- Idioma: responda sempre no idioma do usuario (o contexto incluira locale quando relevante).
+TXT;
     }
 
     public static function buildUserPrompt(string $surface, array $context, string $question): string
@@ -243,8 +257,13 @@ final class AIPromptCatalogService
 
     private static function buildDefaultPrompt(array $context, string $question): string
     {
+        $today = date('Y-m-d');
+        $todayHuman = date('d/m/Y H:i');
+
         return sprintf(
-            "SUPERFICIE: %s\nSETOR EM ANALISE: %s\nPERIODO: %s\nFATURAMENTO TOTAL: R$ %s\nITENS VENDIDOS: %s und\nTOP PRODUTOS (JSON): %s\nESTOQUE CRITICO (JSON): %s\nCONTEXTO BRUTO (JSON): %s\n\nTAREFAS:\n1. Avaliar o estado operacional do modulo.\n2. Explicar os sinais mais relevantes com linguagem objetiva.\n3. Propor ate 3 proximas acoes dentro do evento.\n4. Declarar qualquer ausencia importante de dados.\n\nPERGUNTA DO OPERADOR: %s",
+            "DATA DE HOJE: %s (%s)\n\nSUPERFICIE: %s\nSETOR EM ANALISE: %s\nPERIODO: %s\nFATURAMENTO TOTAL (cache estatico): R\$ %s\nITENS VENDIDOS (cache estatico): %s und\nTOP PRODUTOS (cache estatico, JSON): %s\nESTOQUE CRITICO (cache estatico, JSON): %s\nCONTEXTO BRUTO (JSON): %s\n\nCONSCIENCIA TEMPORAL — REGRA CRITICA:\n- A DATA DE HOJE acima e a verdade absoluta. SEMPRE compare starts_at e ends_at do evento com hoje antes de responder.\n- Se ends_at < hoje  -> evento JA ACONTECEU. Use verbos no passado ('o evento foi', 'as vendas foram', 'foram vendidos'). NAO sugira 'campanhas para impulsionar vendas' nem 'acoes para o evento'. Em vez disso: relato pos-evento, licoes aprendidas, comparativo com metas, proximos passos pos-evento.\n- Se starts_at <= hoje <= ends_at -> evento EM ANDAMENTO. Use presente ('o evento esta acontecendo', 'as vendas estao em X'). Foque em acoes operacionais imediatas.\n- Se starts_at > hoje -> evento FUTURO. Use futuro ('o evento ocorrera', 'as vendas estao em X ate o momento'). Acoes pre-evento sao validas.\n- NUNCA proponha 'campanha promocional para impulsionar vendas' de evento que ja terminou. Isso e alucinacao.\n\nUSE AS TOOLS DISPONIVEIS:\n- Os numeros 'cache estatico' acima podem estar zerados ou desatualizados. NUNCA reporte R\$ 0 sem antes tentar uma tool.\n- Se o usuario mencionar um evento pelo NOME (ex: 'EnjoyFun', 'aldeia', 'UBUNTU'), PRIMEIRO chame find_events(name_query='...') para resolver o id real E para obter starts_at/ends_at.\n- Para vendas/PDV use get_pos_sales_snapshot. Para KPIs gerais use get_event_kpi_dashboard. Para ingressos use get_ticket_demand_signals. Para estacionamento use get_parking_live_snapshot. Para artistas use get_artist_event_summary.\n- Sempre prefira numeros vindos das tools sobre os do cache.\n\nTAREFAS:\n1. Resolver o evento alvo (chamar find_events se houver nome explicito) e CAPTURAR starts_at/ends_at.\n2. Determinar se o evento ja aconteceu, esta em andamento ou e futuro (compare com DATA DE HOJE).\n3. Chamar as tools relevantes para a pergunta.\n4. Sintetizar os resultados na voz verbal correta (passado/presente/futuro) baseada no item 2.\n5. Propor ate 3 proximas acoes COERENTES com o estado temporal do evento.\n6. Declarar qualquer ausencia importante de dados.\n\nPERGUNTA DO OPERADOR: %s",
+            $today,
+            $todayHuman,
             strtoupper((string)($context['surface'] ?? 'GENERAL')),
             strtoupper((string)($context['sector'] ?? 'N/A')),
             (string)($context['time_filter'] ?? 'N/A'),

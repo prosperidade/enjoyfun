@@ -71,10 +71,15 @@ export default defineConfig(({ mode }) => {
           name: 'EnjoyFun',
           short_name: 'EnjoyFun',
           description: 'EnjoyFun Event Platform & POS',
-          theme_color: '#030712',
-          background_color: '#030712',
+          theme_color: '#0A0A0A',
+          background_color: '#0A0A0A',
           display: 'standalone',
+          start_url: '/',
+          scope: '/',
+          orientation: 'portrait',
           icons: [
+            { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
             { src: '/vite.svg', sizes: '192x192', type: 'image/svg+xml' }
           ]
         }

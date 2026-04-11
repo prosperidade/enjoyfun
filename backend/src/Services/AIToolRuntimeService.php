@@ -10,6 +10,7 @@ require_once __DIR__ . '/FinanceWorkforceCostService.php';
 require_once __DIR__ . '/WorkforceTreeUseCaseService.php';
 require_once __DIR__ . '/AIMCPClientService.php';
 require_once __DIR__ . '/AuditService.php';
+require_once __DIR__ . '/AISkillRegistryService.php';
 
 final class AIToolRuntimeService
 {
@@ -20,6 +21,20 @@ final class AIToolRuntimeService
     // ──────────────────────────────────────────────────────────────
     //  Tool Registry — all tool definitions in one place
     // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Public accessor for the canonical tool definitions.
+     * Used by AISkillRegistryService to enrich DB-driven skills with
+     * the exact input_schema required by provider APIs.
+     */
+    public static function getCanonicalToolDefinitions(): array
+    {
+        $defs = [];
+        foreach (self::allToolDefinitions() as $tool) {
+            $defs[$tool['name']] = $tool;
+        }
+        return $defs;
+    }
 
     private static function allToolDefinitions(): array
     {
@@ -374,6 +389,26 @@ final class AIToolRuntimeService
                 'agent_keys' => ['logistics', 'management'],
             ],
 
+            // --- Event lookup (cross-cutting, all agents can use) ---
+            [
+                'name' => 'find_events',
+                'description' => 'Lista ou busca eventos do organizador por nome, status ou periodo. Use isso quando o usuario mencionar um evento por nome (ex: "evento EnjoyFun") em vez de assumir o evento atualmente selecionado. Retorna id, nome, status, datas e organizer_id de cada match.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'name_query' => ['type' => 'string', 'description' => 'Texto para buscar no nome do evento (case-insensitive, busca parcial).'],
+                        'status' => ['type' => 'string', 'description' => 'Filtro opcional por status: draft, published, ongoing, finished, cancelled.'],
+                        'limit' => ['type' => 'integer', 'description' => 'Maximo de resultados (default 10, max 50).'],
+                    ],
+                    'required' => [],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['find_events', 'search_events', 'list_events', 'find_event_by_name', 'events.find'],
+                'type' => 'read',
+                'surfaces' => ['dashboard', 'events', 'analytics', 'finance', 'general'],
+                'agent_keys' => ['management', 'marketing', 'logistics', 'data_analyst', 'contracting', 'artists', 'artists_travel', 'bar', 'feedback', 'content', 'media', 'documents'],
+            ],
+
             // --- Management agent tools ---
             [
                 'name' => 'get_event_kpi_dashboard',
@@ -613,6 +648,21 @@ final class AIToolRuntimeService
         $eventId = self::nullablePositiveInt($context['event_id'] ?? null);
         if ($eventId === null) {
             return [];
+        }
+
+        // V2: delegate to AISkillRegistryService when feature flag is on
+        if ($db !== null && $organizerId !== null && AISkillRegistryService::isEnabled()) {
+            try {
+                $registryTools = AISkillRegistryService::buildToolCatalogForAgent($db, $organizerId, $context);
+                if (!empty($registryTools)) {
+                    return array_values(array_filter(
+                        $registryTools,
+                        static fn(array $tool): bool => self::shouldExposeToolToModel($tool)
+                    ));
+                }
+            } catch (\Throwable $e) {
+                error_log('[AIToolRuntimeService] SkillRegistry fallback to hardcoded: ' . $e->getMessage());
+            }
         }
 
         $surface = strtolower(trim((string)($context['surface'] ?? '')));
@@ -910,6 +960,13 @@ final class AIToolRuntimeService
                 ];
                 $executedCount++;
             } catch (\Throwable $e) {
+                error_log(sprintf(
+                    '[AIToolRuntimeService] Tool execution failed: tool=%s error=%s file=%s:%d',
+                    $resolvedTool['name'] ?? 'unknown',
+                    $e->getMessage(),
+                    $e->getFile(),
+                    $e->getLine()
+                ));
                 $failedCount++;
                 $updatedCall['runtime_status'] = 'failed';
                 $updatedCall['runtime_message'] = $e->getMessage();
@@ -1008,6 +1065,9 @@ final class AIToolRuntimeService
             'get_meal_service_status' => self::executeMealServiceStatus($db, $organizerId, $eventId),
             'get_event_shift_coverage' => self::executeEventShiftCoverage($db, $organizerId, $eventId),
 
+            // Event lookup (cross-cutting)
+            'find_events' => self::executeFindEvents($db, $organizerId, $arguments),
+
             // Management
             'get_event_kpi_dashboard' => self::executeEventKpiDashboard($db, $organizerId, $eventId),
             'get_finance_summary' => self::executeFinanceSummary($db, $organizerId, $eventId),
@@ -1035,8 +1095,119 @@ final class AIToolRuntimeService
             // Content
             'get_event_content_context' => self::executeEventContentContext($db, $organizerId, $eventId),
 
+            // ── Event Template Skills (Stub Handlers) ─────────────────
+            // These degrade gracefully when the underlying tables don't
+            // exist yet. As tables are created, they start returning real
+            // data without any code changes.
+            'get_event_agenda',
+            'get_session_schedule',
+            'get_certificate_status',
+            'get_networking_matches',
+            'get_invitations_summary',
+            'get_seating_map_status',
+            'get_ceremony_timeline',
+            'get_rsvp_status',
+            'get_vendor_status',
+            'get_photo_gallery_stats',
+            'get_booth_occupancy',
+            'get_exhibitor_profiles',
+            'get_lead_capture_stats',
+            'get_venue_sector_status',
+            'get_match_schedule',
+            'get_press_credentials'
+                => self::executeTemplateSkillStub($db, $organizerId, $eventId, $toolName),
+
             default => throw new RuntimeException('Tool reconhecida, mas ainda sem executor implementado.', 501),
         };
+    }
+
+    /**
+     * Stub executor for new event template skills.
+     * Returns structured data if the table exists, or a helpful
+     * "module_not_configured" response that the AI uses to guide the user.
+     */
+    private static function executeTemplateSkillStub(PDO $db, int $organizerId, ?int $eventId, string $skillName): array
+    {
+        // Map skill → expected table
+        $skillTableMap = [
+            'get_event_agenda'        => 'event_sessions',
+            'get_session_schedule'    => 'event_sessions',
+            'get_certificate_status'  => 'event_certificates',
+            'get_networking_matches'  => 'event_networking_profiles',
+            'get_invitations_summary' => 'event_invitations',
+            'get_seating_map_status'  => 'event_tables',
+            'get_ceremony_timeline'   => 'event_ceremony_steps',
+            'get_rsvp_status'         => 'event_invitations',
+            'get_vendor_status'       => 'event_vendors',
+            'get_photo_gallery_stats' => 'event_photos',
+            'get_booth_occupancy'     => 'event_booths',
+            'get_exhibitor_profiles'  => 'event_exhibitors',
+            'get_lead_capture_stats'  => 'event_leads',
+            'get_venue_sector_status' => 'event_sectors',
+            'get_match_schedule'      => 'event_matches',
+            'get_press_credentials'   => 'event_press_credentials',
+        ];
+
+        // Map skill → friendly label
+        $skillLabels = [
+            'get_event_agenda'        => 'Agenda de Sessoes',
+            'get_session_schedule'    => 'Grade de Sessoes',
+            'get_certificate_status'  => 'Certificados',
+            'get_networking_matches'  => 'Networking',
+            'get_invitations_summary' => 'Convites',
+            'get_seating_map_status'  => 'Mapa de Mesas',
+            'get_ceremony_timeline'   => 'Timeline do Cerimonial',
+            'get_rsvp_status'         => 'Confirmacoes de Presenca',
+            'get_vendor_status'       => 'Fornecedores',
+            'get_photo_gallery_stats' => 'Galeria de Fotos',
+            'get_booth_occupancy'     => 'Estandes',
+            'get_exhibitor_profiles'  => 'Expositores',
+            'get_lead_capture_stats'  => 'Captura de Leads',
+            'get_venue_sector_status' => 'Setores do Venue',
+            'get_match_schedule'      => 'Tabela de Jogos',
+            'get_press_credentials'   => 'Credenciais de Imprensa',
+        ];
+
+        $tableName = $skillTableMap[$skillName] ?? null;
+        $label = $skillLabels[$skillName] ?? $skillName;
+
+        // Check if the table exists
+        if ($tableName !== null) {
+            try {
+                $check = $db->query("
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = '{$tableName}'
+                    LIMIT 1
+                ");
+                if ($check->fetchColumn()) {
+                    // Table exists — return basic count for now
+                    $countStmt = $db->prepare("
+                        SELECT COUNT(*)::int AS total
+                        FROM public.{$tableName}
+                        WHERE event_id = :event_id
+                    ");
+                    $countStmt->execute([':event_id' => $eventId ?? 0]);
+                    $total = (int)$countStmt->fetchColumn();
+
+                    return [
+                        'module'  => $label,
+                        'status'  => 'active',
+                        'total'   => $total,
+                        'message' => "Modulo '{$label}' esta ativo com {$total} registros.",
+                    ];
+                }
+            } catch (\Throwable $e) {
+                // Table check failed — fall through to stub
+            }
+        }
+
+        return [
+            'module'  => $label,
+            'status'  => 'not_configured',
+            'message' => "O modulo '{$label}' ainda nao foi configurado para este evento. "
+                       . "Quando o organizador precisar desse recurso, ele pode ser ativado nas configuracoes do evento.",
+            'hint'    => "Informe ao organizador que este modulo esta disponivel e pode ser configurado quando necessario.",
+        ];
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -1411,8 +1582,9 @@ final class AIToolRuntimeService
     {
         self::requireEventId($eventId, 'get_event_comparison');
 
+        // workforce_assignments has no direct event_id; we count via event_shifts join.
         $stmt = $db->prepare("
-            SELECT e.id, e.name, e.start_date, e.status,
+            SELECT e.id, e.name, e.starts_at, e.status,
                    COALESCE(s_agg.revenue, 0) AS revenue,
                    COALESCE(s_agg.transactions, 0) AS transactions,
                    COALESCE(t_agg.tickets_sold, 0) AS tickets_sold,
@@ -1420,9 +1592,15 @@ final class AIToolRuntimeService
             FROM public.events e
             LEFT JOIN LATERAL (SELECT SUM(total_amount) AS revenue, COUNT(*) AS transactions FROM public.sales WHERE event_id=e.id AND organizer_id=e.organizer_id AND status='completed') s_agg ON true
             LEFT JOIN LATERAL (SELECT COUNT(*) AS tickets_sold FROM public.tickets WHERE event_id=e.id AND organizer_id=e.organizer_id AND status='active') t_agg ON true
-            LEFT JOIN LATERAL (SELECT COUNT(*) AS workforce FROM public.workforce_assignments WHERE event_id=e.id AND organizer_id=e.organizer_id) wf_agg ON true
+            LEFT JOIN LATERAL (
+                SELECT COUNT(DISTINCT wa.id) AS workforce
+                FROM public.workforce_assignments wa
+                JOIN public.event_shifts es ON es.id = wa.event_shift_id
+                JOIN public.event_days ed ON ed.id = es.event_day_id
+                WHERE ed.event_id = e.id AND wa.organizer_id = e.organizer_id
+            ) wf_agg ON true
             WHERE e.organizer_id = :org
-            ORDER BY e.start_date DESC NULLS LAST
+            ORDER BY e.starts_at DESC NULLS LAST
             LIMIT 5
         ");
         $stmt->execute([':org' => $organizerId]);
@@ -1572,9 +1750,9 @@ final class AIToolRuntimeService
         $stmt = $db->prepare("
             SELECT
                 COUNT(*) AS records_total,
-                COUNT(*) FILTER (WHERE exit_at IS NULL AND status <> 'cancelled') AS parked_total,
-                COUNT(*) FILTER (WHERE biometric_status = 'pending' OR biometric_status IS NULL) AS pending_total,
-                COUNT(*) FILTER (WHERE exit_at IS NOT NULL) AS exited_total,
+                COUNT(*) FILTER (WHERE status = 'parked') AS parked_total,
+                COUNT(*) FILTER (WHERE status = 'pending') AS pending_total,
+                COUNT(*) FILTER (WHERE status = 'exited' OR exit_at IS NOT NULL) AS exited_total,
                 COUNT(*) FILTER (WHERE entry_at >= NOW() - INTERVAL '1 hour') AS entries_last_hour,
                 COUNT(*) FILTER (WHERE exit_at >= NOW() - INTERVAL '1 hour') AS exits_last_hour
             FROM public.parking_records
@@ -1628,11 +1806,54 @@ final class AIToolRuntimeService
         return ['event_id' => $eventId, 'shifts' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: []];
     }
 
+    private static function executeFindEvents(PDO $db, int $organizerId, array $arguments): array
+    {
+        $nameQuery = trim((string)($arguments['name_query'] ?? ''));
+        $status = strtolower(trim((string)($arguments['status'] ?? '')));
+        $limit = (int)($arguments['limit'] ?? 10);
+        if ($limit < 1) { $limit = 10; }
+        if ($limit > 50) { $limit = 50; }
+
+        $where = ['organizer_id = :org'];
+        $params = [':org' => $organizerId];
+
+        if ($nameQuery !== '') {
+            $where[] = 'LOWER(name) LIKE :name';
+            $params[':name'] = '%' . strtolower($nameQuery) . '%';
+        }
+
+        $allowedStatuses = ['draft', 'published', 'ongoing', 'finished', 'cancelled'];
+        if (in_array($status, $allowedStatuses, true)) {
+            $where[] = 'status = :st';
+            $params[':st'] = $status;
+        }
+
+        $sql = 'SELECT id, name, slug, status, starts_at, ends_at, venue_name, capacity, organizer_id
+                FROM public.events
+                WHERE ' . implode(' AND ', $where) . '
+                ORDER BY starts_at DESC NULLS LAST
+                LIMIT ' . $limit;
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'query' => [
+                'name_query' => $nameQuery,
+                'status' => $status ?: null,
+                'limit' => $limit,
+            ],
+            'count' => count($rows),
+            'events' => $rows,
+        ];
+    }
+
     private static function executeEventKpiDashboard(PDO $db, int $organizerId, ?int $eventId): array
     {
         self::requireEventId($eventId, 'get_event_kpi_dashboard');
 
-        $event = $db->prepare("SELECT name, status, start_date, end_date FROM public.events WHERE id = :evt AND organizer_id = :org LIMIT 1");
+        $event = $db->prepare("SELECT name, status, starts_at, ends_at FROM public.events WHERE id = :evt AND organizer_id = :org LIMIT 1");
         $event->execute([':evt' => $eventId, ':org' => $organizerId]);
         $eventData = $event->fetch(\PDO::FETCH_ASSOC) ?: [];
 
@@ -1640,11 +1861,18 @@ final class AIToolRuntimeService
         $sales->execute([':org' => $organizerId, ':evt' => $eventId]);
         $salesData = $sales->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        $tickets = $db->prepare("SELECT COUNT(*) AS sold FROM public.tickets WHERE organizer_id = :org AND event_id = :evt AND status = 'active'");
+        $tickets = $db->prepare("SELECT COUNT(*) AS sold FROM public.tickets WHERE organizer_id = :org AND event_id = :evt AND status IN ('paid', 'valid', 'used')");
         $tickets->execute([':org' => $organizerId, ':evt' => $eventId]);
         $ticketData = $tickets->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        $workforce = $db->prepare("SELECT COUNT(*) AS total FROM public.workforce_assignments WHERE organizer_id = :org AND event_id = :evt");
+        // workforce_assignments has no direct event_id; join via event_shifts → event_days → event_id
+        $workforce = $db->prepare("
+            SELECT COUNT(DISTINCT wa.id) AS total
+            FROM public.workforce_assignments wa
+            JOIN public.event_shifts es ON es.id = wa.event_shift_id
+            JOIN public.event_days ed ON ed.id = es.event_day_id
+            WHERE wa.organizer_id = :org AND ed.event_id = :evt
+        ");
         $workforce->execute([':org' => $organizerId, ':evt' => $eventId]);
         $wfData = $workforce->fetch(\PDO::FETCH_ASSOC) ?: [];
 
@@ -1692,25 +1920,44 @@ final class AIToolRuntimeService
         self::requireEventId($eventId, 'get_pos_sales_snapshot');
 
         $sector = strtolower(trim((string)($arguments['sector'] ?? '')));
-        $sectorCondition = in_array($sector, ['bar', 'food', 'shop'], true) ? "AND s.sector = :sector" : '';
+        $filterBySector = in_array($sector, ['bar', 'food', 'shop'], true);
+        // items_sold lives in sale_items (one row per line), totals live in sales
+        // (one row per transaction). We compute them in two round-trips to avoid
+        // PDO pgsql native-prepare conflicts with repeated named parameters.
         $params = [':org' => $organizerId, ':evt' => $eventId];
-        if ($sectorCondition !== '') {
+        if ($filterBySector) {
             $params[':sector'] = $sector;
         }
+        $sectorCondition = $filterBySector ? "AND s.sector = :sector" : '';
 
         $stmt = $db->prepare("
             SELECT
                 COALESCE(SUM(s.total_amount), 0) AS revenue,
                 COUNT(*) AS transactions,
-                COALESCE(SUM(s.quantity), 0) AS items_sold,
                 CASE WHEN COUNT(*) > 0 THEN ROUND(SUM(s.total_amount) / COUNT(*), 2) ELSE 0 END AS avg_ticket
             FROM public.sales s
             WHERE s.organizer_id = :org AND s.event_id = :evt AND s.status = 'completed' {$sectorCondition}
         ");
         $stmt->execute($params);
-        $data = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+        $totals = $stmt->fetch(\PDO::FETCH_ASSOC) ?: ['revenue' => 0, 'transactions' => 0, 'avg_ticket' => 0];
 
-        return array_merge(['event_id' => $eventId, 'sector_filter' => $sector ?: 'all'], $data);
+        $itemsStmt = $db->prepare("
+            SELECT COALESCE(SUM(si.quantity), 0) AS items_sold
+            FROM public.sale_items si
+            INNER JOIN public.sales s ON s.id = si.sale_id
+            WHERE s.organizer_id = :org AND s.event_id = :evt AND s.status = 'completed' {$sectorCondition}
+        ");
+        $itemsStmt->execute($params);
+        $itemsSold = (int)($itemsStmt->fetchColumn() ?: 0);
+
+        return [
+            'event_id'      => $eventId,
+            'sector_filter' => $sector ?: 'all',
+            'revenue'       => (float)$totals['revenue'],
+            'transactions'  => (int)$totals['transactions'],
+            'items_sold'    => $itemsSold,
+            'avg_ticket'    => (float)$totals['avg_ticket'],
+        ];
     }
 
     private static function executeStockCriticalItems(PDO $db, int $organizerId, ?int $eventId, array $arguments): array
@@ -1725,11 +1972,11 @@ final class AIToolRuntimeService
         }
 
         $stmt = $db->prepare("
-            SELECT p.id, p.name, p.sector, p.stock_quantity, p.min_stock_threshold, p.price
+            SELECT p.id, p.name, p.sector, p.stock_qty AS stock_quantity, p.low_stock_threshold AS min_stock_threshold, p.price
             FROM public.products p
-            WHERE p.organizer_id = :org AND p.event_id = :evt AND p.is_active = true
-              AND (p.stock_quantity <= p.min_stock_threshold OR p.stock_quantity <= 0) {$sectorCondition}
-            ORDER BY p.stock_quantity ASC
+            WHERE p.organizer_id = :org AND p.event_id = :evt
+              AND (p.stock_qty <= p.low_stock_threshold OR p.stock_qty <= 0) {$sectorCondition}
+            ORDER BY p.stock_qty ASC
             LIMIT 20
         ");
         $stmt->execute($params);
@@ -1741,23 +1988,30 @@ final class AIToolRuntimeService
     {
         self::requireEventId($eventId, 'get_ticket_demand_signals');
 
+        // Quantities live in ticket_batches (quantity_total / quantity_sold).
+        // ticket_types has only id/name/price; we group batches by ticket_type to keep the readable shape.
         $stmt = $db->prepare("
             SELECT
-                tt.id, tt.name, tt.price, tt.quantity AS total_available,
-                COALESCE(sold_agg.sold, 0) AS sold,
-                tt.quantity - COALESCE(sold_agg.sold, 0) AS remaining
+                tt.id,
+                tt.name,
+                tt.price,
+                COALESCE(SUM(tb.quantity_total), 0)::int AS total_available,
+                COALESCE(SUM(tb.quantity_sold), 0)::int  AS sold,
+                (COALESCE(SUM(tb.quantity_total), 0) - COALESCE(SUM(tb.quantity_sold), 0))::int AS remaining
             FROM public.ticket_types tt
-            LEFT JOIN LATERAL (
-                SELECT COUNT(*) AS sold FROM public.tickets WHERE ticket_type_id = tt.id AND organizer_id = tt.organizer_id AND status = 'active'
-            ) sold_agg ON true
-            WHERE tt.organizer_id = :org AND tt.event_id = :evt AND tt.is_active = true
+            LEFT JOIN public.ticket_batches tb
+              ON tb.ticket_type_id = tt.id
+             AND tb.organizer_id = tt.organizer_id
+             AND tb.is_active = true
+            WHERE tt.organizer_id = :org AND tt.event_id = :evt
+            GROUP BY tt.id, tt.name, tt.price
             ORDER BY tt.name
         ");
         $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
 
         $types = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
-        $totalAvailable = array_sum(array_column($types, 'total_available'));
-        $totalSold = array_sum(array_column($types, 'sold'));
+        $totalAvailable = (int)array_sum(array_column($types, 'total_available'));
+        $totalSold = (int)array_sum(array_column($types, 'sold'));
 
         return [
             'event_id' => $eventId,
@@ -2012,7 +2266,7 @@ final class AIToolRuntimeService
 
         // ── Idempotency: if value is already identical, skip write ──
         if ($existing && $previousValue === $timestamp) {
-            AuditService::log(
+            \EnjoyFun\Services\AuditService::log(
                 'ai_write_timeline_checkpoint_noop',
                 'artist_operational_timelines',
                 $existing['id'],
@@ -2045,7 +2299,7 @@ final class AIToolRuntimeService
         }
 
         // ── Audit trail ──
-        AuditService::log(
+        \EnjoyFun\Services\AuditService::log(
             'ai_write_timeline_checkpoint',
             'artist_operational_timelines',
             $existing['id'] ?? null,

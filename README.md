@@ -68,7 +68,7 @@ psql enjoyfun < database/NNN_nome.sql
 
 # 5. Suba o servidor PHP local sem drift de OPcache
 cd backend
-php -d opcache.enable=0 -d opcache.enable_cli=0 -S localhost:8080 -t public router_dev.php
+C:\php\php.exe -d extension_dir=C:\php\ext -d extension=pdo_pgsql -d extension=pgsql -d extension=curl -d curl.cainfo="C:\Program Files\Git\mingw64\etc\ssl\certs\ca-bundle.crt" -d openssl.cafile="C:\Program Files\Git\mingw64\etc\ssl\certs\ca-bundle.crt" -d opcache.enable=0 -d opcache.enable_cli=0 -S localhost:8080 -t public router_dev.php
 ```
 
 ### Frontend

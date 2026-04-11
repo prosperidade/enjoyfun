@@ -75,9 +75,14 @@ function accessTokenFromRequest(): string
     }
 
     // Priority 2: Authorization header (Postman, mobile, legacy clients)
-    $headers = getallheaders();
-    $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
-    if ($authHeader && str_starts_with($authHeader, 'Bearer ')) {
+    // $_SERVER is the portable source — getallheaders() is Apache-only and
+    // crashes the function dispatcher on PHP 8.5.1 built-in server.
+    $authHeader = (string)(
+        $_SERVER['HTTP_AUTHORIZATION']
+        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+        ?? ''
+    );
+    if ($authHeader !== '' && stripos($authHeader, 'Bearer ') === 0) {
         return trim(substr($authHeader, 7));
     }
 

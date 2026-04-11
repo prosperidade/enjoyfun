@@ -190,7 +190,7 @@ class EventService
             $stmt->execute($values);
             $id = (int)$stmt->fetchColumn();
 
-            self::syncOperationalCalendar($db, $id, $payload);
+            self::syncOperationalCalendar($db, $id, $organizerId, $payload);
             self::persistCommercialConfig($db, $id, $organizerId, $commercialConfig);
 
             if ($payload['status'] === 'finished') {
@@ -289,7 +289,7 @@ class EventService
             ");
             $stmt->execute($values);
 
-            self::syncOperationalCalendar($db, $eventId, $payload);
+            self::syncOperationalCalendar($db, $eventId, $organizerId, $payload);
             self::persistCommercialConfig($db, $eventId, $organizerId, $commercialConfig);
 
             if (($existingEvent['status'] ?? '') !== 'finished' && $payload['status'] === 'finished') {
@@ -563,7 +563,7 @@ class EventService
 
     // ── Operational calendar sync ─────────────────────────────────────────────
 
-    private static function syncOperationalCalendar(PDO $db, int $eventId, array $payload): void
+    private static function syncOperationalCalendar(PDO $db, int $eventId, int $organizerId, array $payload): void
     {
         if (!self::tableExists($db, 'event_days')) {
             return;
@@ -594,20 +594,21 @@ class EventService
         $stmtDeleteDays->execute([$eventId]);
 
         $stmtCreateDay = $db->prepare("
-            INSERT INTO event_days (event_id, date, starts_at, ends_at, created_at)
-            VALUES (?, ?, ?, ?, NOW())
+            INSERT INTO event_days (event_id, organizer_id, date, starts_at, ends_at, created_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
             RETURNING id
         ");
         $stmtCreateShift = self::tableExists($db, 'event_shifts')
             ? $db->prepare("
-                INSERT INTO event_shifts (event_day_id, name, starts_at, ends_at, created_at)
-                VALUES (?, ?, ?, ?, NOW())
+                INSERT INTO event_shifts (event_day_id, organizer_id, name, starts_at, ends_at, created_at)
+                VALUES (?, ?, ?, ?, ?, NOW())
             ")
             : null;
 
         foreach ($calendar as $item) {
             $stmtCreateDay->execute([
                 $eventId,
+                $organizerId,
                 $item['date'],
                 $item['starts_at'],
                 $item['ends_at'],
@@ -619,6 +620,7 @@ class EventService
 
             $stmtCreateShift->execute([
                 $eventDayId,
+                $organizerId,
                 'Turno Unico',
                 $item['starts_at'],
                 $item['ends_at'],

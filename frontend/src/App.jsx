@@ -25,6 +25,7 @@ const Shop = lazy(() => import("./pages/Shop"));
 const Parking = lazy(() => import("./pages/Parking"));
 const Messaging = lazy(() => import("./pages/Messaging"));
 const AIAgents = lazy(() => import("./pages/AIAgents"));
+const AIAssistants = lazy(() => import("./pages/AIAssistants"));
 const Users = lazy(() => import("./pages/Users"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Scanner = lazy(() => import("./pages/Operations/Scanner"));
@@ -45,6 +46,7 @@ const EventFinanceBudget = lazy(() => import("./pages/EventFinanceBudget"));
 const EventFinanceImport = lazy(() => import("./pages/EventFinanceImport"));
 const EventFinanceExport = lazy(() => import("./pages/EventFinanceExport"));
 const EventFinanceSettings = lazy(() => import("./pages/EventFinanceSettings"));
+const Download = lazy(() => import("./pages/Download"));
 
 function NotFound() {
   return (
@@ -96,6 +98,7 @@ export default function App() {
         <Suspense fallback={<RouteLoading />}>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/baixar" element={<Download />} />
 
             {/* ── Customer App (WebApp Mobile) ────────────────────────── */}
             <Route path="/app/:slug" element={<CustomerLogin />} />
@@ -124,7 +127,9 @@ export default function App() {
 
                 <Route path="/parking" element={<Parking />} />
                 <Route path="/messaging" element={<Messaging />} />
-                <Route path="/ai" element={<AIAgents />} />
+                <Route path="/ai" element={
+                  import.meta.env.VITE_FEATURE_AI_V2_UI === 'true' ? <AIAssistants /> : <AIAgents />
+                } />
                 <Route path="/files" element={<OrganizerFiles />} />
                 <Route path="/users" element={<Users />} />
                 <Route path="/guests" element={<Guests />} />

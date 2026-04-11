@@ -70,10 +70,89 @@ database\dump_schema.bat
 
 ```bash
 cd backend
-php -d opcache.enable=0 -d opcache.enable_cli=0 -S localhost:8080 -t public router_dev.php
+C:\php\php.exe -d extension_dir=C:\php\ext -d extension=pdo_pgsql -d extension=pgsql -d extension=curl -d curl.cainfo="C:\Program Files\Git\mingw64\etc\ssl\certs\ca-bundle.crt" -d openssl.cafile="C:\Program Files\Git\mingw64\etc\ssl\certs\ca-bundle.crt" -d opcache.enable=0 -d opcache.enable_cli=0 -S localhost:8080 -t public router_dev.php
 ```
 
 Requests autenticadas so passam se o tenant scope puder ser ativado com `DB_USER_APP` e `DB_PASS_APP`. Falha de RLS no runtime agora retorna erro e nao cai mais para a conexao superuser.
+
+### 1.1. PHP no Windows — usar 8.4, NAO 8.5 (bug critico)
+
+**Contexto do bug (descoberto em 2026-04-10):**
+PHP 8.5.1 Windows NTS x64 tem um bug grave no function dispatcher quando rodando via `php -S` (built-in server) com `extension=curl` carregada. O sintoma eh caotico: funcoes openssl/pdo/pg sao reportadas com nomes aleatorios em erros, como:
+
+- `openssl_pkey_get_private` → reportado como `pg_lo_import() wrong arg count` ou `curl_setopt_array() wrong args`
+- Stack trace aponta pra linhas que chamam `getallheaders()` mas reporta erro em funcoes pg/curl
+
+O mesmo codigo via CLI funciona perfeito — so falha no `php -S`. Nao reproduz em PHP 8.4 ou anteriores. Provavelmente tabela de funcoes internas corrompida ao carregar curl + openssl juntos no SAPI embutido.
+
+**Solucao oficial: rodar o backend em PHP 8.4.**
+
+#### Instalacao do PHP 8.4 ao lado do 8.5 (10 minutos)
+
+```powershell
+# 1. Baixar e extrair em C:\php84
+mkdir C:\php84
+curl -sSL -o C:\php84\php.zip https://downloads.php.net/~windows/releases/archives/php-8.4.1-nts-Win32-vs17-x64.zip
+cd C:\php84
+Expand-Archive .\php.zip -DestinationPath .
+
+# 2. Criar php.ini
+Copy-Item C:\php84\php.ini-development C:\php84\php.ini
+
+# 3. Baixar CA bundle (se ainda nao tiver)
+mkdir C:\php\extras -Force
+curl -sSL https://curl.se/ca/cacert.pem -o C:\php\extras\cacert.pem
+```
+
+#### Editar `C:\php84\php.ini`
+
+```ini
+extension_dir = "C:\php84\ext"
+
+; Extensoes necessarias
+extension=curl
+extension=fileinfo
+extension=mbstring
+extension=openssl
+extension=pdo_pgsql
+
+; NAO habilitar a extensao pgsql nativa — o projeto usa so PDO
+; e a nativa cria conflitos adicionais no SAPI embutido.
+
+curl.cainfo = "C:\php\extras\cacert.pem"
+
+; NAO setar openssl.cafile — causa outros problemas no init do modulo.
+```
+
+#### Verificacao
+
+```powershell
+C:\php84\php.exe -v
+# Deve imprimir: PHP 8.4.1 (cli) ...
+
+C:\php84\php.exe -r "echo function_exists('curl_init') && in_array('pgsql',PDO::getAvailableDrivers()) && extension_loaded('openssl') ? 'OK' : 'FAIL'; echo PHP_EOL;"
+# Deve imprimir: OK
+```
+
+#### Rodar o backend com 8.4
+
+```powershell
+cd c:/Users/Administrador/Desktop/enjoyfun/backend
+C:\php84\php.exe -S 0.0.0.0:8080 -t public
+```
+
+#### Alias opcional
+
+```powershell
+notepad $PROFILE
+# Adicionar esta linha no arquivo:
+Set-Alias php84 C:\php84\php.exe
+
+# Depois fechar/abrir PowerShell e usar:
+php84 -S 0.0.0.0:8080 -t public
+```
+
+**Pendencia:** registrar ticket upstream no php-src sobre o bug do dispatcher no 8.5 Windows. Se o upstream nao corrigir ate a release 8.5 GA, o projeto fica em 8.4 como baseline oficial.
 
 ### 2. Frontend
 
@@ -504,9 +583,92 @@ AI_SPENDING_CAP_BRL=500.00  # Cap mensal em R$
 
 ---
 
+## Sprint AI v2 — setup local (2026-04-10)
+
+### Pre-requisitos especificos
+
+- **mbstring habilitado** no PHP (`extension=mbstring` em `php.ini`). Sem isso o codigo cai nos fallbacks `function_exists('mb_*')` mas eh recomendado habilitar para precisao multibyte.
+- **OpenAI API key valida** em `OPENAI_API_KEY` (com creditos). Tier 2 LLM router opcional usa o mesmo provider.
+
+### Aplicar migrations
+
+```bash
+PGPASSWORD=$DB_PASS psql -h 127.0.0.1 -U postgres -d enjoyfun -f database/062_ai_agent_skills_warehouse.sql
+PGPASSWORD=$DB_PASS psql -h 127.0.0.1 -U postgres -d enjoyfun -f database/064_rls_ai_v2_tables.sql
+```
+
+Verificar seed:
+```bash
+psql -c "SELECT COUNT(*) FROM ai_agent_registry;"      # esperado: 12
+psql -c "SELECT COUNT(*) FROM ai_skill_registry;"      # esperado: 32 (1 enriquecida em runtime)
+psql -c "SELECT COUNT(*) FROM ai_agent_skills;"        # esperado: 63
+```
+
+### Habilitar feature flags
+
+**Backend (`backend/.env`)**:
+```env
+FEATURE_AI_INSIGHTS=true
+FEATURE_AI_TOOLS=true
+FEATURE_AI_AGENT_REGISTRY=true
+FEATURE_AI_SKILL_REGISTRY=true
+FEATURE_AI_CHAT=true
+FEATURE_AI_INTENT_ROUTER=true
+FEATURE_AI_INTENT_ROUTER_LLM=false   # liga apenas se quiser routing via LLM (custo extra)
+```
+
+**Frontend (`frontend/.env`)**:
+```env
+VITE_FEATURE_AI_V2_UI=true
+```
+
+Reiniciar **Vite** depois de mudar `frontend/.env` (variaveis sao injetadas no build).
+
+### Smoke test
+
+1. Login na plataforma
+2. Click no botao flutuante (canto inferior direito) — abre o `UnifiedAIChat`
+3. Pergunta de exemplo: "Como estao as vendas de ingresso?"
+4. Resposta esperada: agente roteado automaticamente (`marketing` ou `management`), insight em texto/tabela/chart
+5. Verificar no DB:
+   ```sql
+   SELECT id, routed_agent_key, status FROM ai_conversation_sessions ORDER BY created_at DESC LIMIT 1;
+   SELECT role, content_type, agent_key FROM ai_conversation_messages WHERE session_id = '<uuid>' ORDER BY created_at;
+   ```
+
+### Rollback instantaneo
+
+Desligar qualquer flag (mudar para `false`) e reiniciar dev server. Comportamento volta a ser identico ao pre-Sprint AI v2.
+
+### Troubleshooting
+
+| Sintoma | Causa | Fix |
+|---------|-------|-----|
+| `Call to undefined function mb_strlen()` | mbstring nao habilitada | Codigo ja tem fallback (`function_exists`). Se persistir, descomentar `extension=mbstring` em `php.ini` |
+| OpenAI rejeita `tools[].function.parameters` | `input_schema` vazio no DB | `AISkillRegistryService::buildToolCatalogForAgent` enriquece via `getCanonicalToolDefinitions()`. Verificar que `AIToolRuntimeService` esta carregado |
+| "Runtime parcial: 1 com falha" | Tool especifica falhou na execucao | Conferir `backend_dev_stderr.log` — log adicionado em `executeReadOnlyTools` mostra tool name e erro exato |
+| Chat retorna 401 | Cookie HttpOnly expirou | Re-login |
+| Chat retorna 403 | `FEATURE_AI_CHAT=false` | Habilitar a flag e reiniciar backend |
+| `frontend/.env` mudou mas UI nao | Vite cache | Reiniciar `npm run dev` (variaveis VITE_* sao injetadas no build) |
+
+### Endpoints novos
+
+- `POST /api/ai/chat` — chat conversacional multi-turn
+- `GET /api/ai/chat/sessions` — lista sessoes ativas do usuario
+- `GET /api/ai/chat/sessions/{uuid}` — historico completo de uma sessao
+
+### Tabelas para monitorar
+
+- `ai_conversation_sessions` — uma linha por sessao, expira em 24h
+- `ai_conversation_messages` — uma linha por mensagem (user, assistant, tool, system, router)
+- `ai_usage_logs` — billing tradicional ainda registrando tokens/custo
+- `ai_agent_executions` — historico de execucoes (mesmo que `/ai/insight`)
+
+---
+
 ## Quando algo divergir
 
 1. conferir `README.md`
 2. conferir `CLAUDE.md`
 3. conferir `docs/auditorias.md`
-4. registrar a divergencia em `docs/progresso19.md`
+4. registrar a divergencia em `docs/progresso25.md` (Sprint AI v2 ativo) ou `docs/progresso19.md` (legado)

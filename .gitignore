@@ -2,6 +2,19 @@
 /frontend/node_modules
 /frontend/dist
 /backend/vendor
+/enjoyfun-app/node_modules
+/enjoyfun-app/.expo
+/enjoyfun-app/dist
+/enjoyfun-app/web-build
+/enjoyfun-app/ios
+/enjoyfun-app/android
+
+# Dev server logs
+backend_dev_stdout.log
+backend_dev_stderr.log
+
+# Throwaway diagnostic scripts
+/tmp_*.php
 
 # Environment files (secrets)
 .env

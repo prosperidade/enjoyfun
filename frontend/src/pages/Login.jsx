@@ -60,10 +60,10 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex">
+    <div className="min-h-screen flex" style={{backgroundColor: 'var(--color-bg)'}}>
 
       {/* ── Left panel — Branding ───────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gray-900 flex-col justify-between p-12">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-between p-12" style={{backgroundColor: 'var(--color-surface)'}}>
 
         {/* Gradient blobs */}
         <div className="absolute inset-0 pointer-events-none">
@@ -115,7 +115,7 @@ export default function Login() {
 
         {/* Testimonial */}
         <div className="relative">
-          <div className="bg-gray-800/60 border border-gray-700/40 rounded-2xl p-5 backdrop-blur-sm">
+          <div className="rounded-2xl p-5 backdrop-blur-sm border" style={{backgroundColor: 'rgba(167,139,250,0.08)', borderColor: 'rgba(167,139,250,0.18)'}}>
             <p className="text-sm text-gray-300 italic leading-relaxed">
               "O EnjoyFun reduziu nosso tempo de gestão em 70% e triplicou a velocidade de atendimento no bar."
             </p>
@@ -162,7 +162,7 @@ export default function Login() {
           </div>
 
           {/* Tab switcher */}
-          <div className="flex bg-gray-900 border border-gray-800 rounded-xl p-1 mb-6">
+          <div className="flex border rounded-xl p-1 mb-6" style={{backgroundColor: 'var(--color-surface)', borderColor: 'rgba(167,139,250,0.18)'}}>
             <TabBtn active={tab === 'login'} onClick={() => { setTab('login'); setErrors({}); }}>
               <LogIn size={14} /> Entrar
             </TabBtn>

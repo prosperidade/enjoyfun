@@ -6,6 +6,7 @@ use PDO;
 use RuntimeException;
 
 require_once __DIR__ . '/SecretCryptoService.php';
+require_once __DIR__ . '/AIAgentRegistryService.php';
 
 final class AIProviderConfigService
 {
@@ -267,6 +268,34 @@ final class AIProviderConfigService
 
     public static function listAgents(PDO $db, int $organizerId): array
     {
+        // V2: delegate to AIAgentRegistryService when feature flag is on
+        if (AIAgentRegistryService::isEnabled()) {
+            $registryAgents = AIAgentRegistryService::listAgentsForOrganizer($db, $organizerId);
+            if (!empty($registryAgents)) {
+                // Convert registry format to the expected payload format
+                $agents = [];
+                foreach ($registryAgents as $ra) {
+                    $agents[] = [
+                        'agent_key'              => $ra['agent_key'],
+                        'label'                  => $ra['label'],
+                        'label_friendly'         => $ra['label_friendly'] ?? $ra['label'],
+                        'description'            => $ra['description'] ?? null,
+                        'surfaces'               => $ra['surfaces'] ?? [],
+                        'supports_write_actions'  => $ra['supports_write'] ?? false,
+                        'is_enabled'             => $ra['is_enabled'] ?? true,
+                        'approval_mode'          => $ra['approval_mode'] ?? 'confirm_write',
+                        'provider'               => $ra['tenant_provider'] ?? $ra['default_provider'] ?? null,
+                        'config_json'            => $ra['config_json'] ?? [],
+                        'source'                 => $ra['source'] ?? 'catalog',
+                        'icon_key'               => $ra['icon_key'] ?? null,
+                        'display_order'          => $ra['display_order'] ?? 100,
+                        'tenant_configured'      => $ra['tenant_configured'] ?? false,
+                    ];
+                }
+                return $agents;
+            }
+        }
+
         $catalog = self::agentMetadata();
         $configs = self::listAgentConfigs($db, $organizerId);
         $agents = [];

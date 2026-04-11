@@ -345,6 +345,31 @@ function getPhpLoadedModules(phpBin) {
   )
 }
 
+function resolvePhpCaBundle() {
+  const candidates = [
+    process.env.AI_CA_BUNDLE,
+    process.env.CURL_CA_BUNDLE,
+    process.env.SSL_CERT_FILE,
+    process.env.OPENSSL_CAFILE,
+    'C:\\Program Files\\Git\\mingw64\\etc\\ssl\\certs\\ca-bundle.crt',
+    'C:\\Program Files\\Git\\usr\\ssl\\certs\\ca-bundle.crt',
+    'C:\\Program Files\\Git\\mingw64\\etc\\pki\\ca-trust\\extracted\\pem\\tls-ca-bundle.pem',
+  ]
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') {
+      continue
+    }
+
+    const normalized = candidate.trim()
+    if (normalized && fs.existsSync(normalized)) {
+      return normalized
+    }
+  }
+
+  return null
+}
+
 function buildBackendPhpArgs(hostname, port) {
   const phpBin = resolvePhpBin()
   const loadedModules = getPhpLoadedModules(phpBin)
@@ -367,6 +392,14 @@ function buildBackendPhpArgs(hostname, port) {
 
   ensureExtension('pdo_pgsql')
   ensureExtension('pgsql')
+  ensureExtension('curl')
+
+  const caBundle = resolvePhpCaBundle()
+  if (caBundle) {
+    args.push('-d', `curl.cainfo=${caBundle}`)
+    args.push('-d', `openssl.cafile=${caBundle}`)
+  }
+
   args.push('-S', `${formatListenHost(hostname)}:${port}`, '-t', 'public', 'router_dev.php')
 
   return { phpBin, args }

@@ -11,6 +11,10 @@ require_once BASE_PATH . '/src/Services/AIMemoryStoreService.php';
 require_once BASE_PATH . '/src/Services/AIOrchestratorService.php';
 require_once BASE_PATH . '/src/Services/AIRateLimitService.php';
 require_once BASE_PATH . '/src/Services/AIBillingService.php';
+require_once BASE_PATH . '/src/Services/AIIntentRouterService.php';
+require_once BASE_PATH . '/src/Services/AIConversationService.php';
+require_once BASE_PATH . '/src/Services/AIPromptSanitizer.php';
+require_once BASE_PATH . '/src/Services/AdaptiveResponseService.php';
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -23,6 +27,9 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'GET' && $id === 'reports' && $sub === null => listReports($query),
         $method === 'POST' && $id === 'reports' && $sub === 'end-of-event' => queueEndOfEventReport($body),
         $method === 'POST' && $id === 'insight' => getInsight($body),
+        $method === 'POST' && $id === 'chat' => handleChat($body),
+        $method === 'GET' && $id === 'chat' && $sub === 'sessions' && $subId !== null => getChatSession($subId),
+        $method === 'GET' && $id === 'chat' && $sub === 'sessions' => listChatSessions($query),
         default => jsonError("Rota não encontrada: {$method} /{$id}", 404),
     };
 }
@@ -281,6 +288,377 @@ function getBlueprint(): void
 
     jsonSuccess($data);
 }
+
+// ──────────────────────────────────────────────────────────────
+//  Chat — Conversational AI interface (gated by FEATURE_AI_CHAT)
+// ──────────────────────────────────────────────────────────────
+
+function handleChat(array $body): void
+{
+    // Feature flag gate
+    $chatFlag = getenv('FEATURE_AI_CHAT');
+    if (!in_array(strtolower((string)$chatFlag), ['1', 'true', 'yes', 'on'], true)) {
+        jsonError('Chat de IA desabilitado', 403);
+    }
+
+    if (getenv('FEATURE_AI_INSIGHTS') === 'false') {
+        jsonError('AI insights estão desabilitados', 403);
+    }
+
+    $operator = requireAuth(['admin', 'organizer', 'manager', 'bartender', 'staff']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    $userId = (int)($operator['id'] ?? $operator['sub'] ?? 0);
+
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido.', 403);
+    }
+
+    $db = Database::getInstance();
+
+    // Rate limit + spending cap (same as /ai/insight)
+    \EnjoyFun\Services\AIRateLimitService::enforce($db, $organizerId);
+    \EnjoyFun\Services\AIBillingService::enforceSpendingCap($db, $organizerId);
+
+    $question = trim((string)($body['question'] ?? $body['message'] ?? ''));
+    if ($question === '') {
+        jsonError('Pergunta é obrigatória.', 422);
+    }
+
+    // Sanitize input
+    $question = \EnjoyFun\Services\AIPromptSanitizer::sanitizeQuestion($question);
+
+    $sessionId = $body['session_id'] ?? null;
+    $context = $body['context'] ?? [];
+    if (is_string($context)) {
+        $decoded = json_decode($context, true);
+        if (is_array($decoded)) $context = $decoded;
+    }
+
+    try {
+        // 1. Session management
+        if ($sessionId) {
+            $session = \EnjoyFun\Services\AIConversationService::getSession($db, $sessionId, $organizerId);
+            if (!$session) {
+                jsonError('Sessão não encontrada.', 404);
+            }
+            if ($session['status'] !== 'active') {
+                jsonError('Sessão expirada ou arquivada.', 410);
+            }
+            if (!\EnjoyFun\Services\AIConversationService::canAddMessage($db, $sessionId, $organizerId)) {
+                jsonError('Limite de mensagens da sessão atingido.', 429);
+            }
+            // Merge session context
+            $context = array_merge($session['context_json'] ?? [], $context);
+        } else {
+            $sessionId = \EnjoyFun\Services\AIConversationService::startSession(
+                $db, $organizerId, $userId, $context
+            );
+        }
+
+        // 2. Intent routing
+        $routeResult = ['agent_key' => $context['agent_key'] ?? '', 'surface' => $context['surface'] ?? '', 'confidence' => 1.0, 'reasoning' => 'contexto explicito'];
+
+        $intentRouterFlag = getenv('FEATURE_AI_INTENT_ROUTER');
+        if (in_array(strtolower((string)$intentRouterFlag), ['1', 'true', 'yes', 'on'], true)) {
+            $routeResult = \EnjoyFun\Services\AIIntentRouterService::routeIntent(
+                $db, $organizerId, $question, $context
+            );
+        } elseif (empty($context['agent_key'])) {
+            // Fallback: use surface to pick agent, or default to management
+            $routeResult = [
+                'agent_key'  => 'management',
+                'surface'    => $context['surface'] ?? 'dashboard',
+                'confidence' => 0.5,
+                'reasoning'  => 'IntentRouter desabilitado, fallback para gestao',
+            ];
+        }
+
+        // Update session with routed agent
+        \EnjoyFun\Services\AIConversationService::updateRoutedAgent($db, $sessionId, $routeResult['agent_key'], $organizerId);
+
+        // 3. Store user message
+        \EnjoyFun\Services\AIConversationService::addMessage(
+            $db, $sessionId, $organizerId, 'user', $question, 'text', null, null,
+            ['route' => $routeResult]
+        );
+
+        // 4. Build conversation history for multi-turn
+        $conversationHistory = \EnjoyFun\Services\AIConversationService::buildConversationalContext(
+            $db, $sessionId, $organizerId
+        );
+
+        // 5. Build payload for orchestrator (reuse existing pipeline)
+        $localeRaw = trim((string)($context['locale'] ?? ''));
+        $localeLang = aiResolveLocaleLanguage($localeRaw);
+        $payload = [
+            'question'    => $question,
+            'context'     => array_merge($context, [
+                'event_id'  => $context['event_id'] ?? null,
+                'surface'   => $routeResult['surface'],
+                'agent_key' => $routeResult['agent_key'],
+                'locale'    => $localeRaw,
+            ]),
+        ];
+
+        // Locale-aware system hint — forces response language regardless of provider
+        $localeSystemMsg = null;
+        if ($localeLang !== null) {
+            $localeSystemMsg = [
+                'role'    => 'system',
+                'content' => "Always respond in {$localeLang} ({$localeRaw}), matching the user's language. Keep data values and proper nouns in their original form.",
+            ];
+        }
+
+        // Add conversation history to messages if multi-turn
+        if (count($conversationHistory) > 1) {
+            $payload['messages'] = $localeSystemMsg !== null
+                ? array_merge([$localeSystemMsg], $conversationHistory)
+                : $conversationHistory;
+        } elseif ($localeSystemMsg !== null) {
+            $payload['messages'] = [$localeSystemMsg, ['role' => 'user', 'content' => $question]];
+        }
+
+        // 6. Delegate to orchestrator
+        $result = \EnjoyFun\Services\AIOrchestratorService::generateInsight(
+            $db, $operator, $payload
+        );
+
+        // 7. Store assistant response (scrub PII before persisting)
+        $insight = $result['insight'] ?? $result['response'] ?? '';
+        $insight = \EnjoyFun\Services\AIPromptSanitizer::scrubPII($insight);
+        $contentType = detectContentType($result);
+
+        \EnjoyFun\Services\AIConversationService::addMessage(
+            $db, $sessionId, $organizerId, 'assistant', $insight, $contentType,
+            $routeResult['agent_key'],
+            $result['execution_id'] ?? null,
+            [
+                'tool_calls'   => $result['tool_calls'] ?? [],
+                'tool_results' => $result['tool_results'] ?? [],
+                'usage'        => $result['usage'] ?? [],
+            ]
+        );
+
+        // 8. Build response
+        $response = [
+            'session_id'   => $sessionId,
+            'agent_key'    => $routeResult['agent_key'],
+            'surface'      => $routeResult['surface'],
+            'confidence'   => $routeResult['confidence'],
+            'content_type' => $contentType,
+            'insight'      => $insight,
+            'tool_calls'   => $result['tool_calls'] ?? [],
+            'tool_results' => $result['tool_results'] ?? [],
+            'usage'        => $result['usage'] ?? [],
+            'execution_id' => $result['execution_id'] ?? null,
+            'outcome'      => $result['outcome'] ?? 'completed',
+        ];
+
+        // Adaptive UI — emits blocks[] + text_fallback + meta. Backward-compat:
+        // legacy fields above remain untouched; feature-flag gated.
+        $adaptiveFlag = getenv('FEATURE_ADAPTIVE_UI');
+        if (in_array(strtolower((string)$adaptiveFlag), ['1', 'true', 'yes', 'on'], true)) {
+            try {
+                $adaptive = \EnjoyFun\Services\AdaptiveResponseService::buildBlocks(
+                    $result,
+                    [
+                        'insight'      => $insight,
+                        'agent_key'    => $routeResult['agent_key'],
+                        'surface'      => $routeResult['surface'],
+                        'execution_id' => $result['execution_id'] ?? null,
+                    ]
+                );
+                $response['blocks']        = $adaptive['blocks'];
+                $response['text_fallback'] = $adaptive['text_fallback'];
+            } catch (Throwable $adaptiveErr) {
+                error_log('[AIController::handleChat] Adaptive UI build failed - ' . $adaptiveErr->getMessage());
+            }
+
+            $usage = is_array($result['usage'] ?? null) ? $result['usage'] : [];
+            $response['meta'] = [
+                'tokens_in'  => (int)($usage['prompt_tokens'] ?? $usage['input_tokens'] ?? 0),
+                'tokens_out' => (int)($usage['completion_tokens'] ?? $usage['output_tokens'] ?? 0),
+                'latency_ms' => (int)($result['latency_ms'] ?? $result['request_duration_ms'] ?? $usage['latency_ms'] ?? 0),
+                'provider'   => (string)($result['provider'] ?? $usage['provider'] ?? ''),
+                'model'      => (string)($result['model'] ?? $usage['model'] ?? ''),
+            ];
+            $response['execution'] = $result['execution_id'] ?? null;
+        }
+
+        $outcome = strtolower(trim((string)($result['outcome'] ?? 'completed')));
+        if ($outcome === 'approval_required') {
+            jsonSuccess($response, 'Aprovação necessária para executar ações.', 202);
+        }
+
+        jsonSuccess($response, 'Resposta gerada com sucesso.');
+
+    } catch (RuntimeException $e) {
+        $statusCode = (int)$e->getCode();
+        jsonError($e->getMessage(), $statusCode >= 400 ? $statusCode : 503);
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[AIController::handleChat] Error (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno no chat de IA (Ref: {$ref})", 500);
+    }
+}
+
+function listChatSessions(array $query): void
+{
+    $chatFlag = getenv('FEATURE_AI_CHAT');
+    if (!in_array(strtolower((string)$chatFlag), ['1', 'true', 'yes', 'on'], true)) {
+        jsonError('Chat de IA desabilitado', 403);
+    }
+
+    $operator = requireAuth(['admin', 'organizer', 'manager', 'bartender', 'staff']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    $userId = (int)($operator['id'] ?? $operator['sub'] ?? 0);
+
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido.', 403);
+    }
+
+    try {
+        $sessions = \EnjoyFun\Services\AIConversationService::listSessions(
+            Database::getInstance(), $organizerId, $userId,
+            (int)($query['limit'] ?? 20)
+        );
+        jsonSuccess(['sessions' => $sessions]);
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[AIController::listChatSessions] Error (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao listar sessões (Ref: {$ref})", 500);
+    }
+}
+
+function getChatSession(string $sessionId): void
+{
+    $chatFlag = getenv('FEATURE_AI_CHAT');
+    if (!in_array(strtolower((string)$chatFlag), ['1', 'true', 'yes', 'on'], true)) {
+        jsonError('Chat de IA desabilitado', 403);
+    }
+
+    $operator = requireAuth(['admin', 'organizer', 'manager', 'bartender', 'staff']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+
+    if ($organizerId <= 0) {
+        jsonError('Organizer inválido.', 403);
+    }
+
+    try {
+        $db = Database::getInstance();
+        $session = \EnjoyFun\Services\AIConversationService::getSession($db, $sessionId, $organizerId);
+        if (!$session) {
+            jsonError('Sessão não encontrada.', 404);
+        }
+
+        $messages = \EnjoyFun\Services\AIConversationService::getHistory(
+            $db, $sessionId, $organizerId
+        );
+
+        jsonSuccess([
+            'session'  => $session,
+            'messages' => $messages,
+        ]);
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[AIController::getChatSession] Error (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao carregar sessão (Ref: {$ref})", 500);
+    }
+}
+
+/**
+ * Resolve a BCP-47 locale tag (pt-BR, en, es-ES, ...) to a human-readable
+ * language name that the LLM will understand in a system prompt. Returns null
+ * for empty/unknown input so the controller can skip the injection.
+ */
+function aiResolveLocaleLanguage(string $locale): ?string
+{
+    $locale = trim($locale);
+    if ($locale === '') return null;
+    $primary = strtolower(substr($locale, 0, 2));
+    $map = [
+        'pt' => stripos($locale, 'BR') !== false ? 'Brazilian Portuguese' : 'Portuguese',
+        'en' => 'English',
+        'es' => 'Spanish',
+        'fr' => 'French',
+        'de' => 'German',
+        'it' => 'Italian',
+        'ja' => 'Japanese',
+        'zh' => 'Chinese',
+        'ko' => 'Korean',
+        'ru' => 'Russian',
+        'ar' => 'Arabic',
+        'nl' => 'Dutch',
+        'sv' => 'Swedish',
+        'pl' => 'Polish',
+        'tr' => 'Turkish',
+    ];
+    return $map[$primary] ?? null;
+}
+
+/**
+ * Detect the best content_type for a response based on its structure.
+ */
+function detectContentType(array $result): string
+{
+    $outcome = strtolower(trim((string)($result['outcome'] ?? '')));
+    if ($outcome === 'approval_required') {
+        return 'action';
+    }
+
+    $toolResults = $result['tool_results'] ?? [];
+    if (!empty($toolResults)) {
+        foreach ($toolResults as $tr) {
+            $toolName = strtolower((string)($tr['tool_name'] ?? $tr['name'] ?? ''));
+            $data = $tr['result'] ?? $tr['data'] ?? null;
+
+            if (!is_array($data) || empty($data)) {
+                continue;
+            }
+
+            $first = reset($data);
+
+            // Chart: tool results with aggregated key-value pairs (e.g. sales by category)
+            // or tools with names suggesting charts (kpi, snapshot, summary, breakdown, comparison)
+            $chartKeywords = ['kpi', 'snapshot', 'summary', 'breakdown', 'comparison', 'compare',
+                              'cost', 'finance', 'sales', 'demand', 'analytics', 'cross_module'];
+            $isChartTool = false;
+            foreach ($chartKeywords as $kw) {
+                if (str_contains($toolName, $kw)) {
+                    $isChartTool = true;
+                    break;
+                }
+            }
+
+            // If it's an associative array (not a list), it's likely a KPI/summary → chart
+            if ($isChartTool && !is_int(array_key_first($data))) {
+                $numericCount = count(array_filter($data, 'is_numeric'));
+                if ($numericCount >= 2) {
+                    return 'chart';
+                }
+            }
+
+            // Card: small number of top-level KPI-like entries (3-6 key-value pairs, all numeric)
+            if (!is_int(array_key_first($data)) && count($data) >= 2 && count($data) <= 8) {
+                $numericCount = count(array_filter($data, 'is_numeric'));
+                if ($numericCount >= count($data) * 0.6) {
+                    return 'card';
+                }
+            }
+
+            // Table: array of objects (list of rows)
+            if (is_array($first) && count($data) > 2) {
+                return 'table';
+            }
+        }
+    }
+
+    return 'text';
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Legacy insight helpers
+// ──────────────────────────────────────────────────────────────
 
 function aiNormalizeInsightPayload(array $body): array
 {

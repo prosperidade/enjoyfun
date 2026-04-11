@@ -444,6 +444,7 @@ initializeCurrentRequestContext($method, $uri, $resource, $id, $sub, $subId, $_G
         'payments' => BASE_PATH . '/src/Controllers/PaymentWebhookController.php',
         'organizer-mcp' => BASE_PATH . '/src/Controllers/MCPServerController.php',
         'organizer-files' => BASE_PATH . '/src/Controllers/OrganizerFileController.php',
+        'event-templates' => BASE_PATH . '/src/Controllers/EventTemplateController.php',
     ];
 
 if ($resource === '' || $resource === 'ping') {

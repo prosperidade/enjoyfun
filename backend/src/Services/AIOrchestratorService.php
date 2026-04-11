@@ -14,6 +14,7 @@ require_once __DIR__ . '/AIMemoryStoreService.php';
 require_once __DIR__ . '/AIPromptCatalogService.php';
 require_once __DIR__ . '/AIToolRuntimeService.php';
 require_once __DIR__ . '/AuditService.php';
+require_once __DIR__ . '/EventTemplateService.php';
 
 final class AIOrchestratorService
 {
@@ -33,6 +34,13 @@ final class AIOrchestratorService
         }
 
         $context = AIContextBuilderService::buildInsightContext($db, $organizerId, $context);
+        // ── Event Template: inject event_type for skill filtering ──
+        if (empty($context['event_type']) && !empty($context['event_id'])) {
+            $eventType = EventTemplateService::resolveEventType($db, $organizerId, (int)$context['event_id']);
+            if ($eventType !== null) {
+                $context['event_type'] = $eventType;
+            }
+        }
         $agentExecution = self::resolveAgentExecution($db, $organizerId, $context);
         $surface = AIContextBuilderService::resolveSurface($context) ?: 'general';
         $effectiveProvider = self::resolveEffectiveProvider($db, $organizerId, $agentExecution, $legacyConfig);
@@ -217,9 +225,22 @@ final class AIOrchestratorService
         $memoryId = self::recordLearningMemory($db, $organizerId, $context, $agentExecution, $question, $result, $executionId);
         self::writeMemoryAudit($operator, $organizerId, $context, $agentExecution, $result, $executionId, $memoryId);
 
+        $finalInsight = trim((string)($result['insight'] ?? ''));
+        if ($finalInsight === '' && ($result['tool_results'] ?? []) !== []) {
+            $summaryParts = [];
+            foreach ($result['tool_results'] as $tr) {
+                $toolName = $tr['tool_name'] ?? 'tool';
+                $status = $tr['status'] ?? 'unknown';
+                $summaryParts[] = "- {$toolName}: {$status}";
+            }
+            $finalInsight = "O agente executou ferramentas operacionais:\n" . implode("\n", $summaryParts) . "\n\nReformule a pergunta para obter uma análise textual dos dados.";
+        } elseif ($finalInsight === '') {
+            $finalInsight = 'O provedor de IA retornou uma resposta vazia. Tente novamente ou reformule a pergunta.';
+        }
+
         $response = [
             'outcome' => 'completed',
-            'insight' => $result['insight'],
+            'insight' => $finalInsight,
             'provider' => $result['provider'],
             'model' => $result['model'],
         ];
@@ -355,9 +376,20 @@ final class AIOrchestratorService
             if (!is_array($toolResult)) {
                 continue;
             }
+            // OpenAI requires the original tool_call_id from the assistant message.
+            // The runtime stores it under various keys depending on provider:
+            // OpenAI: provider_call_id (e.g. call_abc123)
+            // Anthropic Claude: tool_use_id
+            // Generic: tool_call_id / id
+            $callId = $toolResult['tool_call_id']
+                ?? $toolResult['provider_call_id']
+                ?? $toolResult['tool_use_id']
+                ?? $toolResult['id']
+                ?? null;
+
             $messages[] = [
                 'role' => 'tool',
-                'tool_call_id' => $toolResult['tool_call_id'] ?? ($toolResult['id'] ?? null),
+                'tool_call_id' => $callId,
                 'tool_name' => $toolResult['tool_name'] ?? null,
                 'content' => is_array($toolResult['result'] ?? null)
                     ? json_encode($toolResult['result'], JSON_UNESCAPED_UNICODE)
@@ -391,8 +423,13 @@ final class AIOrchestratorService
                     $oaiToolCalls = [];
                     foreach ($msg['tool_calls'] as $tc) {
                         $args = $tc['arguments'] ?? [];
+                        // Always prefer the provider's original call id so the tool_call_id
+                        // round-trip stays valid; only fall back to a synthetic hash if missing.
+                        $callId = $tc['provider_call_id']
+                            ?? $tc['id']
+                            ?? ('call_' . md5(($tc['tool_name'] ?? '') . json_encode($args)));
                         $oaiToolCalls[] = [
-                            'id' => $tc['id'] ?? ('call_' . md5(($tc['tool_name'] ?? '') . json_encode($args))),
+                            'id' => $callId,
                             'type' => 'function',
                             'function' => [
                                 'name' => $tc['tool_name'] ?? '',
@@ -410,9 +447,16 @@ final class AIOrchestratorService
             }
 
             if ($role === 'tool') {
+                $callId = $msg['tool_call_id'] ?? null;
+                if ($callId === null || $callId === '') {
+                    // OpenAI rejects tool messages without a valid tool_call_id.
+                    // Skip orphan tool results to keep the conversation valid.
+                    error_log('[AIOrchestratorService] Skipping orphan tool message (missing tool_call_id) for tool=' . ($msg['tool_name'] ?? 'unknown'));
+                    continue;
+                }
                 $serialized[] = [
                     'role' => 'tool',
-                    'tool_call_id' => $msg['tool_call_id'] ?? '',
+                    'tool_call_id' => $callId,
                     'content' => $msg['content'] ?? '',
                 ];
                 continue;
@@ -1111,8 +1155,14 @@ final class AIOrchestratorService
             $outcome = 'blocked';
         }
 
+        $insight = trim((string)($result['insight'] ?? ''));
+        if ($insight === '') {
+            $insight = $approvalPolicy['message'] ?? 'O agente processou a solicitação mas não gerou uma resposta textual. Consulte os resultados das ferramentas ou tente reformular a pergunta.';
+        }
+
         return array_filter([
             'outcome' => $outcome,
+            'insight' => $insight,
             'message' => $approvalPolicy['message'] ?? null,
             'execution_id' => $executionId,
             'provider' => $result['provider'] ?? null,
@@ -1707,10 +1757,21 @@ final class AIOrchestratorService
                 continue;
             }
 
+            $callId = $toolCall['id'] ?? null;
+            $arguments = $toolCall['function']['arguments'] ?? ($toolCall['arguments'] ?? []);
+            // OpenAI returns arguments as a JSON string — decode for the runtime
+            if (is_string($arguments) && $arguments !== '') {
+                $decoded = json_decode($arguments, true);
+                if (is_array($decoded)) {
+                    $arguments = $decoded;
+                }
+            }
+
             $normalized[] = [
-                'id' => $toolCall['id'] ?? null,
+                'id' => $callId,
+                'provider_call_id' => $callId,
                 'tool_name' => $toolCall['function']['name'] ?? ($toolCall['name'] ?? null),
-                'arguments' => $toolCall['function']['arguments'] ?? ($toolCall['arguments'] ?? []),
+                'arguments' => $arguments,
                 'type' => $toolCall['type'] ?? null,
             ];
         }
@@ -1737,13 +1798,21 @@ final class AIOrchestratorService
 
     private static function executeJsonRequest(string $url, string $payload, array $headers, string $providerLabel): array
     {
+        if (!function_exists('curl_init') || !function_exists('curl_setopt_array') || !function_exists('curl_exec')) {
+            throw new RuntimeException(
+                'A extensao curl nao esta carregada no runtime PHP. Reinicie o backend com extension=curl ou habilite extension=curl no php.ini.',
+                503
+            );
+        }
+
         $ch = curl_init($url);
         $curlOptions = [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $payload,
             CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_TIMEOUT => 15,
+            CURLOPT_CONNECTTIMEOUT => self::providerConnectTimeoutSeconds(),
+            CURLOPT_TIMEOUT => self::providerRequestTimeoutSeconds(),
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
         ];
@@ -1751,6 +1820,11 @@ final class AIOrchestratorService
         $caBundle = self::resolveCaBundlePath();
         if ($caBundle !== null) {
             $curlOptions[CURLOPT_CAINFO] = $caBundle;
+        }
+
+        if (self::shouldBypassLoopbackProxyForUrl($url)) {
+            $curlOptions[CURLOPT_PROXY] = '';
+            $curlOptions[CURLOPT_NOPROXY] = '*';
         }
 
         curl_setopt_array($ch, $curlOptions);
@@ -1814,6 +1888,72 @@ final class AIOrchestratorService
         }
 
         return null;
+    }
+
+    private static function providerConnectTimeoutSeconds(): int
+    {
+        $raw = (int)(getenv('AI_PROVIDER_CONNECT_TIMEOUT_SECONDS') ?: 10);
+        return max(3, min($raw, 30));
+    }
+
+    private static function providerRequestTimeoutSeconds(): int
+    {
+        $raw = (int)(getenv('AI_PROVIDER_REQUEST_TIMEOUT_SECONDS') ?: 60);
+        return max(10, min($raw, 180));
+    }
+
+    private static function shouldBypassLoopbackProxyForUrl(string $url): bool
+    {
+        if (self::envFlagIsTruthy('AI_ALLOW_LOOPBACK_PROXY')) {
+            return false;
+        }
+
+        $targetHost = strtolower(trim((string)(parse_url($url, PHP_URL_HOST) ?? '')));
+        if ($targetHost === '' || self::isLoopbackHost($targetHost)) {
+            return false;
+        }
+
+        foreach (['HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY', 'all_proxy'] as $proxyVar) {
+            $proxyValue = trim((string)(getenv($proxyVar) ?: ''));
+            if ($proxyValue === '') {
+                continue;
+            }
+
+            $proxyHost = self::extractProxyHost($proxyValue);
+            if ($proxyHost !== '' && self::isLoopbackHost($proxyHost)) {
+                error_log("[AIOrchestratorService] Ignoring loopback proxy from {$proxyVar} for external AI request to {$targetHost}.");
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function extractProxyHost(string $proxyValue): string
+    {
+        $parsedHost = parse_url($proxyValue, PHP_URL_HOST);
+        if (is_string($parsedHost) && trim($parsedHost) !== '') {
+            return strtolower(trim($parsedHost));
+        }
+
+        $normalized = trim($proxyValue);
+        if ($normalized === '') {
+            return '';
+        }
+
+        $hostCandidate = explode(':', $normalized)[0] ?? '';
+        return strtolower(trim($hostCandidate));
+    }
+
+    private static function isLoopbackHost(string $host): bool
+    {
+        return in_array(strtolower(trim($host)), ['127.0.0.1', 'localhost', '::1'], true);
+    }
+
+    private static function envFlagIsTruthy(string $envName): bool
+    {
+        $raw = strtolower(trim((string)(getenv($envName) ?: '')));
+        return in_array($raw, ['1', 'true', 'yes', 'on'], true);
     }
 
     private static function logUsage(array $operator, int $organizerId, array $context, array $result, ?array $agentExecution): void
