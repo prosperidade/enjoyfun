@@ -24,12 +24,232 @@ final class AIContextBuilderService
             $context
         );
 
-        return match ($surface) {
+        $built = match ($surface) {
             'parking' => self::buildParkingContext($db, $organizerId, $baseContext),
             'workforce' => self::buildWorkforceContext($db, $organizerId, $baseContext),
             'artists' => self::buildArtistsContext($db, $organizerId, $baseContext),
             default => self::buildGenericContext($baseContext),
         };
+
+        $dna = self::loadOrganizerDna($db, $organizerId);
+        if ($dna !== null) {
+            $built['dna'] = $dna;
+        }
+
+        return $built;
+    }
+
+    public static function loadOrganizerDna(PDO $db, int $organizerId): ?array
+    {
+        static $cache = [];
+        if ($organizerId <= 0) {
+            return null;
+        }
+        if (array_key_exists($organizerId, $cache)) {
+            return $cache[$organizerId];
+        }
+
+        try {
+            $stmt = $db->prepare('
+                SELECT business_description, tone_of_voice, business_rules,
+                       target_audience, forbidden_topics
+                FROM organizer_ai_dna
+                WHERE organizer_id = ?
+                LIMIT 1
+            ');
+            $stmt->execute([$organizerId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            $cache[$organizerId] = null;
+            return null;
+        }
+
+        if (!$row) {
+            $cache[$organizerId] = null;
+            return null;
+        }
+
+        $normalized = [];
+        $hasAny = false;
+        foreach (['business_description', 'tone_of_voice', 'business_rules', 'target_audience', 'forbidden_topics'] as $field) {
+            $val = $row[$field] ?? null;
+            if (is_string($val)) {
+                $val = trim($val);
+                if ($val === '') {
+                    $val = null;
+                }
+            }
+            $normalized[$field] = $val;
+            if ($val !== null) {
+                $hasAny = true;
+            }
+        }
+
+        $cache[$organizerId] = $hasAny ? $normalized : null;
+        return $cache[$organizerId];
+    }
+
+    public static function loadOrganizerFilesSummary(PDO $db, int $organizerId, ?string $surface = null): array
+    {
+        static $cache = [];
+        if ($organizerId <= 0) {
+            return [];
+        }
+
+        $surfaceKey = $surface !== null ? strtolower(trim($surface)) : '';
+        if ($surfaceKey === '') {
+            $surfaceKey = 'default';
+        }
+        $cacheKey = $organizerId . '|' . $surfaceKey;
+        if (array_key_exists($cacheKey, $cache)) {
+            return $cache[$cacheKey];
+        }
+
+        $surfaceCategoryMap = [
+            'marketing'     => ['marketing', 'reports', 'general'],
+            'logistics'     => ['logistics', 'operational', 'contracts'],
+            'artists'       => ['contracts', 'logistics', 'general'],
+            'workforce'     => ['operational', 'reports'],
+            'bar'           => ['operational', 'financial', 'reports'],
+            'food'          => ['operational', 'financial', 'reports'],
+            'shop'          => ['operational', 'financial', 'reports'],
+            'parking'       => ['operational'],
+            'management'    => ['reports', 'financial', 'operational', 'general'],
+            'data_analyst'  => ['reports', 'financial', 'operational', 'general'],
+            'feedback'      => ['reports', 'financial', 'operational', 'general'],
+            'content'       => ['marketing', 'general'],
+            'documents'     => ['general', 'financial', 'contracts', 'logistics', 'marketing', 'operational', 'reports', 'spreadsheets'],
+            'default'       => ['general', 'reports'],
+            'general'       => ['general', 'reports'],
+        ];
+        $whitelist = $surfaceCategoryMap[$surfaceKey] ?? $surfaceCategoryMap['default'];
+
+        try {
+            $stmt = $db->prepare("
+                SELECT id, original_name, category, parsed_data, notes
+                FROM organizer_files
+                WHERE organizer_id = :org
+                  AND parsed_status = 'parsed'
+                ORDER BY updated_at DESC NULLS LAST, id DESC
+                LIMIT 10
+            ");
+            $stmt->execute([':org' => $organizerId]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (\Throwable $e) {
+            $cache[$cacheKey] = [];
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($rows as $row) {
+            $category = strtolower(trim((string)($row['category'] ?? '')));
+            if ($category === '' || !in_array($category, $whitelist, true)) {
+                continue;
+            }
+            $filtered[] = $row;
+            if (count($filtered) >= 5) {
+                break;
+            }
+        }
+
+        $summary = [];
+        foreach ($filtered as $row) {
+            $name = trim((string)($row['original_name'] ?? ''));
+            $category = trim((string)($row['category'] ?? ''));
+            $notes = trim((string)($row['notes'] ?? ''));
+
+            if ($notes !== '') {
+                $preview = $notes;
+            } else {
+                $parsed = $row['parsed_data'] ?? null;
+                if (is_string($parsed)) {
+                    $decoded = json_decode($parsed, true);
+                    if (is_array($decoded)) {
+                        $parsed = $decoded;
+                    }
+                }
+                if (is_array($parsed)) {
+                    $headers = $parsed['headers'] ?? null;
+                    $rowsCount = $parsed['rows_count'] ?? null;
+                    if (is_array($headers) && !empty($headers)) {
+                        $preview = 'colunas: ' . implode(', ', array_slice($headers, 0, 8));
+                        if ($rowsCount !== null) {
+                            $preview .= ' (' . (int)$rowsCount . ' linhas)';
+                        }
+                    } else {
+                        $encoded = json_encode($parsed, JSON_UNESCAPED_UNICODE);
+                        $preview = is_string($encoded) ? $encoded : '';
+                    }
+                } else {
+                    $preview = '';
+                }
+            }
+
+            $preview = preg_replace('/\s+/', ' ', (string)$preview);
+            if (function_exists('mb_substr')) {
+                $preview = mb_substr((string)$preview, 0, 200);
+            } else {
+                $preview = substr((string)$preview, 0, 200);
+            }
+
+            $summary[] = [
+                'file_name' => $name !== '' ? $name : 'arquivo',
+                'category'  => $category !== '' ? $category : 'general',
+                'summary'   => trim((string)$preview),
+            ];
+        }
+
+        $cache[$cacheKey] = $summary;
+        return $summary;
+    }
+
+    public static function loadEventDna(PDO $db, int $eventId): ?array
+    {
+        if ($eventId <= 0) {
+            return null;
+        }
+
+        try {
+            $stmt = $db->prepare('SELECT ai_dna_override FROM events WHERE id = ? LIMIT 1');
+            $stmt->execute([$eventId]);
+            $raw = $stmt->fetchColumn();
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        if ($raw === false || $raw === null || $raw === '') {
+            return null;
+        }
+
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+        } elseif (is_array($raw)) {
+            $decoded = $raw;
+        } else {
+            $decoded = null;
+        }
+
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $normalized = [];
+        $hasAny = false;
+        foreach (['business_description', 'tone_of_voice', 'business_rules', 'target_audience', 'forbidden_topics'] as $field) {
+            $val = $decoded[$field] ?? null;
+            if (is_string($val)) {
+                $val = trim($val);
+                if ($val === '') {
+                    $val = null;
+                }
+            }
+            $normalized[$field] = $val;
+            if ($val !== null) {
+                $hasAny = true;
+            }
+        }
+
+        return $hasAny ? $normalized : null;
     }
 
     public static function listSurfaceBlueprints(): array

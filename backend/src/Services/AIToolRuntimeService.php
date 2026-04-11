@@ -1549,13 +1549,28 @@ final class AIToolRuntimeService
         self::requireEventId($eventId, 'get_cross_module_analytics');
         $p = [':org' => $organizerId, ':evt' => $eventId];
 
-        $sales = $db->prepare("SELECT COALESCE(SUM(total_amount),0) AS revenue, COUNT(*) AS transactions, COALESCE(SUM(quantity),0) AS items FROM public.sales WHERE organizer_id=:org AND event_id=:evt AND status='completed'");
+        // sales table has revenue but quantity lives in sale_items — join to aggregate
+        $sales = $db->prepare("
+            SELECT
+                COALESCE(SUM(s.total_amount), 0) AS revenue,
+                COUNT(*) AS transactions,
+                COALESCE((SELECT SUM(si.quantity) FROM public.sale_items si JOIN public.sales s2 ON s2.id = si.sale_id WHERE s2.organizer_id = :org AND s2.event_id = :evt AND s2.status = 'completed'), 0) AS items
+            FROM public.sales s
+            WHERE s.organizer_id = :org AND s.event_id = :evt AND s.status = 'completed'
+        ");
         $sales->execute($p); $salesData = $sales->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        $tickets = $db->prepare("SELECT COUNT(*) AS sold FROM public.tickets WHERE organizer_id=:org AND event_id=:evt AND status='active'");
+        $tickets = $db->prepare("SELECT COUNT(*) AS sold FROM public.tickets WHERE organizer_id=:org AND event_id=:evt AND status IN ('paid','valid','used')");
         $tickets->execute($p); $ticketData = $tickets->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        $wf = $db->prepare("SELECT COUNT(*) AS total FROM public.workforce_assignments WHERE organizer_id=:org AND event_id=:evt");
+        // workforce_assignments has no direct event_id — join via event_shifts → event_days
+        $wf = $db->prepare("
+            SELECT COUNT(DISTINCT wa.id) AS total
+            FROM public.workforce_assignments wa
+            JOIN public.event_shifts es ON es.id = wa.event_shift_id
+            JOIN public.event_days ed ON ed.id = es.event_day_id
+            WHERE wa.organizer_id = :org AND ed.event_id = :evt
+        ");
         $wf->execute($p); $wfData = $wf->fetch(\PDO::FETCH_ASSOC) ?: [];
 
         $artists = $db->prepare("SELECT COUNT(*) AS total, COUNT(*) FILTER(WHERE booking_status='confirmed') AS confirmed, COALESCE(SUM(cache_amount) FILTER(WHERE booking_status<>'cancelled'),0) AS cache_total FROM public.event_artists WHERE organizer_id=:org AND event_id=:evt");

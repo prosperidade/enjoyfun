@@ -73,11 +73,13 @@ function organizerAIAgentStatusCode(\RuntimeException $e): int
     return $status >= 400 && $status <= 599 ? $status : 500;
 }
 
-function resolveOrganizerId(array $user): int
-{
-    if (($user['role'] ?? '') === 'admin') {
-        return (int)($user['organizer_id'] ?? $user['id'] ?? 0);
-    }
+if (!function_exists('resolveOrganizerId')) {
+    function resolveOrganizerId(array $user): int
+    {
+        if (($user['role'] ?? '') === 'admin') {
+            return (int)($user['organizer_id'] ?? $user['id'] ?? 0);
+        }
 
-    return (int)($user['organizer_id'] ?? 0);
+        return (int)($user['organizer_id'] ?? 0);
+    }
 }

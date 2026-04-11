@@ -15,6 +15,7 @@ require_once BASE_PATH . '/src/Services/AIIntentRouterService.php';
 require_once BASE_PATH . '/src/Services/AIConversationService.php';
 require_once BASE_PATH . '/src/Services/AIPromptSanitizer.php';
 require_once BASE_PATH . '/src/Services/AdaptiveResponseService.php';
+require_once BASE_PATH . '/src/Services/AIActionCatalogService.php';
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -30,6 +31,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'POST' && $id === 'chat' => handleChat($body),
         $method === 'GET' && $id === 'chat' && $sub === 'sessions' && $subId !== null => getChatSession($subId),
         $method === 'GET' && $id === 'chat' && $sub === 'sessions' => listChatSessions($query),
+        $method === 'GET' && $id === 'actions' => listActionCatalog(),
         default => jsonError("Rota não encontrada: {$method} /{$id}", 404),
     };
 }
@@ -563,6 +565,31 @@ function getChatSession(string $sessionId): void
         $ref = uniqid();
         error_log("[AIController::getChatSession] Error (Ref: {$ref}) - " . $e->getMessage());
         jsonError("Erro interno ao carregar sessão (Ref: {$ref})", 500);
+    }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Action catalog — exposes platform-anchored actions so the
+//  frontend can mirror the catalog and render [action_key] tags
+//  from chat responses as clickable buttons.
+// ──────────────────────────────────────────────────────────────
+
+function listActionCatalog(): void
+{
+    // Any authenticated user can read the catalog — it's public metadata,
+    // but we still gate to logged-in users to avoid bot scraping.
+    requireAuth(['admin', 'organizer', 'manager', 'bartender', 'staff']);
+
+    try {
+        $actions = \EnjoyFun\Services\AIActionCatalogService::listAll();
+        jsonSuccess([
+            'count' => count($actions),
+            'actions' => $actions,
+        ]);
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[AIController::listActionCatalog] Error (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro interno ao carregar catalogo de acoes (Ref: {$ref})", 500);
     }
 }
 

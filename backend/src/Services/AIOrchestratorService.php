@@ -18,6 +18,33 @@ require_once __DIR__ . '/EventTemplateService.php';
 
 final class AIOrchestratorService
 {
+    public static function pingProvider(string $provider, array $runtime): array
+    {
+        $normalized = strtolower(trim($provider));
+        if (!in_array($normalized, ['openai', 'gemini', 'claude'], true)) {
+            throw new RuntimeException('Provider de IA invalido. Use openai, gemini ou claude.', 422);
+        }
+
+        $runtime['provider'] = $normalized;
+        $systemPrompt = 'Voce e um assistente diagnostico. Responda apenas com a palavra: ok';
+        $userPrompt = 'Responda apenas com a palavra: ok';
+
+        $result = match ($normalized) {
+            'gemini' => self::requestGeminiInsight($runtime, $systemPrompt, $userPrompt, []),
+            'claude' => self::requestClaudeInsight($runtime, $systemPrompt, $userPrompt, []),
+            default => self::requestOpenAiInsight($runtime, $systemPrompt, $userPrompt, []),
+        };
+
+        return [
+            'provider' => $normalized,
+            'model' => (string)($result['model'] ?? ($runtime['model'] ?? '')),
+            'response_text' => trim((string)($result['insight'] ?? '')),
+            'tokens_in' => (int)($result['usage']['prompt_tokens'] ?? 0),
+            'tokens_out' => (int)($result['usage']['completion_tokens'] ?? 0),
+            'request_duration_ms' => (int)($result['request_duration_ms'] ?? 0),
+        ];
+    }
+
     public static function generateInsight(PDO $db, array $operator, array $payload): array
     {
         $context = $payload['context'] ?? null;
@@ -29,9 +56,6 @@ final class AIOrchestratorService
 
         $organizerId = self::resolveOrganizerId($operator, $context);
         $legacyConfig = self::loadLegacyRuntimeConfig($db, $organizerId);
-        if (!$legacyConfig['is_active']) {
-            throw new RuntimeException('A IA operacional está desativada para este organizador.', 409);
-        }
 
         $context = AIContextBuilderService::buildInsightContext($db, $organizerId, $context);
         // ── Event Template: inject event_type for skill filtering ──
@@ -43,9 +67,14 @@ final class AIOrchestratorService
         }
         $agentExecution = self::resolveAgentExecution($db, $organizerId, $context);
         $surface = AIContextBuilderService::resolveSurface($context) ?: 'general';
+        $legacyConfig['files'] = AIContextBuilderService::loadOrganizerFilesSummary($db, $organizerId, $surface);
+        $eventIdForDna = (int)($context['event_id'] ?? 0);
+        $legacyConfig['event_dna'] = $eventIdForDna > 0
+            ? AIContextBuilderService::loadEventDna($db, $eventIdForDna)
+            : null;
         $effectiveProvider = self::resolveEffectiveProvider($db, $organizerId, $agentExecution, $legacyConfig);
         $runtime = AIProviderConfigService::resolveRuntime($db, $organizerId, $effectiveProvider);
-        $systemPrompt = AIPromptCatalogService::composeSystemPrompt($legacyConfig, $agentExecution, $surface);
+        $systemPrompt = AIPromptCatalogService::composeSystemPrompt($legacyConfig, $agentExecution, $surface, $db);
         $prompt = AIPromptCatalogService::buildUserPrompt($surface, $context, $question);
         $toolCatalog = AIToolRuntimeService::buildToolCatalog($context, $db, $organizerId);
         $startedAt = gmdate('Y-m-d H:i:s');
@@ -933,33 +962,8 @@ final class AIOrchestratorService
 
     private static function loadLegacyRuntimeConfig(PDO $db, int $organizerId): array
     {
-        if ($organizerId <= 0) {
-            return [
-                'provider' => 'openai',
-                'system_prompt' => '',
-                'is_active' => true,
-            ];
-        }
-
-        $stmt = $db->prepare('
-            SELECT provider, system_prompt, is_active
-            FROM organizer_ai_config
-            WHERE organizer_id = ?
-            ORDER BY updated_at DESC NULLS LAST, id DESC
-            LIMIT 1
-        ');
-        $stmt->execute([$organizerId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-
-        $provider = strtolower(trim((string)($row['provider'] ?? 'openai')));
-        if (!in_array($provider, ['openai', 'gemini', 'claude'], true)) {
-            $provider = 'openai';
-        }
-
         return [
-            'provider' => $provider,
-            'system_prompt' => trim((string)($row['system_prompt'] ?? '')),
-            'is_active' => isset($row['is_active']) ? filter_var($row['is_active'], FILTER_VALIDATE_BOOLEAN) : true,
+            'dna' => $organizerId > 0 ? AIContextBuilderService::loadOrganizerDna($db, $organizerId) : null,
         ];
     }
 
@@ -1051,7 +1055,7 @@ final class AIOrchestratorService
             }
         }
 
-        return $legacyConfig['provider'] ?? 'openai';
+        return 'openai';
     }
 
     private static function findDefaultProviderKey(PDO $db, int $organizerId): ?string
@@ -1832,7 +1836,6 @@ final class AIOrchestratorService
         $body = curl_exec($ch);
         $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $error = curl_error($ch);
-        curl_close($ch);
 
         if ($error !== '') {
             $normalizedErr = strtolower($error);

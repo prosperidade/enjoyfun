@@ -402,6 +402,14 @@ final class AIProviderConfigService
         if (!is_array($config)) {
             $config = [];
         }
+        if (array_key_exists('model', $payload)) {
+            $rawModel = trim((string)($payload['model'] ?? ''));
+            if ($rawModel === '') {
+                unset($config['model']);
+            } else {
+                $config['model'] = $rawModel;
+            }
+        }
 
         $stmt = $db->prepare("
             INSERT INTO public.organizer_ai_agents (

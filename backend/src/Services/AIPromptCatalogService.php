@@ -2,8 +2,94 @@
 
 namespace EnjoyFun\Services;
 
+use PDO;
+use Throwable;
+
+require_once __DIR__ . '/AIActionCatalogService.php';
+
 final class AIPromptCatalogService
 {
+    /**
+     * Per-request cache for agent personas loaded from ai_agent_registry.
+     * Keyed by agent_key. Value is string (persona) or false (miss/unavailable).
+     *
+     * @var array<string, string|false>
+     */
+    private static array $personaCache = [];
+
+    /**
+     * Flag memoizing whether ai_agent_registry table is reachable this request.
+     * null = not checked yet, true/false = checked.
+     */
+    private static ?bool $personaTableAvailable = null;
+
+    /**
+     * Loads the "30-year specialist" persona from ai_agent_registry.system_prompt.
+     * Returns null when:
+     *   - The table does not exist
+     *   - The agent_key is not found
+     *   - The column is null/empty
+     *   - Any PDO error occurs
+     *
+     * Cached per request to avoid N queries in tight loops.
+     */
+    public static function resolveAgentPersona(PDO $db, string $agentKey): ?string
+    {
+        $agentKey = trim($agentKey);
+        if ($agentKey === '') {
+            return null;
+        }
+
+        if (array_key_exists($agentKey, self::$personaCache)) {
+            $cached = self::$personaCache[$agentKey];
+            return $cached === false ? null : $cached;
+        }
+
+        if (self::$personaTableAvailable === false) {
+            self::$personaCache[$agentKey] = false;
+            return null;
+        }
+
+        try {
+            if (self::$personaTableAvailable === null) {
+                $check = $db->query("SELECT to_regclass('public.ai_agent_registry') AS reg");
+                $row = $check ? $check->fetch(PDO::FETCH_ASSOC) : null;
+                self::$personaTableAvailable = !empty($row['reg']);
+                if (self::$personaTableAvailable === false) {
+                    self::$personaCache[$agentKey] = false;
+                    return null;
+                }
+            }
+
+            $stmt = $db->prepare('SELECT system_prompt FROM ai_agent_registry WHERE agent_key = :k LIMIT 1');
+            $stmt->execute([':k' => $agentKey]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $persona = $row && isset($row['system_prompt']) ? trim((string)$row['system_prompt']) : '';
+            if ($persona === '') {
+                self::$personaCache[$agentKey] = false;
+                return null;
+            }
+
+            self::$personaCache[$agentKey] = $persona;
+            return $persona;
+        } catch (Throwable $e) {
+            // Never bubble up — persona is optional enrichment.
+            self::$personaCache[$agentKey] = false;
+            return null;
+        }
+    }
+
+    /**
+     * True when the feature flag to prefer DB-driven personas is enabled.
+     */
+    private static function isPersonaFlagEnabled(): bool
+    {
+        $flag = getenv('FEATURE_AI_AGENT_REGISTRY');
+        return in_array(strtolower((string)$flag), ['1', 'true', 'yes', 'on'], true);
+    }
+
+
     public static function listCatalog(): array
     {
         $catalog = [];
@@ -14,30 +100,158 @@ final class AIPromptCatalogService
         return $catalog;
     }
 
-    public static function composeSystemPrompt(array $legacyConfig, ?array $agentExecution, string $surface): string
+    public static function composeSystemPrompt(array $legacyConfig, ?array $agentExecution, string $surface, ?PDO $db = null): string
     {
         $agentKey = trim((string)($agentExecution['agent_key'] ?? 'management'));
         $catalog = self::agentCatalog()[$agentKey] ?? self::agentCatalog()['management'];
         $surfaceDefinition = self::surfaceCatalog()[$surface] ?? self::surfaceCatalog()['general'];
 
+        // ── Persona from DB (30-year specialist) — migration 066 ──
+        // When FEATURE_AI_AGENT_REGISTRY is ON and a persona row exists in
+        // ai_agent_registry.system_prompt for the routed agent, use it as the
+        // primary identity block. Falls back to the hardcoded catalog persona.
+        $agentIdentity = (string)($catalog['system_prompt'] ?? '');
+        if ($db instanceof PDO && self::isPersonaFlagEnabled()) {
+            $persona = self::resolveAgentPersona($db, $agentKey);
+            if ($persona !== null && $persona !== '') {
+                $agentIdentity = $persona;
+            }
+        }
+
         $parts = [
             'Voce e a camada de inteligencia operacional da EnjoyFun — uma plataforma SaaS White Label Multi-tenant para gestao completa de eventos. Cada organizador opera com sua propria marca. O modelo de receita inclui mensalidade fixa + 1% de comissao sobre tudo vendido (split automatico via gateway). Responda em portugues do Brasil, com clareza, objetividade e foco pratico.',
-            "IDENTIDADE DO AGENTE:\n" . ($catalog['system_prompt'] ?? ''),
+            "IDENTIDADE DO AGENTE:\n" . $agentIdentity,
             "CONTRATO DA SUPERFICIE:\n" . ($surfaceDefinition['system_prompt'] ?? ''),
             self::adaptiveResponseContract(),
         ];
+
+        $dnaSection = self::renderOrganizerDnaSection($legacyConfig['dna'] ?? null);
+        if ($dnaSection !== '') {
+            $parts[] = $dnaSection;
+        }
+
+        $eventDnaSection = self::renderEventDnaOverrideSection($legacyConfig['event_dna'] ?? null);
+        if ($eventDnaSection !== '') {
+            $parts[] = $eventDnaSection;
+        }
+
+        $filesSection = self::renderOrganizerFilesSection($legacyConfig);
+        if ($filesSection !== '') {
+            $parts[] = $filesSection;
+        }
 
         $overridePrompt = self::resolveOverridePrompt($agentExecution);
         if ($overridePrompt !== '') {
             $parts[] = "OVERRIDE DO ORGANIZER PARA O AGENTE:\n{$overridePrompt}";
         }
 
-        $legacyPrompt = trim((string)($legacyConfig['system_prompt'] ?? ''));
-        if ($legacyPrompt !== '') {
-            $parts[] = "PROMPT OPERACIONAL LEGADO DO ORGANIZER:\n{$legacyPrompt}";
+        return implode("\n\n", array_filter($parts, static fn(string $value): bool => trim($value) !== ''));
+    }
+
+    private static function renderOrganizerDnaSection(?array $dna): string
+    {
+        if (!is_array($dna) || empty($dna)) {
+            return '';
         }
 
-        return implode("\n\n", array_filter($parts, static fn(string $value): bool => trim($value) !== ''));
+        $labels = [
+            'business_description' => 'Descricao do negocio',
+            'tone_of_voice'        => 'Tom de voz',
+            'business_rules'       => 'Regras do negocio',
+            'target_audience'      => 'Publico-alvo',
+            'forbidden_topics'     => 'Topicos proibidos',
+        ];
+
+        $lines = [];
+        foreach ($labels as $key => $label) {
+            $value = $dna[$key] ?? null;
+            if (!is_string($value)) {
+                continue;
+            }
+            $value = trim($value);
+            if ($value === '') {
+                continue;
+            }
+            $lines[] = "- {$label}: {$value}";
+        }
+
+        if (empty($lines)) {
+            return '';
+        }
+
+        return "## Sobre este negocio (DNA do organizador):\n" . implode("\n", $lines)
+            . "\n\nUse estas informacoes para ajustar vocabulario, recomendacoes e limites. Respeite estritamente os topicos proibidos.";
+    }
+
+    private static function renderEventDnaOverrideSection(?array $eventDna): string
+    {
+        if (!is_array($eventDna) || empty($eventDna)) {
+            return '';
+        }
+
+        $labels = [
+            'business_description' => 'Descricao do negocio',
+            'tone_of_voice'        => 'Tom de voz',
+            'business_rules'       => 'Regras do negocio',
+            'target_audience'      => 'Publico-alvo',
+            'forbidden_topics'     => 'Topicos proibidos',
+        ];
+
+        $lines = [];
+        foreach ($labels as $key => $label) {
+            $value = $eventDna[$key] ?? null;
+            if (!is_string($value)) {
+                continue;
+            }
+            $value = trim($value);
+            if ($value === '') {
+                continue;
+            }
+            $lines[] = "- {$label}: {$value}";
+        }
+
+        if (empty($lines)) {
+            return '';
+        }
+
+        return "## Este evento especificamente (override do DNA do organizador):\n" . implode("\n", $lines)
+            . "\n\nOs campos acima sobrescrevem o DNA do organizador APENAS para este evento. Os demais campos permanecem herdados. Use o override com prioridade sobre o DNA base.";
+    }
+
+    private static function renderOrganizerFilesSection(array $legacyConfig): string
+    {
+        $files = $legacyConfig['files'] ?? null;
+        if (!is_array($files) || empty($files)) {
+            return '';
+        }
+
+        $lines = [];
+        foreach ($files as $file) {
+            if (!is_array($file)) {
+                continue;
+            }
+            $name = trim((string)($file['file_name'] ?? ''));
+            $category = trim((string)($file['category'] ?? ''));
+            $summary = trim((string)($file['summary'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $line = "- {$name}";
+            if ($category !== '') {
+                $line .= " ({$category})";
+            }
+            if ($summary !== '') {
+                $line .= ": {$summary}";
+            }
+            $lines[] = $line;
+        }
+
+        if (empty($lines)) {
+            return '';
+        }
+
+        return "## Documentos relevantes do negocio:\n" . implode("\n", $lines)
+            . "\n\nEsses arquivos foram processados pelo organizador e estao disponiveis como referencia adicional. Cite-os quando forem relevantes.";
     }
 
     private static function adaptiveResponseContract(): string
@@ -260,20 +474,80 @@ TXT;
         $today = date('Y-m-d');
         $todayHuman = date('d/m/Y H:i');
 
-        return sprintf(
-            "DATA DE HOJE: %s (%s)\n\nSUPERFICIE: %s\nSETOR EM ANALISE: %s\nPERIODO: %s\nFATURAMENTO TOTAL (cache estatico): R\$ %s\nITENS VENDIDOS (cache estatico): %s und\nTOP PRODUTOS (cache estatico, JSON): %s\nESTOQUE CRITICO (cache estatico, JSON): %s\nCONTEXTO BRUTO (JSON): %s\n\nCONSCIENCIA TEMPORAL — REGRA CRITICA:\n- A DATA DE HOJE acima e a verdade absoluta. SEMPRE compare starts_at e ends_at do evento com hoje antes de responder.\n- Se ends_at < hoje  -> evento JA ACONTECEU. Use verbos no passado ('o evento foi', 'as vendas foram', 'foram vendidos'). NAO sugira 'campanhas para impulsionar vendas' nem 'acoes para o evento'. Em vez disso: relato pos-evento, licoes aprendidas, comparativo com metas, proximos passos pos-evento.\n- Se starts_at <= hoje <= ends_at -> evento EM ANDAMENTO. Use presente ('o evento esta acontecendo', 'as vendas estao em X'). Foque em acoes operacionais imediatas.\n- Se starts_at > hoje -> evento FUTURO. Use futuro ('o evento ocorrera', 'as vendas estao em X ate o momento'). Acoes pre-evento sao validas.\n- NUNCA proponha 'campanha promocional para impulsionar vendas' de evento que ja terminou. Isso e alucinacao.\n\nUSE AS TOOLS DISPONIVEIS:\n- Os numeros 'cache estatico' acima podem estar zerados ou desatualizados. NUNCA reporte R\$ 0 sem antes tentar uma tool.\n- Se o usuario mencionar um evento pelo NOME (ex: 'EnjoyFun', 'aldeia', 'UBUNTU'), PRIMEIRO chame find_events(name_query='...') para resolver o id real E para obter starts_at/ends_at.\n- Para vendas/PDV use get_pos_sales_snapshot. Para KPIs gerais use get_event_kpi_dashboard. Para ingressos use get_ticket_demand_signals. Para estacionamento use get_parking_live_snapshot. Para artistas use get_artist_event_summary.\n- Sempre prefira numeros vindos das tools sobre os do cache.\n\nTAREFAS:\n1. Resolver o evento alvo (chamar find_events se houver nome explicito) e CAPTURAR starts_at/ends_at.\n2. Determinar se o evento ja aconteceu, esta em andamento ou e futuro (compare com DATA DE HOJE).\n3. Chamar as tools relevantes para a pergunta.\n4. Sintetizar os resultados na voz verbal correta (passado/presente/futuro) baseada no item 2.\n5. Propor ate 3 proximas acoes COERENTES com o estado temporal do evento.\n6. Declarar qualquer ausencia importante de dados.\n\nPERGUNTA DO OPERADOR: %s",
-            $today,
-            $todayHuman,
-            strtoupper((string)($context['surface'] ?? 'GENERAL')),
-            strtoupper((string)($context['sector'] ?? 'N/A')),
-            (string)($context['time_filter'] ?? 'N/A'),
-            (string)($context['total_revenue'] ?? '0'),
-            (string)($context['total_items'] ?? '0'),
-            self::encodeJsonFragment($context['top_products'] ?? []),
-            self::encodeJsonFragment($context['stock_levels'] ?? []),
-            self::encodeJsonFragment($context),
-            $question
-        );
+        $surface    = strtoupper((string)($context['surface'] ?? 'GENERAL'));
+        $sector     = strtoupper((string)($context['sector'] ?? 'N/A'));
+        $timeFilter = (string)($context['time_filter'] ?? 'N/A');
+        $revenue    = (string)($context['total_revenue'] ?? '0');
+        $items      = (string)($context['total_items'] ?? '0');
+        $topProducts = self::encodeJsonFragment($context['top_products'] ?? []);
+        $stock       = self::encodeJsonFragment($context['stock_levels'] ?? []);
+        $rawContext  = self::encodeJsonFragment($context);
+
+        // Action hint block — lists concrete platform actions the agent can propose
+        // in the checklist. Falls back to empty string if agent is unknown.
+        $agentKey = strtolower(trim((string)($context['agent_key'] ?? '')));
+        $actionHint = '';
+        if ($agentKey !== '') {
+            try {
+                $actionHint = AIActionCatalogService::buildActionHintForAgent($agentKey);
+            } catch (Throwable) {
+                $actionHint = '';
+            }
+        }
+        $actionHintBlock = $actionHint !== '' ? "\n\n{$actionHint}" : '';
+
+        return <<<TXT
+DATA DE HOJE: {$today} ({$todayHuman})
+
+SUPERFICIE: {$surface}
+SETOR EM ANALISE: {$sector}
+PERIODO: {$timeFilter}
+FATURAMENTO TOTAL (cache estatico): R\$ {$revenue}
+ITENS VENDIDOS (cache estatico): {$items} und
+TOP PRODUTOS (cache estatico, JSON): {$topProducts}
+ESTOQUE CRITICO (cache estatico, JSON): {$stock}
+CONTEXTO BRUTO (JSON): {$rawContext}
+
+CONSCIENCIA TEMPORAL — REGRA CRITICA:
+- A DATA DE HOJE acima e a verdade absoluta. SEMPRE compare starts_at e ends_at do evento com hoje antes de responder.
+- Se ends_at < hoje  -> evento JA ACONTECEU. Use verbos no passado ('o evento foi', 'as vendas foram', 'foram vendidos'). NAO sugira 'campanhas para impulsionar vendas' nem 'acoes para o evento'. Em vez disso: relato pos-evento, licoes aprendidas, comparativo com metas, proximos passos pos-evento.
+- Se starts_at <= hoje <= ends_at -> evento EM ANDAMENTO. Use presente ('o evento esta acontecendo', 'as vendas estao em X'). Foque em acoes operacionais imediatas.
+- Se starts_at > hoje -> evento FUTURO. Use futuro ('o evento ocorrera', 'as vendas estao em X ate o momento'). Acoes pre-evento sao validas.
+- NUNCA proponha 'campanha promocional para impulsionar vendas' de evento que ja terminou. Isso e alucinacao.
+
+USE AS TOOLS DISPONIVEIS:
+- Os numeros 'cache estatico' acima podem estar zerados ou desatualizados. NUNCA reporte R\$ 0 sem antes tentar uma tool.
+- Se o usuario mencionar um evento pelo NOME (ex: 'EnjoyFun', 'aldeia', 'UBUNTU'), PRIMEIRO chame find_events(name_query='...') para resolver o id real E para obter starts_at/ends_at.
+- Para vendas/PDV use get_pos_sales_snapshot. Para KPIs gerais use get_event_kpi_dashboard. Para ingressos use get_ticket_demand_signals. Para estacionamento use get_parking_live_snapshot. Para artistas use get_artist_event_summary.
+- Sempre prefira numeros vindos das tools sobre os do cache.
+
+[FORMATO DE RESPOSTA — siga EXATAMENTE este molde e NAO copie o texto do exemplo]
+
+Use markdown em portugues do Brasil. NUNCA escreva "Label: valor (unidade)" como texto literal — isso e meta-instrucao, nao conteudo.
+
+## Conclusao
+
+Uma unica frase direta com o numero ou fato mais importante. (Sem titulo "em 1 linha", comece direto pela frase.)
+
+## Numeros
+
+De 3 a 5 linhas, cada uma no formato "Nome da metrica: valor" com o nome da metrica em portugues comum (ex: "Faturamento: R\$ 106.812", "Ingressos vendidos: 97", "Alertas criticos: 0"). Use numeros REAIS das tools — jamais invente.
+
+## Analise
+
+1 a 3 paragrafos curtos (no maximo 400 caracteres cada) explicando o PORQUE dos numeros acima. Cite causas provaveis ancoradas em dados. NAO repita os numeros do bloco anterior. Se faltar dado crucial, escreva "faltou X" — e melhor que suposicao.
+
+## O que fazer
+
+De 2 a 4 acoes concretas no imperativo, uma por linha, amarradas a features reais da plataforma.
+- Exemplos BONS: "Abrir lote promo 'Lote 2' com 15% desconto [open_promo_batch]"; "Reduzir par do chopp de 40 para 25 [adjust_par_level]"; "Disparar whatsapp de recompra para base de 2025 [broadcast_whatsapp_recompra]".
+- Exemplos BANIDOS: "avaliar estrategia", "revisar estrutura", "considerar analise", "planejar proximo evento" (vazio, sem amarra).
+- Quando uma acao da lista ACOES DISPONIVEIS abaixo se encaixar, cite-a inline pelo action_key entre colchetes (ex: [open_promo_batch]). O frontend converte em botao clicavel.
+- Use portugues natural. NAO use palavras em ingles (use "line-up" so se for nome proprio; prefira "selecao de artistas", "repertorio", "programacao").
+{$actionHintBlock}
+
+PERGUNTA DO OPERADOR: {$question}
+TXT;
     }
 
     private static function resolveOverridePrompt(?array $agentExecution): string

@@ -1,11 +1,19 @@
 <?php
 /**
- * Organizer AI Config Controller
- * Gerencia as configurações de IA por organizer (provider, prompt, status).
+ * Organizer AI Config Controller — DEPRECATED
+ * Substituido pelos fluxos: Settings/Providers (organizer_ai_providers),
+ * DNA do organizador (organizer_ai_dna) e DNA do evento (events.ai_dna_override).
+ * Este endpoint continua respondendo para compatibilidade historica mas nao alimenta
+ * mais o system prompt dos agentes de IA.
  */
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
+    header('Deprecation: true');
+    header('Sunset: Wed, 01 Jul 2026 00:00:00 GMT');
+    header('Link: </api/organizer-ai-providers>; rel="successor-version", </api/organizer-ai-dna>; rel="successor-version"');
+    error_log('[DEPRECATED] /api/organizer-ai-config called — migrate to organizer-ai-providers + organizer-ai-dna');
+
     match (true) {
         $method === 'GET'  && $id === null => getConfig(),
         $method === 'PUT'  && $id === null => updateConfig($body),
@@ -96,12 +104,14 @@ function updateConfig(array $body): void
     ], 'Configurações de IA salvas com sucesso.');
 }
 
-function resolveOrganizerId(array $user): int
-{
-    if (($user['role'] ?? '') === 'admin') {
-        return (int)($user['organizer_id'] ?? $user['id'] ?? 0);
+if (!function_exists('resolveOrganizerId')) {
+    function resolveOrganizerId(array $user): int
+    {
+        if (($user['role'] ?? '') === 'admin') {
+            return (int)($user['organizer_id'] ?? $user['id'] ?? 0);
+        }
+        return (int)($user['organizer_id'] ?? 0);
     }
-    return (int)($user['organizer_id'] ?? 0);
 }
 
 function normalizeAiProvider(string $provider): string
