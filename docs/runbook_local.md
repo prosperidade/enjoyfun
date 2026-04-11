@@ -592,29 +592,47 @@ AI_SPENDING_CAP_BRL=500.00  # Cap mensal em R$
 
 ### Aplicar migrations
 
+Aplicar **na ordem**, todas idempotentes (usam `ON CONFLICT DO NOTHING` / `IF NOT EXISTS`):
+
 ```bash
 PGPASSWORD=$DB_PASS psql -h 127.0.0.1 -U postgres -d enjoyfun -f database/062_ai_agent_skills_warehouse.sql
 PGPASSWORD=$DB_PASS psql -h 127.0.0.1 -U postgres -d enjoyfun -f database/064_rls_ai_v2_tables.sql
+PGPASSWORD=$DB_PASS psql -h 127.0.0.1 -U postgres -d enjoyfun -f database/065_ai_find_events_skill.sql
+PGPASSWORD=$DB_PASS psql -h 127.0.0.1 -U postgres -d enjoyfun -f database/067_ai_agent_personas.sql
 ```
 
-Verificar seed:
+Nota: `063_event_templates.sql` e `066_organizer_ai_dna.sql` sao de outras frentes. Nao aplicar aqui a menos que dependam.
+
+Verificar seed apos as 4 migrations:
 ```bash
-psql -c "SELECT COUNT(*) FROM ai_agent_registry;"      # esperado: 12
-psql -c "SELECT COUNT(*) FROM ai_skill_registry;"      # esperado: 32 (1 enriquecida em runtime)
-psql -c "SELECT COUNT(*) FROM ai_agent_skills;"        # esperado: 63
+psql -c "SELECT COUNT(*) FROM ai_agent_registry;"                                    # esperado: 12
+psql -c "SELECT COUNT(*) FROM ai_skill_registry;"                                    # esperado: 32 (find_events + 31)
+psql -c "SELECT COUNT(*) FROM ai_agent_skills;"                                      # esperado: 75 (63 base + 12 find_events)
+psql -c "SELECT COUNT(*) FROM ai_agent_registry WHERE system_prompt IS NOT NULL;"    # esperado: 12
+psql -c "SELECT tablename FROM pg_policies WHERE tablename LIKE 'ai_conversation%';" # esperado: 2 tabelas com policies
 ```
 
 ### Habilitar feature flags
 
-**Backend (`backend/.env`)**:
+**Backend (`backend/.env`)** — lista completa:
 ```env
+# Master switches (legado + v2)
 FEATURE_AI_INSIGHTS=true
 FEATURE_AI_TOOLS=true
+FEATURE_AI_TOOL_WRITE=false
+
+# V2 — Agent Registry + Skills Warehouse + Chat
 FEATURE_AI_AGENT_REGISTRY=true
 FEATURE_AI_SKILL_REGISTRY=true
 FEATURE_AI_CHAT=true
 FEATURE_AI_INTENT_ROUTER=true
-FEATURE_AI_INTENT_ROUTER_LLM=false   # liga apenas se quiser routing via LLM (custo extra)
+FEATURE_AI_INTENT_ROUTER_LLM=false   # Tier 2 LLM routing (custo extra, ~80 tokens/call)
+
+# CRITICO: sem isso a IA propoe tools mas o orchestrator nao executa
+AI_BOUNDED_LOOP_V2=true
+
+# Adaptive UI (blocks + text_fallback + meta)
+FEATURE_ADAPTIVE_UI=true
 ```
 
 **Frontend (`frontend/.env`)**:
@@ -622,47 +640,198 @@ FEATURE_AI_INTENT_ROUTER_LLM=false   # liga apenas se quiser routing via LLM (cu
 VITE_FEATURE_AI_V2_UI=true
 ```
 
-Reiniciar **Vite** depois de mudar `frontend/.env` (variaveis sao injetadas no build).
+Reiniciar **Vite** apos mudar `frontend/.env` (variaveis sao injetadas no build time).
 
-### Smoke test
+### Smoke test do hub V2
 
 1. Login na plataforma
-2. Click no botao flutuante (canto inferior direito) — abre o `UnifiedAIChat`
-3. Pergunta de exemplo: "Como estao as vendas de ingresso?"
-4. Resposta esperada: agente roteado automaticamente (`marketing` ou `management`), insight em texto/tabela/chart
+2. Click no botao flutuante roxo (canto inferior direito) — abre o `UnifiedAIChat`
+3. Pergunta: "Como foi as vendas de ingresso do evento EnjoyFun?"
+4. **Resposta esperada:**
+   - Chat resolve "EnjoyFun" via `find_events` (primeira tool chamada)
+   - Depois chama `get_event_kpi_dashboard` ou `get_ticket_demand_signals`
+   - Retorna markdown com 4 blocos: Conclusao, Numeros, Analise, O que fazer
+   - Voz verbal no passado (o evento ja terminou: `ends_at < hoje`)
+   - Nenhum termo tecnico em ingles no corpo (labels traduzidos)
 5. Verificar no DB:
    ```sql
-   SELECT id, routed_agent_key, status FROM ai_conversation_sessions ORDER BY created_at DESC LIMIT 1;
-   SELECT role, content_type, agent_key FROM ai_conversation_messages WHERE session_id = '<uuid>' ORDER BY created_at;
+   SELECT id, routed_agent_key, status, surface FROM ai_conversation_sessions ORDER BY created_at DESC LIMIT 1;
+   SELECT id, agent_key, jsonb_array_length(tool_calls_json) AS tool_count, LEFT(response_preview, 80) FROM ai_agent_executions ORDER BY created_at DESC LIMIT 3;
    ```
+6. **Red flags:**
+   - `tool_count = 0` + resposta generica → IA nao chamou tools. Ver troubleshooting abaixo.
+   - Resposta em voz futura para evento passado → prompt temporal nao funcionou, verificar `DATA DE HOJE` no prompt.
+   - Erro 400 OpenAI → verificar `tool_call_id` no log.
+   - `Runtime parcial: N com falha` → ver secao de debug de tools.
 
 ### Rollback instantaneo
 
-Desligar qualquer flag (mudar para `false`) e reiniciar dev server. Comportamento volta a ser identico ao pre-Sprint AI v2.
+Desligar as 6 flags do hub e reiniciar dev servers:
+```env
+# backend/.env
+FEATURE_AI_AGENT_REGISTRY=false
+FEATURE_AI_SKILL_REGISTRY=false
+FEATURE_AI_CHAT=false
+FEATURE_AI_INTENT_ROUTER=false
+AI_BOUNDED_LOOP_V2=false
+# frontend/.env
+VITE_FEATURE_AI_V2_UI=false
+```
 
-### Troubleshooting
+Resultado: zero dependencia em `ai_agent_registry`/`ai_skill_registry`/`ai_conversation_*`. Pipeline volta a `/ai/insight` legado com `allToolDefinitions()` hardcoded. Os 3 assistentes embutidos (`ParkingAIAssistant`, `ArtistAIAssistant`, `WorkforceAIAssistant`) voltam a aparecer no lugar do `AIChatTrigger`.
 
-| Sintoma | Causa | Fix |
-|---------|-------|-----|
-| `Call to undefined function mb_strlen()` | mbstring nao habilitada | Codigo ja tem fallback (`function_exists`). Se persistir, descomentar `extension=mbstring` em `php.ini` |
-| OpenAI rejeita `tools[].function.parameters` | `input_schema` vazio no DB | `AISkillRegistryService::buildToolCatalogForAgent` enriquece via `getCanonicalToolDefinitions()`. Verificar que `AIToolRuntimeService` esta carregado |
-| "Runtime parcial: 1 com falha" | Tool especifica falhou na execucao | Conferir `backend_dev_stderr.log` — log adicionado em `executeReadOnlyTools` mostra tool name e erro exato |
-| Chat retorna 401 | Cookie HttpOnly expirou | Re-login |
-| Chat retorna 403 | `FEATURE_AI_CHAT=false` | Habilitar a flag e reiniciar backend |
-| `frontend/.env` mudou mas UI nao | Vite cache | Reiniciar `npm run dev` (variaveis VITE_* sao injetadas no build) |
+### Procedimentos de manutencao
 
-### Endpoints novos
+#### Adicionar uma nova skill
 
-- `POST /api/ai/chat` — chat conversacional multi-turn
-- `GET /api/ai/chat/sessions` — lista sessoes ativas do usuario
-- `GET /api/ai/chat/sessions/{uuid}` — historico completo de uma sessao
+1. Entry em `AIToolRuntimeService::allToolDefinitions()` com `name`, `description`, `input_schema` (JSON Schema valido), `aliases`, `type` (read|write|generate), `surfaces`, `agent_keys`.
+2. Case no match de `AIToolRuntimeService::executeTools()` dispatch.
+3. Metodo privado `executeXxx(PDO $db, int $organizerId, ?int $eventId, array $arguments): array`.
+4. **Validar SQL via psql direto antes de commit** — usar `\d tabela` pra confirmar colunas. Erros SQL sao a causa #1 de falhas de tool.
+5. (Opcional) Migration `06X_ai_skill_xxx.sql` com INSERT em `ai_skill_registry` + `ai_agent_skills`. Sem migration, o Skill Registry pega do canonico via `getCanonicalToolDefinitions()`.
 
-### Tabelas para monitorar
+#### Adicionar um novo agente
 
-- `ai_conversation_sessions` — uma linha por sessao, expira em 24h
-- `ai_conversation_messages` — uma linha por mensagem (user, assistant, tool, system, router)
-- `ai_usage_logs` — billing tradicional ainda registrando tokens/custo
-- `ai_agent_executions` — historico de execucoes (mesmo que `/ai/insight`)
+1. Migration com `INSERT INTO ai_agent_registry` + `INSERT INTO ai_agent_skills` pra cada skill do agente.
+2. Escrever `system_prompt` (persona) — template em `067_ai_agent_personas.sql`, estrutura em 5 blocos: IDENTIDADE / VOCABULARIO / KPIs / FORMATO / REGRA TEMPORAL.
+3. Adicionar keywords no `AIIntentRouterService::tier1KeywordRoute()` pra routing automatico.
+4. Frontend: atualizar `FRIENDLY_LABELS`, `AGENT_GRADIENTS`, `AGENT_ICONS`, `EXAMPLE_PROMPTS` em `frontend/src/pages/AIAssistants.jsx`.
+
+#### Adicionar acao platform-anchored
+
+1. Entry em `AIActionCatalogService::catalog()` com `action_key`, `label`, `description`, `cta_label`, `action_url` (com `{placeholders}`), `required_params`, `agent_keys`, `surfaces`, `when_applicable`.
+2. Se a rota do frontend nao existe, criar (action_url tem que ser rota real do React Router).
+3. Testar: `AIActionCatalogService::renderAction('new_key', ['event_id' => 1])` deve retornar `{url, cta_label, ...}`.
+
+#### Debug de "Runtime parcial: N com falha"
+
+```bash
+grep "Tool execution failed" backend_dev_stderr.log | tail -20
+```
+
+Mostra `tool=nome_da_tool`, `error=mensagem`, `file=arquivo:linha`. Causas comuns e fixes:
+
+| Padrao do erro | Causa | Fix |
+|----------------|-------|-----|
+| `SQLSTATE[42703]: Undefined column "X"` | Schema drift entre hardcoded e banco real | `psql -c "\d tabela"` e reescrever query |
+| `SQLSTATE[42P01]: Undefined table` | Tabela ainda nao criada ou dropped | Aplicar migration correspondente |
+| `Argument #X must be of type...` | Frontend mandou arg com tipo errado | Validar `input_schema` e parsing em `executeXxx` |
+| `Call to undefined function mb_*` | mbstring nao habilitada | Ver fallbacks em `AIPromptSanitizer.php` e `AIIntentRouterService.php` |
+
+#### Debug de chat que nao chama tools
+
+1. Ultima execucao:
+   ```sql
+   SELECT id, agent_key, jsonb_array_length(tool_calls_json) AS tool_count,
+          LEFT(prompt_preview, 100) AS prompt_sample,
+          LEFT(response_preview, 100) AS resp_sample
+   FROM ai_agent_executions ORDER BY created_at DESC LIMIT 5;
+   ```
+2. `tool_count = 0` + resposta generica → IA nao esta usando tools.
+3. Causas:
+   - `AI_BOUNDED_LOOP_V2=false` → IA propoe tool_calls mas orchestrator nao executa. **Fix: setar true.**
+   - `FEATURE_AI_SKILL_REGISTRY=true` mas banco sem skills → `SELECT COUNT(*) FROM ai_agent_skills WHERE agent_key = 'X'` deve retornar > 0.
+   - Provider retorna texto direto → revisar prompt e reforcar "USE AS TOOLS".
+   - Skill nao mapeada pro agente roteado → ajustar `ai_agent_skills` ou usar `find_events` como primeira tool.
+
+#### Debug de OpenAI 400 `tool_call_id`
+
+```bash
+grep "tool_call_id" backend_dev_stderr.log | tail -10
+grep "Skipping orphan tool message" backend_dev_stderr.log | tail -5
+```
+
+Correcoes aplicadas em `AIOrchestratorService`:
+- `extractOpenAiToolCalls` popula `id` e `provider_call_id`
+- `serializeMessagesForOpenAi` usa `provider_call_id` → `id` → hash sintetico
+- Mensagens `tool` sem id sao skipadas com log explicito
+
+Se aparecer novo 400, ver qual mensagem foi enviada (habilitar debug de payload no orchestrator).
+
+#### Verificar personas carregadas
+
+```sql
+SELECT agent_key, LENGTH(system_prompt) AS chars, LEFT(system_prompt, 60) AS sample
+FROM ai_agent_registry ORDER BY display_order;
+```
+
+Cada agente deve ter 1.6k-2k chars. Se `NULL`, rodar `psql -f database/067_ai_agent_personas.sql`.
+
+#### Verificar RLS ativo
+
+```sql
+SELECT tablename, rowsecurity, forcerowsecurity
+FROM pg_tables
+WHERE tablename IN ('ai_conversation_sessions', 'ai_conversation_messages');
+
+SELECT tablename, policyname, cmd
+FROM pg_policies
+WHERE tablename LIKE 'ai_conversation%'
+ORDER BY tablename, policyname;
+```
+
+Esperado: 2 tabelas com `rowsecurity=t` + `forcerowsecurity=t` + 5 policies cada (4 tenant_isolation_* + 1 superadmin_bypass).
+
+#### Limpar sessoes expiradas manualmente
+
+Normalmente o `HealthController::healthDeepCheck` faz isso em fire-and-forget quando `/health/deep` e chamado. Manual:
+
+```sql
+UPDATE ai_conversation_sessions
+SET status = 'expired', updated_at = NOW()
+WHERE status = 'active' AND expires_at < NOW();
+```
+
+### Endpoints do hub V2
+
+| Rota | Metodo | Feature flag | Descricao |
+|------|--------|--------------|-----------|
+| `/api/ai/chat` | POST | `FEATURE_AI_CHAT` | Chat conversacional multi-turn |
+| `/api/ai/chat/sessions` | GET | `FEATURE_AI_CHAT` | Lista sessoes ativas do usuario |
+| `/api/ai/chat/sessions/{uuid}` | GET | `FEATURE_AI_CHAT` | Historico completo de uma sessao |
+| `/api/ai/insight` | POST | `FEATURE_AI_INSIGHTS` | Endpoint legado (single-shot, mantido pra backward compat) |
+| `/api/ai/executions/{id}/approve` | POST | `FEATURE_AI_INSIGHTS` | Approval workflow de write tools |
+| `/api/ai/executions/{id}/reject` | POST | `FEATURE_AI_INSIGHTS` | Rejeicao de approval |
+
+### Tabelas para monitorar (producao)
+
+| Tabela | Metrica de saude |
+|--------|------------------|
+| `ai_conversation_sessions` | Linhas com `status='active'` < 1k simultaneas. Rodar cleanup se crescer. |
+| `ai_conversation_messages` | Crescimento proporcional ao uso. Monitorar tamanho da tabela. |
+| `ai_usage_logs` | Billing — soma mensal por organizer. Alerta em 80% da spending cap. |
+| `ai_agent_executions` | Tempo medio (`request_duration_ms`) — alerta em p95 > 10s. `execution_status='failed'` rate > 10% e red flag. |
+| `ai_agent_registry.system_prompt` | Deve ter 12 nao-nulos. Se `NULL`, migrations 062/067 nao foram aplicadas. |
+
+### Arquivos referenciados
+
+**Backend:**
+- `backend/src/Controllers/AIController.php`
+- `backend/src/Services/AIAgentRegistryService.php`
+- `backend/src/Services/AISkillRegistryService.php`
+- `backend/src/Services/AIIntentRouterService.php`
+- `backend/src/Services/AIConversationService.php`
+- `backend/src/Services/AIActionCatalogService.php`
+- `backend/src/Services/AIPromptCatalogService.php`
+- `backend/src/Services/AIOrchestratorService.php`
+- `backend/src/Services/AIToolRuntimeService.php`
+
+**Frontend:**
+- `frontend/src/components/UnifiedAIChat.jsx`
+- `frontend/src/components/AIResponseRenderer.jsx`
+- `frontend/src/components/AIChatTrigger.jsx`
+- `frontend/src/pages/AIAssistants.jsx`
+- `frontend/src/api/aiChat.js`
+
+**Database:**
+- `database/062_ai_agent_skills_warehouse.sql`
+- `database/064_rls_ai_v2_tables.sql`
+- `database/065_ai_find_events_skill.sql`
+- `database/067_ai_agent_personas.sql`
+
+**Diarios:**
+- `docs/progresso25.md` — sprint principal
+- `docs/progresso_app_aifirst.md` — diario do hub AI-first (secao 2026-04-10 noite)
 
 ---
 

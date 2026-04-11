@@ -40,3 +40,5 @@
 062_ai_agent_skills_warehouse.sql | applied | 2026-04-10T19:50:49Z | AI Agent Registry + Skills Warehouse + Conversations (5 tables, 12 agents, 32 skills, 63 mappings)
 064_rls_ai_v2_tables.sql | applied | 2026-04-10T19:50:49Z | RLS on ai_conversation_sessions + ai_conversation_messages, grants on 5 AI v2 tables
 065_ai_find_events_skill.sql | applied | 2026-04-10T23:44:27Z | find_events skill registered for 12 agents
+11/04/2026 11:33:03 - APLICADA: database/066_organizer_ai_dna.sql
+067_ai_agent_personas.sql | applied | 2026-04-11T15:12:23Z | 12 agent personas populated (30y specialist voices) + action catalog wiring

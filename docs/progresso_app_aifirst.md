@@ -227,3 +227,508 @@ Reproduzir com cache limpo. Se persistir:
 4. **Se sobrar tempo:** EAS build OU push notifications
 
 **Meta do dia:** smoke test da jornada do organizador rodando sem fallback "Reformule a pergunta" e sem asteriscos em nenhum lugar.
+
+---
+
+## 2026-04-10 noite — Hub de IA V2: Registry, Skills, Chat, Personas, Bugfixes
+
+Secao tecnica do **hub de IA backend + web** desta sessao. Complemento ao `docs/progresso25.md`. Linguagem de manutencao e execucao.
+
+### Arquitetura do hub apos a sessao
+
+```
+POST /ai/chat (FEATURE_AI_CHAT)
+  |
+  |-- AuthMiddleware + rate limit + spending cap
+  |-- AIConversationService::startSession() ou getSession()           [organizer_id isolado]
+  |-- AIIntentRouterService::routeIntent()                            [Tier 1 keyword / Tier 2 LLM]
+  |     -> retorna {agent_key, surface, confidence, reasoning}
+  |-- AIPromptCatalogService::composeSystemPrompt(db, agent_key)      [le ai_agent_registry.system_prompt]
+  |-- AIPromptCatalogService::buildDefaultPrompt(context)             [DATA HOJE, tools, template mix, action hints]
+  |-- AIOrchestratorService::generateInsight()
+  |     |-- AIToolRuntimeService::buildToolCatalog()                  [Skill Registry + enriquecimento canonico]
+  |     |-- Provider call (OpenAI / Gemini / Claude)
+  |     |-- bounded loop:
+  |     |     |-- extractOpenAiToolCalls() -> [id + provider_call_id + args_decoded]
+  |     |     |-- AIToolRuntimeService::executeReadOnlyTools()
+  |     |     |-- appendToolResultMessages() -> [tool_call_id mapping]
+  |     |     +-- re-envia com tool results
+  |     +-- retorna {insight, tool_calls, tool_results, execution_id}
+  |-- AIConversationService::addMessage(user) + addMessage(assistant com PII scrub)
+  +-- AdaptiveResponseService::buildBlocks()                          [se FEATURE_ADAPTIVE_UI=on]
+```
+
+### Tabelas do hub (estado atual)
+
+| Tabela | Linhas | Proposito | RLS |
+|--------|--------|-----------|-----|
+| `ai_agent_registry` | 12 | Catalogo de agentes + system_prompt por persona | N/A (global catalog) |
+| `ai_skill_registry` | 32 | Skills warehouse (substitui allToolDefinitions hardcoded) | N/A (global catalog) |
+| `ai_agent_skills` | 63 + 12 (find_events) | Mapping many-to-many agent-skill | N/A |
+| `ai_conversation_sessions` | runtime | Multi-turn sessions, expires 24h | **YES** — migration 064 |
+| `ai_conversation_messages` | runtime | Mensagens com content_type adaptativo | **YES** — migration 064 |
+| `ai_agent_executions` | runtime | Historico de insights/chats (compartilhado com /ai/insight legado) | N/A |
+| `ai_usage_logs` | runtime | Billing tokens/cost per organizer | YES (migration 051) |
+
+### Migrations aplicadas nesta sessao
+
+| Migration | O que faz | Aplicada |
+|-----------|-----------|----------|
+| `062_ai_agent_skills_warehouse.sql` | 5 tabelas + seed 12 agentes/32 skills/63 mappings | OK |
+| `064_rls_ai_v2_tables.sql` | RLS em conversation tables + grants app_user | OK |
+| `065_ai_find_events_skill.sql` | find_events cross-cutting skill + 12 mappings | OK |
+| `067_ai_agent_personas.sql` | 12 personas (30y specialists) populadas em system_prompt | OK |
+
+Log append-only em `database/migrations_applied.log`.
+
+### Services do backend (estado atual)
+
+| Arquivo | Status | Responsabilidade |
+|---------|--------|------------------|
+| `AIAgentRegistryService.php` | NEW | DB-driven agent catalog com fallback hardcoded |
+| `AISkillRegistryService.php` | NEW | Skills Warehouse + runtime canonical enrichment |
+| `AIIntentRouterService.php` | NEW | Tier 1 keyword + Tier 2 LLM routing |
+| `AIConversationService.php` | NEW | Multi-turn sessions com organizer_id isolation |
+| `AIActionCatalogService.php` | NEW | 20 platform actions + buildActionHintForAgent |
+| `AIPromptCatalogService.php` | MODIFIED | resolveAgentPersona + buildDefaultPrompt markdown template |
+| `AIOrchestratorService.php` | MODIFIED | tool_call_id round-trip fix + composeSystemPrompt(db) |
+| `AIToolRuntimeService.php` | MODIFIED | getCanonicalToolDefinitions + 5 SQL bugfixes + AuditService prefix |
+| `AIPromptSanitizer.php` | MODIFIED | mbstring fallbacks |
+| `AIController.php` | MODIFIED | /ai/chat endpoints + detectContentType + PII scrub |
+
+### Feature flags do hub
+
+```bash
+# Backend .env
+FEATURE_AI_INSIGHTS=true              # master switch (legacy + v2)
+FEATURE_AI_TOOLS=true                 # master switch for tool execution
+FEATURE_AI_TOOL_WRITE=false           # block write tools (approval still required)
+FEATURE_AI_AGENT_REGISTRY=true        # delegate agent catalog to DB
+FEATURE_AI_SKILL_REGISTRY=true        # delegate skills to DB (with canonical fallback)
+FEATURE_AI_CHAT=true                  # POST /ai/chat endpoint
+FEATURE_AI_INTENT_ROUTER=true         # auto-routing Tier 1 (keyword)
+FEATURE_AI_INTENT_ROUTER_LLM=false    # Tier 2 LLM-assisted routing (cost ~80 tokens/call)
+AI_BOUNDED_LOOP_V2=true               # orchestrator auto-executes read-only tools
+FEATURE_ADAPTIVE_UI=true              # emit blocks[] + text_fallback + meta
+
+# Frontend .env
+VITE_FEATURE_AI_V2_UI=true            # unified chat + AIAssistants simplified page
+```
+
+**Regra de rollback:** todas as flags em `false` = zero diff vs. pre-sprint. Pode desligar qualquer uma sem recompilacao.
+
+### Bugs resolvidos (maintenance log)
+
+#### SQL / tool executors
+
+| # | Tool | Erro | Fix |
+|---|------|------|-----|
+| 1 | get_ticket_demand_signals | `tt.quantity` / `tt.is_active` nao existem | LEFT JOIN ticket_batches + GROUP BY ticket_type |
+| 2 | get_event_kpi_dashboard | `events.start_date/end_date` invalidos | `starts_at/ends_at` |
+| 3 | get_event_kpi_dashboard | `tickets.status='active'` fora do enum | `IN ('paid','valid','used')` |
+| 4 | get_event_kpi_dashboard | `workforce_assignments.event_id` nao existe | JOIN event_shifts -> event_days |
+| 5 | get_event_comparison | mesmo bug de event_id + start_date | mesmas correcoes |
+| 6 | get_parking_live_snapshot | `biometric_status` nao existe | `status IN ('parked','pending','exited')` |
+| 7 | get_cross_module_analytics | `SUM(quantity) FROM sales` vive em sale_items | subquery em sale_items |
+| 8 | get_cross_module_analytics | mesmo bug de tickets e workforce | mesmas correcoes |
+
+**Deteccao:** todas achadas via `error_log` adicionado em `AIToolRuntimeService::executeReadOnlyTools` no `catch (\Throwable $e)` mostrando `tool_name`, `error`, `file:line`. Log em `backend_dev_stderr.log`.
+
+**Validacao:** cada query foi rodada direto no `psql` com `organizer_id=2, event_id=1` antes do commit.
+
+#### Pipeline OpenAI bounded loop
+
+| # | Sintoma | Causa | Fix |
+|---|---------|-------|-----|
+| 1 | `tool_call_id of '' not found` 400 OpenAI | mismatch `id` vs `provider_call_id` entre orchestrator e runtime | extractOpenAiToolCalls popula ambos; serializeMessagesForOpenAi usa round-trip priority; orphan tool messages skipped |
+| 2 | `Invalid parameter: tools[0].function.parameters expected object got array` | `input_schema='{}'::jsonb` no seed | AISkillRegistryService::buildToolCatalogForAgent enriquece via getCanonicalToolDefinitions + fallback minimo valido |
+| 3 | Bounded loop nao executava tools | `AI_BOUNDED_LOOP_V2` default false | setado `true` no `.env` |
+
+#### Namespace / runtime PHP
+
+| # | Sintoma | Causa | Fix |
+|---|---------|-------|-----|
+| 1 | `Call to undefined function EnjoyFun\\Services\\mb_strlen` | mbstring nao habilitada no php.ini local | `function_exists` fallback + `stripos` substituindo `mb_strpos` |
+| 2 | PHP0413 AuditService unknown | `require_once` sem `use` confunde analisador | prefixo `\\EnjoyFun\\Services\\AuditService::log(...)` |
+
+#### Frontend
+
+| # | Sintoma | Causa | Fix |
+|---|---------|-------|-----|
+| 1 | `TypeError: .trim is not a function` | botao conectado via `onClick={sendMessage}` passava SyntheticEvent | guard `typeof overrideText === 'string'` |
+| 2 | Auto-welcome fixo ao abrir chat | `useEffect` disparava `sendMessage(t('welcome_prompt'))` | removido — empty state ja tem 3 pills de sugestao |
+| 3 | Termos tecnicos em ingles vazando | TableResponse/ChartResponse usavam raw field names | dicionarios FIELD_LABELS (50+) + TOOL_TITLES (28) + humanizers |
+| 4 | IA copiava "Label: valor (unidade)" literal | instrucao do prompt era interpretada como header | template reescrito com nota explicita anti-copy |
+
+### Personas e Action Catalog
+
+#### Personas (migration 067)
+
+12 UPDATEs em `ai_agent_registry.system_prompt`. Cada persona tem 1.6k-2k chars, estrutura:
+
+```
+[IDENTIDADE] - "Voce e <especialista> com 30 anos de experiencia em eventos."
+[VOCABULARIO E ESTILO] - jargao permitido/banido por dominio
+[KPIs OBRIGATORIOS / FERRAMENTAS] - lista de tools a chamar primeiro
+[FORMATO DE RESPOSTA] - 4 blocos em markdown
+[REGRA TEMPORAL] - comparar starts_at/ends_at com DATA DE HOJE
+```
+
+Personas NAO sao intercambiaveis — cada uma tem jargao especifico: sell-through/drop-off/no-show (marketing), par/ruptura/consumo per capita (bar), PNR/lobby call/rider (artists_travel) etc.
+
+#### Action Catalog (20 acoes)
+
+`AIActionCatalogService.php` retorna acoes platform-anchored com `action_url` contendo `{placeholders}`. A IA recebe via `buildActionHintForAgent($agentKey)` (injetado no prompt) a lista das acoes disponiveis com `when_applicable`. Usa inline `[action_key]` nos checklists para o frontend converter em botoes.
+
+Categorias: marketing(4), logistics(3), bar(3), management(2), contracting(2), artists(3), content(2), documents(1).
+
+**Nao implementado ainda:** parser de `[action_key]` no AIResponseRenderer. Hoje a IA cita `[open_promo_batch]` como texto literal no checklist. Proximo passo: endpoint `GET /api/ai/actions/{key}?event_id=X` que chama `renderAction()` e retorna `{url, cta_label}` para renderizar botao.
+
+### Checklist de manutencao — procedimentos
+
+#### Adicionar uma nova skill
+
+1. Adicionar entry em `AIToolRuntimeService::allToolDefinitions()` com `name`, `description`, `input_schema`, `aliases`, `type`, `surfaces`, `agent_keys`
+2. Adicionar case no match de `AIToolRuntimeService::executeTools()` dispatch
+3. Implementar `executeXxx(PDO $db, int $organizerId, ?int $eventId, array $arguments): array` privado
+4. **Validar SQL via psql direto** antes de commit — erros SQL sao a causa #1 de falhas de tool
+5. (Opcional) Criar migration `06X_ai_skill_xxx.sql` para seedar em `ai_skill_registry` + `ai_agent_skills`
+6. Sem a migration: Skill Registry faz fallback ao canonico em runtime via `getCanonicalToolDefinitions()`
+
+#### Adicionar um novo agente
+
+1. Migration que faz `INSERT INTO ai_agent_registry (...)` + `INSERT INTO ai_agent_skills (agent_key, skill_key, priority)` para cada skill
+2. Escrever persona system_prompt (usar `067_ai_agent_personas.sql` como template)
+3. Adicionar keywords no `AIIntentRouterService::tier1KeywordRoute()` se quiser routing automatico
+4. Atualizar `FRIENDLY_LABELS`, `AGENT_GRADIENTS`, `AGENT_ICONS`, `EXAMPLE_PROMPTS` em `frontend/src/pages/AIAssistants.jsx`
+
+#### Adicionar uma nova acao platform-anchored
+
+1. Adicionar entry em `AIActionCatalogService::catalog()` com todos os campos obrigatorios
+2. Se a rota de frontend nao existe, criar (`action_url` deve ser uma rota real)
+3. Testar o `renderAction('new_key', [...])` retornando URL correta
+
+#### Debugar "Runtime parcial: 1 com falha"
+
+```bash
+grep "Tool execution failed" backend_dev_stderr.log | tail -20
+```
+
+Mostra `tool_name`, `error`, `file:line`. Quase sempre e erro SQL — schema drift entre hardcoded e banco real. Correcao padrao: validar schema via `\d tabela` no psql e reescrever query.
+
+#### Debugar chat que nao chama tools
+
+1. Verificar execucao recente:
+   ```sql
+   SELECT id, agent_key, jsonb_array_length(tool_calls_json) as tool_count, LEFT(response_preview, 100)
+   FROM ai_agent_executions ORDER BY created_at DESC LIMIT 5;
+   ```
+2. Se `tool_count = 0` e resposta e generica: a IA nao esta chamando tools.
+3. Causas comuns:
+   - `AI_BOUNDED_LOOP_V2=false` (essencial)
+   - Prompt sem instrucao explicita "USE AS TOOLS"
+   - Skills nao mapeadas ao agente roteado (`SELECT skill_key FROM ai_agent_skills WHERE agent_key = 'X'`)
+   - Provider retornando texto direto sem tool_calls (baixa temperatura pode ajudar)
+
+#### Rollback emergencial
+
+Desligar as 5 flags do hub e restart:
+```bash
+FEATURE_AI_AGENT_REGISTRY=false
+FEATURE_AI_SKILL_REGISTRY=false
+FEATURE_AI_CHAT=false
+FEATURE_AI_INTENT_ROUTER=false
+VITE_FEATURE_AI_V2_UI=false
+```
+
+Resultado: zero dependencia em `ai_agent_registry` / `ai_skill_registry` / `ai_conversation_*`. O pipeline volta a usar `allToolDefinitions()` hardcoded e `/ai/insight` legado.
+
+### Pendencias residuais (proximo sprint)
+
+- [ ] Parser de `[action_key]` no AIResponseRenderer -> botoes clicaveis
+- [ ] Endpoint `GET /api/ai/actions/{key}` com `renderAction()`
+- [ ] mbstring habilitado em producao (remover os fallbacks)
+- [ ] Backfill opcional dos input_schema no DB (migration 068) — tornar Skill Registry self-contained
+- [ ] Remover 3 componentes legados (`ParkingAIAssistant`, `ArtistAIAssistant`, `WorkforceAIAssistant`)
+- [ ] `AIConversationService::updateRoutedAgent` — tornar organizer_id obrigatorio
+
+---
+
+## 2026-04-11 — Sessao Sprint 5 + Sprint 6 batch 1 + handoff para auditoria
+
+Sessao longa de arquitetura do hub de IA. Dois sprints executados via agentes paralelos, smoke test ao vivo expos problemas estruturais do modelo "bot flutuante global", usuario solicitou reboot arquitetural via auditoria propria. Este secao e o handoff completo da sessao.
+
+### Sprint 5 — Fundacao do hub multi-provider (entregue)
+
+**Problema:** Organizador precisava configurar API keys per-tenant pra OpenAI/Gemini/Claude e escolher modelo por agente. Aba AIConfigTab havia sido removida em sprint anterior (commit `5a5c098`), AIControlCenter virou orfao.
+
+**Entregas:**
+
+| Track | Arquivos | Descricao |
+|---|---|---|
+| A | `frontend/src/lib/aiModelsCatalog.js` (novo), `AIControlCenter.jsx` | Catalogo de modelos com custos/1M tokens, dropdown filtrado por provider, botao testar conexao (stub). Claude incluido. |
+| B | `database/066_organizer_ai_dna.sql` (novo), `OrganizerAIDnaController.php` (novo), `AIContextBuilderService::loadOrganizerDna`, `AIPromptCatalogService::renderOrganizerDnaSection`, modal DNA em `AIAssistants.jsx` | DNA do organizador: 5 campos (business_description, tone_of_voice, business_rules, target_audience, forbidden_topics). Tabela com RLS. Injecao no system prompt via secao `## Sobre este negocio (DNA do organizador):`. |
+| C | `frontend/src/lib/aiAgentRecommendations.js` (novo), `AIAssistants.jsx`, `AIProviderConfigService::upsertAgent` | Picker de provider/modelo por agente com estrela de recomendacao visivel. `organizer_ai_agents.provider` ja existia na tabela — zero refactor em `AIOrchestratorService::resolveEffectiveProvider`. Model armazenado em `config_json.model`. |
+
+**Post-sprint (usuario feedback):**
+- 4a aba "Inteligencia Artificial" em `Settings.jsx` (`SettingsTabs/AIConfigTab.jsx` wrapper de AIControlCenter)
+- Removido o bloco "Runtime operacional legado" de AIControlCenter — era entulho
+- Catalogo de modelos atualizado pra geracao mais recente: `gpt-5.4`, `gemini-3.1-pro`, `claude-sonnet-4-6` + legados como opcoes
+- Migration numerada 065 → 066 (colisao com `065_ai_find_events_skill.sql` existente)
+
+### Sprint 6 — Batch 1 (entregue)
+
+Meta: enriquecer contexto com File Hub + DNA por evento, teste de conexao real, deprecar legacy.
+
+**Track E+F bundled** (um agente, ambos tocam `AIContextBuilderService` + `AIPromptCatalogService`):
+- `loadOrganizerFilesSummary(PDO, int, ?string)`: mapping surface→categorias (marketing→[marketing,reports,general], logistics→[logistics,operational,contracts], management→[reports,financial,operational,general], bar/food/shop→[operational,financial,reports], documents→[todas], etc). Top 5 parsed files, resumo 200 chars via `notes` ou preview de `parsed_data`. Cache estatico por (organizer,surface).
+- `loadEventDna(PDO, int)`: le `events.ai_dna_override` jsonb, normaliza campos, retorna null se vazio.
+- `AIOrchestratorService::generateInsight`: injeta `$legacyConfig['files']` e `$legacyConfig['event_dna']` APOS `$surface` ser resolvido (nao em `loadLegacyRuntimeConfig` — surface nao era conhecido la).
+- `AIPromptCatalogService`: adiciona 2 secoes novas `## Documentos relevantes do negocio:` e `## Este evento especificamente (override do DNA do organizador)` — alternativa das 2 secoes em vez de merge implicito field-by-field, mais transparente pro LLM.
+- `database/068_event_ai_dna.sql`: `ALTER TABLE events ADD COLUMN ai_dna_override jsonb`. Migration numerada 067 → 068 (colisao com `067_ai_agent_personas.sql`).
+- `EventController.php`: sub-path `GET/PUT /events/{id}/ai-dna`, ownership validado via `WHERE id AND organizer_id`.
+- `frontend/src/pages/OrganizerFiles.jsx`: badge "Usado pelos agentes" (icone Sparkles) quando `parsed_status='parsed'` e `category` nao null.
+
+**Track J** (agente independente):
+- `AIOrchestratorService::pingProvider(string, array): array` — novo metodo publico estatico que reusa metodos privados existentes `requestOpenAiInsight`/`requestGeminiInsight`/`requestClaudeInsight` via `match`. Zero duplicacao de curl, delega pro `executeJsonRequest` existente.
+- `POST /api/organizer-ai-providers/{provider}/test` em `OrganizerAIProviderController.php`. Rate limit inline 5/min por (organizer, provider) via query em `ai_usage_logs.agent_name='connection_test:{provider}'`. `sanitizeTestConnectionError` scrub de `sk-*`, `Bearer`, `key=`.
+- Custo registrado em `ai_usage_logs` como `connection_test:{provider}` (white label — custo do organizador).
+- Frontend: `handleTestConnection` async com `Loader2` spinning, toasts especificos (429 amber, 400 config, ECONNABORTED timeout, erro provider).
+- Decisao: NAO mexeu em `AIRateLimitService` compartilhado (API dele era global, nao per-key).
+
+**Track I — Deprecar `organizer_ai_config`** (inline pelo Claude, nao agente):
+- `AIPromptCatalogService::composeSystemPrompt`: removido render do `$legacyConfig['system_prompt']` (substituido pelo DNA).
+- `AIOrchestratorService::loadLegacyRuntimeConfig`: nao le mais a tabela, so retorna `['dna' => loadOrganizerDna(...)]`.
+- `AIOrchestratorService::resolveEffectiveProvider`: fallback final = `'openai'` hardcoded (em vez de ler `$legacyConfig['provider']`).
+- `AIOrchestratorService::executeJsonRequest`: removido `curl_close($ch)` deprecated em PHP 8+.
+- `OrganizerAIConfigController.php`: header `Deprecation: true`, `Sunset: Wed, 01 Jul 2026`, `Link: rel=successor-version`, `error_log('[DEPRECATED]')` a cada chamada. Comportamento mantido por compat historica.
+
+**Mudanca pedida pelo usuario (nao estava no sprint)** — DNA modal reestruturado:
+- `EventDetails.jsx`: botao "DNA deste evento" + modal removidos (Track F agente havia adicionado sem ser pedido, usuario mandou remover).
+- `AIAssistants.jsx`: modal DNA agora tem 2 abas — `Organizador` (global, 5 campos) e `Evento especifico` (dropdown de eventos ordenado por ativo/futuro/passado + 5 campos override).
+- Dropdown lista TODOS os eventos via `GET /events?per_page=200`, ordenados: 🟢 ativos → 🔜 futuros → 📅 passados.
+- Dirty tracking por aba. Confirmacao obrigatoria inline ao trocar de aba, trocar de evento no dropdown, ou fechar modal com alteracoes nao salvas. Dialog com `[Cancelar]` e `[Salvar e continuar]` — sem opcao descartar (usuario pediu "ele tem q salvar").
+- Componente helper `DnaFieldset` extraido pra reuso entre abas.
+
+### Hotfixes durante a sessao
+
+| Bug | Causa | Fix |
+|---|---|---|
+| `Cannot redeclare resolveOrganizerId()` em WorkforceControllerSupport.php — providers e agentes retornando "Erro ao carregar" | Track J adicionou `require_once AIOrchestratorService.php` no topo do controller → cascata chega em AIToolRuntimeService → WorkforceControllerSupport declara `resolveOrganizerId` que ja existia local no controller. Antes era lazy-loaded. | Wrap idempotente `if (!function_exists('resolveOrganizerId'))` nos 3 controllers AI (Provider, Agent, Config). |
+| Chat retornando 409 "A IA operacional esta desativada" | Track I simplificou `loadLegacyRuntimeConfig` pra so retornar `dna`, mas `generateInsight` ainda checava `$legacyConfig['is_active']` → null → falsy → 409. | Removido o check inteiro — nada mais gateia o chat alem de ter provider configurado. |
+| Migration 065 colide com `065_ai_find_events_skill` | Drift de numeracao | Renomeado pra 066_organizer_ai_dna.sql + log |
+| Migration 067 colide com `067_ai_agent_personas` | Drift de numeracao | Agente renomeou pra 068_event_ai_dna.sql |
+
+### Smoke test ao vivo (usuario fez) — o que FALHOU
+
+Testado com evento Ubuntu, agente Gestao Executiva (management), arquivo `equipe_de_bar` com `parsed_status='parsed'`, categoria `operational`, preview visivel na UI de `/files`.
+
+**Falhas reportadas pelo usuario:**
+
+1. **File hub NAO chegou no contexto**. Pergunta: "o que temos no arquivo equipe_de_bar?". Resposta: relatorio generico de faturamento R$106.812, ingressos, alertas — arquivo ignorado. Screenshot mostra o arquivo aberto na tela ao lado do chat. Diagnostico pendente: query `SELECT parsed_status, category FROM organizer_files WHERE file_name ILIKE '%equipe_de_bar%'`, log temporario em `loadOrganizerFilesSummary`, verificar se surface `management` realmente recebe a categoria `operational` no mapping.
+
+2. **Bot nao troca de agente por intent**. Usuario fica travado no agente inicial independente da pergunta. `AIIntentRouterService` existe mas aparentemente nao e invocado no fluxo de chat atual. Usuario frase: *"se o nosso sistema se propoe a ser um hub onde o diferencial sao os agentes, estamos muito longe da excelencia prometida"*.
+
+3. **Sessao de conversa vaza entre paginas**. Usuario abre outra pagina, bot flutuante mostra historico da pagina anterior. Session key provavelmente global por organizer em vez de escopada por surface/pagina.
+
+4. **Cards adaptive UI continuam em ingles**: `Revenue`, `Transactions`, `Tickets Sold`, `Workforce Total`. P0 pendente desde 10/04 no proprio diario ("virar linguagem de usuario comum"). Usuario tentou resolver com outro chat agente Claude, reportou que "nao resolveu nada".
+
+5. **Modais desconfigurados** (detalhes pendentes, screenshot parcial).
+
+6. **Resposta generica mesmo com perguntas especificas** — LLM nao usa dados de domain que estao visiveis na tela.
+
+### O que o "outro chat agente Claude" fez nesta sessao
+
+Usuario tinha outro chat Claude aberto em paralelo tentando melhorar qualidade da resposta do adaptive UI. Resultado nao resolveu na pratica mas gerou estes arquivos:
+
+- `backend/src/Services/AIActionCatalogService.php` (novo)
+- `database/067_ai_agent_personas.sql` (novo, aplicado sem conflito com nossa 068)
+- `frontend/src/components/AIActionButton.jsx` (novo)
+- `frontend/src/lib/aiActionCatalog.js` (novo)
+- Modificacoes em `AIController.php`, `AIToolRuntimeService.php`, `AIResponseRenderer.jsx`, `UnifiedAIChat.jsx`
+- Pendencias que ele deixou:
+  - mbstring em producao (ainda com fallback local)
+  - `FEATURE_AI_TOOL_WRITE=true` — approval workflow com `ActionResponse` existe mas nao smoke-tested
+  - Remover 3 componentes legados V1 quando confirmar ninguem usa `VITE_FEATURE_AI_V2_UI=false`
+  - Backfill `input_schema` no DB (migration 068 opcional — NUMERO CONFLITA com a nossa de `event_ai_dna`)
+
+**Usuario explicitamente disse:** *"nada mudou precisamos resolver isso tambem"* sobre a qualidade da resposta.
+
+### Sprint 7 proposto (NAO iniciado — aguarda auditoria)
+
+**Meta:** pivot arquitetural. Remover dependencia do bot flutuante global como coringa. Embedar bots especialistas em cada pagina de dominio.
+
+| Track | Descricao |
+|---|---|
+| K | Componente `<EmbeddedAIChat surface="..." contextBuilder={...} />` reutilizavel. Sessao isolada por `(organizer, surface, event_id)`. Agente auto-escolhido pelo surface via `ai_agent_registry.surfaces`. |
+| L | Embutir em 4 paginas prioritarias: OrganizerFiles (agent `documents`), EventDetails (`management`), Bar PDV (`bar`), ParticipantsHub (`workforce`). |
+| M | Debug File Hub context injection. Query verificacao no banco, log temporario em `loadOrganizerFilesSummary`, teste cruzado com agente `documents` (mapping [todas categorias]). Se funcionar no documents mas nao no management → filtro de categoria corta demais. |
+| N | Sessao isolada: `session_key = {organizer_id}:{surface}:{event_id}` em `AIConversationService`. |
+| O | Labels PT-BR via `AdaptiveResponseService::prettyLabel()` dict. Revenue→Faturamento, Transactions→Transacoes, etc. Tambem reforcar no system prompt pra responder so em pt-BR. |
+| P | Decisao sobre bot flutuante global: remover OU downgrade pra "ajuda geral" sem acesso a dados (so orientacao de uso do sistema). Usuario ainda nao decidiu. |
+
+### Pontos abertos para a auditoria do usuario
+
+1. **Arquitetura global-bot vs embedded-specialists** — usuario confirma que o modelo "um bot global com intent routing" e errado e o certo e "varios bots embutidos por dominio". Decisao arquitetural.
+2. **File Hub injection — onde quebra?** Possibilidades: `loadOrganizerFilesSummary` retorna array vazio | query filtra tudo | mapping surface→categorias esta errado | injecao em `generateInsight` nao popula | LLM recebe mas ignora.
+3. **Intent routing quebrado ou inexistente?** `AIIntentRouterService` existe no codigo mas aparentemente nao e invocado no fluxo de chat novo.
+4. **Conversation sessions** — qual o `session_key` atual em `AIConversationService`? Escopo esta global por organizer?
+5. **Qualidade de resposta adaptive UI** — labels em ingles, termos tecnicos, sem contexto. O outro agente tentou e nao resolveu. Precisa reboot conceitual do renderer.
+6. **`FEATURE_AI_TOOL_WRITE`** — approval workflow com escrita real nunca foi smoke-tested. E o diferencial principal do hub — sem isso o "hub de agentes" e so insight read-only.
+7. **Rotacao de API keys** OpenAI + Gemini — HIGH, bloqueia D-Day ~29/04. Usuario disse "depois eu faco, por enquanto estamos seguros" em 10/04 — continua pendente.
+8. **Rotacao pgcrypto key** da `organizer_ai_providers` — resolve warning "Falha ao descriptografar API key" a cada `/ai/chat`.
+
+### Estado do git no fim da sessao (nao commitado)
+
+**Modified (22 arquivos):**
+- backend/public/index.php
+- backend/src/Controllers/AIController.php
+- backend/src/Controllers/EventController.php
+- backend/src/Controllers/OrganizerAIAgentController.php
+- backend/src/Controllers/OrganizerAIConfigController.php
+- backend/src/Controllers/OrganizerAIProviderController.php
+- backend/src/Services/AIContextBuilderService.php
+- backend/src/Services/AIOrchestratorService.php
+- backend/src/Services/AIPromptCatalogService.php
+- backend/src/Services/AIProviderConfigService.php
+- backend/src/Services/AIToolRuntimeService.php
+- database/migrations_applied.log
+- docs/progresso25.md
+- docs/progresso_app_aifirst.md (este)
+- docs/runbook_local.md
+- frontend/src/api/ai.js
+- frontend/src/components/AIControlCenter.jsx
+- frontend/src/components/AIResponseRenderer.jsx
+- frontend/src/components/UnifiedAIChat.jsx
+- frontend/src/pages/AIAssistants.jsx
+- frontend/src/pages/OrganizerFiles.jsx
+- frontend/src/pages/Settings.jsx
+
+**Untracked (10 arquivos):**
+- backend/src/Controllers/OrganizerAIDnaController.php (Sprint 5 Track B)
+- backend/src/Services/AIActionCatalogService.php (outro agente)
+- database/066_organizer_ai_dna.sql (Sprint 5 Track B, aplicada)
+- database/067_ai_agent_personas.sql (outro agente, aplicada)
+- database/068_event_ai_dna.sql (Sprint 6 Track F, aplicada)
+- frontend/src/components/AIActionButton.jsx (outro agente)
+- frontend/src/lib/aiActionCatalog.js (outro agente)
+- frontend/src/lib/aiAgentRecommendations.js (Sprint 5 Track C)
+- frontend/src/lib/aiModelsCatalog.js (Sprint 5 Track A)
+- frontend/src/pages/SettingsTabs/AIConfigTab.jsx (pos-sprint post)
+
+**Migrations aplicadas no DB local:** 066, 067, 068.
+
+**Nada commitado.** Proxima sessao deve decidir se commita em batches tematicos (Sprint 5 / Sprint 6 / hotfix / modal DNA / outro agente) ou descarta pra recomecar limpo pos-auditoria.
+
+---
+
+## 2026-04-10 madrugada — Action Catalog loop fechado: parser + botoes clicaveis inline
+
+Continuacao direta da mesma sessao "outro agente" mencionada acima (este chat Claude). Objetivo: conectar os `[action_key]` que a IA escreve no checklist a rotas reais via parser + componente. Fecha o contrato proposto quando o `AIActionCatalogService` foi criado mas nao estava sendo renderizado pelo frontend.
+
+### O que faltava antes desta rodada
+
+- `AIActionCatalogService.php` existia no backend mas sem endpoint publico para o frontend consumir
+- `aiActionCatalog.js` e `AIActionButton.jsx` existiam mas nao eram chamados por nenhum componente (criados e nunca wirados)
+- `AIResponseRenderer.jsx::TextResponse` usava `dangerouslySetInnerHTML` e nao tinha parser de `[action_key]` — a IA escrevia `[open_promo_batch]` e aparecia como texto literal no chat
+- `UnifiedAIChat.jsx` nao chamava `loadCatalog()` em lugar nenhum
+
+### Mudancas
+
+#### Backend
+
+| Arquivo | Mudanca |
+|---------|---------|
+| `backend/src/Services/AIActionCatalogService.php` | Novo metodo publico `listAll(): array` — retorna o catalogo completo (usado pelo endpoint) |
+| `backend/src/Controllers/AIController.php` | `require_once AIActionCatalogService` + rota `GET /ai/actions` no dispatch + funcao `listActionCatalog()` que exige auth (bot scraping block) e retorna `{count, actions}` |
+
+**Endpoint:** `GET /api/ai/actions` — autenticado. Smoke test local: `curl http://localhost:3003/api/ai/actions` retorna `401 Token nao fornecido` sem JWT (comportamento correto).
+
+#### Frontend
+
+| Arquivo | Mudanca |
+|---------|---------|
+| `frontend/src/components/AIResponseRenderer.jsx` | Refatoracao grande do `TextResponse`: novo regex `ACTION_TAG_RE = /\[([a-z][a-z0-9_]{2,60})\]/g`, nova funcao `parseInlineFragments(line, actionParams)` que coleta matches de `**bold**` + `[action_key]` com posicoes, ordena e emite `string / <strong> / <AIActionButton>`. TextResponse ganha suporte a `## H2` e `### H3` markdown headers (necessario pro template mix). Listas bullet/numeradas passam a usar `parseInlineFragments` em vez de `dangerouslySetInnerHTML`. Prop `actionParams` adicionada ao dispatch e propagada para Table/Chart/Card/Action response. Import `AIActionButton` adicionado. |
+| `frontend/src/components/UnifiedAIChat.jsx` | Import `loadCatalog` do lib. Novo `useEffect(() => loadCatalog().catch(noop), [isOpen])` — carrega na primeira abertura do chat. `<AIResponseRenderer>` agora recebe `actionParams={{ event_id, ...extraContext }}` derivado do `EventScopeContext` + overrides do `AIChatTrigger`. |
+
+### Fluxo completo (contrato fechado)
+
+```
+1. Usuario abre chat
+   -> useEffect dispara loadCatalog() -> GET /api/ai/actions (1x, cacheado em module scope)
+   -> catalog em memoria (20 acoes indexadas por action_key)
+
+2. Usuario pergunta "como melhorar vendas do evento X?"
+   -> POST /ai/chat
+   -> IA roteada para "marketing" agente (persona de 30 anos)
+   -> IA recebe o prompt com buildActionHintForAgent('marketing') listando
+      as 4 acoes disponiveis para marketing + quando usar cada uma
+   -> IA responde em markdown: "## O que fazer\n- Abrir lote 2 [open_promo_batch]\n..."
+
+3. Frontend renderiza via AIResponseRenderer -> TextResponse
+   -> parseInlineFragments detecta [open_promo_batch] em cada linha
+   -> cada match vira <AIActionButton actionKey="open_promo_batch" params={{event_id: 1}}/>
+   -> AIActionButton chama resolveAction() -> {url: '/tickets?event_id=1&action=new_batch', cta_label: 'Abrir lote'}
+   -> renderiza como pill roxa clicavel
+
+4. Usuario clica
+   -> handleClick chama navigate('/tickets?event_id=1&action=new_batch')
+   -> react-router navega para a pagina certa com event_id pre-preenchido
+```
+
+### Seguranca aplicada
+
+| Camada | Controle |
+|--------|----------|
+| Endpoint `GET /ai/actions` | `requireAuth(['admin','organizer','manager','bartender','staff'])` — mesmo sendo metadata publica, bloqueia bot scraping |
+| `resolveAction` | Valida `required_params` antes de retornar. Se faltar parametro, retorna `null` → botao vira pill cinza com o action_key como label |
+| `AIActionButton` | Fallback visual quando catalog nao carregou ou acao desconhecida — texto continua legivel, nao quebra o chat |
+| Placeholders | `encodeURIComponent` em cada valor substituido → previne injection via params |
+| URLs absolutas | `window.open(url, '_blank', 'noopener,noreferrer')` quando detecta `http://` |
+| XSS | `dangerouslySetInnerHTML` removido do TextResponse — agora e React tree real, seguro contra HTML malicioso em respostas do LLM |
+
+### Melhorias colaterais
+
+A refatoracao do TextResponse trouxe de brinde:
+
+1. **Suporte nativo a markdown headers** — `## Conclusao`, `## Numeros`, `## Analise`, `## O que fazer` agora viram `<h3>` com estilo proprio (antes eram texto comum com `##` visivel). Isso resolve o bug reportado de "a IA copiava 'Label: valor (unidade)' literal" — o template agora e markdown estruturado.
+2. **Listas com botoes inline** — bullet e numeradas agora usam `flex-wrap` pra quebrar linha quando tem botao longo no meio. Antes quebrava feio.
+3. **Seguranca XSS nativa** — mesmo que o LLM retorne HTML arbitrario, o React tree escapa tudo automaticamente.
+
+### Como testar
+
+1. `FEATURE_AI_CHAT=true` + `VITE_FEATURE_AI_V2_UI=true` no `.env`
+2. Login como organizer
+3. Abrir chat flutuante (ou acessar `/ai`)
+4. Perguntar: "Como impulsionar as vendas do evento atual?"
+5. Resposta esperada: markdown com `## O que fazer` e bullets contendo botoes roxos clicaveis
+6. Clicar em `[open_promo_batch]` → navega pra `/tickets?event_id=X&action=new_batch`
+
+### Pendencias atualizadas pos esta rodada
+
+**Loop de action catalog (fechado):**
+- [x] Parser de `[action_key]` no AIResponseRenderer
+- [x] Endpoint `GET /ai/actions` expondo o catalogo
+- [x] Carregamento no mount + context params
+- [x] Fallback visual quando catalog nao carregou
+
+**Ainda em aberto (nao tocado nesta rodada):**
+- [ ] mbstring habilitado em producao (remover os fallbacks `function_exists` em AIPromptSanitizer e AIIntentRouterService)
+- [ ] Backfill opcional dos `input_schema` no DB (migration 068 — **NOTA:** numero 068 ja usado por `event_ai_dna.sql`, precisa renumerar para 069 ou 070)
+- [ ] Remover 3 componentes legados (`ParkingAIAssistant`, `ArtistAIAssistant`, `WorkforceAIAssistant`) quando `VITE_FEATURE_AI_V2_UI` for default true
+- [ ] `AIConversationService::updateRoutedAgent` — tornar `organizer_id` obrigatorio (hoje e opcional pra backward compat)
+- [ ] Smoke test do approval workflow com `FEATURE_AI_TOOL_WRITE=true` no novo chat — fluxo de aprovacao inline ja existe em `ActionResponse` mas nao foi testado end-to-end
+- [ ] Popular `system_prompt` para agentes customizados criados via UI (apenas os 12 do catalog tem persona hoje)
+- [ ] Testar Tier 2 LLM router (`FEATURE_AI_INTENT_ROUTER_LLM=true`) em load real
+- [ ] Integracao do `AdaptiveResponseService` emitindo `blocks[]` estruturados em vez do path markdown
+- [ ] Sprint 7 arquitetural (bot embutido por dominio — tracks K-P) — aguarda auditoria do usuario
+
+### Arquivos tocados nesta rodada (adicionar ao snapshot de commit)
+
+**Modified desta sessao (alem dos que ja estavam modified):**
+- `backend/src/Controllers/AIController.php` (rota + funcao listActionCatalog + require_once)
+- `backend/src/Services/AIActionCatalogService.php` (listAll — este arquivo ja estava untracked do outro turno)
+- `frontend/src/components/AIResponseRenderer.jsx` (parser + headers + React tree)
+- `frontend/src/components/UnifiedAIChat.jsx` (loadCatalog + actionParams)
+
+**Migrations aplicadas:** nenhuma adicional nesta rodada (a integracao e puramente PHP + React — o catalog ja estava 100% in-memory).
