@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Eye,
   Bot,
+  Sparkles,
   CheckCircle,
   AlertCircle,
   Clock,
@@ -263,7 +264,18 @@ export default function OrganizerFiles() {
                 return (
                   <tr key={file.id} className="border-b border-gray-800/50 hover:bg-gray-900/30">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-200">{file.original_name}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium text-gray-200">{file.original_name}</p>
+                        {file.parsed_status === "parsed" && file.category && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full border border-emerald-700/60 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-300"
+                            title="Este arquivo e injetado no contexto dos agentes de IA com base na sua categoria."
+                          >
+                            <Sparkles size={10} />
+                            Usado pelos agentes
+                          </span>
+                        )}
+                      </div>
                       {file.notes && <p className="mt-0.5 text-xs text-gray-500">{file.notes}</p>}
                     </td>
                     <td className="px-4 py-3">

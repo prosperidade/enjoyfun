@@ -4,6 +4,7 @@ import { MessageCircle, X, Send, Loader2, RotateCcw, Sparkles, ChevronDown, Hist
 import { sendChatMessage, listChatSessions, getChatSession } from '../api/aiChat';
 import { approveAIExecution, rejectAIExecution } from '../api/ai';
 import AIResponseRenderer from './AIResponseRenderer';
+import { loadCatalog } from '../lib/aiActionCatalog';
 import { t, currentLocale } from '../lib/i18n';
 import { useEventScope } from '../context/EventScopeContext';
 import AdaptiveUIRenderer from './AdaptiveUIRenderer';
@@ -89,15 +90,16 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
     }
   }, [isOpen]);
 
-  // Fire welcome message on first open of a fresh session
-  const welcomeFiredRef = useRef(false);
+  // Load the AI action catalog once on first chat open — used by
+  // AIResponseRenderer to parse [action_key] tags into clickable buttons.
   useEffect(() => {
-    if (!isOpen || welcomeFiredRef.current) return;
-    if (messages.length > 0 || loading) return;
-    welcomeFiredRef.current = true;
-    sendMessage(t('welcome_prompt'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (isOpen) {
+      loadCatalog().catch(() => { /* silent — AIActionButton has fallback */ });
+    }
   }, [isOpen]);
+
+  // Auto-welcome removed — opening the chat should NOT trigger a canned question.
+  // The empty state already shows 3 suggestion pills that the user can click if they want.
 
   // Override state populated by `enjoyfun:open-ai-chat` events from triggers
   // (AIChatTrigger, AIAssistants page, embedded buttons, etc.)
@@ -504,6 +506,10 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
                       metadata={msg.metadata}
                       onApprove={handleApprove}
                       onReject={handleReject}
+                      actionParams={{
+                        event_id: eventId || undefined,
+                        ...(extraContext || {}),
+                      }}
                     />
                   )}
                   <div className={`text-[9px] mt-1 ${msg.role === 'user' ? 'text-purple-200/60' : 'text-gray-500'}`}>

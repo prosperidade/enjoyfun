@@ -10,6 +10,16 @@ export async function updateOrganizerAIConfig(payload) {
   return data?.data || {};
 }
 
+export async function getOrganizerAIDna() {
+  const { data } = await api.get("/organizer-ai-dna");
+  return data?.data || {};
+}
+
+export async function updateOrganizerAIDna(payload) {
+  const { data } = await api.put("/organizer-ai-dna", payload);
+  return data?.data || {};
+}
+
 export async function listOrganizerAIProviders() {
   const { data } = await api.get("/organizer-ai-providers");
   return Array.isArray(data?.data) ? data.data : [];
@@ -25,6 +35,15 @@ export async function updateOrganizerAIProvider(provider, payload) {
   return data?.data || null;
 }
 
+export async function testOrganizerAIProvider(provider) {
+  const { data } = await api.post(
+    `/organizer-ai-providers/${provider}/test`,
+    {},
+    { timeout: 20000 }
+  );
+  return data?.data || null;
+}
+
 export async function listOrganizerAIAgents() {
   const { data } = await api.get("/organizer-ai-agents");
   return Array.isArray(data?.data) ? data.data : [];
@@ -36,6 +55,14 @@ export async function getOrganizerAIAgent(agentKey) {
 }
 
 export async function updateOrganizerAIAgent(agentKey, payload) {
+  const { data } = await api.put(`/organizer-ai-agents/${agentKey}`, payload);
+  return data?.data || null;
+}
+
+export async function updateAgentProvider(agentKey, { provider, model }) {
+  const payload = {};
+  payload.provider = provider ?? null;
+  payload.model = model ?? null;
   const { data } = await api.put(`/organizer-ai-agents/${agentKey}`, payload);
   return data?.data || null;
 }

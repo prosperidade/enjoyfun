@@ -1,18 +1,46 @@
 import { useEffect, useState } from "react";
-import { Bot, Key, Save, Server, ShieldCheck } from "lucide-react";
+import { Save, Server, ShieldCheck, Plug, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
-  getOrganizerAIConfig,
   listOrganizerAIProviders,
-  updateOrganizerAIConfig,
   updateOrganizerAIProvider,
+  testOrganizerAIProvider,
 } from "../api/ai";
+import {
+  getModelsForProvider,
+  findModelMeta,
+  formatModelOptionLabel,
+  SUPPORTED_PROVIDER_KEYS,
+  PROVIDER_LABELS,
+} from "../lib/aiModelsCatalog";
 
-const INITIAL_CONFIG = {
-  provider: "openai",
-  system_prompt: "",
-  is_active: true,
+const PROVIDER_TOOL_USE_DEFAULT = {
+  openai: true,
+  gemini: true,
+  claude: true,
 };
+
+function buildEmptyDraft(providerKey) {
+  return {
+    provider: providerKey,
+    label: PROVIDER_LABELS[providerKey] || providerKey,
+    supports_tool_use: PROVIDER_TOOL_USE_DEFAULT[providerKey] || false,
+    model: "",
+    base_url: "",
+    is_active: false,
+    is_default: false,
+    is_configured: false,
+    settings: {},
+    api_key: "",
+  };
+}
+
+function ensureAllProviders(drafts) {
+  const byKey = new Map(drafts.map((d) => [d.provider, d]));
+  return SUPPORTED_PROVIDER_KEYS.map(
+    (key) => byKey.get(key) || buildEmptyDraft(key)
+  );
+}
 
 function normalizeProviderDraft(provider) {
   return {
@@ -30,11 +58,10 @@ function normalizeProviderDraft(provider) {
 }
 
 export default function AIControlCenter() {
-  const [config, setConfig] = useState(INITIAL_CONFIG);
   const [providerDrafts, setProviderDrafts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [savingConfig, setSavingConfig] = useState(false);
   const [savingProviderKey, setSavingProviderKey] = useState("");
+  const [testingProviderKey, setTestingProviderKey] = useState("");
 
   const loadData = async ({ silent = false } = {}) => {
     if (!silent) {
@@ -42,16 +69,11 @@ export default function AIControlCenter() {
     }
 
     try {
-      const [legacyConfig, providers] = await Promise.all([
-        getOrganizerAIConfig(),
-        listOrganizerAIProviders(),
-      ]);
-
-      setConfig((current) => ({ ...current, ...legacyConfig }));
-      setProviderDrafts(providers.map(normalizeProviderDraft));
+      const providers = await listOrganizerAIProviders();
+      setProviderDrafts(ensureAllProviders(providers.map(normalizeProviderDraft)));
     } catch (error) {
       toast.error(
-        error.response?.data?.message || "Erro ao carregar configuracoes de IA."
+        error.response?.data?.message || "Erro ao carregar providers de IA."
       );
     } finally {
       if (!silent) {
@@ -64,38 +86,12 @@ export default function AIControlCenter() {
     loadData();
   }, []);
 
-  const handleConfigChange = (event) => {
-    const { name, type, value, checked } = event.target;
-    setConfig((current) => ({
-      ...current,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
-
   const handleProviderChange = (providerKey, field, value) => {
     setProviderDrafts((current) =>
       current.map((provider) =>
         provider.provider === providerKey ? { ...provider, [field]: value } : provider
       )
     );
-  };
-
-  const handleSaveConfig = async (event) => {
-    event.preventDefault();
-    setSavingConfig(true);
-
-    try {
-      const updated = await updateOrganizerAIConfig(config);
-      setConfig((current) => ({ ...current, ...updated }));
-      toast.success("Runtime operacional de IA salvo com sucesso.");
-    } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Erro ao salvar runtime operacional de IA."
-      );
-      await loadData({ silent: true });
-    } finally {
-      setSavingConfig(false);
-    }
   };
 
   const handleSaveProvider = async (provider) => {
@@ -124,108 +120,63 @@ export default function AIControlCenter() {
     }
   };
 
-  const defaultProvider =
-    providerDrafts.find((provider) => provider.is_default)?.label || "nao definido";
+  const handleTestConnection = async (provider) => {
+    setTestingProviderKey(provider.provider);
+    try {
+      const result = await testOrganizerAIProvider(provider.provider);
+      if (result?.ok) {
+        toast.success(
+          `Conexão OK\nLatência: ${result.latency_ms}ms · Modelo: ${result.model_used || "desconhecido"}`,
+          { duration: 5000 }
+        );
+      } else {
+        toast.error(
+          result?.error
+            ? `Falha no teste (${provider.label}): ${result.error}`
+            : `Falha ao testar ${provider.label}. Verifique a API key e o modelo.`,
+          { duration: 6000 }
+        );
+      }
+    } catch (error) {
+      const status = error?.response?.status;
+      const message = error?.response?.data?.message;
+      if (status === 429) {
+        toast(
+          message || "Muitas tentativas. Aguarde 1 minuto.",
+          { icon: "⏳", duration: 5000 }
+        );
+      } else if (status === 400) {
+        toast.error(message || "Configure a API key e salve antes de testar.");
+      } else if (error?.code === "ECONNABORTED") {
+        toast.error("Tempo esgotado ao aguardar o provider. Tente novamente.");
+      } else {
+        toast.error(message || "Erro ao testar conexão com o provider.");
+      }
+    } finally {
+      setTestingProviderKey("");
+    }
+  };
 
   if (loading) {
-    return <div className="text-gray-500 animate-pulse">Carregando configuracao de IA...</div>;
+    return <div className="text-gray-500 animate-pulse">Carregando providers de IA...</div>;
   }
 
   return (
     <div className="space-y-8 fade-in">
-      <div className="card max-w-4xl space-y-8 p-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h2 className="section-title flex items-center gap-2">
-              <Bot size={20} className="text-brand" /> Runtime operacional legado
-            </h2>
-            <p className="text-sm text-gray-400 mt-1">
-              Esta configuracao continua alimentando o fluxo atual de{" "}
-              <code>/ai/insight</code>. O provider escolhido aqui deve existir e estar
-              configurado na camada nova de providers logo abaixo.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 bg-gray-900 px-4 py-2 rounded-lg border border-gray-800">
-            <span className="text-sm text-gray-300">IA operacional</span>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                name="is_active"
-                checked={Boolean(config.is_active)}
-                onChange={handleConfigChange}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500" />
-            </label>
-          </div>
-        </div>
-
-        <form onSubmit={handleSaveConfig} className="space-y-6">
-          <div>
-            <label className="input-label flex items-center gap-2">
-              <Key size={14} className="text-gray-400" /> Provider do runtime
-            </label>
-            <select
-              name="provider"
-              value={config.provider || "openai"}
-              onChange={handleConfigChange}
-              className="input"
-            >
-              {providerDrafts.map((provider) => (
-                <option key={provider.provider} value={provider.provider}>
-                  {provider.label}
-                  {provider.is_default ? " (Padrao)" : ""}
-                  {!provider.is_configured ? " - sem chave" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="input-label">Prompt base do organizer</label>
-            <p className="text-xs text-gray-500 mb-2">
-              Instrucoes extras para o fluxo operacional legado. Exemplo: "Seja
-              objetivo e sempre priorize lucro com seguranca operacional."
-            </p>
-            <textarea
-              name="system_prompt"
-              value={config.system_prompt || ""}
-              onChange={handleConfigChange}
-              rows="5"
-              className="input min-h-[120px]"
-              placeholder="Insira customizacoes para o runtime operacional atual..."
-            />
-          </div>
-
-          <div className="pt-4 flex items-center justify-between gap-3 flex-wrap">
-            <span className="text-xs text-gray-500">
-              Provider padrao atual da camada nova: {defaultProvider}
-            </span>
-            <button
-              type="submit"
-              disabled={savingConfig}
-              className="btn-primary px-8 py-3 flex items-center gap-2"
-            >
-              <Save size={18} />
-              {savingConfig ? "Salvando..." : "Salvar runtime operacional"}
-            </button>
-          </div>
-        </form>
-      </div>
-
       <div className="card space-y-6 p-8">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="section-title flex items-center gap-2">
-              <Server size={20} className="text-brand" /> Providers do organizer
+              <Server size={20} className="text-brand" /> Providers de IA
             </h2>
             <p className="text-sm text-gray-400 mt-1">
-              Credenciais, modelo, base URL e provider padrao da fundacao nova publicada em{" "}
-              <code>/api/organizer-ai-providers</code>.
+              Configure as 3 plataformas que preferir. Depois escolha qual cada agente
+              vai usar direto na página de Assistentes. O "padrão" só é usado como
+              fallback se um agente não tiver provider explícito.
             </p>
           </div>
           <div className="text-xs text-gray-500">
-            Campo de API Key em branco preserva o segredo ja salvo.
+            Campo de API Key em branco preserva o segredo já salvo.
           </div>
         </div>
 
@@ -235,8 +186,10 @@ export default function AIControlCenter() {
               key={provider.provider}
               provider={provider}
               saving={savingProviderKey === provider.provider}
+              testing={testingProviderKey === provider.provider}
               onChange={handleProviderChange}
               onSave={handleSaveProvider}
+              onTestConnection={handleTestConnection}
             />
           ))}
         </div>
@@ -245,7 +198,13 @@ export default function AIControlCenter() {
   );
 }
 
-function ProviderCard({ provider, saving, onChange, onSave }) {
+function ProviderCard({ provider, saving, testing, onChange, onSave, onTestConnection }) {
+  const catalogModels = getModelsForProvider(provider.provider);
+  const currentModel = provider.model || "";
+  const knownMeta = findModelMeta(provider.provider, currentModel);
+  const isCustomLegacy = currentModel && !knownMeta;
+  const selectedMeta = knownMeta;
+
   return (
     <div className="card-hover flex flex-col gap-4 border-gray-800">
       <div className="flex items-start justify-between gap-3">
@@ -284,7 +243,7 @@ function ProviderCard({ provider, saving, onChange, onSave }) {
 
       <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-3">
         <div>
-          <p className="text-sm text-gray-200">Provider padrao</p>
+          <p className="text-sm text-gray-200">Fallback padrão</p>
           <p className="text-xs text-gray-500">Usado por agentes sem provider explicito.</p>
         </div>
         <input
@@ -313,13 +272,35 @@ function ProviderCard({ provider, saving, onChange, onSave }) {
 
       <div>
         <label className="input-label">Modelo</label>
-        <input
-          type="text"
+        <select
           className="input"
-          value={provider.model}
+          value={currentModel}
           onChange={(event) => onChange(provider.provider, "model", event.target.value)}
-          placeholder="Modelo default do provider"
-        />
+        >
+          {!currentModel && (
+            <option value="">Selecione um modelo...</option>
+          )}
+          {isCustomLegacy && (
+            <option value={currentModel}>
+              Modelo customizado: {currentModel}
+            </option>
+          )}
+          {catalogModels.map((model) => (
+            <option key={model.id} value={model.id}>
+              {formatModelOptionLabel(model)}
+            </option>
+          ))}
+        </select>
+        {selectedMeta && (
+          <p className="mt-1 text-xs text-gray-500">
+            {selectedMeta.description} · in ${selectedMeta.input_cost_per_1m.toFixed(2)}/1M · out ${selectedMeta.output_cost_per_1m.toFixed(2)}/1M
+          </p>
+        )}
+        {isCustomLegacy && (
+          <p className="mt-1 text-xs text-amber-400">
+            Valor legado fora do catálogo — troque por um modelo listado quando possível.
+          </p>
+        )}
       </div>
 
       <div>
@@ -333,7 +314,21 @@ function ProviderCard({ provider, saving, onChange, onSave }) {
         />
       </div>
 
-      <div className="mt-auto pt-2 flex justify-end">
+      <div className="mt-auto pt-2 flex justify-end gap-2 flex-wrap">
+        <button
+          type="button"
+          disabled={saving || testing}
+          className="btn-secondary flex items-center gap-2"
+          onClick={() => onTestConnection(provider)}
+          title="Testar conexão com o provider"
+        >
+          {testing ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Plug size={16} />
+          )}
+          {testing ? "Testando..." : "Testar conexão"}
+        </button>
         <button
           type="button"
           disabled={saving}
