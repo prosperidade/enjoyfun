@@ -44,3 +44,7 @@ Thumbs.db
 
 # Generated local artifacts
 /frontend/vite.config.js.timestamp-*
+
+# User-uploaded files (organizer files, event assets, etc.)
+# These are runtime data, not source code — must never be tracked.
+/backend/public/uploads/
