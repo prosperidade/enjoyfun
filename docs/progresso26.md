@@ -217,7 +217,15 @@ Efeito: `find_events` roda 1x, resultado é cacheado. Se o LLM tentar chamar de 
 `php -l` PASS. Zero impacto no contrato V3.
 
 ### Sprint 2
-_(aguardando)_
+
+**Início:** 2026-04-12 | **Plano:** 8 commits, 3 trilhas (A Context Refactor + B 12 Skills + C PT-BR)
+
+#### Commit 1 — BE-S2-B1 ✅
+`get_pos_sales_snapshot` time_filter implementado + top products breakdown.
+- `time_filter` (1h/6h/12h/24h/all) agora filtra `WHERE s.created_at >= NOW() - INTERVAL`
+- Top 10 produtos por quantidade vendida (JOIN sale_items → products)
+- Retorno inclui `period` ("ultimas 1h" / "acumulado total") para grounding temporal
+- Resolve Bug F parcialmente: LLM agora recebe `period` no tool result → pode usar na resposta
 
 ### Sprint 3
 _(aguardando)_

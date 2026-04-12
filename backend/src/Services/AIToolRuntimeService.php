@@ -1936,9 +1936,15 @@ final class AIToolRuntimeService
 
         $sector = strtolower(trim((string)($arguments['sector'] ?? '')));
         $filterBySector = in_array($sector, ['bar', 'food', 'shop'], true);
-        // items_sold lives in sale_items (one row per line), totals live in sales
-        // (one row per transaction). We compute them in two round-trips to avoid
-        // PDO pgsql native-prepare conflicts with repeated named parameters.
+
+        // BE-S2-B1: time_filter implementation (was defined in schema but ignored in SQL)
+        $timeFilter = strtolower(trim((string)($arguments['time_filter'] ?? 'all')));
+        $intervalMap = ['1h' => '1 hour', '6h' => '6 hours', '12h' => '12 hours', '24h' => '24 hours'];
+        $timeCondition = '';
+        if (isset($intervalMap[$timeFilter])) {
+            $timeCondition = "AND s.created_at >= NOW() - INTERVAL '" . $intervalMap[$timeFilter] . "'";
+        }
+
         $params = [':org' => $organizerId, ':evt' => $eventId];
         if ($filterBySector) {
             $params[':sector'] = $sector;
@@ -1951,7 +1957,7 @@ final class AIToolRuntimeService
                 COUNT(*) AS transactions,
                 CASE WHEN COUNT(*) > 0 THEN ROUND(SUM(s.total_amount) / COUNT(*), 2) ELSE 0 END AS avg_ticket
             FROM public.sales s
-            WHERE s.organizer_id = :org AND s.event_id = :evt AND s.status = 'completed' {$sectorCondition}
+            WHERE s.organizer_id = :org AND s.event_id = :evt AND s.status = 'completed' {$sectorCondition} {$timeCondition}
         ");
         $stmt->execute($params);
         $totals = $stmt->fetch(\PDO::FETCH_ASSOC) ?: ['revenue' => 0, 'transactions' => 0, 'avg_ticket' => 0];
@@ -1960,18 +1966,37 @@ final class AIToolRuntimeService
             SELECT COALESCE(SUM(si.quantity), 0) AS items_sold
             FROM public.sale_items si
             INNER JOIN public.sales s ON s.id = si.sale_id
-            WHERE s.organizer_id = :org AND s.event_id = :evt AND s.status = 'completed' {$sectorCondition}
+            WHERE s.organizer_id = :org AND s.event_id = :evt AND s.status = 'completed' {$sectorCondition} {$timeCondition}
         ");
         $itemsStmt->execute($params);
         $itemsSold = (int)($itemsStmt->fetchColumn() ?: 0);
 
+        // BE-S2-B1: top products breakdown
+        $topProductsStmt = $db->prepare("
+            SELECT p.name AS product_name, p.sector,
+                   SUM(si.quantity) AS qty_sold,
+                   SUM(si.quantity * si.unit_price) AS product_revenue
+            FROM public.sale_items si
+            INNER JOIN public.sales s ON s.id = si.sale_id
+            INNER JOIN public.products p ON p.id = si.product_id
+            WHERE s.organizer_id = :org AND s.event_id = :evt AND s.status = 'completed' {$sectorCondition} {$timeCondition}
+            GROUP BY p.name, p.sector
+            ORDER BY qty_sold DESC
+            LIMIT 10
+        ");
+        $topProductsStmt->execute($params);
+        $topProducts = $topProductsStmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
         return [
             'event_id'      => $eventId,
             'sector_filter' => $sector ?: 'all',
+            'time_filter'   => $timeFilter,
+            'period'        => isset($intervalMap[$timeFilter]) ? "ultimas {$timeFilter}" : 'acumulado total',
             'revenue'       => (float)$totals['revenue'],
             'transactions'  => (int)$totals['transactions'],
             'items_sold'    => $itemsSold,
             'avg_ticket'    => (float)$totals['avg_ticket'],
+            'top_products'  => $topProducts,
         ];
     }
 
