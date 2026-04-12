@@ -81,12 +81,12 @@ final class AIGroundingValidatorService
         $notFoundInResults = false;
         foreach ($toolResults as $tr) {
             $result = $tr['result'] ?? $tr;
-            if (is_array($result) && (($result['found'] ?? null) === false || empty($result))) {
+            if (\is_array($result) && (($result['found'] ?? null) === false || ($result['ok'] ?? null) === false || $result === [])) {
                 $notFoundInResults = true;
                 break;
             }
         }
-        if ($notFoundInResults && mb_strlen($response) > 300) {
+        if ($notFoundInResults && \strlen($response) > 250) {
             $score -= 15;
             $warnings[] = 'Entidade nao encontrada mas resposta longa (possivel alucinacao)';
         }

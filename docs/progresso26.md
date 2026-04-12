@@ -368,6 +368,19 @@ Grounding score + validation integrado.
 - `AIGroundingValidatorService.php` (NOVO): 5 heurísticas — números sem fonte (-20), temporal sem grounding (-10), dados sem tools (-25), entidade not found + resposta longa (-15), "vou buscar" (-10). Score 0-100
 - Integrado no `generateInsight()` após bounded loop. `grounding_score` + `grounding_violations` no response
 - Log `[LOW GROUNDING]` quando score < 60
+
+#### Commit 6 — BE-S4-C3 ✅
+Grounding test suite — 12/12 PASS.
+- `tests/ai_grounding_tests_runner.php`: 12 cenários (6 high grounding, 6 low grounding)
+- Testa: números sem fonte, temporal sem contexto, dados sem tools, entidade not found + resposta longa, "vou buscar", múltiplas violações em stack
+- `bash tests/ai_grounding_tests.sh` wrapper
+
+**Sprint 4 Backend 100% concluído** — 13/13 tickets entregues em 6 commits.
+- 3 migrations aplicadas (080/081/082)
+- `GET /ai/health` endpoint ativo
+- 8 internal skills (4 routing + 4 diagnostic)
+- Grounding score integrado no pipeline (response inclui `grounding_score`)
+- Test suite 12/12 PASS
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 
