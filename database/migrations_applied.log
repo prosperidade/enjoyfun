@@ -49,3 +49,5 @@
 2026-04-11T22:30:00-03:00 — 075_ai_routing_events.sql — applied
 2026-04-11T22:30:00-03:00 — 076_ai_tool_executions.sql — applied
 2026-04-11T22:30:00-03:00 — 077_ai_platform_guide.sql — applied (platform_guide agent + 4 skills)
+2026-04-12 078_ai_label_translations.sql APPLIED (72 field labels + 20 tool names)
+2026-04-12 079_ai_memory_relevance.sql APPLIED (relevance_score + recall tracking)

@@ -306,6 +306,13 @@ Endpoint `GET /organizer-files/search` com FTS em parsed_data.
 - **B2** 4 skills: `read_file_excerpt` (lê linhas específicas), `extract_file_entities` (heurística de colunas: amounts/dates/names), `compare_documents` (colunas em comum, diff), `cite_document_evidence` (registra citação para evidence block)
 - **B3** Bloco `evidence` no AdaptiveResponseService: detecta tool results type=document_chunk, monta bloco com file_id + snippet + relevance. Priority 85 (antes de actions)
 - **B4** Prompt reinforcement: "Quando citar dados de arquivos, use cite_document_evidence para gerar blocos de evidência"
+
+#### Commit 5 — BE-S3-C5 ✅
+Migration `079_ai_memory_relevance.sql` aplicada.
+- `relevance_score` NUMERIC(5,2) DEFAULT 50.0 — score 0-100 para ranking de recall
+- `last_recalled_at` TIMESTAMP — tracking de quando a memória foi usada
+- `recall_count` INT DEFAULT 0 — quantas vezes foi recalled
+- 2 indexes: `idx_ai_memories_org_relevance` (top-N por relevância) + `idx_ai_memories_last_recalled` (decay de stale)
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 
