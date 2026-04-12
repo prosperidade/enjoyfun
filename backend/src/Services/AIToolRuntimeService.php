@@ -383,9 +383,25 @@ final class AIToolRuntimeService
                     'required' => ['event_id'],
                     'additionalProperties' => false,
                 ],
-                'aliases' => ['get_event_shift_coverage', 'shift_coverage', 'events.shifts'],
+                'aliases' => ['get_event_shift_coverage', 'shift_coverage', 'events.shifts', 'get_workforce_coverage'],
                 'type' => 'read',
                 'surfaces' => ['workforce', 'events'],
+                'agent_keys' => ['logistics', 'management'],
+            ],
+            [
+                'name' => 'get_shift_gaps',
+                'description' => 'Turnos sem nenhum membro da equipe alocado (gaps de cobertura). Retorna apenas shifts com zero assignments.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_shift_gaps', 'shift_gaps', 'workforce.gaps'],
+                'type' => 'read',
+                'surfaces' => ['workforce'],
                 'agent_keys' => ['logistics', 'management'],
             ],
 
@@ -1064,6 +1080,7 @@ final class AIToolRuntimeService
             'get_parking_live_snapshot' => self::executeParkingLiveSnapshot($db, $organizerId, $eventId),
             'get_meal_service_status' => self::executeMealServiceStatus($db, $organizerId, $eventId),
             'get_event_shift_coverage' => self::executeEventShiftCoverage($db, $organizerId, $eventId),
+            'get_shift_gaps' => self::executeShiftGaps($db, $organizerId, $eventId),
 
             // Event lookup (cross-cutting)
             'find_events' => self::executeFindEvents($db, $organizerId, $arguments),
@@ -1800,25 +1817,82 @@ final class AIToolRuntimeService
         return ['event_id' => $eventId, 'meal_services' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: []];
     }
 
+    /**
+     * BE-S2-B6: Rewritten with correct schema. Previous version used wrong column
+     * names (shift_label, shift_date, start_time) and wrong join (es.event_id doesn't
+     * exist). Real path: event_shifts → event_days → events.
+     */
     private static function executeEventShiftCoverage(PDO $db, int $organizerId, ?int $eventId): array
     {
         self::requireEventId($eventId, 'get_event_shift_coverage');
 
         $stmt = $db->prepare("
             SELECT
-                es.id AS shift_id, es.shift_label, es.shift_date, es.start_time, es.end_time,
+                es.id AS shift_id,
+                es.name AS shift_name,
+                ed.date AS shift_date,
+                es.starts_at,
+                es.ends_at,
                 COALESCE(wa_agg.assigned_count, 0) AS assigned_count
             FROM public.event_shifts es
+            INNER JOIN public.event_days ed ON ed.id = es.event_day_id
             LEFT JOIN LATERAL (
-                SELECT COUNT(*) AS assigned_count FROM public.workforce_assignments
-                WHERE event_id = es.event_id AND organizer_id = es.organizer_id
+                SELECT COUNT(*) AS assigned_count
+                FROM public.workforce_assignments wa
+                WHERE wa.event_shift_id = es.id AND wa.organizer_id = :org
             ) wa_agg ON true
-            WHERE es.organizer_id = :org AND es.event_id = :evt
-            ORDER BY es.shift_date, es.start_time
+            WHERE es.organizer_id = :org AND ed.event_id = :evt
+            ORDER BY ed.date, es.starts_at
         ");
         $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
 
-        return ['event_id' => $eventId, 'shifts' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: []];
+        $shifts = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        $totalShifts = count($shifts);
+        $coveredShifts = 0;
+        foreach ($shifts as &$s) {
+            $s['assigned_count'] = (int)$s['assigned_count'];
+            $s['is_covered'] = $s['assigned_count'] > 0;
+            if ($s['is_covered']) { $coveredShifts++; }
+        }
+
+        return [
+            'event_id' => $eventId,
+            'total_shifts' => $totalShifts,
+            'covered_shifts' => $coveredShifts,
+            'uncovered_shifts' => $totalShifts - $coveredShifts,
+            'coverage_pct' => $totalShifts > 0 ? round($coveredShifts / $totalShifts * 100, 1) : 0,
+            'shifts' => $shifts,
+        ];
+    }
+
+    /** BE-S2-B7: Identify uncovered shifts (gaps) for the event. */
+    private static function executeShiftGaps(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_shift_gaps');
+
+        $stmt = $db->prepare("
+            SELECT
+                es.id AS shift_id,
+                es.name AS shift_name,
+                ed.date AS shift_date,
+                es.starts_at,
+                es.ends_at
+            FROM public.event_shifts es
+            INNER JOIN public.event_days ed ON ed.id = es.event_day_id
+            LEFT JOIN public.workforce_assignments wa
+                ON wa.event_shift_id = es.id AND wa.organizer_id = :org
+            WHERE es.organizer_id = :org AND ed.event_id = :evt
+              AND wa.id IS NULL
+            ORDER BY ed.date, es.starts_at
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $gaps = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'event_id' => $eventId,
+            'total_gaps' => count($gaps),
+            'gaps' => $gaps,
+        ];
     }
 
     private static function executeFindEvents(PDO $db, int $organizerId, array $arguments): array

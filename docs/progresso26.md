@@ -227,6 +227,14 @@ Efeito: `find_events` roda 1x, resultado é cacheado. Se o LLM tentar chamar de 
 - Retorno inclui `period` ("ultimas 1h" / "acumulado total") para grounding temporal
 - Resolve Bug F parcialmente: LLM agora recebe `period` no tool result → pode usar na resposta
 
+#### Commit 2 — BE-S2-B6 + BE-S2-B7 ✅
+Fix `get_event_shift_coverage` (colunas erradas) + nova tool `get_shift_gaps`.
+- **FIX CRÍTICO:** `executeEventShiftCoverage` usava `es.shift_label`, `es.event_id` que não existem. Reescrito com join path correto: `event_shifts → event_days (event_day_id) → events (event_id)`. Colunas reais: `es.name`, `ed.date`, `es.starts_at`, `es.ends_at`.
+- Assignment count agora filtra por `wa.event_shift_id = es.id` (antes contava todos os assignments do evento)
+- Retorno enriquecido: `total_shifts`, `covered_shifts`, `uncovered_shifts`, `coverage_pct`, `is_covered` por shift
+- **Nova tool** `get_shift_gaps`: retorna apenas shifts com zero assignments (LEFT JOIN + WHERE wa.id IS NULL)
+- Alias `get_workforce_coverage` adicionado ao `get_event_shift_coverage` para compatibilidade com Sprint 2 plan
+
 ### Sprint 3
 _(aguardando)_
 
