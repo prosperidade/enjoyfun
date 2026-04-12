@@ -355,6 +355,13 @@ Prompt versioning + tool execution logging ativado.
 - **B2** `handoff_to_agent`: transfere sessão para outro agente mid-conversation
 - **B3** `summarize_context`: wrapper do summarizeSessionToMemory on-demand
 - **B4** `validate_response_grounding`: heurísticas — números sem fonte (-20), temporal sem confirmação (-10). Score 0-100
+
+#### Commit 4 — BE-S4-B5+B6+B7+B8 ✅
+4 internal skills (diagnostic + incidents).
+- **B5** `diagnose_agent_route`: query ai_routing_events por trace_id — mostra candidates, scores, reasoning
+- **B6** `inspect_session_trace`: JOIN session + messages + tool_executions — trace completo
+- **B7** `report_fallback_incident`: registra incidente no audit_log com action=ai.fallback_incident
+- **B8** `detect_silent_failure`: detecta tool calls com status=ok mas result vazio (últimas N horas)
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 

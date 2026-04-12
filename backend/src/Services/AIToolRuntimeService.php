@@ -768,6 +768,45 @@ final class AIToolRuntimeService
                 'agent_keys' => ['management', 'marketing'],
             ],
 
+            // --- BE-S4-B5..B8: Internal skills (diagnostic + incidents) ---
+            [
+                'name' => 'diagnose_agent_route',
+                'description' => 'Diagnostica por que uma pergunta foi roteada para um agente especifico. Mostra candidates, scores e reasoning.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'routing_trace_id' => ['type' => 'string', 'description' => 'ID do trace de routing a diagnosticar.'],
+                ], 'required' => ['routing_trace_id'], 'additionalProperties' => false],
+                'aliases' => ['diagnose_agent_route', 'internal.diagnose_route'], 'type' => 'read',
+                'surfaces' => ['dashboard'], 'agent_keys' => ['management'],
+            ],
+            [
+                'name' => 'inspect_session_trace',
+                'description' => 'Inspeciona o trace completo de uma sessao: mensagens, routing, tool calls.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'session_id' => ['type' => 'string', 'description' => 'ID da sessao.'],
+                ], 'required' => ['session_id'], 'additionalProperties' => false],
+                'aliases' => ['inspect_session_trace', 'internal.inspect_trace'], 'type' => 'read',
+                'surfaces' => ['dashboard'], 'agent_keys' => ['management'],
+            ],
+            [
+                'name' => 'report_fallback_incident',
+                'description' => 'Registra um incidente de fallback (resposta generica ou vazia) no audit log.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'session_id' => ['type' => 'string', 'description' => 'Sessao onde ocorreu.'],
+                    'description' => ['type' => 'string', 'description' => 'Descricao do incidente.'],
+                ], 'required' => ['description'], 'additionalProperties' => false],
+                'aliases' => ['report_fallback_incident', 'internal.report_fallback'], 'type' => 'write',
+                'surfaces' => ['dashboard'], 'agent_keys' => ['management'],
+            ],
+            [
+                'name' => 'detect_silent_failure',
+                'description' => 'Detecta tool calls recentes que retornaram vazio ou com status ok mas sem dados uteis.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'hours' => ['type' => 'integer', 'description' => 'Janela em horas (default 24).'],
+                ], 'required' => [], 'additionalProperties' => false],
+                'aliases' => ['detect_silent_failure', 'internal.detect_silent'], 'type' => 'read',
+                'surfaces' => ['dashboard'], 'agent_keys' => ['management'],
+            ],
+
             // --- BE-S4-B1..B4: Internal skills (routing + context) ---
             [
                 'name' => 'route_intent',
@@ -1527,6 +1566,12 @@ final class AIToolRuntimeService
             'get_finance_overview' => self::executeFinanceOverview($db, $organizerId, $eventId),
             'get_supplier_payment_status' => self::executeSupplierPaymentStatus($db, $organizerId, $eventId),
             'get_ticket_sales_snapshot' => self::executeTicketSalesSnapshot($db, $organizerId, $eventId),
+
+            // Internal skills B5-B8 (BE-S4 diagnostic)
+            'diagnose_agent_route' => self::executeDiagnoseAgentRoute($db, $organizerId, $arguments),
+            'inspect_session_trace' => self::executeInspectSessionTrace($db, $organizerId, $arguments),
+            'report_fallback_incident' => self::executeReportFallbackIncident($db, $organizerId, $arguments),
+            'detect_silent_failure' => self::executeDetectSilentFailure($db, $organizerId, $arguments),
 
             // Internal skills B1-B4 (BE-S4)
             'route_intent' => self::executeRouteIntent($db, $organizerId, $arguments),
@@ -2351,6 +2396,107 @@ final class AIToolRuntimeService
             'total_sold' => $totalSold,
             'total_available' => $totalAvail,
             'sell_through_pct' => $totalAvail > 0 ? round($totalSold / $totalAvail * 100, 1) : 0,
+        ];
+    }
+
+    // ── BE-S4-B5..B8: Internal skills (diagnostic + incidents) ─────
+
+    private static function executeDiagnoseAgentRoute(PDO $db, int $organizerId, array $arguments): array
+    {
+        $traceId = trim((string)($arguments['routing_trace_id'] ?? ''));
+        if ($traceId === '') { throw new RuntimeException('routing_trace_id e obrigatorio.', 422); }
+
+        $stmt = $db->prepare("
+            SELECT routing_trace_id, surface_hint, surface_chosen, agent_hint, agent_chosen,
+                   confidence, tier, candidates_json, reasoning, question_excerpt, latency_ms, created_at
+            FROM public.ai_routing_events
+            WHERE routing_trace_id = :trace AND organizer_id = :org
+            LIMIT 1
+        ");
+        $stmt->execute([':trace' => $traceId, ':org' => $organizerId]);
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (!$row) { return ['found' => false, 'routing_trace_id' => $traceId]; }
+
+        $row['candidates_json'] = json_decode($row['candidates_json'] ?? '[]', true);
+        return array_merge(['found' => true], $row);
+    }
+
+    private static function executeInspectSessionTrace(PDO $db, int $organizerId, array $arguments): array
+    {
+        $sessionId = trim((string)($arguments['session_id'] ?? ''));
+        if ($sessionId === '') { throw new RuntimeException('session_id e obrigatorio.', 422); }
+
+        require_once __DIR__ . '/AIConversationService.php';
+        $session = AIConversationService::getSession($db, $sessionId, $organizerId);
+        if (!$session) { return ['found' => false, 'session_id' => $sessionId]; }
+
+        $messages = AIConversationService::getHistory($db, $sessionId, $organizerId, 20);
+        $msgCount = count($messages);
+
+        // Get tool executions for this session
+        $toolStmt = $db->prepare("
+            SELECT tool_key, result_status, duration_ms, created_at
+            FROM public.ai_tool_executions
+            WHERE organizer_id = :org AND session_id = :sid
+            ORDER BY created_at ASC LIMIT 20
+        ");
+        $toolStmt->execute([':org' => $organizerId, ':sid' => $sessionId]);
+        $tools = $toolStmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'found' => true,
+            'session_id' => $sessionId,
+            'status' => $session['status'],
+            'surface' => $session['surface'],
+            'agent' => $session['routed_agent_key'],
+            'message_count' => $msgCount,
+            'tool_calls' => $tools,
+            'created_at' => $session['created_at'],
+            'updated_at' => $session['updated_at'],
+        ];
+    }
+
+    private static function executeReportFallbackIncident(PDO $db, int $organizerId, array $arguments): array
+    {
+        $description = trim((string)($arguments['description'] ?? ''));
+        if ($description === '') { throw new RuntimeException('description e obrigatoria.', 422); }
+
+        $sessionId = trim((string)($arguments['session_id'] ?? ''));
+
+        require_once __DIR__ . '/AuditService.php';
+        AuditService::log($db, [
+            'organizer_id' => $organizerId,
+            'action' => 'ai.fallback_incident',
+            'entity_type' => 'ai_session',
+            'entity_id' => $sessionId ?: null,
+            'details' => json_encode(['description' => $description, 'reported_at' => gmdate('Y-m-d H:i:s')]),
+        ]);
+
+        return ['status' => 'reported', 'description' => $description];
+    }
+
+    private static function executeDetectSilentFailure(PDO $db, int $organizerId, array $arguments): array
+    {
+        $hours = max(1, min(168, (int)($arguments['hours'] ?? 24)));
+
+        $stmt = $db->prepare("
+            SELECT tool_key, result_status, result_excerpt, error_message, duration_ms, created_at
+            FROM public.ai_tool_executions
+            WHERE organizer_id = :org
+              AND created_at >= NOW() - INTERVAL '{$hours} hours'
+              AND result_status = 'ok'
+              AND (result_excerpt IS NULL OR result_excerpt = '' OR result_excerpt = '{}' OR result_excerpt = '[]')
+            ORDER BY created_at DESC
+            LIMIT 20
+        ");
+        $stmt->execute([':org' => $organizerId]);
+        $failures = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'window_hours' => $hours,
+            'silent_failures' => count($failures),
+            'details' => $failures,
         ];
     }
 
