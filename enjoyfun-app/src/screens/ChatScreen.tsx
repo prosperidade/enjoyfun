@@ -285,6 +285,13 @@ export function ChatScreen({ navigation }: Props) {
         )}
         <ChatInput onSend={handleSend} disabled={sending} />
       </KeyboardAvoidingView>
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('PlatformGuide')}
+        accessibilityLabel={t('platform_guide')}
+      >
+        <Text style={styles.fabText}>?</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -400,5 +407,26 @@ const styles = StyleSheet.create({
   emptyBody: {
     ...typography.bodyMuted,
     textAlign: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: spacing.xxl + spacing.xl,
+    right: spacing.md,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.accentStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  fabText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '700',
   },
 });

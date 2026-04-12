@@ -275,7 +275,14 @@ _(nenhum ticket — aguarda fim do S0 do Backend)_
 **Status MO-S2:** ✅ todos os 5 tickets concluídos. `npm run typecheck` PASS.
 
 ### Sprint 3
-_(aguardando)_
+- **MO-S3-01** ✅ `enjoyfun-app/src/screens/PlatformGuideScreen.tsx` NOVO — tela dedicada do Platform Guide com onboarding automático (`platform_guide_welcome`), pills de guia (setup/gateway/branding), back button, usa `sendPlatformGuideMessage` com `conversation_mode=global_help` + `agent_key=platform_guide`. Sessão armazenada em `AISessionContext` com `surface=platform_guide, eventId=null`.
+- **MO-S3-02** ✅ `enjoyfun-app/src/components/blocks/TutorialStepsBlock.tsx` NOVO — renderer do bloco `tutorial_steps` (lista numerada com step number, title, description, action). Visual: círculos numerados com accentMuted.
+- **MO-S3-03** ✅ `enjoyfun-app/src/components/blocks/EvidenceBlock.tsx` NOVO — renderer de citação de documento (icon + title + snippet + score % + link "Abrir documento" via `Linking.openURL`).
+- **MO-S3-04** ✅ `enjoyfun-app/src/components/AdaptiveUIRenderer.tsx` — registrados `tutorial_steps` e `evidence` no switch. Tipo `ExtendedBlock` unifica `Block | TutorialStepsBlockData | EvidenceBlockData`.
+- **MO-S3-05** ✅ `enjoyfun-app/src/lib/aiSession.ts` — helper `sendPlatformGuideMessage(message, opts)` que chama `sendMessage` com `surface=platform_guide`, `event_id=null`, `conversationMode=global_help`, `agentKey=platform_guide`.
+- **MO-S3-06** ✅ `enjoyfun-app/App.tsx` — rota `PlatformGuide` registrada no Stack Navigator. FAB "?" no ChatScreen (canto inferior direito) navega pra `PlatformGuideScreen`. i18n: 8 strings novas em pt/en/es (platform_guide, subtitle, welcome, empty, 3 pills).
+
+**Status MO-S3:** ✅ todos os 6 tickets concluídos. `npm run typecheck` PASS.
 
 ### Sprint 4
 _(aguardando)_

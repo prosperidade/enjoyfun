@@ -114,3 +114,14 @@ export async function sendMessage(
     blocks: data.blocks ?? [],
   };
 }
+
+export async function sendPlatformGuideMessage(
+  message: string,
+  opts: Omit<SendMessageOptions, 'conversationMode' | 'agentKey'> = {},
+): Promise<AdaptiveResponseV3> {
+  return sendMessage('platform_guide', null, message, {
+    ...opts,
+    conversationMode: 'global_help',
+    agentKey: 'platform_guide',
+  });
+}

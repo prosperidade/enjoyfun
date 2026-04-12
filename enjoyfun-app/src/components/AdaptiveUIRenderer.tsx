@@ -11,9 +11,13 @@ import { TimelineBlock } from './blocks/TimelineBlock';
 import { LineupBlock } from './blocks/LineupBlock';
 import { MapBlock } from './blocks/MapBlock';
 import { ImageBlock } from './blocks/ImageBlock';
+import { TutorialStepsBlock, type TutorialStepsBlockData } from './blocks/TutorialStepsBlock';
+import { EvidenceBlock, type EvidenceBlockData } from './blocks/EvidenceBlock';
+
+type ExtendedBlock = Block | TutorialStepsBlockData | EvidenceBlockData;
 
 export interface AdaptiveUIRendererProps {
-  blocks: Block[];
+  blocks: ExtendedBlock[];
   onAction?: (item: ActionItem) => void | Promise<void>;
 }
 
@@ -45,6 +49,10 @@ export function AdaptiveUIRenderer({ blocks, onAction }: AdaptiveUIRendererProps
             return <MapBlock key={block.id} block={block} />;
           case 'image':
             return <ImageBlock key={block.id} block={block} />;
+          case 'tutorial_steps':
+            return <TutorialStepsBlock key={block.id} block={block as TutorialStepsBlockData} />;
+          case 'evidence':
+            return <EvidenceBlock key={block.id} block={block as EvidenceBlockData} />;
           default:
             return null;
         }

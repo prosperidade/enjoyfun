@@ -105,6 +105,13 @@ const strings: Record<Lang, Record<string, string>> = {
     new_conversation: 'Nova conversa',
     select_surface: 'Escolha o contexto',
     no_event_hint: 'Selecione um evento para comecar',
+    platform_guide: 'Guia da Plataforma',
+    platform_guide_subtitle: 'Tire duvidas sobre o EnjoyFun',
+    platform_guide_welcome: 'Como posso configurar meu primeiro evento no EnjoyFun? Quero um passo a passo completo.',
+    platform_guide_empty: 'Pergunte qualquer coisa sobre a plataforma EnjoyFun',
+    pill_guide_setup: 'Como configurar meu evento?',
+    pill_guide_gateway: 'Como ativar o gateway de pagamento?',
+    pill_guide_branding: 'Como personalizar minha marca?',
   },
   en: {
     welcome_prompt:
@@ -166,6 +173,13 @@ const strings: Record<Lang, Record<string, string>> = {
     new_conversation: 'New conversation',
     select_surface: 'Choose context',
     no_event_hint: 'Select an event to start',
+    platform_guide: 'Platform Guide',
+    platform_guide_subtitle: 'Ask anything about EnjoyFun',
+    platform_guide_welcome: 'How do I set up my first event on EnjoyFun? Give me a complete walkthrough.',
+    platform_guide_empty: 'Ask anything about the EnjoyFun platform',
+    pill_guide_setup: 'How to set up my event?',
+    pill_guide_gateway: 'How to enable payment gateway?',
+    pill_guide_branding: 'How to customize my brand?',
   },
   es: {
     welcome_prompt:
@@ -227,6 +241,13 @@ const strings: Record<Lang, Record<string, string>> = {
     new_conversation: 'Nueva conversacion',
     select_surface: 'Elige el contexto',
     no_event_hint: 'Selecciona un evento para comenzar',
+    platform_guide: 'Guia de la Plataforma',
+    platform_guide_subtitle: 'Resuelve dudas sobre EnjoyFun',
+    platform_guide_welcome: 'Como puedo configurar mi primer evento en EnjoyFun? Quiero un paso a paso completo.',
+    platform_guide_empty: 'Pregunta lo que quieras sobre la plataforma EnjoyFun',
+    pill_guide_setup: 'Como configurar mi evento?',
+    pill_guide_gateway: 'Como activar el gateway de pago?',
+    pill_guide_branding: 'Como personalizar mi marca?',
   },
 };
 
