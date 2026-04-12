@@ -249,6 +249,12 @@ Refactor `AIContextBuilderService` com feature flag `FEATURE_AI_LAZY_CONTEXT`.
 - `list_documents_by_category` — GROUP BY category com contagem e nomes
 - 3 schema entries no tool registry + 3 dispatch lines + 3 execute methods
 
+#### Commit 5 — BE-S2-A5 ✅
+Prompts por agente atualizados com mapa completo de tools por domínio.
+- Bloco "USE AS TOOLS DISPONIVEIS" expandido com 11 domínios mapeados (vendas, estoque, KPIs, ingressos, estacionamento, artistas, equipe, financeiro, documentos)
+- `get_pos_sales_snapshot` agora instrui explicitamente: "SEMPRE passe time_filter" + "campo 'period' indica recorte temporal"
+- Tools novas de S2 (shift_gaps, search_documents, read_organizer_file, list_documents_by_category) documentadas inline
+
 ### Sprint 3
 _(aguardando)_
 
