@@ -17,6 +17,7 @@ require_once BASE_PATH . '/src/Services/AIPromptSanitizer.php';
 require_once BASE_PATH . '/src/Services/AdaptiveResponseService.php';
 require_once BASE_PATH . '/src/Services/AIActionCatalogService.php';
 require_once BASE_PATH . '/src/Services/AIMonitoringService.php';
+require_once BASE_PATH . '/src/Services/ApprovalWorkflowService.php';
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
@@ -34,6 +35,9 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'GET' && $id === 'chat' && $sub === 'sessions' => listChatSessions($query),
         $method === 'GET' && $id === 'actions' => listActionCatalog(),
         $method === 'GET' && $id === 'health' => getAiHealth(),
+        $method === 'GET' && $id === 'approvals' && $sub === 'pending' => listPendingApprovals($query),
+        $method === 'POST' && $id === 'approvals' && ctype_digit((string)$sub) && $subId === 'confirm' => confirmApproval((int)$sub, $body),
+        $method === 'POST' && $id === 'approvals' && ctype_digit((string)$sub) && $subId === 'cancel' => cancelApproval((int)$sub, $body),
         default => jsonError("Rota não encontrada: {$method} /{$id}", 404),
     };
 }
@@ -731,6 +735,56 @@ function getAiHealth(): void
         $ref = uniqid();
         error_log("[AIController::getAiHealth] Error (Ref: {$ref}) - " . $e->getMessage());
         jsonError("Erro ao gerar relatório de saúde da IA (Ref: {$ref})", 500);
+    }
+}
+
+// ── BE-S5-B3: Approval workflow endpoints ───────────────────────
+
+function listPendingApprovals(array $query): void
+{
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    if ($organizerId <= 0) { jsonError('Organizer inválido.', 403); }
+
+    $approvals = \EnjoyFun\Services\ApprovalWorkflowService::listPending(
+        Database::getInstance(), $organizerId, (int)($query['limit'] ?? 20)
+    );
+    jsonSuccess(['approvals' => $approvals]);
+}
+
+function confirmApproval(int $approvalId, array $body): void
+{
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    $userId = (int)($operator['id'] ?? $operator['sub'] ?? 0);
+    if ($organizerId <= 0) { jsonError('Organizer inválido.', 403); }
+
+    try {
+        $result = \EnjoyFun\Services\ApprovalWorkflowService::confirm(
+            Database::getInstance(), $approvalId, $organizerId, $userId,
+            trim((string)($body['reason'] ?? ''))
+        );
+        jsonSuccess($result, 'Aprovação confirmada.');
+    } catch (RuntimeException $e) {
+        jsonError($e->getMessage(), (int)$e->getCode() ?: 404);
+    }
+}
+
+function cancelApproval(int $approvalId, array $body): void
+{
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    $userId = (int)($operator['id'] ?? $operator['sub'] ?? 0);
+    if ($organizerId <= 0) { jsonError('Organizer inválido.', 403); }
+
+    try {
+        $result = \EnjoyFun\Services\ApprovalWorkflowService::cancel(
+            Database::getInstance(), $approvalId, $organizerId, $userId,
+            trim((string)($body['reason'] ?? ''))
+        );
+        jsonSuccess($result, 'Aprovação cancelada.');
+    } catch (RuntimeException $e) {
+        jsonError($e->getMessage(), (int)$e->getCode() ?: 404);
     }
 }
 

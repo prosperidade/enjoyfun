@@ -56,3 +56,4 @@
 2026-04-12 082_ai_prompt_versions.sql APPLIED
 2026-04-12 083_pgvector_extension.sql APPLIED (warning: pgvector not available)
 2026-04-12 084_document_embeddings.sql APPLIED (skipped: vector type not found)
+2026-04-12 085_ai_approval_requests.sql APPLIED

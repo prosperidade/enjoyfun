@@ -402,6 +402,12 @@ AIEmbeddingService + upload trigger.
 Semantic + hybrid search tools.
 - `semantic_search_docs(query, top_k?)`: gera embedding da query → cosine similarity `<=>` → top-K chunks. Graceful fallback se pgvector não disponível
 - `hybrid_search_docs(query, category?, top_k?)`: combina keyword ILIKE + vector search. Funciona em modo keyword-only quando pgvector não está instalado
+
+#### Commit 4 — BE-S5-B1+B2+B3+B4+B5 ✅
+Approval workflow formalizado.
+- Migration 085: `ai_approval_requests` com RLS + index
+- `ApprovalWorkflowService.php` (NOVO): propose → confirm → cancel → listPending → markExecuted
+- 3 endpoints: `GET /ai/approvals/pending`, `POST /ai/approvals/{id}/confirm`, `POST /ai/approvals/{id}/cancel`
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 
