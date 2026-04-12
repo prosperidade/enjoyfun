@@ -23,6 +23,31 @@
 
 ---
 
+## Setup de worktrees (2026-04-11, pós-incidente de branches cruzadas)
+
+Cada chat opera em um **worktree git isolado** pra evitar que `git checkout` de um chat afete o working tree do outro. As 3 worktrees compartilham o mesmo `.git/` (mesma history, mesmas branches), mas têm working trees independentes.
+
+| Frente | Path | Branch | Owner |
+|---|---|---|---|
+| 🔧 Backend | `c:\Users\Administrador\Desktop\enjoyfun` | `main` (work em `claude/sprint-N/*`) | Claude Chat 1 (este) |
+| 📱 Mobile | `c:\Users\Administrador\Desktop\enjoyfun-mobile` | `claude-mo/sprint-1/ai-session-v3` | Claude Chat 2 |
+| 🌐 Frontend Web | `c:\Users\Administrador\Desktop\enjoyfun-codex` | `codex/sprint-1/fe-s1-embedded-ai-chat` | Codex VS Code |
+
+**Comandos úteis (rodar do main worktree):**
+```bash
+git worktree list                                # lista as 3 worktrees
+git worktree remove c:/.../enjoyfun-mobile       # remove (após merge)
+```
+
+**Regras de operação:**
+- Cada chat só toca em arquivos do seu worktree. Nunca faz `cd` pra outro path.
+- Branches são compartilhadas via `.git/` central — `main` atualizada por qualquer worktree fica visível em todas.
+- `git fetch` + `git merge main` (ou `git rebase main`) é como Mobile/Codex puxam o trabalho do Backend pra dentro da branch deles.
+- Backend (este chat) trabalha em `main` mas cria branches `claude/sprint-N/*` e faz fast-forward merge ao final de cada bloco.
+- Mobile e Codex commitam direto na branch deles (`claude-mo/...` e `codex/...`) e fazem PR/merge pra main quando o sprint deles fechar.
+
+---
+
 ## Backend (Claude Chat 1)
 
 ### Sprint 0
