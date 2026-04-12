@@ -348,6 +348,13 @@ Monitoring service + 2 migrations + /ai/health endpoint.
 Prompt versioning + tool execution logging ativado.
 - Migration 082: `ai_prompt_versions` (agent_key, prompt_hash, content_snapshot)
 - Tool execution logging no bounded loop: cada tool call → INSERT em `ai_tool_executions` (best-effort, não bloqueia em caso de erro)
+
+#### Commit 3 — BE-S4-B1+B2+B3+B4 ✅
+4 internal skills (routing + context).
+- **B1** `route_intent`: wrapper do AIIntentRouterService como tool — retorna agent_key, confidence, reasoning
+- **B2** `handoff_to_agent`: transfere sessão para outro agente mid-conversation
+- **B3** `summarize_context`: wrapper do summarizeSessionToMemory on-demand
+- **B4** `validate_response_grounding`: heurísticas — números sem fonte (-20), temporal sem confirmação (-10). Score 0-100
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 

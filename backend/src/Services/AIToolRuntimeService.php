@@ -768,6 +768,47 @@ final class AIToolRuntimeService
                 'agent_keys' => ['management', 'marketing'],
             ],
 
+            // --- BE-S4-B1..B4: Internal skills (routing + context) ---
+            [
+                'name' => 'route_intent',
+                'description' => 'Executa o intent router internamente: dado uma pergunta, retorna qual agente seria escolhido e por que.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'question' => ['type' => 'string', 'description' => 'Pergunta a rotear.'],
+                    'surface' => ['type' => 'string', 'description' => 'Surface hint.'],
+                ], 'required' => ['question'], 'additionalProperties' => false],
+                'aliases' => ['route_intent', 'internal.route'], 'type' => 'read',
+                'surfaces' => ['dashboard'], 'agent_keys' => ['management'],
+            ],
+            [
+                'name' => 'handoff_to_agent',
+                'description' => 'Transfere a conversa atual para outro agente mid-session.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'target_agent_key' => ['type' => 'string', 'description' => 'Agente destino.'],
+                    'reason' => ['type' => 'string', 'description' => 'Motivo da transferencia.'],
+                ], 'required' => ['target_agent_key'], 'additionalProperties' => false],
+                'aliases' => ['handoff_to_agent', 'internal.handoff'], 'type' => 'write',
+                'surfaces' => ['dashboard'], 'agent_keys' => ['management'],
+            ],
+            [
+                'name' => 'summarize_context',
+                'description' => 'Gera um resumo da sessao atual e salva como memoria.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'session_id' => ['type' => 'string', 'description' => 'ID da sessao a resumir.'],
+                ], 'required' => ['session_id'], 'additionalProperties' => false],
+                'aliases' => ['summarize_context', 'internal.summarize'], 'type' => 'read',
+                'surfaces' => ['dashboard'], 'agent_keys' => ['management'],
+            ],
+            [
+                'name' => 'validate_response_grounding',
+                'description' => 'Valida se um texto de resposta esta fundamentado nos resultados das tools (sem alucinacao).',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'response_text' => ['type' => 'string', 'description' => 'Texto da resposta a validar.'],
+                    'tool_results_json' => ['type' => 'string', 'description' => 'JSON dos resultados das tools usadas.'],
+                ], 'required' => ['response_text'], 'additionalProperties' => false],
+                'aliases' => ['validate_response_grounding', 'internal.validate_grounding'], 'type' => 'read',
+                'surfaces' => ['dashboard'], 'agent_keys' => ['management'],
+            ],
+
             // --- BE-S3-C4: Memory tools (agent-facing) ---
             [
                 'name' => 'write_working_memory',
@@ -1486,6 +1527,12 @@ final class AIToolRuntimeService
             'get_finance_overview' => self::executeFinanceOverview($db, $organizerId, $eventId),
             'get_supplier_payment_status' => self::executeSupplierPaymentStatus($db, $organizerId, $eventId),
             'get_ticket_sales_snapshot' => self::executeTicketSalesSnapshot($db, $organizerId, $eventId),
+
+            // Internal skills B1-B4 (BE-S4)
+            'route_intent' => self::executeRouteIntent($db, $organizerId, $arguments),
+            'handoff_to_agent' => self::executeHandoffToAgent($db, $organizerId, $arguments, $context),
+            'summarize_context' => self::executeSummarizeContext($db, $organizerId, $arguments),
+            'validate_response_grounding' => self::executeValidateGrounding($arguments),
 
             // Memory tools (BE-S3-C4)
             'write_working_memory' => self::executeWriteWorkingMemory($db, $organizerId, $arguments, $context),
@@ -2304,6 +2351,93 @@ final class AIToolRuntimeService
             'total_sold' => $totalSold,
             'total_available' => $totalAvail,
             'sell_through_pct' => $totalAvail > 0 ? round($totalSold / $totalAvail * 100, 1) : 0,
+        ];
+    }
+
+    // ── BE-S4-B1..B4: Internal skills (routing + context) ──────────
+
+    private static function executeRouteIntent(PDO $db, int $organizerId, array $arguments): array
+    {
+        $question = trim((string)($arguments['question'] ?? ''));
+        if ($question === '') { throw new RuntimeException('question e obrigatoria.', 422); }
+        $surface = trim((string)($arguments['surface'] ?? ''));
+
+        require_once __DIR__ . '/AIIntentRouterService.php';
+        $result = AIIntentRouterService::routeIntent($db, $organizerId, $question, ['surface' => $surface]);
+        return [
+            'agent_key'  => $result['agent_key'] ?? 'management',
+            'surface'    => $result['surface'] ?? $surface,
+            'confidence' => $result['confidence'] ?? 0,
+            'reasoning'  => $result['reasoning'] ?? '',
+        ];
+    }
+
+    private static function executeHandoffToAgent(PDO $db, int $organizerId, array $arguments, array $context): array
+    {
+        $targetAgent = trim((string)($arguments['target_agent_key'] ?? ''));
+        if ($targetAgent === '') { throw new RuntimeException('target_agent_key e obrigatorio.', 422); }
+
+        $sessionId = $context['session_id'] ?? null;
+        if ($sessionId) {
+            require_once __DIR__ . '/AIConversationService.php';
+            AIConversationService::updateRoutedAgent($db, (string)$sessionId, $targetAgent, $organizerId);
+        }
+
+        return [
+            'status' => 'handed_off',
+            'target_agent' => $targetAgent,
+            'reason' => trim((string)($arguments['reason'] ?? '')),
+            'session_id' => $sessionId,
+        ];
+    }
+
+    private static function executeSummarizeContext(PDO $db, int $organizerId, array $arguments): array
+    {
+        $sessionId = trim((string)($arguments['session_id'] ?? ''));
+        if ($sessionId === '') { throw new RuntimeException('session_id e obrigatorio.', 422); }
+
+        require_once __DIR__ . '/AIConversationService.php';
+        AIConversationService::summarizeSessionToMemory($db, $sessionId, $organizerId);
+
+        return ['status' => 'summarized', 'session_id' => $sessionId];
+    }
+
+    private static function executeValidateGrounding(array $arguments): array
+    {
+        $responseText = trim((string)($arguments['response_text'] ?? ''));
+        $toolResultsJson = trim((string)($arguments['tool_results_json'] ?? '[]'));
+        $toolResults = json_decode($toolResultsJson, true) ?: [];
+
+        $score = 100;
+        $violations = [];
+
+        // Heuristic 1: Check for numbers in response not backed by tool results
+        $toolDataString = json_encode($toolResults);
+        preg_match_all('/R\$\s?[\d.,]+|\d{3,}/', $responseText, $numbersInResponse);
+        foreach (($numbersInResponse[0] ?? []) as $num) {
+            $cleanNum = preg_replace('/[R$\s.]/', '', $num);
+            if ($cleanNum !== '' && strpos($toolDataString, $cleanNum) === false) {
+                $score -= 20;
+                $violations[] = "Numero '{$num}' nao encontrado nos tool results";
+            }
+        }
+
+        // Heuristic 2: Temporal claims without grounding
+        $temporalPatterns = ['/\bhoje\b/i', '/\bagora\b/i', '/\bneste momento\b/i', '/\bate o momento\b/i'];
+        foreach ($temporalPatterns as $pattern) {
+            if (preg_match($pattern, $responseText) && !preg_match($pattern, $toolDataString)) {
+                $score -= 10;
+                $violations[] = 'Referencia temporal sem confirmacao nos tool results';
+                break;
+            }
+        }
+
+        $score = max(0, $score);
+        return [
+            'grounding_score' => $score,
+            'is_grounded' => $score >= 70,
+            'violations' => $violations,
+            'total_violations' => count($violations),
         ];
     }
 
