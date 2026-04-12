@@ -255,6 +255,13 @@ Prompts por agente atualizados com mapa completo de tools por domínio.
 - `get_pos_sales_snapshot` agora instrui explicitamente: "SEMPRE passe time_filter" + "campo 'period' indica recorte temporal"
 - Tools novas de S2 (shift_gaps, search_documents, read_organizer_file, list_documents_by_category) documentadas inline
 
+#### Commit 6 — BE-S2-B2 + B3 + B8 + B12 ✅
+Enhance 4 tools existentes com dados mais ricos.
+- **B2** `get_stock_critical_items`: classificação `ruptura` vs `estoque_baixo` + contadores
+- **B3** `get_parking_live_snapshot`: vehicle_mix (GROUP BY type) + capacity_pct (parked/event.capacity)
+- **B8** `get_event_kpi_dashboard`: cost breakdown (artist_cache + logistics) + margin + margin_pct
+- **B12** `get_ticket_demand_signals`: per-batch detail (name, price, sold, remaining, is_active, dates) + velocity_per_day
+
 ### Sprint 3
 _(aguardando)_
 

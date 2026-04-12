@@ -1943,7 +1943,28 @@ final class AIToolRuntimeService
         $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
         $stats = $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        return array_merge(['event_id' => $eventId], $stats);
+        // BE-S2-B3: vehicle mix breakdown
+        $mixStmt = $db->prepare("
+            SELECT vehicle_type, COUNT(*) AS total
+            FROM public.parking_records
+            WHERE organizer_id = :org AND event_id = :evt
+            GROUP BY vehicle_type ORDER BY total DESC LIMIT 6
+        ");
+        $mixStmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $vehicleMix = $mixStmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        // BE-S2-B3: capacity percentage
+        $capStmt = $db->prepare("SELECT capacity FROM public.events WHERE id = :evt AND organizer_id = :org LIMIT 1");
+        $capStmt->execute([':evt' => $eventId, ':org' => $organizerId]);
+        $capacity = (int)($capStmt->fetchColumn() ?: 0);
+        $parked = (int)($stats['parked_total'] ?? 0);
+        $capacityPct = $capacity > 0 ? round($parked / $capacity * 100, 1) : null;
+
+        return array_merge(['event_id' => $eventId], $stats, [
+            'vehicle_mix' => $vehicleMix,
+            'capacity' => $capacity > 0 ? $capacity : null,
+            'capacity_pct' => $capacityPct,
+        ]);
     }
 
     private static function executeMealServiceStatus(PDO $db, int $organizerId, ?int $eventId): array
@@ -2115,13 +2136,33 @@ final class AIToolRuntimeService
         $workforce->execute([':org' => $organizerId, ':evt' => $eventId]);
         $wfData = $workforce->fetch(\PDO::FETCH_ASSOC) ?: [];
 
+        // BE-S2-B8: cost breakdown + margin
+        $artistCosts = $db->prepare("SELECT COALESCE(SUM(cache_amount), 0) AS total FROM public.event_artists WHERE organizer_id = :org AND event_id = :evt AND booking_status <> 'cancelled'");
+        $artistCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $artistCostTotal = (float)$artistCosts->fetchColumn();
+
+        $logisticsCosts = $db->prepare("SELECT COALESCE(SUM(total_amount), 0) AS total FROM public.artist_logistics_items WHERE organizer_id = :org AND event_id = :evt");
+        $logisticsCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $logisticsCostTotal = (float)$logisticsCosts->fetchColumn();
+
+        $revenue = (float)($salesData['revenue'] ?? 0);
+        $totalCosts = $artistCostTotal + $logisticsCostTotal;
+        $margin = $revenue - $totalCosts;
+
         return [
             'event_id' => $eventId,
             'event' => $eventData,
-            'revenue' => (float)($salesData['revenue'] ?? 0),
+            'revenue' => $revenue,
             'transactions' => (int)($salesData['transactions'] ?? 0),
             'tickets_sold' => (int)($ticketData['sold'] ?? 0),
             'workforce_total' => (int)($wfData['total'] ?? 0),
+            'costs' => [
+                'artist_cache' => $artistCostTotal,
+                'logistics' => $logisticsCostTotal,
+                'total' => $totalCosts,
+            ],
+            'margin' => $margin,
+            'margin_pct' => $revenue > 0 ? round($margin / $revenue * 100, 1) : 0,
         ];
     }
 
@@ -2235,8 +2276,11 @@ final class AIToolRuntimeService
             $params[':sector'] = $sector;
         }
 
+        // BE-S2-B2: add rupture vs low_stock classification
         $stmt = $db->prepare("
-            SELECT p.id, p.name, p.sector, p.stock_qty AS stock_quantity, p.low_stock_threshold AS min_stock_threshold, p.price
+            SELECT p.id, p.name, p.sector, p.stock_qty AS stock_quantity,
+                   p.low_stock_threshold AS min_stock_threshold, p.price,
+                   CASE WHEN p.stock_qty <= 0 THEN 'ruptura' ELSE 'estoque_baixo' END AS classification
             FROM public.products p
             WHERE p.organizer_id = :org AND p.event_id = :evt
               AND (p.stock_qty <= p.low_stock_threshold OR p.stock_qty <= 0) {$sectorCondition}
@@ -2244,8 +2288,16 @@ final class AIToolRuntimeService
             LIMIT 20
         ");
         $stmt->execute($params);
+        $items = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        $ruptureCount = count(array_filter($items, fn($i) => $i['classification'] === 'ruptura'));
 
-        return ['event_id' => $eventId, 'critical_items' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: []];
+        return [
+            'event_id' => $eventId,
+            'total_critical' => count($items),
+            'rupture_count' => $ruptureCount,
+            'low_stock_count' => count($items) - $ruptureCount,
+            'critical_items' => $items,
+        ];
     }
 
     private static function executeTicketDemandSignals(PDO $db, int $organizerId, ?int $eventId): array
@@ -2277,9 +2329,36 @@ final class AIToolRuntimeService
         $totalAvailable = (int)array_sum(array_column($types, 'total_available'));
         $totalSold = (int)array_sum(array_column($types, 'sold'));
 
+        // BE-S2-B12: per-batch detail with velocity
+        $batchStmt = $db->prepare("
+            SELECT tb.id AS batch_id, tb.name AS batch_name,
+                   tb.quantity_total, tb.quantity_sold,
+                   (tb.quantity_total - tb.quantity_sold) AS remaining,
+                   tb.price, tb.is_active, tb.starts_at, tb.ends_at,
+                   tt.name AS type_name
+            FROM public.ticket_batches tb
+            INNER JOIN public.ticket_types tt ON tt.id = tb.ticket_type_id
+            WHERE tb.organizer_id = :org AND tt.event_id = :evt
+            ORDER BY tb.starts_at ASC NULLS LAST, tb.name
+        ");
+        $batchStmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $batches = $batchStmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        // Compute velocity: sold / days since batch start
+        foreach ($batches as &$b) {
+            $startsAt = $b['starts_at'] ?? null;
+            if ($startsAt && (int)$b['quantity_sold'] > 0) {
+                $daysSinceStart = max(1, (int)((time() - strtotime($startsAt)) / 86400));
+                $b['velocity_per_day'] = round((int)$b['quantity_sold'] / $daysSinceStart, 1);
+            } else {
+                $b['velocity_per_day'] = 0;
+            }
+        }
+
         return [
             'event_id' => $eventId,
             'ticket_types' => $types,
+            'batches' => $batches,
             'total_available' => $totalAvailable,
             'total_sold' => $totalSold,
             'total_remaining' => $totalAvailable - $totalSold,
