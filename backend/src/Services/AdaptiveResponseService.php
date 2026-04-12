@@ -35,6 +35,7 @@ class AdaptiveResponseService
         'table'      => 45,
         'map'        => 50,
         'image'      => 55,
+        'evidence'   => 85,
         'actions'    => 90,
     ];
 
@@ -287,6 +288,29 @@ class AdaptiveResponseService
                 }
                 $blocks[] = $block;
             }
+        }
+
+        // BE-S3-B3: Evidence block — citations from document tools
+        $evidenceItems = [];
+        foreach ($toolResults as $tr) {
+            $result = $tr['result'] ?? $tr;
+            if (is_array($result) && ($result['type'] ?? '') === 'document_chunk') {
+                $evidenceItems[] = [
+                    'file_id'   => $result['file_id'] ?? null,
+                    'file_name' => $result['file_name'] ?? 'arquivo',
+                    'snippet'   => $result['snippet'] ?? '',
+                    'relevance' => $result['relevance'] ?? '',
+                    'score'     => (float)($result['score'] ?? 0),
+                ];
+            }
+        }
+        if (!empty($evidenceItems)) {
+            $blocks[] = [
+                'type'  => 'evidence',
+                'id'    => $nextId(),
+                'title' => 'Fontes citadas',
+                'items' => $evidenceItems,
+            ];
         }
 
         // Safety net: never return empty blocks if insight was empty too

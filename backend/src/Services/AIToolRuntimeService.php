@@ -768,6 +768,77 @@ final class AIToolRuntimeService
                 'agent_keys' => ['management', 'marketing'],
             ],
 
+            // --- BE-S3-B2: RAG skills ---
+            [
+                'name' => 'read_file_excerpt',
+                'description' => 'Le um trecho de um arquivo parseado (linhas especificas). Use para citar dados de planilhas ou documentos.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'file_id' => ['type' => 'integer', 'description' => 'ID do arquivo.'],
+                        'row_start' => ['type' => 'integer', 'description' => 'Linha inicial (0-based). Default 0.'],
+                        'row_end' => ['type' => 'integer', 'description' => 'Linha final (exclusive). Default 20.'],
+                    ],
+                    'required' => ['file_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['read_file_excerpt', 'file_excerpt', 'documents.excerpt'],
+                'type' => 'read',
+                'surfaces' => ['documents', 'finance'],
+                'agent_keys' => ['documents', 'management', 'contracting'],
+            ],
+            [
+                'name' => 'extract_file_entities',
+                'description' => 'Extrai entidades (fornecedores, valores, datas, itens) de um arquivo parseado. Retorna lista estruturada.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'file_id' => ['type' => 'integer', 'description' => 'ID do arquivo.'],
+                    ],
+                    'required' => ['file_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['extract_file_entities', 'file_entities', 'documents.entities'],
+                'type' => 'read',
+                'surfaces' => ['documents', 'finance'],
+                'agent_keys' => ['documents', 'contracting'],
+            ],
+            [
+                'name' => 'compare_documents',
+                'description' => 'Compara dois arquivos parseados: colunas em comum, diferencas de valores, totais.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'file_id_a' => ['type' => 'integer', 'description' => 'ID do primeiro arquivo.'],
+                        'file_id_b' => ['type' => 'integer', 'description' => 'ID do segundo arquivo.'],
+                    ],
+                    'required' => ['file_id_a', 'file_id_b'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['compare_documents', 'documents.compare'],
+                'type' => 'read',
+                'surfaces' => ['documents', 'finance'],
+                'agent_keys' => ['documents', 'management'],
+            ],
+            [
+                'name' => 'cite_document_evidence',
+                'description' => 'Registra uma citacao de evidencia de documento para inclusao no bloco evidence da resposta.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'file_id' => ['type' => 'integer', 'description' => 'ID do arquivo fonte.'],
+                        'excerpt' => ['type' => 'string', 'description' => 'Trecho citado do arquivo.'],
+                        'relevance' => ['type' => 'string', 'description' => 'Por que este trecho e relevante.'],
+                    ],
+                    'required' => ['file_id', 'excerpt'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['cite_document_evidence', 'documents.cite'],
+                'type' => 'read',
+                'surfaces' => ['documents', 'finance'],
+                'agent_keys' => ['documents', 'management', 'contracting'],
+            ],
+
             // --- BE-S3-A1: Platform Guide tools ---
             [
                 'name' => 'get_module_help',
@@ -1345,6 +1416,12 @@ final class AIToolRuntimeService
             'get_finance_overview' => self::executeFinanceOverview($db, $organizerId, $eventId),
             'get_supplier_payment_status' => self::executeSupplierPaymentStatus($db, $organizerId, $eventId),
             'get_ticket_sales_snapshot' => self::executeTicketSalesSnapshot($db, $organizerId, $eventId),
+
+            // RAG skills (BE-S3-B2)
+            'read_file_excerpt' => self::executeReadFileExcerpt($db, $organizerId, $arguments),
+            'extract_file_entities' => self::executeExtractFileEntities($db, $organizerId, $arguments),
+            'compare_documents' => self::executeCompareDocuments($db, $organizerId, $arguments),
+            'cite_document_evidence' => self::executeCiteDocumentEvidence($db, $organizerId, $arguments),
 
             // Platform Guide (BE-S3-A1)
             'get_module_help' => PlatformKnowledgeService::getModuleHelp((string)($arguments['module_key'] ?? '')),
@@ -2151,6 +2228,135 @@ final class AIToolRuntimeService
             'total_sold' => $totalSold,
             'total_available' => $totalAvail,
             'sell_through_pct' => $totalAvail > 0 ? round($totalSold / $totalAvail * 100, 1) : 0,
+        ];
+    }
+
+    // ── BE-S3-B2: RAG skills ───────────────────────────────────────
+
+    /** Read a specific row range from a parsed file. */
+    private static function executeReadFileExcerpt(PDO $db, int $organizerId, array $arguments): array
+    {
+        $fileId = self::nullablePositiveInt($arguments['file_id'] ?? null);
+        if ($fileId === null) { throw new RuntimeException('file_id e obrigatorio.', 422); }
+
+        $stmt = $db->prepare("SELECT original_name, parsed_data FROM public.organizer_files WHERE id = :id AND organizer_id = :org AND parsed_status = 'parsed'");
+        $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if (!$row) { return ['file_id' => $fileId, 'found' => false]; }
+
+        $data = json_decode($row['parsed_data'] ?? '{}', true);
+        $rows = $data['rows'] ?? $data['data'] ?? [];
+        if (!is_array($rows)) { $rows = []; }
+
+        $start = max(0, (int)($arguments['row_start'] ?? 0));
+        $end = min(count($rows), max($start + 1, (int)($arguments['row_end'] ?? 20)));
+        $excerpt = array_slice($rows, $start, $end - $start);
+
+        return [
+            'file_id' => $fileId,
+            'found' => true,
+            'file_name' => $row['original_name'],
+            'total_rows' => count($rows),
+            'row_range' => [$start, $end],
+            'headers' => $data['headers'] ?? $data['keys'] ?? [],
+            'excerpt' => $excerpt,
+        ];
+    }
+
+    /** Extract structured entities (suppliers, amounts, dates) from a file. */
+    private static function executeExtractFileEntities(PDO $db, int $organizerId, array $arguments): array
+    {
+        $fileId = self::nullablePositiveInt($arguments['file_id'] ?? null);
+        if ($fileId === null) { throw new RuntimeException('file_id e obrigatorio.', 422); }
+
+        $stmt = $db->prepare("SELECT original_name, category, parsed_data FROM public.organizer_files WHERE id = :id AND organizer_id = :org AND parsed_status = 'parsed'");
+        $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if (!$row) { return ['file_id' => $fileId, 'found' => false]; }
+
+        $data = json_decode($row['parsed_data'] ?? '{}', true);
+        $rows = $data['rows'] ?? $data['data'] ?? [];
+        $headers = $data['headers'] ?? $data['keys'] ?? [];
+
+        // Heuristic entity extraction from column names
+        $entities = ['amounts' => [], 'dates' => [], 'names' => []];
+        $amountPatterns = ['valor', 'amount', 'total', 'price', 'preco', 'custo', 'cost'];
+        $datePatterns = ['data', 'date', 'vencimento', 'due', 'created', 'updated'];
+        $namePatterns = ['nome', 'name', 'fornecedor', 'supplier', 'vendor', 'artista', 'artist'];
+
+        foreach ($headers as $idx => $h) {
+            $hl = strtolower((string)$h);
+            foreach ($amountPatterns as $p) { if (str_contains($hl, $p)) { $entities['amounts'][] = $h; break; } }
+            foreach ($datePatterns as $p) { if (str_contains($hl, $p)) { $entities['dates'][] = $h; break; } }
+            foreach ($namePatterns as $p) { if (str_contains($hl, $p)) { $entities['names'][] = $h; break; } }
+        }
+
+        return [
+            'file_id' => $fileId,
+            'found' => true,
+            'file_name' => $row['original_name'],
+            'category' => $row['category'],
+            'total_rows' => count($rows),
+            'headers' => $headers,
+            'detected_entities' => $entities,
+        ];
+    }
+
+    /** Compare two parsed files: common columns, row counts, totals. */
+    private static function executeCompareDocuments(PDO $db, int $organizerId, array $arguments): array
+    {
+        $idA = self::nullablePositiveInt($arguments['file_id_a'] ?? null);
+        $idB = self::nullablePositiveInt($arguments['file_id_b'] ?? null);
+        if ($idA === null || $idB === null) { throw new RuntimeException('file_id_a e file_id_b sao obrigatorios.', 422); }
+
+        $stmt = $db->prepare("SELECT id, original_name, category, parsed_data FROM public.organizer_files WHERE id IN (:a, :b) AND organizer_id = :org AND parsed_status = 'parsed'");
+        $stmt->execute([':a' => $idA, ':b' => $idB, ':org' => $organizerId]);
+        $files = [];
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $r) { $files[(int)$r['id']] = $r; }
+
+        if (!isset($files[$idA]) || !isset($files[$idB])) {
+            return ['found' => false, 'error' => 'Um ou ambos os arquivos nao encontrados ou nao parseados.'];
+        }
+
+        $dataA = json_decode($files[$idA]['parsed_data'] ?? '{}', true);
+        $dataB = json_decode($files[$idB]['parsed_data'] ?? '{}', true);
+        $headersA = $dataA['headers'] ?? $dataA['keys'] ?? [];
+        $headersB = $dataB['headers'] ?? $dataB['keys'] ?? [];
+        $common = array_values(array_intersect($headersA, $headersB));
+        $onlyA = array_values(array_diff($headersA, $headersB));
+        $onlyB = array_values(array_diff($headersB, $headersA));
+
+        return [
+            'found' => true,
+            'file_a' => ['id' => $idA, 'name' => $files[$idA]['original_name'], 'rows' => count($dataA['rows'] ?? $dataA['data'] ?? [])],
+            'file_b' => ['id' => $idB, 'name' => $files[$idB]['original_name'], 'rows' => count($dataB['rows'] ?? $dataB['data'] ?? [])],
+            'common_columns' => $common,
+            'only_in_a' => $onlyA,
+            'only_in_b' => $onlyB,
+        ];
+    }
+
+    /** Register a document citation for the evidence block. */
+    private static function executeCiteDocumentEvidence(PDO $db, int $organizerId, array $arguments): array
+    {
+        $fileId = self::nullablePositiveInt($arguments['file_id'] ?? null);
+        if ($fileId === null) { throw new RuntimeException('file_id e obrigatorio.', 422); }
+
+        $excerpt = trim((string)($arguments['excerpt'] ?? ''));
+        if ($excerpt === '') { throw new RuntimeException('excerpt e obrigatorio.', 422); }
+
+        // Verify file exists
+        $stmt = $db->prepare("SELECT original_name FROM public.organizer_files WHERE id = :id AND organizer_id = :org LIMIT 1");
+        $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+        $fileName = $stmt->fetchColumn();
+
+        return [
+            'type' => 'document_chunk',
+            'file_id' => $fileId,
+            'file_name' => $fileName ?: 'arquivo desconhecido',
+            'snippet' => mb_substr($excerpt, 0, 500),
+            'relevance' => trim((string)($arguments['relevance'] ?? '')),
+            'score' => 1.0,
         ];
     }
 

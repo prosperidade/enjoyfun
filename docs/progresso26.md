@@ -300,6 +300,12 @@ Endpoint `GET /organizer-files/search` com FTS em parsed_data.
 - Busca em `original_name`, `notes` E `parsed_data::text` via ILIKE
 - Filtro por `category` opcional, `limit` configurável (max 50)
 - Dispatch adicionado no match() do OrganizerFileController (antes de list para não conflitar)
+
+#### Commit 4 — BE-S3-B2 + B3 + B4 ✅
+4 RAG skills + evidence block + documents prompt.
+- **B2** 4 skills: `read_file_excerpt` (lê linhas específicas), `extract_file_entities` (heurística de colunas: amounts/dates/names), `compare_documents` (colunas em comum, diff), `cite_document_evidence` (registra citação para evidence block)
+- **B3** Bloco `evidence` no AdaptiveResponseService: detecta tool results type=document_chunk, monta bloco com file_id + snippet + relevance. Priority 85 (antes de actions)
+- **B4** Prompt reinforcement: "Quando citar dados de arquivos, use cite_document_evidence para gerar blocos de evidência"
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 
