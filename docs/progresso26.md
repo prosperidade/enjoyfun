@@ -332,6 +332,17 @@ Session summarization + memory recall.
 - `FEATURE_AI_RAG_PRAGMATIC=true` ativado
 - `FEATURE_AI_MEMORY_RECALL=true` ativado
 - Migration 079 aplicada
+
+### Sprint 4
+
+**Início:** 2026-04-12 | **Plano:** 6 commits, 3 trilhas (A Observability + B 8 Internal Skills + C Grounding)
+
+#### Commit 1 — BE-S4-A1 + A2 + A3 ✅
+Monitoring service + 2 migrations + /ai/health endpoint.
+- `AIMonitoringService.php` (NOVO): `getAgentMetrics()` (p50/p95 latency, cost, requests por agente), `getRoutingHealth()`, `getSkillRegistryStatus()`, `getToolExecutionStats()`, `getMemoryHealth()`, `getFullHealthReport()`
+- Migration 080: `ai_agent_usage_daily` (materialização diária por agente)
+- Migration 081: `ai_skill_registry` + version, deprecated_at, successor_key, prompt_hash
+- `GET /ai/health` no AIController — retorna report completo
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 

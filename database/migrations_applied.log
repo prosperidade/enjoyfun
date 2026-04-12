@@ -51,3 +51,5 @@
 2026-04-11T22:30:00-03:00 — 077_ai_platform_guide.sql — applied (platform_guide agent + 4 skills)
 2026-04-12 078_ai_label_translations.sql APPLIED (72 field labels + 20 tool names)
 2026-04-12 079_ai_memory_relevance.sql APPLIED (relevance_score + recall tracking)
+2026-04-12 080_ai_metrics_daily.sql APPLIED
+2026-04-12 081_ai_skill_versioning.sql APPLIED
