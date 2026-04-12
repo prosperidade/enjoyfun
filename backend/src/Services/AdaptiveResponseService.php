@@ -512,8 +512,21 @@ class AdaptiveResponseService
         'product_mix' => 'Mix de produtos',
         'rupture' => 'Ruptura',
         'rupture_count' => 'Itens em ruptura',
+        'low_stock_count' => 'Estoque baixo',
+        'total_critical' => 'Itens críticos',
+        'classification' => 'Classificação',
+        'product_name' => 'Produto',
+        'product_revenue' => 'Receita do produto',
         // Estacionamento
         'parked_count' => 'Veículos no estacionamento',
+        'parked_total' => 'Veículos estacionados',
+        'records_total' => 'Registros totais',
+        'pending_total' => 'Pendentes',
+        'exited_total' => 'Saídas',
+        'entries_last_hour' => 'Entradas última hora',
+        'exits_last_hour' => 'Saídas última hora',
+        'vehicle_mix' => 'Mix de veículos',
+        'capacity_pct' => 'Ocupação (%)',
         'sectors_active' => 'Setores ativos',
         // Tempo
         'today' => 'Hoje',
@@ -555,7 +568,55 @@ class AdaptiveResponseService
         'get_configuration_steps'        => 'Passos de configuração',
         'navigate_to_screen'             => 'Ir para tela',
         'diagnose_organizer_setup'       => 'Diagnóstico do setup',
+        // Sprint 2 tools
+        'get_shift_gaps'                 => 'Gaps de cobertura',
+        'get_artist_schedule'            => 'Programação de artistas',
+        'get_artist_logistics_status'    => 'Logística de artistas',
+        'get_finance_overview'           => 'Visão financeira',
+        'get_supplier_payment_status'    => 'Pagamentos fornecedores',
+        'get_ticket_sales_snapshot'      => 'Vendas de ingressos',
+        'get_parking_live_snapshot'      => 'Estacionamento ao vivo',
+        'get_stock_critical_items'       => 'Estoque crítico',
+        'read_organizer_file'            => 'Ler arquivo',
+        'search_documents'               => 'Buscar documentos',
+        'list_documents_by_category'     => 'Listar por categoria',
     ];
+
+    /** @var array<string,string>|null Cached DB translations (null = not loaded) */
+    private static ?array $dbTranslations = null;
+
+    /**
+     * BE-S2-C2: Load translations from DB when FEATURE_AI_PT_BR_LABELS is ON.
+     * Falls back to hardcoded constants when flag is OFF or table doesn't exist.
+     */
+    private static function loadDbTranslations(): array
+    {
+        if (self::$dbTranslations !== null) {
+            return self::$dbTranslations;
+        }
+
+        require_once __DIR__ . '/../../config/features.php';
+        if (!class_exists('Features') || !\Features::enabled('FEATURE_AI_PT_BR_LABELS')) {
+            self::$dbTranslations = [];
+            return self::$dbTranslations;
+        }
+
+        try {
+            $db = \Database::getInstance();
+            $stmt = $db->query("SELECT key, label_pt_br, category FROM public.ai_label_translations ORDER BY category, key");
+            $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+            $map = [];
+            foreach ($rows as $r) {
+                $map[strtolower($r['key'])] = $r['label_pt_br'];
+            }
+            self::$dbTranslations = $map;
+        } catch (\Throwable $e) {
+            error_log('[AdaptiveResponseService] Failed to load DB translations: ' . $e->getMessage());
+            self::$dbTranslations = [];
+        }
+
+        return self::$dbTranslations;
+    }
 
     private static function prettyLabel(string $raw): string
     {
@@ -563,6 +624,13 @@ class AdaptiveResponseService
         if ($key === '') {
             return '';
         }
+
+        // BE-S2-C2: DB translations first (when FEATURE_AI_PT_BR_LABELS is ON)
+        $dbMap = self::loadDbTranslations();
+        if (isset($dbMap[$key])) {
+            return $dbMap[$key];
+        }
+
         // Tool name translation (full match)
         if (isset(self::TOOL_NAME_TRANSLATIONS[$key])) {
             return self::TOOL_NAME_TRANSLATIONS[$key];

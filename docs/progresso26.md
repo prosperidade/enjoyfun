@@ -270,6 +270,16 @@ Enhance 4 tools existentes com dados mais ricos.
 - **B10** `get_supplier_payment_status`: **best-effort** — vendors sem event_id, agrega de sales.vendor_payout. Nota explicativa no retorno
 - **B11** `get_ticket_sales_snapshot`: por batch (nome, preço, vendido, restante, is_active). Sem channel (schema não tem)
 
+#### Commit 8 — BE-S2-C1 + C2 + C3 ✅
+PT-BR labels formalizados no banco + runtime configurável.
+- **C1** Migration `078_ai_label_translations.sql`: tabela com 85 field labels + 20 tool names, ON CONFLICT idempotente
+- **C2** `AdaptiveResponseService::loadDbTranslations()`: carrega do DB com cache estático, guarded por `FEATURE_AI_PT_BR_LABELS`. Fallback para constantes hardcoded quando flag OFF
+- **C3** Dicionários hardcoded enriquecidos com ~25 labels novos dos tools do Sprint 2 (rupture, vehicle_mix, capacity_pct, coverage_pct, etc.)
+
+**Sprint 2 Backend 100% concluído** — 20/20 tickets entregues em 8 commits.
+- Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
+- `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
+
 ### Sprint 3
 _(aguardando)_
 
