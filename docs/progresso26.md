@@ -381,6 +381,16 @@ Grounding test suite — 12/12 PASS.
 - 8 internal skills (4 routing + 4 diagnostic)
 - Grounding score integrado no pipeline (response inclui `grounding_score`)
 - Test suite 12/12 PASS
+
+### Sprint 5
+
+**Início:** 2026-04-12 | **Plano:** 7 commits, 3 trilhas (A pgvector + B Approvals + C Write Skills + Voice)
+
+#### Commit 1 — BE-S5-A1 + A2 ✅
+pgvector extension + embeddings table (graceful skip).
+- Migration 083: `CREATE EXTENSION vector` com DO/EXCEPTION (warning se pgvector não instalado)
+- Migration 084: `document_embeddings` tabela + RLS + ivfflat index (skip se vector type não existe)
+- **Nota:** pgvector NÃO está instalado no PostgreSQL do André. Tabela será criada quando extension for instalada. Código PHP verifica via feature flag `FEATURE_AI_PGVECTOR`
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 
