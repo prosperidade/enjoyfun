@@ -288,6 +288,12 @@ Wire Platform Guide tools no dispatch + 2 skills novas + módulo completo.
 - 6 dispatch entries chamando PlatformKnowledgeService::*
 - `listPlatformFeatures()`: lista todos módulos + features configuráveis
 - `explainConcept()`: 13 conceitos técnicos explicados em PT-BR simples (multi_tenant, cashless, rls, totp, etc.)
+
+#### Commit 2 — BE-S3-A3 + A4 ✅
+Persona Platform Guide + routing forçado.
+- Surface `platform_guide` adicionada ao `surfaceCatalog` com persona didática (5 regras: sem dados operacionais, só tools de guia, PT-BR, paciente)
+- `AIIntentRouterService::routeIntent()` agora força `platform_guide` com confidence 1.0 quando `surface=platform_guide` OU `conversation_mode=global_help` (short-circuit antes do Tier 1)
+- `platform_guide` adicionado à lista `$validAgents` do Tier 2
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 

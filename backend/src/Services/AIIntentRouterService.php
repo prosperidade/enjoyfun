@@ -35,9 +35,22 @@ final class AIIntentRouterService
 
         $agentHint = strtolower(trim((string)($context['agent_key'] ?? '')));
         $explicitSurface = strtolower(trim((string)($context['surface'] ?? '')));
+        $conversationMode = strtolower(trim((string)($context['conversation_mode'] ?? '')));
         $sessionId = isset($context['session_id']) ? (string)$context['session_id'] : null;
         $userId = isset($context['user_id']) ? (int)$context['user_id'] : null;
         $routingTraceId = self::generateUuidV4();
+
+        // BE-S3-A4: Force platform_guide when surface or conversation_mode indicate it.
+        // This is a hard override — platform_guide NEVER accesses operational data.
+        if ($explicitSurface === 'platform_guide' || $conversationMode === 'global_help') {
+            return [
+                'agent_key'        => 'platform_guide',
+                'surface'          => 'platform_guide',
+                'confidence'       => 1.0,
+                'reasoning'        => 'Forced: surface=platform_guide or conversation_mode=global_help',
+                'routing_trace_id' => $routingTraceId,
+            ];
+        }
 
         // Tier 1: Keyword/pattern matching with hint bonus
         $tier1 = self::tier1KeywordRoute($question, $explicitSurface, $agentHint);
@@ -542,7 +555,7 @@ PROMPT;
         $validAgents = [
             'marketing', 'logistics', 'management', 'bar', 'contracting',
             'feedback', 'data_analyst', 'content', 'media', 'documents',
-            'artists', 'artists_travel',
+            'artists', 'artists_travel', 'platform_guide',
         ];
         if (!in_array($agentKey, $validAgents, true)) {
             return null;
