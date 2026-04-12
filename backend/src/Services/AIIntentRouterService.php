@@ -258,6 +258,24 @@ final class AIIntentRouterService
                     [['custos do arquivo', 'ler planilha', 'parsear'], 2],
                 ],
             ],
+            // EMAS BE-S1-C1 + hotfix smoke 2026-04-11: platform_guide é o 13º
+            // agente, isolado de dados operacionais. Roteia ajuda da plataforma,
+            // tutoriais, navegação assistida, diagnóstico de setup.
+            'platform_guide' => [
+                'primary_surface' => 'platform_guide',
+                'patterns' => [
+                    [['como configurar', 'como ligar', 'como ativar', 'como criar', 'como uso', 'como usar', 'como faço', 'como funciona'], 4],
+                    [['tutorial', 'passo a passo', 'passo-a-passo', 'documentacao', 'documentação', 'ajuda da plataforma', 'manual'], 4],
+                    [['leva pra', 'leva para', 'me leva', 'navegar', 'ir para', 'abrir tela', 'abrir pagina', 'abrir página'], 3],
+                    [['diagnostica', 'diagnosticar', 'diagnostico', 'diagnóstico', 'meu setup', 'meu organizador', 'esta configurado', 'está configurado', 'gaps de configuracao', 'gaps de configuração'], 4],
+                    [['branding', 'identidade visual', 'logo', 'cores do tema', 'tema da marca', 'subdominio', 'subdomínio', 'white label'], 3],
+                    [['gateway asaas', 'gateway mp', 'gateway mercado pago', 'gateway pagar', 'configurar gateway', 'pix gateway'], 3],
+                    [['configurar whatsapp', 'evolution api', 'configurar canal', 'configurar mensageria'], 3],
+                    [['emissao em massa', 'emissão em massa', 'cartoes em massa', 'cartões em massa', 'bulk card'], 3],
+                    [['onboarding', 'primeiro acesso', 'primeira vez', 'comecar', 'começar', 'iniciar configuracao', 'iniciar configuração'], 3],
+                    [['pra que serve', 'o que e isso', 'o que é isso', 'explica esse modulo', 'explica esse módulo'], 3],
+                ],
+            ],
         ];
 
         $scores = [];
