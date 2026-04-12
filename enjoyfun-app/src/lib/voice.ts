@@ -1,9 +1,7 @@
-// Voice layer — STT via OpenAI Whisper + TTS via expo-speech.
-//
-// DIVIDA TECNICA: EXPO_PUBLIC_OPENAI_KEY vaza no bundle JS do cliente.
-// Qualquer um com o APK pode extrair a chave. Pos D-Day, mover a chamada
-// Whisper para um endpoint backend /ai/voice/transcribe que faz proxy
-// com a chave servidora + rate limiting via AIRateLimitService.
+// Voice layer — STT via backend proxy + TTS via expo-speech.
+// Sprint 5: EXPO_PUBLIC_OPENAI_KEY removed from bundle. All transcription
+// goes through POST /ai/voice/transcribe on the backend which holds the key
+// server-side with rate limiting via AIRateLimitService.
 
 import { useCallback } from 'react';
 import {
@@ -13,9 +11,7 @@ import {
   setAudioModeAsync,
 } from 'expo-audio';
 import * as Speech from 'expo-speech';
-
-const WHISPER_URL = 'https://api.openai.com/v1/audio/transcriptions';
-const WHISPER_MODEL = 'whisper-1';
+import { apiClient } from '@/api/client';
 
 export interface VoiceRecorderApi {
   isRecording: boolean;
@@ -72,36 +68,24 @@ export function useVoiceRecorder(): VoiceRecorderApi {
 }
 
 export async function transcribe(uri: string, locale: string): Promise<string> {
-  const key = process.env.EXPO_PUBLIC_OPENAI_KEY;
-  if (!key) {
-    throw new Error('EXPO_PUBLIC_OPENAI_KEY nao configurado');
-  }
-
   const form = new FormData();
   form.append('file', {
     uri,
     name: 'audio.m4a',
     type: 'audio/m4a',
   } as unknown as Blob);
-  form.append('model', WHISPER_MODEL);
   const lang = locale.slice(0, 2);
   if (lang) form.append('language', lang);
 
-  const res = await fetch(WHISPER_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${key}` },
-    body: form,
-  });
+  const { data } = await apiClient.post<{ data?: { text?: string } }>(
+    '/ai/voice/transcribe',
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 30000 },
+  );
 
-  if (!res.ok) {
-    // Technical detail goes to the JS console; callers should show a friendly message.
-    const err = await res.text().catch(() => '');
-    console.warn(`[voice] Whisper HTTP ${res.status}: ${err.slice(0, 200)}`);
-    throw new Error('transcribe_failed');
-  }
-
-  const json = (await res.json()) as { text?: string };
-  return (json.text ?? '').trim();
+  const text = data?.data?.text ?? '';
+  if (!text) throw new Error('transcribe_failed');
+  return text.trim();
 }
 
 export function speak(text: string, locale: string): void {

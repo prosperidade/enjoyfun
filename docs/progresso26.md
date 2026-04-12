@@ -294,7 +294,16 @@ _(nenhum ticket — aguarda fim do S0 do Backend)_
 **Status MO-S4:** ✅ todos os 5 tickets concluídos. `npm run typecheck` PASS. Dep adicionada: `@react-native-async-storage/async-storage`.
 
 ### Sprint 5
-_(aguardando)_
+- **MO-S5-01** ✅ `enjoyfun-app/src/components/blocks/ApprovalCardBlock.tsx` NOVO — renderer do bloco `approval_request` com summary, skill_key, params_preview, botões Confirmar/Cancelar, lock icon para biometric, estados resolved (confirmed/cancelled).
+- **MO-S5-02** ✅ `enjoyfun-app/src/components/AdaptiveUIRenderer.tsx` — registrado `approval_request` no switch. Props `onApprovalConfirm`/`onApprovalCancel` passadas ao bloco. `ExtendedBlock` atualizado.
+- **MO-S5-03** ✅ `enjoyfun-app/src/lib/aiSession.ts` — helpers `confirmApproval(id)`, `cancelApproval(id)`, `listPendingApprovals()` com tipos `PendingApproval`.
+- **MO-S5-04** ✅ `enjoyfun-app/src/screens/ApprovalsPanelScreen.tsx` NOVO — lista de approvals pendentes via `GET /ai/approvals/pending`. Confirm com biometric guard, cancel, refresh. Rota `Approvals` registrada no Stack Navigator.
+- **MO-S5-05** ✅ `enjoyfun-app/src/lib/biometric.ts` NOVO — `requireBiometric()` via `expo-local-authentication`. Fallback gracioso (hardware ausente ou sem biometria cadastrada = permite).
+- **MO-S5-06** ✅ `enjoyfun-app/src/lib/voice.ts` — `transcribe()` refatorado: removida chamada direta à OpenAI, substituída por `apiClient.post('/ai/voice/transcribe', form)` que usa o backend proxy (BE-S5-C7). Auth via JWT.
+- **MO-S5-07** ✅ Bundle limpo: nenhuma referência a `EXPO_PUBLIC_OPENAI_KEY` no código. Key estava em `.env` gitignored.
+- **MO-S5-08** ✅ Já implementado no MO-S3-03 (`EvidenceBlock` renderiza `score` como percentual).
+
+**Status MO-S5:** ✅ todos os 8 tickets concluídos. `npm run typecheck` PASS. i18n: 8 strings de approval em pt/en/es.
 
 ### Sprint 6
 _(aguardando)_

@@ -11,6 +11,7 @@ import { setUnauthorizedHandler } from '@/api/client';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { ChatScreen } from '@/screens/ChatScreen';
 import { PlatformGuideScreen } from '@/screens/PlatformGuideScreen';
+import { ApprovalsPanelScreen } from '@/screens/ApprovalsPanelScreen';
 import { EventProvider } from '@/context/EventContext';
 import { AISessionProvider } from '@/context/AISessionContext';
 
@@ -18,6 +19,7 @@ export type RootStackParamList = {
   Login: undefined;
   Chat: undefined;
   PlatformGuide: undefined;
+  Approvals: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -75,6 +77,7 @@ export default function App() {
               <Stack.Screen name="Login" component={LoginScreen} />
               <Stack.Screen name="Chat" component={ChatScreen} />
               <Stack.Screen name="PlatformGuide" component={PlatformGuideScreen} />
+              <Stack.Screen name="Approvals" component={ApprovalsPanelScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </AISessionProvider>

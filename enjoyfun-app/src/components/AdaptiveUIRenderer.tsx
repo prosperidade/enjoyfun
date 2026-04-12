@@ -13,15 +13,18 @@ import { MapBlock } from './blocks/MapBlock';
 import { ImageBlock } from './blocks/ImageBlock';
 import { TutorialStepsBlock, type TutorialStepsBlockData } from './blocks/TutorialStepsBlock';
 import { EvidenceBlock, type EvidenceBlockData } from './blocks/EvidenceBlock';
+import { ApprovalCardBlock, type ApprovalCardBlockData } from './blocks/ApprovalCardBlock';
 
-type ExtendedBlock = Block | TutorialStepsBlockData | EvidenceBlockData;
+type ExtendedBlock = Block | TutorialStepsBlockData | EvidenceBlockData | ApprovalCardBlockData;
 
 export interface AdaptiveUIRendererProps {
   blocks: ExtendedBlock[];
   onAction?: (item: ActionItem) => void | Promise<void>;
+  onApprovalConfirm?: (requestId: string, requiresBiometric: boolean) => Promise<void>;
+  onApprovalCancel?: (requestId: string) => Promise<void>;
 }
 
-export function AdaptiveUIRenderer({ blocks, onAction }: AdaptiveUIRendererProps) {
+export function AdaptiveUIRenderer({ blocks, onAction, onApprovalConfirm, onApprovalCancel }: AdaptiveUIRendererProps) {
   if (!Array.isArray(blocks) || blocks.length === 0) {
     return null;
   }
@@ -53,6 +56,15 @@ export function AdaptiveUIRenderer({ blocks, onAction }: AdaptiveUIRendererProps
             return <TutorialStepsBlock key={block.id} block={block as TutorialStepsBlockData} />;
           case 'evidence':
             return <EvidenceBlock key={block.id} block={block as EvidenceBlockData} />;
+          case 'approval_request':
+            return (
+              <ApprovalCardBlock
+                key={block.id}
+                block={block as ApprovalCardBlockData}
+                onConfirm={onApprovalConfirm}
+                onCancel={onApprovalCancel}
+              />
+            );
           default:
             return null;
         }

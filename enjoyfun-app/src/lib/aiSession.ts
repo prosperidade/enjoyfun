@@ -115,6 +115,31 @@ export async function sendMessage(
   };
 }
 
+export async function confirmApproval(requestId: string): Promise<void> {
+  await apiClient.post(`/ai/approvals/${requestId}/confirm`);
+}
+
+export async function cancelApproval(requestId: string): Promise<void> {
+  await apiClient.post(`/ai/approvals/${requestId}/cancel`);
+}
+
+export interface PendingApproval {
+  request_id: string;
+  summary: string;
+  skill_key: string;
+  params_preview?: string;
+  requires_biometric?: boolean;
+  created_at: string;
+  status: string;
+}
+
+export async function listPendingApprovals(): Promise<PendingApproval[]> {
+  const { data: body } = await apiClient.get<{ data?: { approvals?: PendingApproval[] } }>(
+    '/ai/approvals/pending',
+  );
+  return body?.data?.approvals ?? [];
+}
+
 export async function sendPlatformGuideMessage(
   message: string,
   opts: Omit<SendMessageOptions, 'conversationMode' | 'agentKey'> = {},
