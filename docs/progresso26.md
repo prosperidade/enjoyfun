@@ -235,6 +235,13 @@ Fix `get_event_shift_coverage` (colunas erradas) + nova tool `get_shift_gaps`.
 - **Nova tool** `get_shift_gaps`: retorna apenas shifts com zero assignments (LEFT JOIN + WHERE wa.id IS NULL)
 - Alias `get_workforce_coverage` adicionado ao `get_event_shift_coverage` para compatibilidade com Sprint 2 plan
 
+#### Commit 3 — BE-S2-A1 ✅
+Refactor `AIContextBuilderService` com feature flag `FEATURE_AI_LAZY_CONTEXT`.
+- Quando ON: `buildInsightContext` retorna apenas `buildGenericContext` (DNA + metadata, ~200 tokens)
+- Quando OFF: comportamento original (zero regressão)
+- `loadOrganizerFilesSummary` no orchestrator também guarded: lazy → array vazio (files viram tools)
+- Métodos eager (parking/workforce/artists) ficam como dead code até flag ser validada, depois cleanup
+
 ### Sprint 3
 _(aguardando)_
 

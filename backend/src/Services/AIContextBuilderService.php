@@ -24,12 +24,23 @@ final class AIContextBuilderService
             $context
         );
 
-        $built = match ($surface) {
-            'parking' => self::buildParkingContext($db, $organizerId, $baseContext),
-            'workforce' => self::buildWorkforceContext($db, $organizerId, $baseContext),
-            'artists' => self::buildArtistsContext($db, $organizerId, $baseContext),
-            default => self::buildGenericContext($baseContext),
-        };
+        // BE-S2-A1: Lazy context mode. When enabled, context is minimal (DNA +
+        // metadata only). All operational data comes from tools on-demand. This
+        // reduces prompt size from thousands of tokens to ~200, forcing the LLM
+        // to call tools for data — which is more accurate and up-to-date.
+        require_once __DIR__ . '/../../config/features.php';
+        $lazyContext = class_exists('Features') && \Features::enabled('FEATURE_AI_LAZY_CONTEXT');
+
+        if ($lazyContext) {
+            $built = self::buildGenericContext($baseContext);
+        } else {
+            $built = match ($surface) {
+                'parking' => self::buildParkingContext($db, $organizerId, $baseContext),
+                'workforce' => self::buildWorkforceContext($db, $organizerId, $baseContext),
+                'artists' => self::buildArtistsContext($db, $organizerId, $baseContext),
+                default => self::buildGenericContext($baseContext),
+            };
+        }
 
         $dna = self::loadOrganizerDna($db, $organizerId);
         if ($dna !== null) {

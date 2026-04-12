@@ -67,7 +67,10 @@ final class AIOrchestratorService
         }
         $agentExecution = self::resolveAgentExecution($db, $organizerId, $context);
         $surface = AIContextBuilderService::resolveSurface($context) ?: 'general';
-        $legacyConfig['files'] = AIContextBuilderService::loadOrganizerFilesSummary($db, $organizerId, $surface);
+        // BE-S2-A1: Skip eager file loading when lazy context is ON (files become tool-driven)
+        require_once __DIR__ . '/../../config/features.php';
+        $lazyContext = class_exists('Features') && \Features::enabled('FEATURE_AI_LAZY_CONTEXT');
+        $legacyConfig['files'] = $lazyContext ? [] : AIContextBuilderService::loadOrganizerFilesSummary($db, $organizerId, $surface);
         $eventIdForDna = (int)($context['event_id'] ?? 0);
         $legacyConfig['event_dna'] = $eventIdForDna > 0
             ? AIContextBuilderService::loadEventDna($db, $eventIdForDna)
