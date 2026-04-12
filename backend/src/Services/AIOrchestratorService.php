@@ -660,6 +660,9 @@ final class AIOrchestratorService
         $exitReason = 'completed';
         $lastResult = null;
         $organizerId = self::resolveOrganizerId($operator, $context);
+        // Bug I fix: track tools already executed to prevent duplicate calls
+        // (e.g., find_events called 3x in a row instead of chaining to domain tool).
+        $executedToolCache = []; // key: "tool_name:args_hash" → value: cached result
 
         for ($step = 1; $step <= $maxSteps; $step++) {
             // Cost ceiling check
@@ -718,10 +721,54 @@ final class AIOrchestratorService
                 break;
             }
 
-            // Execute read-only tools
-            $toolRuntime = AIToolRuntimeService::executeReadOnlyTools($db, $operator, $context, $readOnlyToolCalls);
+            // Bug I fix: deduplicate tool calls that were already executed in
+            // a previous step with the same arguments. The LLM sometimes calls
+            // find_events 2-3x instead of chaining to the domain tool. When a
+            // duplicate is detected, inject the cached result directly into the
+            // message history without re-executing, freeing the next step for
+            // the LLM to call the correct domain tool.
+            $newToolCalls = [];
+            $cachedToolResults = [];
+            foreach ($readOnlyToolCalls as $tc) {
+                $toolName = (string)($tc['name'] ?? $tc['tool'] ?? '');
+                $argsHash = md5($toolName . ':' . json_encode($tc['arguments'] ?? []));
+                if (isset($executedToolCache[$argsHash])) {
+                    // Duplicate — use cached result
+                    $cachedToolResults[] = $executedToolCache[$argsHash];
+                } else {
+                    $newToolCalls[] = $tc;
+                }
+            }
+
+            // If all tools were duplicates, inject cached results and continue
+            // to next step so the LLM can chain to the domain tool.
+            if ($newToolCalls === [] && $cachedToolResults !== []) {
+                self::appendToolResultMessages($messages, $cachedToolResults);
+                $allToolResults = array_merge($allToolResults, $cachedToolResults);
+                $toolRoundtrips++;
+                if ($step === $maxSteps) {
+                    $exitReason = 'max_steps_reached';
+                }
+                continue;
+            }
+
+            // Execute only genuinely new tool calls
+            $toolRuntime = AIToolRuntimeService::executeReadOnlyTools($db, $operator, $context, $newToolCalls !== [] ? $newToolCalls : $readOnlyToolCalls);
             $stepToolResults = $toolRuntime['tool_results'] ?? [];
             $toolRoundtrips++;
+
+            // Bug I fix: cache executed tool results for dedup in subsequent steps
+            foreach ($stepToolResults as $idx => $tr) {
+                $tcForCache = $newToolCalls[$idx] ?? $readOnlyToolCalls[$idx] ?? null;
+                if ($tcForCache !== null) {
+                    $toolName = (string)($tcForCache['name'] ?? $tcForCache['tool'] ?? '');
+                    $argsHash = md5($toolName . ':' . json_encode($tcForCache['arguments'] ?? []));
+                    $executedToolCache[$argsHash] = $tr;
+                }
+            }
+
+            // Merge any cached duplicate results with fresh results
+            $stepToolResults = array_merge($cachedToolResults, $stepToolResults);
 
             // Append tool results to canonical history
             self::appendToolResultMessages($messages, $stepToolResults);
