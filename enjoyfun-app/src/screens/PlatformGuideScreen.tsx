@@ -98,6 +98,17 @@ export function PlatformGuideScreen({ navigation }: Props) {
           <Text style={styles.headerTitle}>{t('platform_guide')}</Text>
           <Text style={styles.headerSubtitle}>{t('platform_guide_subtitle')}</Text>
         </View>
+        <TouchableOpacity
+          style={styles.clearBtn}
+          onPress={() => {
+            setMessages([]);
+            setLastToolCalls(undefined);
+            welcomeFiredRef.current = false;
+            aiSession.archiveSurface('platform_guide', null);
+          }}
+        >
+          <Text style={styles.clearText}>{'\u{1F5D1}'}</Text>
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
@@ -198,4 +209,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   pillText: { ...typography.caption, color: colors.accent },
+  clearBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
+  clearText: { fontSize: 14 },
 });

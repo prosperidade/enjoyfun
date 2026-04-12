@@ -306,7 +306,25 @@ _(nenhum ticket — aguarda fim do S0 do Backend)_
 **Status MO-S5:** ✅ todos os 8 tickets concluídos. `npm run typecheck` PASS. i18n: 8 strings de approval em pt/en/es.
 
 ### Sprint 6
-_(aguardando)_
+- **MO-S6-01 (Auditoria Especial)** ✅ `enjoyfun-app/src/lib/types.ts` — Injeção de `FormBlock` e definição robusta de `FormField` com validação de dados em mobile. ActionItem atualizado para captar payload de resposta.
+- **MO-S6-02 (Auditoria Especial)** ✅ `enjoyfun-app/src/components/blocks/FormBlock.tsx` NOVO — Motor Native puro para exibição dinâmica de formulários complexos via Orquestrador (inputs textos, senhas, switch, select chips). Sem libs pesadas pra garantir UI 100% lisa.
+- **MO-S6-03 (Auditoria Especial)** ✅ `enjoyfun-app/src/components/AdaptiveUIRenderer.tsx` — `FormBlock` incorporado ao Switch principal da arquitetura UI Dinâmica.
+
+**Status MO-S6 (Trilha Auditoria):** ✅ Fase 1 entregue com sucesso (Input Genérico).
+
+**MO-S6 (Trilha EMAS §9.2) — entregue 2026-04-12:**
+- **MO-S6-04** ✅ `react-native-sse` instalado via `npx expo install`.
+- **MO-S6-01** ✅ `enjoyfun-app/src/lib/aiStream.ts` NOVO — EventSource wrapper via `react-native-sse`. Conecta a `GET /ai/chat/stream?session_id=`. Eventos: `token`, `tool_start`, `tool_done`, `block`, `done`, `error`. Auth via JWT. Cleanup function retornada.
+- **MO-S6-02** ✅ `enjoyfun-app/src/screens/ChatScreen.tsx` — streaming mode: quando `FEATURE_AI_SSE_STREAMING=on` e V3 response chega, `connectStream()` conecta SSE pra atualização token-by-token. Cleanup no unmount. Feature flag `getSSEStreamingFlag()` adicionada em featureFlags.ts.
+- **MO-S6-03** ✅ ToolActivityIndicator já atualiza em tempo real via `setLastToolCalls` dos eventos `tool_start`/`tool_done` do stream.
+- **MO-S6-05** ✅ `enjoyfun-app/src/screens/PlatformGuideScreen.tsx` — botão limpar conversa (trash icon) no header, wired a `archiveSurface`.
+- **MO-S6-06** ✅ `enjoyfun-app/eas.json` — production profile com `EXPO_PUBLIC_FEATURE_AI_EMBEDDED_V3=true`, `EXPO_PUBLIC_FEATURE_AI_SSE_STREAMING=false`, `ios.image=latest`, `android.buildType=app-bundle`.
+- **MO-S6-07** ✅ EAS Build config pronto pra TestFlight (iOS) + Play Store (Android app-bundle). `eas build -p ios/android --profile production` executável.
+- **MO-S6-08** ✅ Cleanup: FormBlock style order fix (TS2783), zero console.logs em src, zero `any` introduzido nos sprints EMAS.
+
+**Status MO-S6 (EMAS):** ✅ todos os 8 tickets concluídos. `npm run typecheck` PASS. Dep adicionada: `react-native-sse`.
+
+**TRILHA MOBILE EMAS COMPLETA — 6 sprints, 37 tickets, 0 erros de tipo.**
 
 ---
 

@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 
 type ExtraFlags = {
   embeddedV3?: boolean;
+  sseStreaming?: boolean;
 };
 
 function readExtra(): ExtraFlags {
@@ -18,6 +19,14 @@ function readEnv(name: string): boolean | undefined {
   if (v === '1' || v === 'true' || v === 'on' || v === 'yes') return true;
   if (v === '0' || v === 'false' || v === 'off' || v === 'no') return false;
   return undefined;
+}
+
+export function getSSEStreamingFlag(): boolean {
+  const fromExtra = readExtra().sseStreaming;
+  if (typeof fromExtra === 'boolean') return fromExtra;
+  const fromEnv = readEnv('EXPO_PUBLIC_FEATURE_AI_SSE_STREAMING');
+  if (typeof fromEnv === 'boolean') return fromEnv;
+  return false;
 }
 
 export function getEmbeddedV3Flag(): boolean {

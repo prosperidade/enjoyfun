@@ -21,7 +21,8 @@ import { SuggestionPills } from '@/components/SuggestionPills';
 import { ToolActivityIndicator } from '@/components/ToolActivityIndicator';
 import { sendChatMessage } from '@/api/chat';
 import { sendMessage as sendMessageV3, type Surface, type ToolCallSummary } from '@/lib/aiSession';
-import { getEmbeddedV3Flag } from '@/lib/featureFlags';
+import { connectStream } from '@/lib/aiStream';
+import { getEmbeddedV3Flag, getSSEStreamingFlag } from '@/lib/featureFlags';
 import { useAISession } from '@/context/AISessionContext';
 import { useEvent } from '@/context/EventContext';
 import type { EventSummary } from '@/api/events';
@@ -42,6 +43,8 @@ export function ChatScreen({ navigation }: Props) {
   const { activeEvent, events, selectEvent, refresh: refreshEvents } = useEvent();
   const aiSession = useAISession();
   const v3Enabled = getEmbeddedV3Flag();
+  const sseEnabled = getSSEStreamingFlag();
+  const streamCleanupRef = useRef<(() => void) | null>(null);
   // EventProvider mounts before login and fails the first /events call while
   // there's no token. Re-fetch on ChatScreen mount since this screen only
   // renders after a successful login.
@@ -62,7 +65,7 @@ export function ChatScreen({ navigation }: Props) {
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const ttsEnabledRef = useRef(true);
   useEffect(() => { ttsEnabledRef.current = ttsEnabled; }, [ttsEnabled]);
-  useEffect(() => () => { stopSpeaking(); }, []);
+  useEffect(() => () => { stopSpeaking(); streamCleanupRef.current?.(); }, []);
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const welcomeFiredRef = useRef(false);
 
@@ -97,6 +100,39 @@ export function ChatScreen({ navigation }: Props) {
           aiSession.recordResponse(surface, eventIdNum, res);
           setLastToolCalls(res.tool_calls_summary);
           setAgentUsed(res.agent_used);
+          // Connect SSE stream for real-time token updates if enabled
+          if (sseEnabled && res.session_id) {
+            streamCleanupRef.current?.();
+            const lid = loadingMsg.id;
+            streamCleanupRef.current = connectStream({
+              sessionId: res.session_id,
+              onToken: (token) => {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === lid ? { ...m, text: (m.text ?? '') + token } : m,
+                  ),
+                );
+              },
+              onToolStart: (tool) => {
+                setLastToolCalls((prev) => [...(prev ?? []), { tool }]);
+              },
+              onToolDone: (tool, duration_ms, ok) => {
+                setLastToolCalls((prev) =>
+                  (prev ?? []).map((tc) =>
+                    tc.tool === tool && tc.ok === undefined
+                      ? { ...tc, duration_ms, ok }
+                      : tc,
+                  ),
+                );
+              },
+              onDone: () => {
+                streamCleanupRef.current = null;
+              },
+              onError: () => {
+                streamCleanupRef.current = null;
+              },
+            });
+          }
         } else {
           const context: Record<string, unknown> = { locale: currentLocale };
           if (eventIdNum != null) context.event_id = eventIdNum;

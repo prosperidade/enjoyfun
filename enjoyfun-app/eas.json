@@ -26,7 +26,15 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.enjoyfun.app/api"
+        "EXPO_PUBLIC_API_URL": "https://api.enjoyfun.app/api",
+        "EXPO_PUBLIC_FEATURE_AI_EMBEDDED_V3": "true",
+        "EXPO_PUBLIC_FEATURE_AI_SSE_STREAMING": "false"
+      },
+      "ios": {
+        "image": "latest"
+      },
+      "android": {
+        "buildType": "app-bundle"
       }
     }
   },
