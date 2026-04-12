@@ -1,10 +1,10 @@
 {
-  "version": 1,
+  "version": 2,
   "target_baseline": "database/schema_current.sql",
   "supported_replay_window": {
-    "id": "seed_20260331_replay_039_059",
+    "id": "seed_20260331_replay_039_077",
     "seed_dump": "database/schema_dump_20260331.sql",
-    "reason": "As migrations versionadas nao formam um bootstrap completo desde zero. O replay suportado parte do snapshot reconciliado de 2026-03-31 e valida de forma idempotente a janela 039..059, cobrindo IA, workforce, organizer_id, payment gateway, RLS/app_user, MCP/File Hub, a formalizacao do schema de rate limits e o follow-up final de tenancy em schema.",
+    "reason": "EMAS Sprint 1 Backend (2026-04-11) expandiu a janela suportada de 039..059 para 039..077, cobrindo as 5 migrations novas do EMAS (069 RLS AI memory/reports, 070 session composite key, 074 manifest sync marker, 075 ai_routing_events, 076 ai_tool_executions, 077 ai_platform_guide) alem das migrations pre-EMAS 060..068 (validate constraints, RLS vendors/OTP, AI agent skills warehouse, event templates, RLS AI v2 tables, find events skill, organizer AI DNA, agent personas, event AI DNA). Todas idempotentes via ON CONFLICT/IF NOT EXISTS, todas validadas com php -l no codigo PHP correlacionado quando aplicavel.",
     "migrations": [
       "database/039_ai_agent_execution_history.sql",
       "database/040_ai_memory_and_event_reports.sql",
@@ -26,7 +26,22 @@
       "database/056_mcp_servers.sql",
       "database/057_organizer_file_hub.sql",
       "database/058_rate_limits_schema_foundation.sql",
-      "database/059_schema_tenancy_followup.sql"
+      "database/059_schema_tenancy_followup.sql",
+      "database/060_validate_not_valid_constraints.sql",
+      "database/061_rls_vendors_otp_codes.sql",
+      "database/062_ai_agent_skills_warehouse.sql",
+      "database/063_event_templates.sql",
+      "database/064_rls_ai_v2_tables.sql",
+      "database/065_ai_find_events_skill.sql",
+      "database/066_organizer_ai_dna.sql",
+      "database/067_ai_agent_personas.sql",
+      "database/068_event_ai_dna.sql",
+      "database/069_rls_ai_memory_reports.sql",
+      "database/070_session_composite_key.sql",
+      "database/074_manifest_sync.sql",
+      "database/075_ai_routing_events.sql",
+      "database/076_ai_tool_executions.sql",
+      "database/077_ai_platform_guide.sql"
     ]
   }
 }
