@@ -685,6 +685,88 @@ final class AIToolRuntimeService
                 'agent_keys' => ['documents', 'management'],
             ],
 
+            // --- BE-S2-B4/B5/B9/B10/B11: Sprint 2 new tools ---
+            [
+                'name' => 'get_artist_schedule',
+                'description' => 'Timeline de artistas do evento: dia, palco, horario de performance e soundcheck. Ordenado por data e horario.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_artist_schedule', 'artist_schedule', 'artists.schedule', 'lineup'],
+                'type' => 'read',
+                'surfaces' => ['artists', 'events'],
+                'agent_keys' => ['artists', 'logistics', 'management'],
+            ],
+            [
+                'name' => 'get_artist_logistics_status',
+                'description' => 'Visao geral da logistica de todos os artistas do evento: itens pendentes, pagos, custos totais, por artista.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_artist_logistics_status', 'artist_logistics', 'artists.logistics_overview'],
+                'type' => 'read',
+                'surfaces' => ['artists', 'logistics'],
+                'agent_keys' => ['artists', 'logistics', 'contracting'],
+            ],
+            [
+                'name' => 'get_finance_overview',
+                'description' => 'Resumo financeiro do evento: receita, custos (artistas + logistica), margem, e breakdown por categoria.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_finance_overview', 'finance_overview', 'finance.overview'],
+                'type' => 'read',
+                'surfaces' => ['finance', 'dashboard'],
+                'agent_keys' => ['management', 'contracting'],
+            ],
+            [
+                'name' => 'get_supplier_payment_status',
+                'description' => 'Status de pagamento de fornecedores (vendors) do organizador: comissao acumulada e payout por vendor.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier (filtra sales do evento).'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_supplier_payment_status', 'supplier_payments', 'vendors.payments'],
+                'type' => 'read',
+                'surfaces' => ['finance'],
+                'agent_keys' => ['management', 'contracting'],
+            ],
+            [
+                'name' => 'get_ticket_sales_snapshot',
+                'description' => 'Snapshot operacional de vendas de ingressos por lote: nome, preco, vendido, restante, status do lote.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
+                    ],
+                    'required' => ['event_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_ticket_sales_snapshot', 'ticket_sales', 'tickets.sales'],
+                'type' => 'read',
+                'surfaces' => ['events', 'finance'],
+                'agent_keys' => ['management', 'marketing'],
+            ],
+
             // --- Content agent tools ---
             [
                 'name' => 'get_event_content_context',
@@ -1161,6 +1243,13 @@ final class AIToolRuntimeService
             'read_organizer_file' => self::executeReadOrganizerFile($db, $organizerId, $arguments),
             'search_documents' => self::executeSearchDocuments($db, $organizerId, $arguments),
             'list_documents_by_category' => self::executeListDocumentsByCategory($db, $organizerId),
+
+            // Sprint 2 new tools (B4/B5/B9/B10/B11)
+            'get_artist_schedule' => self::executeArtistSchedule($db, $organizerId, $eventId),
+            'get_artist_logistics_status' => self::executeArtistLogisticsOverview($db, $organizerId, $eventId),
+            'get_finance_overview' => self::executeFinanceOverview($db, $organizerId, $eventId),
+            'get_supplier_payment_status' => self::executeSupplierPaymentStatus($db, $organizerId, $eventId),
+            'get_ticket_sales_snapshot' => self::executeTicketSalesSnapshot($db, $organizerId, $eventId),
 
             // Content
             'get_event_content_context' => self::executeEventContentContext($db, $organizerId, $eventId),
@@ -1798,6 +1887,168 @@ final class AIToolRuntimeService
         } catch (\Throwable $e) {
             return ['file_id' => $fileId, 'status' => 'failed', 'message' => $e->getMessage()];
         }
+    }
+
+    // ── BE-S2-B4/B5/B9/B10/B11: Sprint 2 new tools ───────────────
+
+    /** BE-S2-B4: Artist schedule/timeline for the event. */
+    private static function executeArtistSchedule(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_artist_schedule');
+
+        $stmt = $db->prepare("
+            SELECT ea.id AS event_artist_id, a.stage_name, a.artist_type,
+                   ea.performance_date, ea.performance_start_at, ea.performance_duration_minutes,
+                   ea.soundcheck_at, ea.stage_name AS stage, ea.booking_status
+            FROM public.event_artists ea
+            INNER JOIN public.artists a ON a.id = ea.artist_id
+            WHERE ea.organizer_id = :org AND ea.event_id = :evt
+              AND ea.booking_status <> 'cancelled'
+            ORDER BY ea.performance_date ASC NULLS LAST, ea.performance_start_at ASC NULLS LAST
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $schedule = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        return ['event_id' => $eventId, 'total_artists' => count($schedule), 'schedule' => $schedule];
+    }
+
+    /** BE-S2-B5: Event-wide artist logistics overview. */
+    private static function executeArtistLogisticsOverview(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_artist_logistics_status');
+
+        $stmt = $db->prepare("
+            SELECT a.stage_name,
+                   ea.booking_status,
+                   COUNT(ali.id) AS items_total,
+                   COUNT(ali.id) FILTER (WHERE ali.status = 'pending') AS items_pending,
+                   COUNT(ali.id) FILTER (WHERE ali.status = 'paid') AS items_paid,
+                   COALESCE(SUM(ali.total_amount), 0) AS logistics_cost
+            FROM public.event_artists ea
+            INNER JOIN public.artists a ON a.id = ea.artist_id
+            LEFT JOIN public.artist_logistics_items ali
+                ON ali.event_artist_id = ea.id AND ali.organizer_id = ea.organizer_id
+            WHERE ea.organizer_id = :org AND ea.event_id = :evt
+              AND ea.booking_status <> 'cancelled'
+            GROUP BY a.stage_name, ea.booking_status
+            ORDER BY logistics_cost DESC
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $artists = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        $totalCost = array_sum(array_column($artists, 'logistics_cost'));
+        $totalPending = array_sum(array_column($artists, 'items_pending'));
+
+        return [
+            'event_id' => $eventId,
+            'artists' => $artists,
+            'total_logistics_cost' => (float)$totalCost,
+            'total_items_pending' => (int)$totalPending,
+        ];
+    }
+
+    /** BE-S2-B9: Finance overview (enhanced finance_summary). */
+    private static function executeFinanceOverview(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_finance_overview');
+
+        $rev = $db->prepare("SELECT COALESCE(SUM(total_amount), 0) FROM public.sales WHERE organizer_id = :org AND event_id = :evt AND status = 'completed'");
+        $rev->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $revenue = (float)$rev->fetchColumn();
+
+        $ac = $db->prepare("SELECT COALESCE(SUM(cache_amount), 0) FROM public.event_artists WHERE organizer_id = :org AND event_id = :evt AND booking_status <> 'cancelled'");
+        $ac->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $artistCache = (float)$ac->fetchColumn();
+
+        $lc = $db->prepare("SELECT COALESCE(SUM(total_amount), 0) FROM public.artist_logistics_items WHERE organizer_id = :org AND event_id = :evt");
+        $lc->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $logisticsCost = (float)$lc->fetchColumn();
+
+        // Vendor payouts from sales
+        $vp = $db->prepare("SELECT COALESCE(SUM(vendor_payout), 0) FROM public.sales WHERE organizer_id = :org AND event_id = :evt AND status = 'completed'");
+        $vp->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $vendorPayout = (float)$vp->fetchColumn();
+
+        $totalCosts = $artistCache + $logisticsCost;
+        $margin = $revenue - $totalCosts;
+
+        return [
+            'event_id' => $eventId,
+            'revenue' => $revenue,
+            'costs' => [
+                'artist_cache' => $artistCache,
+                'logistics' => $logisticsCost,
+                'total' => $totalCosts,
+            ],
+            'vendor_payout' => $vendorPayout,
+            'margin' => $margin,
+            'margin_pct' => $revenue > 0 ? round($margin / $revenue * 100, 1) : 0,
+        ];
+    }
+
+    /** BE-S2-B10: Supplier payment status (best-effort — vendors has no event_id). */
+    private static function executeSupplierPaymentStatus(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_supplier_payment_status');
+
+        // vendors table has no event_id. We aggregate from sales for this event,
+        // grouped by vendor_id → vendor name + commission totals.
+        $stmt = $db->prepare("
+            SELECT v.id AS vendor_id, v.name AS vendor_name, v.sector,
+                   v.commission_rate,
+                   COUNT(s.id) AS sales_count,
+                   COALESCE(SUM(s.total_amount), 0) AS total_sales,
+                   COALESCE(SUM(s.vendor_payout), 0) AS total_payout
+            FROM public.vendors v
+            LEFT JOIN public.sales s
+                ON s.vendor_id = v.id AND s.event_id = :evt AND s.status = 'completed'
+            WHERE v.organizer_id = :org
+            GROUP BY v.id, v.name, v.sector, v.commission_rate
+            HAVING COUNT(s.id) > 0
+            ORDER BY total_payout DESC
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $vendors = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'event_id' => $eventId,
+            'vendors' => $vendors,
+            'total_vendors_active' => count($vendors),
+            'note' => 'Dados agregados de vendas. Detalhamento de pagamento individual nao disponivel no schema atual.',
+        ];
+    }
+
+    /** BE-S2-B11: Ticket sales snapshot — operational view per batch. */
+    private static function executeTicketSalesSnapshot(PDO $db, int $organizerId, ?int $eventId): array
+    {
+        self::requireEventId($eventId, 'get_ticket_sales_snapshot');
+
+        $stmt = $db->prepare("
+            SELECT tb.id AS batch_id, tb.name AS batch_name, tt.name AS type_name,
+                   tb.price, tb.quantity_total, tb.quantity_sold,
+                   (COALESCE(tb.quantity_total, 0) - tb.quantity_sold) AS remaining,
+                   tb.is_active, tb.starts_at, tb.ends_at
+            FROM public.ticket_batches tb
+            INNER JOIN public.ticket_types tt ON tt.id = tb.ticket_type_id
+            WHERE tb.organizer_id = :org AND tb.event_id = :evt
+            ORDER BY tb.is_active DESC, tb.starts_at ASC NULLS LAST
+        ");
+        $stmt->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $batches = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        $totalSold = (int)array_sum(array_column($batches, 'quantity_sold'));
+        $totalAvail = (int)array_sum(array_column($batches, 'quantity_total'));
+        $activeBatches = count(array_filter($batches, fn($b) => $b['is_active']));
+
+        return [
+            'event_id' => $eventId,
+            'batches' => $batches,
+            'total_batches' => count($batches),
+            'active_batches' => $activeBatches,
+            'total_sold' => $totalSold,
+            'total_available' => $totalAvail,
+            'sell_through_pct' => $totalAvail > 0 ? round($totalSold / $totalAvail * 100, 1) : 0,
+        ];
     }
 
     // ── BE-S2-A2/A3/A4: Document tools ────────────────────────────

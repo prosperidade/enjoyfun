@@ -262,6 +262,14 @@ Enhance 4 tools existentes com dados mais ricos.
 - **B8** `get_event_kpi_dashboard`: cost breakdown (artist_cache + logistics) + margin + margin_pct
 - **B12** `get_ticket_demand_signals`: per-batch detail (name, price, sold, remaining, is_active, dates) + velocity_per_day
 
+#### Commit 7 — BE-S2-B4 + B5 + B9 + B10 + B11 ✅
+5 tools novas (schema + dispatch + execute).
+- **B4** `get_artist_schedule`: timeline por data/palco (event_artists JOIN artists)
+- **B5** `get_artist_logistics_status`: overview logística por artista (items pending/paid, custo)
+- **B9** `get_finance_overview`: receita vs custos (artist + logistics) + vendor_payout + margin
+- **B10** `get_supplier_payment_status`: **best-effort** — vendors sem event_id, agrega de sales.vendor_payout. Nota explicativa no retorno
+- **B11** `get_ticket_sales_snapshot`: por batch (nome, preço, vendido, restante, is_active). Sem channel (schema não tem)
+
 ### Sprint 3
 _(aguardando)_
 
