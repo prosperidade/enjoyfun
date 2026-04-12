@@ -93,6 +93,17 @@ export function ChatInput({ onSend, disabled }: Props) {
     }
   }
 
+  async function handleMicLongPress() {
+    if (micState !== 'listening' || busyRef.current) return;
+    busyRef.current = true;
+    try {
+      await recorder.cancelRecording();
+      setMicState('idle');
+    } finally {
+      busyRef.current = false;
+    }
+  }
+
   const micBg = micState === 'listening' ? colors.accent : colors.surface;
 
   return (
@@ -101,6 +112,8 @@ export function ChatInput({ onSend, disabled }: Props) {
         <TouchableOpacity
           style={[styles.micBtn, { backgroundColor: micBg }]}
           onPress={handleMicPress}
+          onLongPress={handleMicLongPress}
+          delayLongPress={400}
           disabled={disabled || micState === 'processing'}
           activeOpacity={0.8}
         >
@@ -111,6 +124,11 @@ export function ChatInput({ onSend, disabled }: Props) {
           )}
         </TouchableOpacity>
       </Animated.View>
+      {micState === 'listening' && (
+        <View style={styles.recordingHint}>
+          <Text style={styles.recordingText}>{t('recording')}</Text>
+        </View>
+      )}
       <TextInput
         style={styles.input}
         placeholder={t('input_placeholder')}
@@ -178,5 +196,13 @@ const styles = StyleSheet.create({
   sendText: {
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  recordingHint: {
+    justifyContent: 'center',
+    paddingBottom: spacing.xs,
+  },
+  recordingText: {
+    ...typography.caption,
+    color: colors.accent,
   },
 });

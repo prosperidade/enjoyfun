@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { colors, spacing, radius, typography } from '@/theme';
 import type { ChatMessage, ActionItem } from '@/lib/types';
 import { AdaptiveUIRenderer } from './AdaptiveUIRenderer';
+import { SimpleMarkdown } from './SimpleMarkdown';
 
 interface Props {
   message: ChatMessage;
@@ -36,7 +37,7 @@ export function MessageBubble({ message, onAction }: Props) {
       ) : hasBlocks ? (
         <AdaptiveUIRenderer blocks={blocks} onAction={onAction} />
       ) : fallbackText ? (
-        <Text style={styles.assistantText}>{fallbackText}</Text>
+        <SimpleMarkdown text={fallbackText} />
       ) : null}
     </View>
   );

@@ -285,7 +285,13 @@ _(nenhum ticket — aguarda fim do S0 do Backend)_
 **Status MO-S3:** ✅ todos os 6 tickets concluídos. `npm run typecheck` PASS.
 
 ### Sprint 4
-_(aguardando)_
+- **MO-S4-01** ✅ `enjoyfun-app/src/components/SimpleMarkdown.tsx` NOVO + `MessageBubble.tsx` — rendering de markdown no fallback text: **bold**, *italic*, `code`, [links](url), bullets (\u2022), numbered lists, headers. Plugado no MessageBubble substituindo o `<Text>` simples.
+- **MO-S4-02** ✅ `enjoyfun-app/src/lib/sessionPersist.ts` NOVO — save/load/clear history por `surface+eventId` via `@react-native-async-storage/async-storage`. Max 50 msgs. ChatScreen auto-save após response e auto-load ao trocar surface/evento.
+- **MO-S4-03** ✅ `enjoyfun-app/src/components/ChatInput.tsx` — voice polish: long-press no mic cancela gravação (descarta sem transcrever via `cancelRecording`), label "Gravando..." visível durante recording. Pulse animation já existia do S1.
+- **MO-S4-04** ✅ `enjoyfun-app/src/components/ChatHeader.tsx` NOVO — header extraído do ChatScreen: event picker, SurfacePicker, TTS toggle, botão limpar conversa (\u{1F5D1}) com `clearHistory` + `archiveSurface`, badge do agente atual (`agentUsed`), botão logout. ChatScreen refatorado pra usar ChatHeader (removeu ~40 linhas inline de header + 7 styles não usados).
+- **MO-S4-05** ✅ Já implementado no MO-S2-03 (`ToolActivityIndicator` com `duration_ms` + status ok/erro).
+
+**Status MO-S4:** ✅ todos os 5 tickets concluídos. `npm run typecheck` PASS. Dep adicionada: `@react-native-async-storage/async-storage`.
 
 ### Sprint 5
 _(aguardando)_

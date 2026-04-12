@@ -16,7 +16,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, spacing, typography, radius } from '@/theme';
 import { ChatInput } from '@/components/ChatInput';
 import { MessageBubble } from '@/components/MessageBubble';
-import { SurfacePicker } from '@/components/SurfacePicker';
+import { ChatHeader } from '@/components/ChatHeader';
 import { SuggestionPills } from '@/components/SuggestionPills';
 import { ToolActivityIndicator } from '@/components/ToolActivityIndicator';
 import { sendChatMessage } from '@/api/chat';
@@ -29,6 +29,7 @@ import type { ChatMessage, ActionItem } from '@/lib/types';
 import { t, currentLocale } from '@/lib/i18n';
 import { speak, stopSpeaking } from '@/lib/voice';
 import { clearAuth } from '@/lib/auth';
+import { saveHistory, loadHistory, clearHistory } from '@/lib/sessionPersist';
 import type { RootStackParamList } from '../../App';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
@@ -56,6 +57,7 @@ export function ChatScreen({ navigation }: Props) {
   const [legacySessionId, setLegacySessionId] = useState<string | undefined>(undefined);
   const [sending, setSending] = useState(false);
   const [lastToolCalls, setLastToolCalls] = useState<ToolCallSummary[] | undefined>(undefined);
+  const [agentUsed, setAgentUsed] = useState<string | undefined>(undefined);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const ttsEnabledRef = useRef(true);
@@ -94,6 +96,7 @@ export function ChatScreen({ navigation }: Props) {
           });
           aiSession.recordResponse(surface, eventIdNum, res);
           setLastToolCalls(res.tool_calls_summary);
+          setAgentUsed(res.agent_used);
         } else {
           const context: Record<string, unknown> = { locale: currentLocale };
           if (eventIdNum != null) context.event_id = eventIdNum;
@@ -131,6 +134,22 @@ export function ChatScreen({ navigation }: Props) {
     [v3Enabled, surface, activeEvent, legacySessionId, aiSession],
   );
 
+  // Persist after messages change (debounced by the send cycle)
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const eventIdNum = activeEvent?.id != null ? Number(activeEvent.id) : null;
+    saveHistory(surface, eventIdNum, messages);
+  }, [messages, surface, activeEvent]);
+
+  // Load persisted history when surface or event changes
+  useEffect(() => {
+    const eventIdNum = activeEvent?.id != null ? Number(activeEvent.id) : null;
+    loadHistory(surface, eventIdNum).then((saved) => {
+      if (saved.length > 0) setMessages(saved);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surface, activeEvent?.id]);
+
   const toggleTts = useCallback(() => {
     setTtsEnabled((prev) => {
       if (prev) stopSpeaking();
@@ -161,6 +180,16 @@ export function ChatScreen({ navigation }: Props) {
     [surface],
   );
 
+  const handleClearChat = useCallback(() => {
+    const eventIdNum = activeEvent?.id != null ? Number(activeEvent.id) : null;
+    setMessages([]);
+    setAgentUsed(undefined);
+    setLastToolCalls(undefined);
+    welcomeFiredRef.current = false;
+    aiSession.archiveSurface(surface, eventIdNum);
+    clearHistory(surface, eventIdNum);
+  }, [activeEvent, surface, aiSession]);
+
   useEffect(() => {
     if (welcomeFiredRef.current) return;
     if (!activeEvent || messages.length > 0 || sending) return;
@@ -183,44 +212,21 @@ export function ChatScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerLeft}
-          onPress={() => setPickerOpen(true)}
-          disabled={events.length === 0}
-        >
-          <Text style={styles.headerTitle}>
-            {activeEvent?.name ?? 'EnjoyFun'} {events.length > 0 ? '▾' : ''}
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            {activeEvent ? t('header_subtitle_touch') : t('header_subtitle_empty')}
-          </Text>
-        </TouchableOpacity>
-        <View style={styles.headerSurface}>
-          <SurfacePicker value={surface} onChange={handleSurfaceChange} />
-        </View>
-        <TouchableOpacity style={styles.headerIcon} onPress={toggleTts}>
-          <Text style={styles.headerIconText}>{ttsEnabled ? '\u{1F50A}' : '\u{1F507}'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.headerBtn}
-          onPress={() =>
-            Alert.alert(t('logout'), t('confirm_logout'), [
-              { text: t('cancel'), style: 'cancel' },
-              {
-                text: t('logout'),
-                style: 'destructive',
-                onPress: async () => {
-                  await clearAuth();
-                  navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-                },
-              },
-            ])
-          }
-        >
-          <Text style={styles.headerBtnText}>{t('logout')}</Text>
-        </TouchableOpacity>
-      </View>
+      <ChatHeader
+        eventName={activeEvent?.name}
+        hasEvents={events.length > 0}
+        surface={surface}
+        agentUsed={agentUsed}
+        ttsEnabled={ttsEnabled}
+        onPickEvent={() => setPickerOpen(true)}
+        onSurfaceChange={handleSurfaceChange}
+        onToggleTts={toggleTts}
+        onClearChat={handleClearChat}
+        onLogout={async () => {
+          await clearAuth();
+          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+        }}
+      />
 
       <Modal
         visible={pickerOpen}
@@ -302,28 +308,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   flex: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerLeft: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  headerSurface: {
-    marginRight: spacing.xs,
-  },
-  headerTitle: {
-    ...typography.h2,
-  },
-  headerSubtitle: {
-    ...typography.caption,
-  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -365,28 +349,6 @@ const styles = StyleSheet.create({
     ...typography.bodyMuted,
     textAlign: 'center',
     paddingVertical: spacing.xl,
-  },
-  headerIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-    marginRight: spacing.xs,
-  },
-  headerIconText: {
-    fontSize: 16,
-  },
-  headerBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.full,
-    backgroundColor: colors.surface,
-  },
-  headerBtnText: {
-    ...typography.body,
-    color: colors.textPrimary,
   },
   listContent: {
     paddingVertical: spacing.md,
