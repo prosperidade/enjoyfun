@@ -79,6 +79,18 @@ final class AIOrchestratorService
         $toolCatalog = AIToolRuntimeService::buildToolCatalog($context, $db, $organizerId);
         $startedAt = gmdate('Y-m-d H:i:s');
 
+        // Bug H diagnostic: log where "trance formation" appears in the LLM input
+        $hasTF = false;
+        $tfSources = [];
+        if (stripos($systemPrompt, 'trance') !== false) { $tfSources[] = 'system_prompt'; $hasTF = true; }
+        if (stripos($prompt, 'trance') !== false) { $tfSources[] = 'user_prompt'; $hasTF = true; }
+        if (stripos(json_encode($context), 'trance') !== false) { $tfSources[] = 'context'; $hasTF = true; }
+        $msgHistory = $payload['messages'] ?? [];
+        if (stripos(json_encode($msgHistory), 'trance') !== false) { $tfSources[] = 'messages_history'; $hasTF = true; }
+        if ($hasTF) {
+            error_log('[BUG-H-DIAG] "trance" found in: ' . implode(', ', $tfSources) . ' | surface=' . $surface . ' | event_id=' . ($context['event_id'] ?? 'null'));
+        }
+
         // ── S2-03: Bounded loop path (behind feature flag) ──
         $useBoundedLoop = self::isBoundedLoopEnabled();
 

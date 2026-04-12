@@ -45,7 +45,7 @@
 | F | LLM dizia "vendas de hoje" sem confirmação de data no tool result | 🟡 fix aplicado, **não revalidado** | hotfix 2 (`293096b`) — directive 3.1 |
 | F.2 | tool not found → LLM emitia zeros falsos + checklist genérico ("revisar branding") | ✅ resolvido | hotfix 3 (`f84505f`) — directive 3.3 |
 | G | LLM respondia "vou buscar os dados, um momento" sem chamar tool | 🟡 fix aplicado, **não revalidado** | hotfix 2 — directive 3.2 |
-| H | LLM reusa entidade de turno anterior ("trance formation" continuou aparecendo na pergunta seguinte sobre bar) | 🟡 **hotfix 7 (fix definitivo) — aguarda smoke** | hotfix 5→7: idle timeout ambos paths + getHistory DESC + 410→nova sessão |
+| H | LLM reusa entidade de turno anterior ("trance formation" continuou aparecendo na pergunta seguinte sobre bar) | ✅ **resolvido** hotfix 5+7 | idle timeout V2+V3 + getHistory DESC + 410→nova sessão |
 | I | find_events em loop 3x sem encadear pra get_bar_sales_snapshot | 🟡 **hotfix 6 (dedup programático) — aguarda smoke** | hotfix 6: dedup tool calls no bounded loop + directive 3.5 |
 
 **Validações SQL pós-aplicação:**
@@ -193,6 +193,12 @@ Validação: `session_key col=1`, `platform_guide agent=1`, `platform skills=4`,
 | **Idle timeout V2 + 410→nova sessão** | `AIController.php` | (a) sessão archived/expired → cria nova sessão silenciosamente em vez de 410. (b) sessão ativa idle >10min → archive + cria nova. Ambos no path V2 (session_id explícito) |
 
 `php -l` PASS. Efeito combinado dos hotfixes 5+7: não importa qual path o frontend use (V2 com session_id ou V3 com composite key), idle >10min = sessão limpa, e histórico sempre mostra as mensagens mais recentes.
+
+**✅ Confirmado pelo André às 11:10** — Bug H resolvido. LLM respondeu sobre vendas do bar (não mais sobre "trance formation"). Log `[BUG-H-DIAG]` não disparou → "trance" não está mais no input do LLM.
+
+**Observações do smoke 11:10:**
+- `surface=NONE` no payload → frontend não manda `surface`, backend faz fallback pra `dashboard`. Routing + prompt genéricos. **Fix é no frontend** (FE-S2: mandar `surface` correto no body).
+- LLM retornou vendas totais em vez de "vendas de hoje" → Bug F (temporal). Tool `get_pos_sales_snapshot` retorna acumulado sem filtro de data. **Fix é Sprint 2 Trilha B** (skills com filtro temporal) + directive 3.1 já em vigor.
 
 ### Hotfix 6 — Bug I (find_events loop dedup) — 2026-04-12
 
