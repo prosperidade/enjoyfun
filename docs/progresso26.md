@@ -11,8 +11,8 @@
 
 | Sprint | Foco | Status | Flags ligadas ao final |
 |---|---|---|---|
-| **S0** | Setup + contratos + segurança | 🟡 em andamento | (nenhuma) |
-| **S1** | Fundação + EmbeddedChat + Mobile V3 | ⏳ aguarda S0 | `FEATURE_AI_EMBEDDED_V3` |
+| **S0** | Setup + contratos + segurança | ✅ encerrado | (nenhuma) |
+| **S1** | Fundação + EmbeddedChat + Mobile V3 | 🟡 código fechado, smoke parcial — bugs residuais H/I | `FEATURE_AI_EMBEDDED_V3` |
 | **S2** | Lazy context + 6 embeds + 10 surfaces mobile + PT-BR | ⏳ | `LAZY_CONTEXT`, `PT_BR_LABELS` |
 | **S3** | Platform Guide + RAG + memória | ⏳ | `PLATFORM_GUIDE`, `RAG_PRAGMATIC`, `MEMORY_RECALL` |
 | **S4** | Observability + skills internas + grounding | ⏳ | (consolidação) |
@@ -20,6 +20,60 @@
 | **S6** | MemPalace + SSE + Supervisor + hardening + EAS build | ⏳ | `MEMPALACE`, `SSE_STREAMING`, `SUPERVISOR` |
 
 **Total:** 31 dias úteis · 12 feature flags · EMAS completo sem dívida técnica.
+
+---
+
+## 📋 Encerramento do dia 2026-04-11 — resumo executivo
+
+**O que aconteceu hoje:**
+1. Sprint 0 inteiro entregue (5 dos 7 tickets executáveis pelo Claude — BE-S0-02 desbloqueado pelo André à noite, só BE-S0-03 pgcrypto re-encrypt residual e não bloqueante)
+2. Sprint 1 Backend inteiro entregue (13/13 tickets) em 5 commits sequenciais + 4 hotfixes pós-smoke
+3. 6 migrations EMAS aplicadas no Postgres (069/070/074/075/076/077) com validação SQL
+4. Sprint 1 Mobile inteiro entregue pelo Chat 2 em paralelo (5/5 tickets MO-S1, commit `8d1c307`)
+5. Sprint 1 Frontend Web entregue pelo Codex em paralelo (FE-S1 commits `47346da` + `4faba5e` + housekeeping)
+6. Setup de 3 worktrees git separados pós-incidente de branches cruzadas (eliminou problema de chats compartilhando working tree)
+7. Smoke test E2E parcial — 4 hotfixes em sequência conforme bugs apareceram
+
+**Bugs encontrados no smoke (cronológico):**
+
+| # | Bug | Status no fim do dia | Hotfix |
+|---|---|---|---|
+| A | text_fallback vazio em 100% das respostas (tool_choice=required quebrou bounded loop) | ✅ resolvido | hotfix 1 (`a29b1dd`) |
+| B | mesma tool chamada 3x em loop (consequência de A) | ✅ resolvido | hotfix 1 |
+| C | labels em inglês nos blocks adaptive (Revenue, Tickets Sold, Items Sold, Get Pos Sales Snapshot) | ✅ resolvido | hotfix 1+2 |
+| D | platform_guide nunca roteado (não estava no agentPatterns hardcoded) | ✅ resolvido | hotfix 1 |
+| F | LLM dizia "vendas de hoje" sem confirmação de data no tool result | 🟡 fix aplicado, **não revalidado** | hotfix 2 (`293096b`) — directive 3.1 |
+| F.2 | tool not found → LLM emitia zeros falsos + checklist genérico ("revisar branding") | ✅ resolvido | hotfix 3 (`f84505f`) — directive 3.3 |
+| G | LLM respondia "vou buscar os dados, um momento" sem chamar tool | 🟡 fix aplicado, **não revalidado** | hotfix 2 — directive 3.2 |
+| H | LLM reusa entidade de turno anterior ("trance formation" continuou aparecendo na pergunta seguinte sobre bar) | 🔴 **fix aplicado mas NÃO funcionou no reteste** | hotfix 4 (`fde5943`) — directive 3.4 |
+| I | find_events em loop 3x sem encadear pra get_bar_sales_snapshot | 🟡 fix aplicado, **não revalidado** | hotfix 4 — directive 3.5 |
+
+**Validações SQL pós-aplicação:**
+- `session_key column`: 1 ✅
+- `platform_guide` agent registrado: 1 ✅
+- 4 platform skills no registry: 4 ✅
+- `ai_routing_events` recebendo dados: ✅ (visível no smoke)
+- `ai_tool_executions` table criada: 1 ✅
+- RLS em `ai_agent_memories`: true ✅
+
+**Pendências críticas pra 2026-04-12:**
+
+| Pri | Ticket | Descrição |
+|---|---|---|
+| 🔴 | **Bug H persistente** | Hotfix 4 (directive 3.4) não impediu o LLM de continuar respondendo sobre "trance formation" em pergunta nova. Causa raiz suspeita: cache de session_id no AIContext do frontend mantendo histórico contaminado mesmo após backend archivar. **Investigar primeiro:** o que o frontend manda quando tenta usar session_id de sessão archivada. **Possível fix:** detectar 410 e criar nova sessão automaticamente. **Outro caminho:** botão "Nova conversa" no EmbeddedAIChat (FE-S2). |
+| 🟡 | Revalidar Bugs F + G + I | Fixes aplicados via prompt engineering, não testados pós-restart. Refazer smoke completo. |
+| 🟡 | Bug residual: find_events loop ainda persiste | Mesmo com directive 3.5, prompt-only pode não ser suficiente. Próximo passo: validação programática no `AIToolRuntimeService` — bloquear chamada de `find_events` 2x na mesma turn. Sprint 2 Trilha A. |
+| 🟡 | BE-S0-03 pgcrypto re-encrypt | `organizer_ai_providers` pra openai/org 2 ainda quebra com warning não-fatal. Não bloqueia operação. |
+| 🟢 | Skills retornarem JSON em PT-BR nativo | Fix raiz do Bug C (atualmente é dicionário no rendering layer, defensivo). Sprint 2 Trilha B. |
+| 🟢 | Bounded loop V2 segunda passada explícita | Restaurar `tool_choice=required` na 1ª passada + `auto` na 2ª passada via código (não prompt). Sprint 2 Trilha A. |
+| 🟢 | UX/CSS Codex | Cards estourando o conteúdo, chat muito alto. Cosmetic, FE-S2. |
+| 🟢 | Limpar branches Codex/Jules antigas | `codex/auth-hardening-local`, `codex/update-diagnostico_*`, `jules-*` — não são minhas, deixar pro André. |
+
+**Validação que ficou pendente:**
+- Caso 2 do Codex (find_events 5x quando event_id já está no contexto)
+- Auto-archive ao trocar surface (visualmente)
+- Mobile completo: Codex/André não rodaram smoke conjunto pelo simulador/device
+- Console do browser do Codex (sem headless disponível na sessão dele)
 
 ---
 
