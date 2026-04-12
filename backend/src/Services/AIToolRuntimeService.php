@@ -768,6 +768,70 @@ final class AIToolRuntimeService
                 'agent_keys' => ['management', 'marketing'],
             ],
 
+            // --- BE-S5-C1..C6: Write skills (all require approval) ---
+            [
+                'name' => 'update_stock_quantity',
+                'description' => 'Atualiza a quantidade em estoque de um produto. REQUER APROVACAO.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'product_id' => ['type' => 'integer', 'description' => 'ID do produto.'],
+                    'new_quantity' => ['type' => 'integer', 'description' => 'Nova quantidade em estoque.'],
+                ], 'required' => ['product_id', 'new_quantity'], 'additionalProperties' => false],
+                'aliases' => ['update_stock_quantity', 'stock.update'], 'type' => 'write',
+                'surfaces' => ['bar', 'food', 'shop'], 'agent_keys' => ['bar', 'management'],
+            ],
+            [
+                'name' => 'create_task_assignment',
+                'description' => 'Cria uma nova alocacao de membro da equipe em um turno. REQUER APROVACAO.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'participant_id' => ['type' => 'integer', 'description' => 'ID do participante/membro.'],
+                    'event_shift_id' => ['type' => 'integer', 'description' => 'ID do turno.'],
+                    'role_id' => ['type' => 'integer', 'description' => 'ID do cargo/funcao.'],
+                ], 'required' => ['participant_id', 'event_shift_id', 'role_id'], 'additionalProperties' => false],
+                'aliases' => ['create_task_assignment', 'workforce.assign'], 'type' => 'write',
+                'surfaces' => ['workforce'], 'agent_keys' => ['logistics', 'management'],
+            ],
+            [
+                'name' => 'send_campaign_message',
+                'description' => 'Dispara uma mensagem de campanha via WhatsApp ou email. REQUER APROVACAO.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'channel' => ['type' => 'string', 'description' => 'Canal: whatsapp ou email.'],
+                    'template' => ['type' => 'string', 'description' => 'Template da mensagem.'],
+                    'audience_filter' => ['type' => 'string', 'description' => 'Filtro de audiencia (ex: all, vip, purchased).'],
+                ], 'required' => ['channel', 'template'], 'additionalProperties' => false],
+                'aliases' => ['send_campaign_message', 'messaging.campaign'], 'type' => 'write',
+                'surfaces' => ['messaging', 'marketing'], 'agent_keys' => ['marketing', 'management'],
+            ],
+            [
+                'name' => 'create_budget_line',
+                'description' => 'Cria uma linha de orcamento para o evento. REQUER APROVACAO.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'event_id' => ['type' => 'integer', 'description' => 'ID do evento.'],
+                    'category' => ['type' => 'string', 'description' => 'Categoria: artists, logistics, marketing, infrastructure, other.'],
+                    'amount' => ['type' => 'number', 'description' => 'Valor em reais.'],
+                    'description' => ['type' => 'string', 'description' => 'Descricao da despesa.'],
+                ], 'required' => ['event_id', 'category', 'amount', 'description'], 'additionalProperties' => false],
+                'aliases' => ['create_budget_line', 'finance.budget'], 'type' => 'write',
+                'surfaces' => ['finance'], 'agent_keys' => ['management', 'contracting'],
+            ],
+            [
+                'name' => 'import_payables_csv',
+                'description' => 'Importa contas a pagar de um arquivo CSV ja parseado. REQUER APROVACAO.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'file_id' => ['type' => 'integer', 'description' => 'ID do arquivo CSV no organizer_files.'],
+                ], 'required' => ['file_id'], 'additionalProperties' => false],
+                'aliases' => ['import_payables_csv', 'finance.import_payables'], 'type' => 'write',
+                'surfaces' => ['finance', 'documents'], 'agent_keys' => ['contracting', 'documents'],
+            ],
+            [
+                'name' => 'rollback_last_action',
+                'description' => 'Reverte a ultima acao de escrita aprovada usando o snapshot do audit trail. REQUER APROVACAO.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'approval_id' => ['type' => 'integer', 'description' => 'ID da approval a reverter.'],
+                ], 'required' => ['approval_id'], 'additionalProperties' => false],
+                'aliases' => ['rollback_last_action', 'internal.rollback'], 'type' => 'write',
+                'surfaces' => ['dashboard'], 'agent_keys' => ['management'],
+            ],
+
             // --- BE-S5-A5+A6: Semantic search tools ---
             [
                 'name' => 'semantic_search_docs',
@@ -1589,6 +1653,14 @@ final class AIToolRuntimeService
             'get_finance_overview' => self::executeFinanceOverview($db, $organizerId, $eventId),
             'get_supplier_payment_status' => self::executeSupplierPaymentStatus($db, $organizerId, $eventId),
             'get_ticket_sales_snapshot' => self::executeTicketSalesSnapshot($db, $organizerId, $eventId),
+
+            // Write skills (BE-S5-C1..C6) — all go through approval workflow
+            'update_stock_quantity' => self::executeWriteSkillViaApproval($db, $organizerId, 'update_stock_quantity', $arguments, $context),
+            'create_task_assignment' => self::executeWriteSkillViaApproval($db, $organizerId, 'create_task_assignment', $arguments, $context),
+            'send_campaign_message' => self::executeWriteSkillViaApproval($db, $organizerId, 'send_campaign_message', $arguments, $context),
+            'create_budget_line' => self::executeWriteSkillViaApproval($db, $organizerId, 'create_budget_line', $arguments, $context),
+            'import_payables_csv' => self::executeWriteSkillViaApproval($db, $organizerId, 'import_payables_csv', $arguments, $context),
+            'rollback_last_action' => self::executeWriteSkillViaApproval($db, $organizerId, 'rollback_last_action', $arguments, $context),
 
             // Semantic search (BE-S5)
             'semantic_search_docs' => self::executeSemanticSearchDocs($db, $organizerId, $arguments),
@@ -2423,6 +2495,48 @@ final class AIToolRuntimeService
             'total_sold' => $totalSold,
             'total_available' => $totalAvail,
             'sell_through_pct' => $totalAvail > 0 ? round($totalSold / $totalAvail * 100, 1) : 0,
+        ];
+    }
+
+    // ── BE-S5-C1..C6: Write skills via approval workflow ──────────
+
+    /**
+     * Generic handler for write skills: creates an approval request instead
+     * of executing directly. The actual execution happens when the user
+     * confirms via POST /ai/approvals/{id}/confirm.
+     */
+    private static function executeWriteSkillViaApproval(PDO $db, int $organizerId, string $skillKey, array $arguments, array $context): array
+    {
+        require_once __DIR__ . '/ApprovalWorkflowService.php';
+
+        $summaryMap = [
+            'update_stock_quantity'  => 'Atualizar estoque do produto #' . ($arguments['product_id'] ?? '?') . ' para ' . ($arguments['new_quantity'] ?? '?') . ' unidades',
+            'create_task_assignment' => 'Alocar membro #' . ($arguments['participant_id'] ?? '?') . ' no turno #' . ($arguments['event_shift_id'] ?? '?'),
+            'send_campaign_message'  => 'Disparar campanha via ' . ($arguments['channel'] ?? '?') . ' para audiencia ' . ($arguments['audience_filter'] ?? 'all'),
+            'create_budget_line'     => 'Criar linha de orcamento: R$ ' . number_format((float)($arguments['amount'] ?? 0), 2, ',', '.') . ' em ' . ($arguments['category'] ?? '?'),
+            'import_payables_csv'    => 'Importar contas a pagar do arquivo #' . ($arguments['file_id'] ?? '?'),
+            'rollback_last_action'   => 'Reverter acao da approval #' . ($arguments['approval_id'] ?? '?'),
+        ];
+
+        $approvalId = ApprovalWorkflowService::propose($db, [
+            'organizer_id'  => $organizerId,
+            'session_id'    => $context['session_id'] ?? null,
+            'agent_key'     => $context['agent_key'] ?? null,
+            'surface'       => $context['surface'] ?? null,
+            'skill_key'     => $skillKey,
+            'params'        => $arguments,
+            'risk_level'    => 'write',
+            'summary'       => $summaryMap[$skillKey] ?? "Executar {$skillKey}",
+            'user_id'       => $context['user_id'] ?? null,
+        ]);
+
+        return [
+            'approval_required' => true,
+            'approval_id'       => $approvalId,
+            'skill_key'         => $skillKey,
+            'summary'           => $summaryMap[$skillKey] ?? "Executar {$skillKey}",
+            'status'            => 'pending',
+            'message'           => 'Acao requer aprovacao. Use POST /ai/approvals/' . $approvalId . '/confirm para confirmar.',
         ];
     }
 

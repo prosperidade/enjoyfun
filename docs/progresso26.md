@@ -408,6 +408,12 @@ Approval workflow formalizado.
 - Migration 085: `ai_approval_requests` com RLS + index
 - `ApprovalWorkflowService.php` (NOVO): propose → confirm → cancel → listPending → markExecuted
 - 3 endpoints: `GET /ai/approvals/pending`, `POST /ai/approvals/{id}/confirm`, `POST /ai/approvals/{id}/cancel`
+
+#### Commit 5 — BE-S5-C1+C2+C3+C4+C5 + C6 ✅
+6 write skills (todas via approval workflow) + rollback.
+- `update_stock_quantity`, `create_task_assignment`, `send_campaign_message`, `create_budget_line`, `import_payables_csv`, `rollback_last_action`
+- Handler genérico `executeWriteSkillViaApproval()`: cria approval request com summary legível em vez de executar direto
+- Todas type='write' — bounded loop nunca auto-executa, sempre cria approval pending
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 
