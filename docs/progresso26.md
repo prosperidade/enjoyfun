@@ -294,6 +294,12 @@ Persona Platform Guide + routing forçado.
 - Surface `platform_guide` adicionada ao `surfaceCatalog` com persona didática (5 regras: sem dados operacionais, só tools de guia, PT-BR, paciente)
 - `AIIntentRouterService::routeIntent()` agora força `platform_guide` com confidence 1.0 quando `surface=platform_guide` OU `conversation_mode=global_help` (short-circuit antes do Tier 1)
 - `platform_guide` adicionado à lista `$validAgents` do Tier 2
+
+#### Commit 3 — BE-S3-B1 ✅
+Endpoint `GET /organizer-files/search` com FTS em parsed_data.
+- Busca em `original_name`, `notes` E `parsed_data::text` via ILIKE
+- Filtro por `category` opcional, `limit` configurável (max 50)
+- Dispatch adicionado no match() do OrganizerFileController (antes de list para não conflitar)
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 

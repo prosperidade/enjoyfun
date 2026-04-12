@@ -8,6 +8,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
     $db = Database::getInstance();
 
     match (true) {
+        $method === 'GET' && $id === 'search' => orgFileSearch($db, $query),
         $method === 'GET' && $id === null => orgFileList($db, $query),
         $method === 'POST' && $id === null => orgFileUpload($db),
         $method === 'GET' && is_numeric($id) && $sub === null => orgFileGet($db, (int)$id),
@@ -68,6 +69,53 @@ function orgFileList(PDO $db, array $query): void
         $pagination['page'],
         $pagination['per_page']
     );
+}
+
+/**
+ * BE-S3-B1: Full-text search across organizer files (name, notes, parsed_data).
+ * GET /organizer-files/search?q=keyword&category=financial
+ */
+function orgFileSearch(PDO $db, array $query): void
+{
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    if ($organizerId <= 0) { jsonError('Organizer invalido.', 403); }
+
+    $q = trim((string)($query['q'] ?? ''));
+    if ($q === '') { jsonError('Parametro q (keyword) e obrigatorio.', 422); }
+
+    $category = strtolower(trim((string)($query['category'] ?? '')));
+    $limit = min(max((int)($query['limit'] ?? 20), 1), 50);
+
+    $where = ["f.organizer_id = :org", "f.parsed_status = 'parsed'"];
+    $params = [':org' => $organizerId];
+
+    if ($category !== '') {
+        $where[] = 'f.category = :cat';
+        $params[':cat'] = $category;
+    }
+
+    // Search in name, notes, AND parsed_data content (cast jsonb to text)
+    $kw = '%' . strtolower($q) . '%';
+    $where[] = '(LOWER(f.original_name) LIKE :kw OR LOWER(COALESCE(f.notes, \'\')) LIKE :kw OR LOWER(COALESCE(f.parsed_data::text, \'\')) LIKE :kw)';
+    $params[':kw'] = $kw;
+
+    $sql = 'SELECT f.id, f.original_name, f.category, f.file_type, f.notes, f.created_at
+            FROM public.organizer_files f
+            WHERE ' . implode(' AND ', $where) . '
+            ORDER BY f.updated_at DESC NULLS LAST
+            LIMIT ' . $limit;
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $files = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+    jsonSuccess([
+        'query' => $q,
+        'category_filter' => $category ?: 'all',
+        'total_matches' => count($files),
+        'files' => $files,
+    ]);
 }
 
 function orgFileUpload(PDO $db): void
