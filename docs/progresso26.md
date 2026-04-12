@@ -52,8 +52,18 @@ git worktree remove c:/.../enjoyfun-mobile       # remove (após merge)
 
 ### Sprint 0
 - **BE-S0-01** ✅ `docs/progresso26.md` criado (este arquivo)
-- **BE-S0-02** 🔴 BLOQUEADO — rotação `OPENAI_API_KEY` + `GEMINI_API_KEY` exige acesso humano aos consoles. Aguarda André.
-- **BE-S0-03** 🔴 BLOQUEADO — re-encrypt `organizer_ai_providers` exige nova pgcrypto key + janela de manutenção. Aguarda André.
+- **BE-S0-02** ✅ resolvido 2026-04-11 22:30 — André rotacionou `OPENAI_API_KEY` + `GEMINI_API_KEY` nos consoles e atualizou `backend/.env`. Chaves antigas revogadas.
+- **BE-S0-03** 🟡 ainda pendente (não bloqueia Sprint 1) — re-encrypt `organizer_ai_providers` com nova pgcrypto key. Fallback para `.env` segue cobrindo, gera warning não-fatal a cada `/ai/chat`.
+
+**6 migrations aplicadas no Postgres em 2026-04-11 22:30** (cwd `enjoyfun`, banco `enjoyfun`):
+- 069_rls_ai_memory_reports ✅ RLS em 3 tabelas
+- 070_session_composite_key ✅ session_key + conversation_mode + routing_trace_id
+- 074_manifest_sync ✅ marker
+- 075_ai_routing_events ✅ tabela criada + RLS
+- 076_ai_tool_executions ✅ tabela criada + RLS
+- 077_ai_platform_guide ✅ agent platform_guide + 4 skills + 4 mappings
+
+Validação: `session_key col=1`, `platform_guide agent=1`, `platform skills=4`, `ai_routing_events=1`, `ai_tool_executions=1`, `relrowsecurity=true` em ai_agent_memories.
 - **BE-S0-04** ✅ `backend/config/features.php` criado com 12 flags da §1.5, todas default `false`
 - **BE-S0-05** ✅ `docs/adr_emas_architecture_v1.md` criado (Aceito)
 - **BE-S0-06** ✅ `docs/adr_platform_guide_agent_v1.md` criado (Aceito)

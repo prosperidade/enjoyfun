@@ -42,3 +42,10 @@
 065_ai_find_events_skill.sql | applied | 2026-04-10T23:44:27Z | find_events skill registered for 12 agents
 11/04/2026 11:33:03 - APLICADA: database/066_organizer_ai_dna.sql
 067_ai_agent_personas.sql | applied | 2026-04-11T15:12:23Z | 12 agent personas populated (30y specialist voices) + action catalog wiring
+
+2026-04-11T22:30:00-03:00 — 069_rls_ai_memory_reports.sql — applied
+2026-04-11T22:30:00-03:00 — 070_session_composite_key.sql — applied
+2026-04-11T22:30:00-03:00 — 074_manifest_sync.sql — applied (marker)
+2026-04-11T22:30:00-03:00 — 075_ai_routing_events.sql — applied
+2026-04-11T22:30:00-03:00 — 076_ai_tool_executions.sql — applied
+2026-04-11T22:30:00-03:00 — 077_ai_platform_guide.sql — applied (platform_guide agent + 4 skills)
