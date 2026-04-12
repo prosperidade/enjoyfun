@@ -279,6 +279,20 @@ final class AIOrchestratorService
         $memoryId = self::recordLearningMemory($db, $organizerId, $context, $agentExecution, $question, $result, $executionId);
         self::writeMemoryAudit($operator, $organizerId, $context, $agentExecution, $result, $executionId, $memoryId);
 
+        // BE-S6-A5: Auto-log to MemPalace sidecar (fire-and-forget)
+        try {
+            require_once __DIR__ . '/AIMemoryBridgeService.php';
+            $memSurface = $context['surface'] ?? 'general';
+            $memContent = mb_substr($question . ' → ' . ($result['insight'] ?? ''), 0, 1000);
+            AIMemoryBridgeService::store($memSurface, $memContent, [
+                'organizer_id' => $organizerId,
+                'agent_key' => $agentExecution['agent_key'] ?? null,
+                'memory_id' => $memoryId,
+            ]);
+        } catch (\Throwable $mpErr) {
+            // Non-blocking — MemPalace is optional
+        }
+
         $finalInsight = trim((string)($result['insight'] ?? ''));
         if ($finalInsight === '' && ($result['tool_results'] ?? []) !== []) {
             $summaryParts = [];
@@ -1360,6 +1374,18 @@ final class AIOrchestratorService
                 $n = $i + 1;
                 $lines[] = "{$n}. {$m['title']}: {$m['summary']}";
             }
+            // BE-S6-A6: Hybrid recall — also pull from MemPalace if available
+            try {
+                require_once __DIR__ . '/AIMemoryBridgeService.php';
+                $mpMemories = AIMemoryBridgeService::search($surface, '', 2);
+                foreach ($mpMemories as $mpm) {
+                    $n = count($lines);
+                    $lines[] = "{$n}. [MemPalace] " . mb_substr($mpm['content'] ?? '', 0, 200);
+                }
+            } catch (\Throwable $mpErr) {
+                // MemPalace offline — relational only
+            }
+
             $lines[] = "Use estas memorias como contexto adicional, mas SEMPRE priorize dados frescos das tools.";
 
             return implode("\n", $lines);
