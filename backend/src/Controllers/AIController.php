@@ -39,6 +39,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'POST' && $id === 'approvals' && ctype_digit((string)$sub) && $subId === 'confirm' => confirmApproval((int)$sub, $body),
         $method === 'POST' && $id === 'approvals' && ctype_digit((string)$sub) && $subId === 'cancel' => cancelApproval((int)$sub, $body),
         $method === 'POST' && $id === 'voice' && $sub === 'transcribe' => transcribeVoice(),
+        $method === 'GET' && $id === 'chat' && $sub === 'stream' => streamChat($query),
         default => jsonError("Rota não encontrada: {$method} /{$id}", 404),
     };
 }
@@ -737,6 +738,41 @@ function getAiHealth(): void
         error_log("[AIController::getAiHealth] Error (Ref: {$ref}) - " . $e->getMessage());
         jsonError("Erro ao gerar relatório de saúde da IA (Ref: {$ref})", 500);
     }
+}
+
+// ── BE-S6-B2: SSE streaming endpoint ────────────────────────────
+
+function streamChat(array $query): void
+{
+    require_once BASE_PATH . '/src/Services/AIStreamingService.php';
+
+    if (!\EnjoyFun\Services\AIStreamingService::isEnabled()) {
+        jsonError('SSE streaming desabilitado', 403);
+    }
+
+    $operator = requireAuth(['admin', 'organizer', 'manager', 'bartender', 'staff']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    if ($organizerId <= 0) { jsonError('Organizer invalido.', 403); }
+
+    $sessionId = trim((string)($query['session_id'] ?? ''));
+    if ($sessionId === '') { jsonError('session_id e obrigatorio.', 422); }
+
+    $db = Database::getInstance();
+    $session = \EnjoyFun\Services\AIConversationService::getSession($db, $sessionId, $organizerId);
+    if (!$session) { jsonError('Sessao nao encontrada.', 404); }
+
+    \EnjoyFun\Services\AIStreamingService::initSSE();
+    \EnjoyFun\Services\AIStreamingService::emit('connected', [
+        'session_id' => $sessionId,
+        'surface' => $session['surface'] ?? 'unknown',
+        'agent' => $session['routed_agent_key'] ?? 'management',
+    ]);
+
+    // In the current implementation, SSE is a placeholder that emits the
+    // connection event. Full token-by-token streaming requires provider-level
+    // streaming support (OpenAI stream=true) which will be wired in when
+    // Redis pub/sub is active. For now, clients use this to verify SSE works.
+    \EnjoyFun\Services\AIStreamingService::emitDone(['mode' => 'placeholder']);
 }
 
 // ── BE-S5-C7: Voice proxy (Whisper) ─────────────────────────────
