@@ -44,7 +44,7 @@
       "eas": {
         "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
       },
-      "embeddedV3": false
+      "embeddedV3": true
     }
   }
 }
