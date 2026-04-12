@@ -210,7 +210,7 @@ function orgFileUpload(PDO $db): void
 
     // Auto-parse CSV and JSON
     if (in_array($fileType, ['csv', 'json'], true)) {
-        orgFileAutoparse($db, $fileId, $fullPath, $fileType);
+        orgFileAutoparse($db, $fileId, $fullPath, $fileType, $organizerId);
     }
 
     // Reload record
@@ -285,7 +285,7 @@ function orgFileReparse(PDO $db, int $fileId): void
         jsonError('Arquivo fisico nao encontrado no servidor.', 404);
     }
 
-    orgFileAutoparse($db, $fileId, $fullPath, $file['file_type']);
+    orgFileAutoparse($db, $fileId, $fullPath, $file['file_type'], $organizerId);
 
     $stmt = $db->prepare("SELECT parsed_status, parsed_at, parsed_error FROM public.organizer_files WHERE id = :id LIMIT 1");
     $stmt->execute([':id' => $fileId]);
@@ -321,7 +321,7 @@ function orgFileDelete(PDO $db, int $fileId): void
 //  Auto-parse engine (CSV / JSON)
 // ──────────────────────────────────────────────────────────────
 
-function orgFileAutoparse(PDO $db, int $fileId, string $fullPath, string $fileType): void
+function orgFileAutoparse(PDO $db, int $fileId, string $fullPath, string $fileType, int $organizerId = 0): void
 {
     $db->prepare("UPDATE public.organizer_files SET parsed_status = 'parsing', updated_at = NOW() WHERE id = :id")->execute([':id' => $fileId]);
 
@@ -339,6 +339,14 @@ function orgFileAutoparse(PDO $db, int $fileId, string $fullPath, string $fileTy
 
         $db->prepare("UPDATE public.organizer_files SET parsed_status = 'parsed', parsed_data = :data, parsed_at = NOW(), parsed_error = NULL, updated_at = NOW() WHERE id = :id")
            ->execute([':data' => json_encode($parsedData, JSON_UNESCAPED_UNICODE), ':id' => $fileId]);
+
+        // BE-S5-A4: Trigger embedding generation after successful parse (fire-and-forget)
+        try {
+            require_once BASE_PATH . '/src/Services/AIEmbeddingService.php';
+            \EnjoyFun\Services\AIEmbeddingService::generateEmbeddings($db, $organizerId, $fileId);
+        } catch (\Throwable $embErr) {
+            error_log('[OrganizerFileController] Embedding generation failed (non-blocking): ' . $embErr->getMessage());
+        }
     } catch (\Throwable $e) {
         $db->prepare("UPDATE public.organizer_files SET parsed_status = 'failed', parsed_error = :err, updated_at = NOW() WHERE id = :id")
            ->execute([':err' => substr($e->getMessage(), 0, 500), ':id' => $fileId]);

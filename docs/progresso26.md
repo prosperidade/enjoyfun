@@ -391,6 +391,12 @@ pgvector extension + embeddings table (graceful skip).
 - Migration 083: `CREATE EXTENSION vector` com DO/EXCEPTION (warning se pgvector não instalado)
 - Migration 084: `document_embeddings` tabela + RLS + ivfflat index (skip se vector type não existe)
 - **Nota:** pgvector NÃO está instalado no PostgreSQL do André. Tabela será criada quando extension for instalada. Código PHP verifica via feature flag `FEATURE_AI_PGVECTOR`
+
+#### Commit 2 — BE-S5-A3 + A4 ✅
+AIEmbeddingService + upload trigger.
+- `AIEmbeddingService.php` (NOVO): pipeline extractText → chunkText (500 chars, 100 overlap) → callEmbeddingsApi (text-embedding-3-small, 1536 dims) → INSERT document_embeddings. Gated por `FEATURE_AI_PGVECTOR`
+- `embedQuery()`: gera embedding de uma query (para semantic search)
+- `orgFileAutoparse()` agora recebe `$organizerId` e dispara `generateEmbeddings()` após parse success (fire-and-forget)
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 
