@@ -362,6 +362,12 @@ Prompt versioning + tool execution logging ativado.
 - **B6** `inspect_session_trace`: JOIN session + messages + tool_executions — trace completo
 - **B7** `report_fallback_incident`: registra incidente no audit_log com action=ai.fallback_incident
 - **B8** `detect_silent_failure`: detecta tool calls com status=ok mas result vazio (últimas N horas)
+
+#### Commit 5 — BE-S4-C1 + C2 ✅
+Grounding score + validation integrado.
+- `AIGroundingValidatorService.php` (NOVO): 5 heurísticas — números sem fonte (-20), temporal sem grounding (-10), dados sem tools (-25), entidade not found + resposta longa (-15), "vou buscar" (-10). Score 0-100
+- Integrado no `generateInsight()` após bounded loop. `grounding_score` + `grounding_violations` no response
+- Log `[LOW GROUNDING]` quando score < 60
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 

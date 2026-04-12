@@ -314,6 +314,28 @@ final class AIOrchestratorService
             $response['loop_metadata'] = $result['loop_metadata'];
         }
 
+        // BE-S4-C1+C2: Grounding score — validates response is backed by tool results
+        try {
+            require_once __DIR__ . '/AIGroundingValidatorService.php';
+            $grounding = AIGroundingValidatorService::calculateGroundingScore(
+                $response['insight'] ?? '',
+                $result['tool_results'] ?? [],
+                $result['tool_calls'] ?? []
+            );
+            $response['grounding_score'] = $grounding['score'];
+            if (!empty($grounding['violations'])) {
+                $response['grounding_violations'] = $grounding['violations'];
+            }
+            // Log low-grounding responses for monitoring
+            if ($grounding['score'] < 60) {
+                error_log('[AIOrchestratorService] LOW GROUNDING score=' . $grounding['score']
+                    . ' violations=' . implode('; ', $grounding['violations'])
+                    . ' agent=' . ($agentExecution['agent_key'] ?? 'unknown'));
+            }
+        } catch (\Throwable $ge) {
+            error_log('[AIOrchestratorService] Grounding validation failed: ' . $ge->getMessage());
+        }
+
         return $response;
     }
 
