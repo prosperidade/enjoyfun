@@ -780,15 +780,18 @@ final class AIOrchestratorService
         $model = trim((string)($runtime['model'] ?? 'gpt-4o-mini'));
         $baseUrl = rtrim((string)($runtime['base_url'] ?? 'https://api.openai.com/v1'), '/');
 
+        // EMAS BE-S1-A4: temp 0.25 + tool_choice 'required' on 1st pass.
+        // Forces the model to call a tool before answering — eliminates fabrication
+        // on operational surfaces. ADR docs/adr_emas_architecture_v1.md decisão 3.
         $payloadData = [
             'model' => $model,
             'messages' => self::serializeMessagesForOpenAi($messages),
-            'temperature' => 0.4,
+            'temperature' => 0.25,
         ];
         $openAiTools = AIToolRuntimeService::buildOpenAiToolDefinitions($toolCatalog);
         if ($openAiTools !== []) {
             $payloadData['tools'] = $openAiTools;
-            $payloadData['tool_choice'] = 'auto';
+            $payloadData['tool_choice'] = 'required';
         }
         $payload = json_encode($payloadData, JSON_UNESCAPED_UNICODE);
 
@@ -830,12 +833,14 @@ final class AIOrchestratorService
         $baseUrl = rtrim((string)($runtime['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta'), '/');
         $url = $baseUrl . '/models/' . rawurlencode($model) . ':generateContent?key=' . rawurlencode($apiKey);
 
+        // EMAS BE-S1-A4: temp 0.25. Gemini doesn't expose tool_choice 'required',
+        // but the prompt catalog (BE-S1-A5) reinforces tool-first behavior.
         $serialized = self::serializeMessagesForGemini($messages);
         $payloadData = [
             'system_instruction' => $serialized['system_instruction'],
             'contents' => $serialized['contents'],
             'generationConfig' => [
-                'temperature' => 0.4,
+                'temperature' => 0.25,
                 'response_mime_type' => 'text/plain',
             ],
         ];
@@ -892,13 +897,14 @@ final class AIOrchestratorService
             }
         }
 
+        // EMAS BE-S1-A4: temp 0.25 (Claude path).
         $serialized = self::serializeMessagesForClaude($messages);
         $payloadData = [
             'model' => $model,
             'system' => $serialized['system'],
             'messages' => $serialized['messages'],
             'max_tokens' => 800,
-            'temperature' => 0.4,
+            'temperature' => 0.25,
         ];
         $claudeTools = AIToolRuntimeService::buildClaudeToolDefinitions($toolCatalog);
         if ($claudeTools !== []) {
@@ -1525,13 +1531,14 @@ final class AIOrchestratorService
 
         $model = trim((string)($runtime['model'] ?? 'gpt-4o-mini'));
         $baseUrl = rtrim((string)($runtime['base_url'] ?? 'https://api.openai.com/v1'), '/');
+        // EMAS BE-S1-A4: temp 0.25 (legacy single-prompt OpenAI path, kept for back-compat).
         $payloadData = [
             'model' => $model,
             'messages' => [
                 ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user', 'content' => $prompt],
             ],
-            'temperature' => 0.4,
+            'temperature' => 0.25,
         ];
         $openAiTools = AIToolRuntimeService::buildOpenAiToolDefinitions($toolCatalog);
         if ($openAiTools !== []) {
@@ -1591,7 +1598,7 @@ final class AIOrchestratorService
                 ['role' => 'user', 'parts' => [['text' => $prompt]]],
             ],
             'generationConfig' => [
-                'temperature' => 0.4,
+                'temperature' => 0.25,
                 'response_mime_type' => 'text/plain',
             ],
         ];
@@ -1654,6 +1661,7 @@ final class AIOrchestratorService
             }
         }
 
+        // EMAS BE-S1-A4: temp 0.25 (legacy single-prompt Claude path).
         $payloadData = [
             'model' => $model,
             'system' => $systemPrompt,
@@ -1661,7 +1669,7 @@ final class AIOrchestratorService
                 ['role' => 'user', 'content' => $prompt],
             ],
             'max_tokens' => 800,
-            'temperature' => 0.4,
+            'temperature' => 0.25,
         ];
         $claudeTools = AIToolRuntimeService::buildClaudeToolDefinitions($toolCatalog);
         if ($claudeTools !== []) {

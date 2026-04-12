@@ -14,70 +14,142 @@ use PDO;
 final class AIIntentRouterService
 {
     /**
+     * EMAS BE-S1-A3 hint bonus weight applied to the agent_key the client suggests.
+     * The hint is treated as preference, never as override (no more short-circuit).
+     */
+    private const AGENT_HINT_BONUS = 5;
+
+    /**
      * Route a user's question to the best-matching agent and surface.
      *
-     * @return array{agent_key: string, surface: string, confidence: float, reasoning: string}
+     * EMAS BE-S1-A3: removes the prior short-circuit that returned the client-supplied
+     * agent_key as-is. Now agent_key is a HINT that adds AGENT_HINT_BONUS to that
+     * candidate's Tier 1 score. The router runs every time (re-evaluation per message)
+     * and emits a routing_trace_id that joins to ai_routing_events (migration 075).
+     *
+     * @return array{agent_key: string, surface: string, confidence: float, reasoning: string, routing_trace_id: string, tier: int}
      */
     public static function routeIntent(PDO $db, int $organizerId, string $question, array $context = []): array
     {
-        // If agent_key is already specified, respect it
-        $explicitAgent = strtolower(trim((string)($context['agent_key'] ?? '')));
-        if ($explicitAgent !== '') {
-            return [
-                'agent_key'  => $explicitAgent,
-                'surface'    => $context['surface'] ?? self::inferSurfaceFromAgent($explicitAgent),
-                'confidence' => 1.0,
-                'reasoning'  => 'agent_key fornecido explicitamente pelo contexto',
-            ];
-        }
+        $startMs = (int)round(microtime(true) * 1000);
 
-        // If surface is specified but no agent, find best agent for that surface
+        $agentHint = strtolower(trim((string)($context['agent_key'] ?? '')));
         $explicitSurface = strtolower(trim((string)($context['surface'] ?? '')));
+        $sessionId = isset($context['session_id']) ? (string)$context['session_id'] : null;
+        $userId = isset($context['user_id']) ? (int)$context['user_id'] : null;
+        $routingTraceId = self::generateUuidV4();
 
-        // Tier 1: Keyword/pattern matching
-        $result = self::tier1KeywordRoute($question, $explicitSurface);
-
-        // If confidence is high enough, return immediately
-        if ($result['confidence'] >= 0.6) {
-            return $result;
-        }
+        // Tier 1: Keyword/pattern matching with hint bonus
+        $tier1 = self::tier1KeywordRoute($question, $explicitSurface, $agentHint);
+        $result = $tier1;
+        $tier = 1;
 
         // Tier 2: LLM-assisted routing for low-confidence intents
-        $tier2Flag = getenv('FEATURE_AI_INTENT_ROUTER_LLM');
-        if (in_array(strtolower((string)$tier2Flag), ['1', 'true', 'yes', 'on'], true)) {
-            $tier2Result = self::tier2LLMRoute($db, $organizerId, $question, $explicitSurface);
-            if ($tier2Result !== null && $tier2Result['confidence'] > $result['confidence']) {
-                return $tier2Result;
+        if ($tier1['confidence'] < 0.6) {
+            $tier2Flag = getenv('FEATURE_AI_INTENT_ROUTER_LLM');
+            if (in_array(strtolower((string)$tier2Flag), ['1', 'true', 'yes', 'on'], true)) {
+                $tier2Result = self::tier2LLMRoute($db, $organizerId, $question, $explicitSurface, $agentHint);
+                if ($tier2Result !== null && $tier2Result['confidence'] > $tier1['confidence']) {
+                    $result = $tier2Result;
+                    $tier = 2;
+                }
             }
         }
 
-        // If we have a surface, use it to pick a default agent
-        if ($explicitSurface !== '') {
+        // Surface fallback when nothing matched
+        if ($result['confidence'] < 0.3 && $explicitSurface !== '') {
             $surfaceAgent = self::inferAgentFromSurface($explicitSurface);
             if ($surfaceAgent !== '') {
-                return [
+                $result = [
                     'agent_key'  => $surfaceAgent,
                     'surface'    => $explicitSurface,
                     'confidence' => 0.5,
                     'reasoning'  => "Roteado pela superficie '{$explicitSurface}' sem match forte de keywords",
+                    'candidates' => $result['candidates'] ?? [],
                 ];
             }
         }
 
-        // Fallback to management (general-purpose agent)
-        return [
-            'agent_key'  => 'management',
-            'surface'    => $explicitSurface ?: 'dashboard',
-            'confidence' => 0.3,
-            'reasoning'  => 'Fallback para agente de gestao — nenhum match de keyword ou superficie',
-        ];
+        // Final fallback
+        if ($result['agent_key'] === '' || $result['confidence'] <= 0) {
+            $result = [
+                'agent_key'  => 'management',
+                'surface'    => $explicitSurface ?: 'dashboard',
+                'confidence' => 0.3,
+                'reasoning'  => 'Fallback para agente de gestao — nenhum match',
+                'candidates' => $result['candidates'] ?? [],
+            ];
+        }
+
+        $latencyMs = max(0, ((int)round(microtime(true) * 1000)) - $startMs);
+
+        $result['routing_trace_id'] = $routingTraceId;
+        $result['tier'] = $tier;
+        $result['latency_ms'] = $latencyMs;
+
+        // Persist routing event (best-effort, never blocks the request)
+        try {
+            self::persistRoutingEvent($db, [
+                'routing_trace_id' => $routingTraceId,
+                'organizer_id'     => $organizerId,
+                'user_id'          => $userId,
+                'session_id'       => $sessionId,
+                'surface_hint'     => $explicitSurface ?: null,
+                'surface_chosen'   => $result['surface'] ?? null,
+                'agent_hint'       => $agentHint ?: null,
+                'agent_chosen'     => $result['agent_key'],
+                'confidence'       => (float)$result['confidence'],
+                'tier'             => $tier,
+                'candidates_json'  => json_encode($result['candidates'] ?? []),
+                'reasoning'        => $result['reasoning'] ?? null,
+                'question_excerpt' => mb_substr($question, 0, 480),
+                'latency_ms'       => $latencyMs,
+            ]);
+        } catch (\Throwable $persistErr) {
+            error_log('[IntentRouter::persistRoutingEvent] ' . $persistErr->getMessage());
+        }
+
+        // Strip internal keys before returning
+        unset($result['candidates']);
+        return $result;
+    }
+
+    /**
+     * Persist a routing decision to ai_routing_events (migration 075).
+     */
+    private static function persistRoutingEvent(PDO $db, array $row): void
+    {
+        $stmt = $db->prepare(
+            'INSERT INTO ai_routing_events
+                (routing_trace_id, organizer_id, user_id, session_id,
+                 surface_hint, surface_chosen, agent_hint, agent_chosen,
+                 confidence, tier, candidates_json, reasoning,
+                 question_excerpt, latency_ms)
+             VALUES
+                (:routing_trace_id, :organizer_id, :user_id, :session_id,
+                 :surface_hint, :surface_chosen, :agent_hint, :agent_chosen,
+                 :confidence, :tier, :candidates_json, :reasoning,
+                 :question_excerpt, :latency_ms)'
+        );
+        $stmt->execute($row);
+    }
+
+    /**
+     * Generate a RFC 4122 v4 UUID using random_bytes (no extension required).
+     */
+    private static function generateUuidV4(): string
+    {
+        $data = random_bytes(16);
+        $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
+        $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 
     /**
      * Tier 1: keyword-based intent classification.
-     * Each agent has weighted keyword groups. Highest score wins.
+     * EMAS BE-S1-A3: agent_key client hint adds AGENT_HINT_BONUS to that candidate's score.
      */
-    private static function tier1KeywordRoute(string $question, string $hintSurface): array
+    private static function tier1KeywordRoute(string $question, string $hintSurface, string $agentHint = ''): array
     {
         $q = function_exists('mb_strtolower') ? mb_strtolower($question, 'UTF-8') : strtolower($question);
 
@@ -204,6 +276,12 @@ final class AIIntentRouterService
                 $score += 1;
             }
 
+            // EMAS BE-S1-A3: client agent_key hint bonus (+5).
+            // The hint is preference, not override — always combined with keyword scoring.
+            if ($agentHint !== '' && $agentHint === $agentKey) {
+                $score += self::AGENT_HINT_BONUS;
+            }
+
             if ($score > 0) {
                 $scores[$agentKey] = $score;
             }
@@ -215,6 +293,7 @@ final class AIIntentRouterService
                 'surface'    => $hintSurface ?: 'dashboard',
                 'confidence' => 0.2,
                 'reasoning'  => 'Nenhuma keyword encontrada — fallback para gestao',
+                'candidates' => [],
             ];
         }
 
@@ -229,11 +308,25 @@ final class AIIntentRouterService
 
         $surface = $hintSurface ?: ($agentPatterns[$bestAgent]['primary_surface'] ?? 'dashboard');
 
+        $hintMarker = ($agentHint !== '' && $agentHint === $bestAgent) ? ' (+hint)' : '';
+
+        // Build top-5 candidate snapshot for ai_routing_events.candidates_json
+        $candidates = [];
+        $i = 0;
+        foreach ($scores as $candAgent => $candScore) {
+            if ($i >= 5) {
+                break;
+            }
+            $candidates[] = ['agent_key' => $candAgent, 'score' => $candScore];
+            $i++;
+        }
+
         return [
             'agent_key'  => $bestAgent,
             'surface'    => $surface,
             'confidence' => round($confidence, 2),
-            'reasoning'  => "Keyword match: score={$bestScore}, gap={$gap} — agente '{$bestAgent}'",
+            'reasoning'  => "Keyword match: score={$bestScore}, gap={$gap}{$hintMarker} — agente '{$bestAgent}'",
+            'candidates' => $candidates,
         ];
     }
 
@@ -267,7 +360,7 @@ final class AIIntentRouterService
      * Use a lightweight LLM call to classify intent when keyword matching
      * has low confidence. Uses the cheapest model available.
      */
-    private static function tier2LLMRoute(PDO $db, int $organizerId, string $question, string $hintSurface): ?array
+    private static function tier2LLMRoute(PDO $db, int $organizerId, string $question, string $hintSurface, string $agentHint = ''): ?array
     {
         $agentList = implode("\n", [
             'marketing — vendas de ingresso, campanhas, divulgacao, lotes, demanda comercial',
