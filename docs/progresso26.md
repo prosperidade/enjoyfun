@@ -343,6 +343,11 @@ Monitoring service + 2 migrations + /ai/health endpoint.
 - Migration 080: `ai_agent_usage_daily` (materialização diária por agente)
 - Migration 081: `ai_skill_registry` + version, deprecated_at, successor_key, prompt_hash
 - `GET /ai/health` no AIController — retorna report completo
+
+#### Commit 2 — BE-S4-A4 + A5 ✅
+Prompt versioning + tool execution logging ativado.
+- Migration 082: `ai_prompt_versions` (agent_key, prompt_hash, content_snapshot)
+- Tool execution logging no bounded loop: cada tool call → INSERT em `ai_tool_executions` (best-effort, não bloqueia em caso de erro)
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 

@@ -784,6 +784,31 @@ final class AIOrchestratorService
             $stepToolResults = $toolRuntime['tool_results'] ?? [];
             $toolRoundtrips++;
 
+            // BE-S4-A5: Log each tool execution to ai_tool_executions (best-effort)
+            $executedTools = $newToolCalls !== [] ? $newToolCalls : $readOnlyToolCalls;
+            foreach ($stepToolResults as $trIdx => $tr) {
+                $tc = $executedTools[$trIdx] ?? null;
+                if ($tc !== null) {
+                    try {
+                        $db->prepare("
+                            INSERT INTO public.ai_tool_executions
+                                (organizer_id, agent_key, surface, tool_key, params_json, result_status, duration_ms, created_at)
+                            VALUES (:org, :agent, :surface, :tool, :params, :status, :dur, NOW())
+                        ")->execute([
+                            ':org'     => $organizerId,
+                            ':agent'   => $agentExecution['agent_key'] ?? null,
+                            ':surface' => $context['surface'] ?? null,
+                            ':tool'    => (string)($tc['name'] ?? $tc['tool'] ?? ''),
+                            ':params'  => json_encode($tc['arguments'] ?? []),
+                            ':status'  => isset($tr['error']) ? 'error' : 'ok',
+                            ':dur'     => (int)($tc['duration_ms'] ?? 0),
+                        ]);
+                    } catch (\Throwable $logErr) {
+                        error_log('[AIOrchestratorService] tool execution log failed: ' . $logErr->getMessage());
+                    }
+                }
+            }
+
             // Bug I fix: cache executed tool results for dedup in subsequent steps
             foreach ($stepToolResults as $idx => $tr) {
                 $tcForCache = $newToolCalls[$idx] ?? $readOnlyToolCalls[$idx] ?? null;

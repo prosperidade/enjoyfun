@@ -53,3 +53,4 @@
 2026-04-12 079_ai_memory_relevance.sql APPLIED (relevance_score + recall tracking)
 2026-04-12 080_ai_metrics_daily.sql APPLIED
 2026-04-12 081_ai_skill_versioning.sql APPLIED
+2026-04-12 082_ai_prompt_versions.sql APPLIED
