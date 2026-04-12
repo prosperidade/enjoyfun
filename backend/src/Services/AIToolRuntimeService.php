@@ -11,6 +11,7 @@ require_once __DIR__ . '/WorkforceTreeUseCaseService.php';
 require_once __DIR__ . '/AIMCPClientService.php';
 require_once __DIR__ . '/AuditService.php';
 require_once __DIR__ . '/AISkillRegistryService.php';
+require_once __DIR__ . '/PlatformKnowledgeService.php';
 
 final class AIToolRuntimeService
 {
@@ -767,6 +768,100 @@ final class AIToolRuntimeService
                 'agent_keys' => ['management', 'marketing'],
             ],
 
+            // --- BE-S3-A1: Platform Guide tools ---
+            [
+                'name' => 'get_module_help',
+                'description' => 'Explica um modulo da plataforma EnjoyFun: descricao, fluxos, configuracoes e navegacao. Use para responder "como funciona o modulo X?".',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'module_key' => ['type' => 'string', 'description' => 'Chave do modulo: events, tickets, cards, bar, food, shop, pos, parking, workforce, meals, artists, messaging, branding, finance, files, ai, superadmin.'],
+                    ],
+                    'required' => ['module_key'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_module_help', 'module_help', 'platform.module_help'],
+                'type' => 'read',
+                'surfaces' => ['platform_guide'],
+                'agent_keys' => ['platform_guide'],
+            ],
+            [
+                'name' => 'get_configuration_steps',
+                'description' => 'Retorna passo a passo para configurar uma feature: gateway, branding, WhatsApp, cartoes em massa, etc.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'feature_key' => ['type' => 'string', 'description' => 'Chave da feature: gateway_asaas, gateway_mercadopago, branding_visual, whatsapp_evolution, bulk_card_issuance, ai_agents, workforce_roles, meal_services, event_creation, ticket_types, totp_validation.'],
+                    ],
+                    'required' => ['feature_key'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['get_configuration_steps', 'config_steps', 'platform.config_steps'],
+                'type' => 'read',
+                'surfaces' => ['platform_guide'],
+                'agent_keys' => ['platform_guide'],
+            ],
+            [
+                'name' => 'navigate_to_screen',
+                'description' => 'Retorna a rota de navegacao para uma tela da plataforma. Use quando o usuario pede "leva pra tela X" ou "onde fica Y?".',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'target_key' => ['type' => 'string', 'description' => 'Chave da tela de destino.'],
+                    ],
+                    'required' => ['target_key'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['navigate_to_screen', 'navigate', 'platform.navigate'],
+                'type' => 'read',
+                'surfaces' => ['platform_guide'],
+                'agent_keys' => ['platform_guide'],
+            ],
+            [
+                'name' => 'diagnose_organizer_setup',
+                'description' => 'Diagnostica o setup do organizador: verifica branding, gateway, AI provider, mensageria e evento ativo. Retorna gaps e status.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [],
+                    'required' => [],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['diagnose_organizer_setup', 'diagnose_setup', 'platform.diagnose'],
+                'type' => 'read',
+                'surfaces' => ['platform_guide'],
+                'agent_keys' => ['platform_guide'],
+            ],
+            [
+                'name' => 'list_platform_features',
+                'description' => 'Lista todos os modulos e features configuraveis da plataforma.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [],
+                    'required' => [],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['list_platform_features', 'platform.features'],
+                'type' => 'read',
+                'surfaces' => ['platform_guide'],
+                'agent_keys' => ['platform_guide'],
+            ],
+            [
+                'name' => 'explain_concept',
+                'description' => 'Explica um conceito tecnico da plataforma em linguagem simples: multi-tenant, white label, cashless, RLS, TOTP, etc.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'concept' => ['type' => 'string', 'description' => 'Nome do conceito a explicar.'],
+                    ],
+                    'required' => ['concept'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['explain_concept', 'platform.explain'],
+                'type' => 'read',
+                'surfaces' => ['platform_guide'],
+                'agent_keys' => ['platform_guide'],
+            ],
+
             // --- Content agent tools ---
             [
                 'name' => 'get_event_content_context',
@@ -1250,6 +1345,14 @@ final class AIToolRuntimeService
             'get_finance_overview' => self::executeFinanceOverview($db, $organizerId, $eventId),
             'get_supplier_payment_status' => self::executeSupplierPaymentStatus($db, $organizerId, $eventId),
             'get_ticket_sales_snapshot' => self::executeTicketSalesSnapshot($db, $organizerId, $eventId),
+
+            // Platform Guide (BE-S3-A1)
+            'get_module_help' => PlatformKnowledgeService::getModuleHelp((string)($arguments['module_key'] ?? '')),
+            'get_configuration_steps' => PlatformKnowledgeService::getConfigurationSteps((string)($arguments['feature_key'] ?? '')),
+            'navigate_to_screen' => PlatformKnowledgeService::getNavigationTarget((string)($arguments['target_key'] ?? '')),
+            'diagnose_organizer_setup' => PlatformKnowledgeService::diagnoseOrganizerSetup($db, $organizerId),
+            'list_platform_features' => PlatformKnowledgeService::listPlatformFeatures(),
+            'explain_concept' => PlatformKnowledgeService::explainConcept((string)($arguments['concept'] ?? '')),
 
             // Content
             'get_event_content_context' => self::executeEventContentContext($db, $organizerId, $eventId),

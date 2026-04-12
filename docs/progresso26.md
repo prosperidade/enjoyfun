@@ -277,6 +277,17 @@ PT-BR labels formalizados no banco + runtime configurável.
 - **C3** Dicionários hardcoded enriquecidos com ~25 labels novos dos tools do Sprint 2 (rupture, vehicle_mix, capacity_pct, coverage_pct, etc.)
 
 **Sprint 2 Backend 100% concluído** — 20/20 tickets entregues em 8 commits.
+
+### Sprint 3
+
+**Início:** 2026-04-12 | **Plano:** 7 commits, 3 trilhas (A Platform Guide + B RAG + C Memória)
+
+#### Commit 1 — BE-S3-A1 + A2 ✅
+Wire Platform Guide tools no dispatch + 2 skills novas + módulo completo.
+- 6 tool definitions adicionadas no registry (get_module_help, get_configuration_steps, navigate_to_screen, diagnose_organizer_setup, list_platform_features, explain_concept)
+- 6 dispatch entries chamando PlatformKnowledgeService::*
+- `listPlatformFeatures()`: lista todos módulos + features configuráveis
+- `explainConcept()`: 13 conceitos técnicos explicados em PT-BR simples (multi_tenant, cashless, rls, totp, etc.)
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 

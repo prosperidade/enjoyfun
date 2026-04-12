@@ -529,4 +529,61 @@ final class PlatformKnowledgeService
         }
         return $out;
     }
+
+    // ──────────────────────────────────────────────────────────────
+    //  BE-S3-A1: list_platform_features + explain_concept
+    // ──────────────────────────────────────────────────────────────
+
+    /** Lists all platform features (modules + configurable features). */
+    public static function listPlatformFeatures(): array
+    {
+        $modules = self::listModules();
+        $configs = [];
+        foreach (self::CONFIG_STEPS as $key => $cfg) {
+            $configs[] = ['key' => $key, 'label' => $cfg['label'], 'steps_count' => count($cfg['steps'])];
+        }
+        return [
+            'ok' => true,
+            'modules' => $modules,
+            'total_modules' => count($modules),
+            'configurable_features' => $configs,
+            'total_configs' => count($configs),
+        ];
+    }
+
+    /** Explains a platform concept in simple terms. */
+    public static function explainConcept(string $concept): array
+    {
+        $concepts = [
+            'multi_tenant'    => 'Multi-tenant significa que cada organizador opera isolado com seus proprios dados. Nenhum organizador ve os dados de outro.',
+            'white_label'     => 'White Label permite que cada organizador use sua propria marca, logo e cores. O participante ve a identidade do organizador, nao da EnjoyFun.',
+            'cashless'        => 'Cashless e o sistema de pagamento digital usando cartoes NFC ou QR code. O participante carrega creditos e paga sem dinheiro fisico.',
+            'organizer_id'    => 'organizer_id e o campo que isola os dados de cada organizador. Toda query filtra por organizer_id vindo do JWT.',
+            'rls'             => 'RLS (Row-Level Security) e a camada de seguranca no PostgreSQL que garante isolamento de dados no nivel do banco.',
+            'totp'            => 'TOTP e o codigo temporario (Time-based One-Time Password) usado para validar ingressos. Muda a cada 30 segundos.',
+            'offline_sync'    => 'Sync offline permite que PDVs e scanners funcionem sem internet. Os dados sao armazenados localmente e sincronizados quando a conexao volta.',
+            'bounded_loop'    => 'Bounded loop e o mecanismo do orquestrador de IA que limita quantas tools o LLM pode chamar numa unica resposta (max 3 rodadas).',
+            'surface'         => 'Surface e o contexto visual onde o chat esta embarcado (bar, parking, workforce, etc.). Determina qual agente e quais tools sao usados.',
+            'agent_key'       => 'agent_key identifica qual dos 13 agentes de IA esta respondendo. Cada agente tem persona, skills e permissoes especificas.',
+            'session_key'     => 'session_key e a chave composta que identifica uma sessao de chat: organizer_id:event_id:surface:agent_scope.',
+            'pgcrypto'        => 'pgcrypto e a extensao PostgreSQL usada para criptografar API keys dos provedores de IA no banco.',
+            'split_payment'   => 'Split 1%/99% e a divisao automatica do pagamento: 1% vai para a EnjoyFun como comissao, 99% para o organizador.',
+        ];
+
+        $key = strtolower(trim(str_replace([' ', '-'], '_', $concept)));
+        $explanation = $concepts[$key] ?? null;
+
+        if ($explanation === null) {
+            return [
+                'ok' => false,
+                'error' => "Conceito desconhecido: {$concept}. Conceitos disponiveis: " . implode(', ', array_keys($concepts)),
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'concept' => $key,
+            'explanation' => $explanation,
+        ];
+    }
 }
