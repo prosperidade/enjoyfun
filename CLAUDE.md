@@ -1,6 +1,6 @@
 # CLAUDE.md — EnjoyFun Platform
 ## Guia Completo para IA: Arquitetura, Estado Real e Visão de Negócio
-### Atualizado: 2026-04-09
+### Atualizado: 2026-04-12 (encerramento Sprint 1 EMAS — D-Day adiado pro próximo evento)
 
 ---
 
@@ -126,7 +126,7 @@ super_admin / admin (André)
 | ~~Timestamp validation em webhooks~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` +-5min | ~~FAIL~~ |
 | ~~Rejeitar payloads offline sem HMAC~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` | ~~WARN~~ |
 | ~~Validar audience claim no AuthMiddleware~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` aud=enjoyfun-api | ~~WARN~~ |
-| **Rotacionar API keys externas** | Semana 2 | Gemini e OpenAI ainda sao as do historico Git | HIGH |
+| ~~**Rotacionar API keys externas**~~ | ~~Semana 2~~ | ✅ Resolvido 2026-04-11 22:30 — André rotacionou OPENAI_API_KEY + GEMINI_API_KEY nos consoles, chaves antigas revogadas, .env atualizado | ~~HIGH~~ |
 | **Rotacionar pgcrypto key de `organizer_ai_providers`** | Pre D-Day | `decrypt` falha pro openai/org 2 com "Assinatura do payload cifrado invalida". Fallback env cobre mas vaza warning no log a cada /ai/chat | MEDIUM |
 | **Mover Whisper para endpoint backend** | Pos D-Day | `EXPO_PUBLIC_OPENAI_KEY` vaza no bundle JS do mobile. APK decompilavel expoe a chave | HIGH |
 | **Ticket upstream PHP 8.5.1 dispatcher bug** | Pos D-Day | Windows NTS x64 + `php -S` + `extension=curl` corrompe function table. Reproducer em `docs/runbook_local.md` secao 1.1 | LOW |
@@ -516,12 +516,40 @@ REGRAS INVIOLÁVEIS:
 
 Auditorias técnicas entram por `docs/auditorias.md`; arquivos legados estão em `docs/archive/root_legacy/`.
 
-### 🎯 EVENTO REAL — D-Day ~2026-04-29 (5000+ pessoas)
+### 🎯 EVENTO REAL — D-Day adiado pro próximo evento do grupo (Sprint EMAS em curso)
 
-Checklist completa em `docs/runbook_local.md` secao "Checklist pre-evento real".
-Plano de acao detalhado em `docs/progresso24.md`.
+D-Day original 2026-04-29 foi adiado pelo André porque a base IA precisava de refundação completa (EMAS — Embedded Multi-Agent System). Sprint EMAS roda 2026-04-11 → ~2026-05-12 em 3 frentes paralelas. Plano em `execucaobacklogtripla.md`. Diário em `docs/progresso26.md`. ADRs em `docs/adr_emas_architecture_v1.md` + `adr_platform_guide_agent_v1.md` + `adr_voice_proxy_v1.md`.
+
+**Status Sprint 1 EMAS (encerramento 2026-04-11):**
+- Backend: 13/13 tickets ✅ + 4 hotfixes pós-smoke (`a29b1dd` → `293096b` → `f84505f` → `fde5943`) + 6 migrations aplicadas (069/070/074/075/076/077)
+- Mobile: 5/5 MO-S1 ✅ (commit `8d1c307` no worktree `enjoyfun-mobile`)
+- Frontend Web: FE-S1 ✅ (commits `47346da` + `4faba5e` no worktree `enjoyfun-codex`)
+
+**Pendências EMAS para 2026-04-12:**
+1. 🔴 **Bug H persistente** — LLM continua respondendo sobre "trance formation" mesmo após directive 3.4 (anti-anáfora). Investigar primeiro: cache de session_id no AIContext do frontend mantendo histórico contaminado após backend archivar. Possível fix: detectar HTTP 410 e criar nova sessão automaticamente, OU botão "Nova conversa" no EmbeddedAIChat.
+2. 🟡 Revalidar bugs F (alucinação "hoje"), G (chatty "vou buscar"), I (find_events loop) — fixes aplicados em hotfix 2+4 mas não reconfirmados pós-restart.
+3. 🟡 Bug I residual — fix programático: bloquear `find_events` chamado 2x na mesma turn no `AIToolRuntimeService` (Sprint 2 Trilha A).
+4. 🟢 Skills retornarem JSON em PT-BR nativo (fix raiz do Bug C — atualmente é dicionário defensivo no `AdaptiveResponseService`).
+5. 🟢 Bounded loop V2 com 2ª passada explícita: restaurar `tool_choice=required` na 1ª + `auto` na 2ª (Sprint 2).
+6. 🟢 BE-S0-03 — `organizer_ai_providers` pgcrypto re-encrypt (warning não-fatal openai/org 2).
+7. 🟢 UX/CSS Codex — cards estourando, chat muito alto (FE-S2 cosmetic).
+
+**Worktrees ativos:**
+- `c:\Users\Administrador\Desktop\enjoyfun` → Backend (Claude Chat 1), branch `main`
+- `c:\Users\Administrador\Desktop\enjoyfun-mobile` → Mobile (Claude Chat 2), branch `claude-mo/sprint-1/ai-session-v3`
+- `c:\Users\Administrador\Desktop\enjoyfun-codex` → Frontend Web (Codex VS Code), branch `codex/sprint-1/fe-s1-embedded-ai-chat`
+
+**6 migrations EMAS aplicadas no Postgres em 2026-04-11 22:30:**
+- `069_rls_ai_memory_reports` (RLS em ai_agent_memories + ai_event_reports + ai_event_report_sections)
+- `070_session_composite_key` (session_key + conversation_mode + routing_trace_id)
+- `074_manifest_sync` (marker)
+- `075_ai_routing_events` (audit trail de routing)
+- `076_ai_tool_executions` (audit trail de tool calls)
+- `077_ai_platform_guide` (13º agent + 4 builtin skills + mappings)
+
+Manifest replay window expandido de 039..059 para 039..077.
 
 ---
 
 *EnjoyFun Platform v2.0 — SaaS White Label Multi-tenant*
-*Atualizado: 2026-04-09 — Readiness Sprint + Auditoria pre-evento real (5000+ pessoas, D-Day ~2026-04-29)*
+*Atualizado: 2026-04-12 — Sprint 1 EMAS encerrado (3 frentes verdes em código, smoke parcial com bugs residuais H/I documentados em docs/progresso26.md)*
