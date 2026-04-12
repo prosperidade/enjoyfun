@@ -443,9 +443,11 @@ function handleChat(array $body): void
             ['route' => $routeResult]
         );
 
-        // 4. Build conversation history for multi-turn
+        // 4. Build conversation history for multi-turn.
+        //    Bug H fix: limit to 6 messages (3 exchanges) to prevent cross-topic
+        //    contamination from older conversation turns within the same session.
         $conversationHistory = \EnjoyFun\Services\AIConversationService::buildConversationalContext(
-            $db, $sessionId, $organizerId
+            $db, $sessionId, $organizerId, 6
         );
 
         // 5. Build payload for orchestrator (reuse existing pipeline)
