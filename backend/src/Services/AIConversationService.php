@@ -320,13 +320,22 @@ final class AIConversationService
      */
     public static function getHistory(PDO $db, string $sessionId, int $organizerId, int $limit = 50): array
     {
+        // Subquery: pick the N most RECENT messages (DESC), then wrap in
+        // outer query to restore chronological ASC order. This ensures the
+        // LLM sees the latest exchanges, not the oldest ones from the start
+        // of the session. Critical for Bug H fix (hotfix 5/7).
         $stmt = $db->prepare(
             'SELECT id, role, content, content_type, agent_key, execution_id,
                     metadata_json, created_at
-             FROM ai_conversation_messages
-             WHERE session_id = :session_id AND organizer_id = :org_id
-             ORDER BY created_at ASC
-             LIMIT :lim'
+             FROM (
+                SELECT id, role, content, content_type, agent_key, execution_id,
+                       metadata_json, created_at
+                FROM ai_conversation_messages
+                WHERE session_id = :session_id AND organizer_id = :org_id
+                ORDER BY created_at DESC
+                LIMIT :lim
+             ) recent
+             ORDER BY created_at ASC'
         );
         $stmt->bindValue('session_id', $sessionId);
         $stmt->bindValue('org_id', $organizerId, PDO::PARAM_INT);

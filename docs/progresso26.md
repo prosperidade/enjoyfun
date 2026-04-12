@@ -45,7 +45,7 @@
 | F | LLM dizia "vendas de hoje" sem confirmação de data no tool result | 🟡 fix aplicado, **não revalidado** | hotfix 2 (`293096b`) — directive 3.1 |
 | F.2 | tool not found → LLM emitia zeros falsos + checklist genérico ("revisar branding") | ✅ resolvido | hotfix 3 (`f84505f`) — directive 3.3 |
 | G | LLM respondia "vou buscar os dados, um momento" sem chamar tool | 🟡 fix aplicado, **não revalidado** | hotfix 2 — directive 3.2 |
-| H | LLM reusa entidade de turno anterior ("trance formation" continuou aparecendo na pergunta seguinte sobre bar) | 🟡 **hotfix 5 aplicado (programático) — aguarda smoke** | hotfix 5: idle timeout 10min + janela 6 msgs + removida directive 3.4 |
+| H | LLM reusa entidade de turno anterior ("trance formation" continuou aparecendo na pergunta seguinte sobre bar) | 🟡 **hotfix 7 (fix definitivo) — aguarda smoke** | hotfix 5→7: idle timeout ambos paths + getHistory DESC + 410→nova sessão |
 | I | find_events em loop 3x sem encadear pra get_bar_sales_snapshot | 🟡 **hotfix 6 (dedup programático) — aguarda smoke** | hotfix 6: dedup tool calls no bounded loop + directive 3.5 |
 
 **Validações SQL pós-aplicação:**
@@ -175,6 +175,24 @@ Validação: `session_key col=1`, `platform_guide agent=1`, `platform skills=4`,
 `php -l` PASS nos 3 arquivos. Zero impacto no contrato V3 (frontend/mobile não muda nada).
 
 **Revalidação necessária:** smoke test com cenário "pergunta A → idle >10min → pergunta B" para confirmar sessão nova. Cenário "A → B dentro de 10min" para confirmar que janela de 6 msgs limita contaminação.
+
+### Hotfix 7 — Bug H fix definitivo (2 bugs encontrados no hotfix 5) — 2026-04-12
+
+**Por que o hotfix 5 não resolveu (screenshot do André às 10:53):**
+
+| Bug no hotfix 5 | Problema | Impacto |
+|---|---|---|
+| **getHistory ORDER BY ASC LIMIT 6** | Retornava as 6 msgs **mais antigas**, não as mais recentes. Janela de 6 msgs do hotfix 5 piorou o problema: agora SÓ mostrava "trance formation" e cortava a pergunta nova! | LLM via 100% histórico contaminado |
+| **Idle timeout só no path V3** | `findOrCreateSession` com idle timeout só é chamado quando `session_id` está vazio E `FEATURE_AI_EMBEDDED_V3=true`. Frontend manda `session_id` explícito → path V2 (linha 391) que NÃO tinha timeout | Sessão velha com histórico de ontem reusada indefinidamente |
+
+**2 fixes aplicados:**
+
+| Fix | Arquivo | Mudança |
+|---|---|---|
+| **getHistory DESC→ASC wrap** | `AIConversationService.php` | Subquery `ORDER BY DESC LIMIT N` + outer `ORDER BY ASC`. Agora retorna as N msgs mais recentes em ordem cronológica |
+| **Idle timeout V2 + 410→nova sessão** | `AIController.php` | (a) sessão archived/expired → cria nova sessão silenciosamente em vez de 410. (b) sessão ativa idle >10min → archive + cria nova. Ambos no path V2 (session_id explícito) |
+
+`php -l` PASS. Efeito combinado dos hotfixes 5+7: não importa qual path o frontend use (V2 com session_id ou V3 com composite key), idle >10min = sessão limpa, e histórico sempre mostra as mensagens mais recentes.
 
 ### Hotfix 6 — Bug I (find_events loop dedup) — 2026-04-12
 

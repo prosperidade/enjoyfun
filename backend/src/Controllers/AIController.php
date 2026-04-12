@@ -394,12 +394,31 @@ function handleChat(array $body): void
                 jsonError('Sessão não encontrada.', 404);
             }
             if ($session['status'] !== 'active') {
-                jsonError('Sessão expirada ou arquivada.', 410);
+                // Bug H hotfix 7: instead of returning 410, silently create a
+                // fresh session. The frontend may be caching a stale session_id
+                // from an archived/expired session. Creating a new one gives
+                // the user a clean slate without breaking the UX.
+                $sessionId = \EnjoyFun\Services\AIConversationService::startSession(
+                    $db, $organizerId, $userId, $context
+                );
+            } else {
+                // Bug H hotfix 7: idle timeout for V2 path. If the session has
+                // been idle for >10 minutes, archive it and start fresh to
+                // prevent cross-topic contamination from stale history.
+                $updatedAt = strtotime($session['updated_at'] ?? $session['created_at'] ?? 'now');
+                $idleMinutes = (time() - $updatedAt) / 60;
+                if ($idleMinutes > 10) {
+                    \EnjoyFun\Services\AIConversationService::archiveSession($db, $sessionId, $organizerId);
+                    $sessionId = \EnjoyFun\Services\AIConversationService::startSession(
+                        $db, $organizerId, $userId, $context
+                    );
+                } else {
+                    if (!\EnjoyFun\Services\AIConversationService::canAddMessage($db, $sessionId, $organizerId)) {
+                        jsonError('Limite de mensagens da sessão atingido.', 429);
+                    }
+                    $context = array_merge($session['context_json'] ?? [], $context);
+                }
             }
-            if (!\EnjoyFun\Services\AIConversationService::canAddMessage($db, $sessionId, $organizerId)) {
-                jsonError('Limite de mensagens da sessão atingido.', 429);
-            }
-            $context = array_merge($session['context_json'] ?? [], $context);
         } else {
             // V2 path: start a fresh session via the legacy helper.
             $sessionId = \EnjoyFun\Services\AIConversationService::startSession(
