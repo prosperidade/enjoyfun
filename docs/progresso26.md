@@ -46,7 +46,7 @@
 | F.2 | tool not found → LLM emitia zeros falsos + checklist genérico ("revisar branding") | ✅ resolvido | hotfix 3 (`f84505f`) — directive 3.3 |
 | G | LLM respondia "vou buscar os dados, um momento" sem chamar tool | 🟡 fix aplicado, **não revalidado** | hotfix 2 — directive 3.2 |
 | H | LLM reusa entidade de turno anterior ("trance formation" continuou aparecendo na pergunta seguinte sobre bar) | 🟡 **hotfix 5 aplicado (programático) — aguarda smoke** | hotfix 5: idle timeout 10min + janela 6 msgs + removida directive 3.4 |
-| I | find_events em loop 3x sem encadear pra get_bar_sales_snapshot | 🟡 fix aplicado, **não revalidado** | hotfix 4 — directive 3.5 |
+| I | find_events em loop 3x sem encadear pra get_bar_sales_snapshot | 🟡 **hotfix 6 (dedup programático) — aguarda smoke** | hotfix 6: dedup tool calls no bounded loop + directive 3.5 |
 
 **Validações SQL pós-aplicação:**
 - `session_key column`: 1 ✅
@@ -175,6 +175,22 @@ Validação: `session_key col=1`, `platform_guide agent=1`, `platform skills=4`,
 `php -l` PASS nos 3 arquivos. Zero impacto no contrato V3 (frontend/mobile não muda nada).
 
 **Revalidação necessária:** smoke test com cenário "pergunta A → idle >10min → pergunta B" para confirmar sessão nova. Cenário "A → B dentro de 10min" para confirmar que janela de 6 msgs limita contaminação.
+
+### Hotfix 6 — Bug I (find_events loop dedup) — 2026-04-12
+
+**Causa raiz:** LLM chama `find_events` 2-3x no bounded loop em vez de encadear para a tool de domínio (ex: `get_bar_sales_snapshot`). Directive 3.5 dizia "NUNCA chame find_events repetidamente" mas o LLM ignorava.
+
+**Fix programático:** dedup de tool calls no `runBoundedInteractionLoop` (`AIOrchestratorService.php`):
+- Tracker `$executedToolCache` mapeia `tool_name:args_hash → cached_result`
+- Antes de executar tools em cada step, verifica se a mesma tool+args já foi executada
+- Se duplicata: injeta resultado cacheado no histórico sem re-executar, libera o próximo step para o LLM chamar a tool correta
+- Se todas as tools do step são duplicatas: skip execução, continue para próximo step
+
+Efeito: `find_events` roda 1x, resultado é cacheado. Se o LLM tentar chamar de novo, recebe o resultado instantaneamente e o bounded loop avança para o step seguinte onde pode chamar `get_bar_sales_snapshot`.
+
+**Bugs F e G:** directives 3.1 (temporal) e 3.2 (chatty) permanecem — são prompt engineering adequado para esses casos. O hotfix 5 (idle timeout + janela 6 msgs) reduz a chance de ocorrência por eliminar contexto stale. Só revalidação no smoke.
+
+`php -l` PASS. Zero impacto no contrato V3.
 
 ### Sprint 2
 _(aguardando)_
