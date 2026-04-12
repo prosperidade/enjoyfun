@@ -482,6 +482,48 @@ fi
 ###############################################################################
 # SUMMARY
 ###############################################################################
+# ── BE-S6-D3: EMAS security checks (5 new) ──────────────────────
+
+# 21. Approval bypass — write tools must go through approval
+echo -n "  [21] Write tools require approval... "
+if grep -rq "executeWriteSkillViaApproval" backend/src/Services/AIToolRuntimeService.php 2>/dev/null; then
+    echo -e "${GREEN}PASS${NC}"; ((PASS++))
+else
+    echo -e "${RED}FAIL — write tools bypass approval${NC}"; ((FAIL++))
+fi
+
+# 22. MemPalace cross-tenant — bridge must include organizer_id
+echo -n "  [22] MemPalace bridge includes organizer_id... "
+if [ -f backend/src/Services/AIMemoryBridgeService.php ] && grep -q "organizer_id" backend/src/Services/AIMemoryBridgeService.php 2>/dev/null; then
+    echo -e "${GREEN}PASS${NC}"; ((PASS++))
+else
+    echo -e "${YELLOW}WARN — AIMemoryBridgeService missing or no organizer_id${NC}"; ((WARN++))
+fi
+
+# 23. SSE injection — stream endpoint requires auth
+echo -n "  [23] SSE endpoint requires auth... "
+if grep -q "streamChat" backend/src/Controllers/AIController.php 2>/dev/null && grep -q "requireAuth" backend/src/Controllers/AIController.php 2>/dev/null; then
+    echo -e "${GREEN}PASS${NC}"; ((PASS++))
+else
+    echo -e "${RED}FAIL — SSE endpoint missing auth${NC}"; ((FAIL++))
+fi
+
+# 24. Prompt injection — sanitizer active on chat
+echo -n "  [24] Prompt sanitizer on chat input... "
+if grep -q "sanitizeQuestion" backend/src/Controllers/AIController.php 2>/dev/null; then
+    echo -e "${GREEN}PASS${NC}"; ((PASS++))
+else
+    echo -e "${RED}FAIL — chat input not sanitized${NC}"; ((FAIL++))
+fi
+
+# 25. RAG leakage — document tools filter by organizer_id
+echo -n "  [25] Document tools filter by organizer_id... "
+if grep -q "organizer_id = :org" backend/src/Services/AIToolRuntimeService.php 2>/dev/null; then
+    echo -e "${GREEN}PASS${NC}"; ((PASS++))
+else
+    echo -e "${RED}FAIL — document tools missing organizer_id filter${NC}"; ((FAIL++))
+fi
+
 echo ""
 echo -e "${BOLD}========================================${NC}"
 echo -e "${BOLD}  SECURITY SCAN SUMMARY${NC}"
