@@ -40,6 +40,17 @@ final class AIIntentRouterService
         $userId = isset($context['user_id']) ? (int)$context['user_id'] : null;
         $routingTraceId = self::generateUuidV4();
 
+        // BE-S6-C4: WhatsApp concierge → delegate to Supervisor
+        if ($conversationMode === 'whatsapp') {
+            return [
+                'agent_key'        => 'supervisor',
+                'surface'          => $explicitSurface !== '' ? $explicitSurface : 'dashboard',
+                'confidence'       => 1.0,
+                'reasoning'        => 'Forced: conversation_mode=whatsapp → Supervisor handles classification',
+                'routing_trace_id' => $routingTraceId,
+            ];
+        }
+
         // BE-S3-A4: Force platform_guide when surface or conversation_mode indicate it.
         // This is a hard override — platform_guide NEVER accesses operational data.
         if ($explicitSurface === 'platform_guide' || $conversationMode === 'global_help') {
