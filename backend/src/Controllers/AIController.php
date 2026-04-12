@@ -329,16 +329,66 @@ function handleChat(array $body): void
     // Sanitize input
     $question = \EnjoyFun\Services\AIPromptSanitizer::sanitizeQuestion($question);
 
+    // EMAS BE-S1-A2: detect V3 payload (top-level surface) vs V2 (context.surface).
+    // V3 contract: §1.2 of execucaobacklogtripla.md.
+    require_once __DIR__ . '/../../config/features.php';
+    $emasV3Enabled = class_exists('Features') && Features::enabled('FEATURE_AI_EMBEDDED_V3');
+    $isV3Payload = $emasV3Enabled && (isset($body['surface']) || isset($body['conversation_mode']));
+
     $sessionId = $body['session_id'] ?? null;
     $context = $body['context'] ?? [];
     if (is_string($context)) {
         $decoded = json_decode($context, true);
         if (is_array($decoded)) $context = $decoded;
     }
+    if (!is_array($context)) {
+        $context = [];
+    }
+
+    if ($isV3Payload) {
+        // Promote top-level V3 fields into the legacy context bag so the
+        // downstream pipeline keeps working without a parallel branch.
+        $context['surface']           = (string)($body['surface'] ?? $context['surface'] ?? 'dashboard');
+        $context['event_id']          = isset($body['event_id']) && $body['event_id'] !== null
+            ? (int)$body['event_id']
+            : ($context['event_id'] ?? null);
+        $context['agent_key']         = $body['agent_key'] ?? ($context['agent_key'] ?? null);
+        $context['conversation_mode'] = (string)($body['conversation_mode'] ?? $context['conversation_mode'] ?? 'embedded');
+        $context['locale']            = (string)($body['locale'] ?? $context['locale'] ?? 'pt-BR');
+        if (isset($body['context_data']) && is_array($body['context_data'])) {
+            $context = array_merge($context, $body['context_data']);
+        }
+    }
 
     try {
-        // 1. Session management
-        if ($sessionId) {
+        // 1. Session management — EMAS V3 uses composite key, V2 stays legacy.
+        if ($isV3Payload && empty($sessionId)) {
+            $surface = (string)($context['surface'] ?? 'dashboard');
+            $eventId = isset($context['event_id']) && $context['event_id'] !== null && (int)$context['event_id'] > 0
+                ? (int)$context['event_id']
+                : null;
+            $convMode = (string)($context['conversation_mode'] ?? 'embedded');
+            $agentScope = (string)($context['agent_key'] ?? 'auto');
+            if ($agentScope === '') {
+                $agentScope = 'auto';
+            }
+
+            $sessionRow = \EnjoyFun\Services\AIConversationService::findOrCreateSession(
+                $db,
+                $organizerId,
+                $userId,
+                $eventId,
+                $surface,
+                $convMode,
+                $agentScope,
+                $context
+            );
+            $sessionId = $sessionRow['id'];
+
+            if (!\EnjoyFun\Services\AIConversationService::canAddMessage($db, $sessionId, $organizerId)) {
+                jsonError('Limite de mensagens da sessão atingido.', 429);
+            }
+        } elseif ($sessionId) {
             $session = \EnjoyFun\Services\AIConversationService::getSession($db, $sessionId, $organizerId);
             if (!$session) {
                 jsonError('Sessão não encontrada.', 404);
@@ -349,27 +399,36 @@ function handleChat(array $body): void
             if (!\EnjoyFun\Services\AIConversationService::canAddMessage($db, $sessionId, $organizerId)) {
                 jsonError('Limite de mensagens da sessão atingido.', 429);
             }
-            // Merge session context
             $context = array_merge($session['context_json'] ?? [], $context);
         } else {
+            // V2 path: start a fresh session via the legacy helper.
             $sessionId = \EnjoyFun\Services\AIConversationService::startSession(
                 $db, $organizerId, $userId, $context
             );
         }
 
-        // 2. Intent routing
-        $routeResult = ['agent_key' => $context['agent_key'] ?? '', 'surface' => $context['surface'] ?? '', 'confidence' => 1.0, 'reasoning' => 'contexto explicito'];
-
+        // 2. Intent routing — short-circuit L361 removed (BE-S1-A2).
+        //    Always run IntentRouter when the flag is on. agent_key from the
+        //    client is just a hint passed via $context, never an override.
+        //    BE-S1-A3 will turn that hint into a +5 routing bonus.
         $intentRouterFlag = getenv('FEATURE_AI_INTENT_ROUTER');
         if (in_array(strtolower((string)$intentRouterFlag), ['1', 'true', 'yes', 'on'], true)) {
             $routeResult = \EnjoyFun\Services\AIIntentRouterService::routeIntent(
                 $db, $organizerId, $question, $context
             );
-        } elseif (empty($context['agent_key'])) {
-            // Fallback: use surface to pick agent, or default to management
+        } elseif (!empty($context['agent_key'])) {
+            // Router off + explicit agent_key from client → honour it as-is.
+            $routeResult = [
+                'agent_key'  => (string)$context['agent_key'],
+                'surface'    => (string)($context['surface'] ?? 'dashboard'),
+                'confidence' => 1.0,
+                'reasoning'  => 'IntentRouter desligado; agent_key explicito',
+            ];
+        } else {
+            // Router off + no hint → fallback by surface, default management.
             $routeResult = [
                 'agent_key'  => 'management',
-                'surface'    => $context['surface'] ?? 'dashboard',
+                'surface'    => (string)($context['surface'] ?? 'dashboard'),
                 'confidence' => 0.5,
                 'reasoning'  => 'IntentRouter desabilitado, fallback para gestao',
             ];
@@ -442,19 +501,52 @@ function handleChat(array $body): void
         );
 
         // 8. Build response
+        $toolCallsRaw = is_array($result['tool_calls'] ?? null) ? $result['tool_calls'] : [];
+        $toolCallsSummary = [];
+        foreach ($toolCallsRaw as $tc) {
+            if (!is_array($tc)) {
+                continue;
+            }
+            $toolCallsSummary[] = [
+                'tool'        => (string)($tc['tool'] ?? $tc['name'] ?? 'tool'),
+                'duration_ms' => isset($tc['duration_ms']) ? (int)$tc['duration_ms'] : null,
+                'ok'          => array_key_exists('ok', $tc) ? (bool)$tc['ok'] : true,
+            ];
+        }
+
         $response = [
-            'session_id'   => $sessionId,
-            'agent_key'    => $routeResult['agent_key'],
-            'surface'      => $routeResult['surface'],
-            'confidence'   => $routeResult['confidence'],
-            'content_type' => $contentType,
-            'insight'      => $insight,
-            'tool_calls'   => $result['tool_calls'] ?? [],
-            'tool_results' => $result['tool_results'] ?? [],
-            'usage'        => $result['usage'] ?? [],
-            'execution_id' => $result['execution_id'] ?? null,
-            'outcome'      => $result['outcome'] ?? 'completed',
+            'session_id'         => $sessionId,
+            'agent_key'          => $routeResult['agent_key'],
+            'agent_used'         => $routeResult['agent_key'],
+            'surface'            => $routeResult['surface'],
+            'confidence'         => $routeResult['confidence'],
+            'content_type'       => $contentType,
+            'insight'            => $insight,
+            'tool_calls'         => $toolCallsRaw,
+            'tool_calls_summary' => $toolCallsSummary,
+            'tool_results'       => $result['tool_results'] ?? [],
+            'usage'              => $result['usage'] ?? [],
+            'execution_id'       => $result['execution_id'] ?? null,
+            'outcome'            => $result['outcome'] ?? 'completed',
+            'evidence'           => is_array($result['evidence'] ?? null) ? $result['evidence'] : [],
+            'approval_request'   => $result['approval_request'] ?? null,
+            'routing_trace_id'   => $routeResult['routing_trace_id'] ?? null,
         ];
+
+        // EMAS BE-S1-A2: text_fallback is GUARANTEED in every V3 response.
+        // Decision §1.8 #2 of execucaobacklogtripla.md. The Adaptive UI block
+        // below will overwrite it with a richer build when its flag is on.
+        $response['text_fallback'] = (string)$insight;
+
+        // Persist routing trace on the session for cross-message correlation.
+        if (!empty($routeResult['routing_trace_id'])) {
+            \EnjoyFun\Services\AIConversationService::setRoutingTrace(
+                $db,
+                $sessionId,
+                (string)$routeResult['routing_trace_id'],
+                $organizerId
+            );
+        }
 
         // Adaptive UI — emits blocks[] + text_fallback + meta. Backward-compat:
         // legacy fields above remain untouched; feature-flag gated.

@@ -35,7 +35,22 @@
 - **BE-S0-07** ✅ `docs/adr_voice_proxy_v1.md` criado (Aceito)
 
 ### Sprint 1
-_(aguardando autorização)_
+**Caminho crítico (desbloqueia Mobile + Codex)** — entregue 2026-04-11:
+- **BE-S1-B2** ✅ [database/070_session_composite_key.sql](../database/070_session_composite_key.sql) — colunas `session_key`, `conversation_mode`, `routing_trace_id` + índice único parcial em `session_key WHERE status='active'` + check constraint dos 5 modos
+- **BE-S1-A1** ✅ [AIConversationService.php](../backend/src/Services/AIConversationService.php) — `findOrCreateSession()` idempotente com chave composta + auto-archive de stale sessions na mesma surface + helper `buildSessionKey()` + `setRoutingTrace()`
+- **BE-S1-A2** ✅ [AIController.php](../backend/src/Controllers/AIController.php) — payload V3 detectado, short-circuit L361 removido (router decide sempre, agent_key vira hint), `text_fallback` garantido em toda resposta, top-level `tool_calls_summary` + `evidence` + `approval_request` + `routing_trace_id` + `agent_used`
+
+**Pendentes (próximas rodadas):**
+- BE-S1-A3 (IntentRouter +5 bônus + reavaliação por msg + persist trace)
+- BE-S1-A4 (Orchestrator tool_choice:required + temp 0.25 + bounded loop V2)
+- BE-S1-A5 (Catalog prompts: SEMPRE PT-BR, SEMPRE tools, NUNCA inventar)
+- BE-S1-B1 (RLS ai_agent_memories + ai_event_reports)
+- BE-S1-B3 (manifest sync drift_replay 059→080)
+- BE-S1-B4 (075_ai_routing_events)
+- BE-S1-B5 (076_ai_tool_executions)
+- BE-S1-C1 (077_ai_platform_guide — registry insert)
+- BE-S1-C2 (PlatformKnowledgeService NOVO)
+- BE-S1-C3 (4 skills do Platform Guide)
 
 ### Sprint 2
 _(aguardando)_

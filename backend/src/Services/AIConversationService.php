@@ -19,7 +19,116 @@ final class AIConversationService
     // ──────────────────────────────────────────────────────────────
 
     /**
-     * Start a new conversation session.
+     * EMAS composite key: "{organizer_id}:{event_id|null}:{surface}:{agent_scope}".
+     * Resolved server-side; clients never construct this.
+     * ADR: docs/adr_emas_architecture_v1.md (decisão 1).
+     */
+    public static function buildSessionKey(
+        int $organizerId,
+        ?int $eventId,
+        string $surface,
+        string $agentScope
+    ): string {
+        $surface = $surface !== '' ? $surface : 'unknown';
+        $agentScope = $agentScope !== '' ? $agentScope : 'auto';
+        $event = $eventId !== null && $eventId > 0 ? (string)$eventId : 'null';
+        return $organizerId . ':' . $event . ':' . $surface . ':' . $agentScope;
+    }
+
+    /**
+     * EMAS BE-S1-A1: find an active session matching the composite key, or create a new one.
+     * Auto-archives any other active session for the same (organizer, user, surface)
+     * with a different key — guaranteeing at most one active session per surface per user.
+     * Idempotent: same key on repeated calls returns the same session id.
+     */
+    public static function findOrCreateSession(
+        PDO $db,
+        int $organizerId,
+        int $userId,
+        ?int $eventId,
+        string $surface,
+        string $conversationMode,
+        string $agentScope,
+        array $context = []
+    ): array {
+        $sessionKey = self::buildSessionKey($organizerId, $eventId, $surface, $agentScope);
+
+        // 1. Auto-archive stale active sessions for the same (organizer, user, surface)
+        //    that have a different key. Switching event/agent within the same surface
+        //    is treated as a new session — the previous one is closed cleanly.
+        $stmt = $db->prepare(
+            'UPDATE ai_conversation_sessions
+                SET status = \'archived\', updated_at = NOW()
+              WHERE organizer_id = :org_id
+                AND user_id = :user_id
+                AND surface = :surface
+                AND status = \'active\'
+                AND (session_key IS DISTINCT FROM :session_key)'
+        );
+        $stmt->execute([
+            'org_id'      => $organizerId,
+            'user_id'     => $userId,
+            'surface'     => $surface,
+            'session_key' => $sessionKey,
+        ]);
+
+        // 2. Try to reuse an existing active session with the exact key.
+        $stmt = $db->prepare(
+            'SELECT id, organizer_id, event_id, user_id, surface, conversation_mode,
+                    session_key, routed_agent_key, routing_trace_id, status,
+                    context_json, metadata_json, created_at, updated_at, expires_at
+               FROM ai_conversation_sessions
+              WHERE session_key = :session_key
+                AND organizer_id = :org_id
+                AND status = \'active\'
+                AND expires_at > NOW()
+              LIMIT 1'
+        );
+        $stmt->execute([
+            'session_key' => $sessionKey,
+            'org_id'      => $organizerId,
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($row) {
+            $row['context_json'] = json_decode($row['context_json'] ?: '{}', true);
+            $row['metadata_json'] = json_decode($row['metadata_json'] ?: '{}', true);
+            $row['_created'] = false;
+            return $row;
+        }
+
+        // 3. Create a new session bound to the composite key.
+        $stmt = $db->prepare(
+            'INSERT INTO ai_conversation_sessions
+                (organizer_id, user_id, event_id, surface, conversation_mode,
+                 session_key, context_json, expires_at)
+             VALUES
+                (:org_id, :user_id, :event_id, :surface, :mode,
+                 :session_key, :context_json,
+                 NOW() + INTERVAL \'' . self::SESSION_EXPIRY_HOURS . ' hours\')
+             RETURNING id, organizer_id, event_id, user_id, surface, conversation_mode,
+                       session_key, routed_agent_key, routing_trace_id, status,
+                       context_json, metadata_json, created_at, updated_at, expires_at'
+        );
+        $stmt->execute([
+            'org_id'       => $organizerId,
+            'user_id'      => $userId,
+            'event_id'     => $eventId !== null && $eventId > 0 ? $eventId : null,
+            'surface'      => $surface,
+            'mode'         => $conversationMode,
+            'session_key'  => $sessionKey,
+            'context_json' => json_encode($context),
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $row['context_json'] = json_decode($row['context_json'] ?: '{}', true);
+        $row['metadata_json'] = json_decode($row['metadata_json'] ?: '{}', true);
+        $row['_created'] = true;
+        return $row;
+    }
+
+    /**
+     * Start a new conversation session (legacy V2 path — kept for backward compat).
+     * EMAS V3 callers should use findOrCreateSession() instead.
      * @return string Session UUID
      */
     public static function startSession(PDO $db, int $organizerId, int $userId, array $context = []): string
@@ -41,6 +150,25 @@ final class AIConversationService
         ]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row['id'];
+    }
+
+    /**
+     * Persist the routing_trace_id for a session (EMAS BE-S1-A3 hand-off).
+     */
+    public static function setRoutingTrace(PDO $db, string $sessionId, ?string $routingTraceId, ?int $organizerId = null): void
+    {
+        if ($routingTraceId === null || $routingTraceId === '') {
+            return;
+        }
+        $sql = 'UPDATE ai_conversation_sessions
+                   SET routing_trace_id = :trace, updated_at = NOW()
+                 WHERE id = :id';
+        $params = ['id' => $sessionId, 'trace' => $routingTraceId];
+        if ($organizerId !== null) {
+            $sql .= ' AND organizer_id = :org_id';
+            $params['org_id'] = $organizerId;
+        }
+        $db->prepare($sql)->execute($params);
     }
 
     /**
