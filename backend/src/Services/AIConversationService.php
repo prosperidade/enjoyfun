@@ -13,6 +13,10 @@ final class AIConversationService
 {
     private const MAX_MESSAGES_PER_SESSION = 100;
     private const SESSION_EXPIRY_HOURS = 24;
+    /** Idle timeout in minutes: sessions inactive longer than this get auto-archived
+     *  on the next findOrCreateSession call, forcing a fresh conversation slate.
+     *  Fix for Bug H: prevents cross-topic contamination from stale history. */
+    private const SESSION_IDLE_TIMEOUT_MINUTES = 10;
 
     // ──────────────────────────────────────────────────────────────
     //  Session lifecycle
@@ -91,10 +95,26 @@ final class AIConversationService
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($row) {
-            $row['context_json'] = json_decode($row['context_json'] ?: '{}', true);
-            $row['metadata_json'] = json_decode($row['metadata_json'] ?: '{}', true);
-            $row['_created'] = false;
-            return $row;
+            // Bug H fix: if the session has been idle longer than the timeout,
+            // archive it and fall through to create a fresh one. This prevents
+            // cross-topic contamination from stale conversation history.
+            $updatedAt = strtotime($row['updated_at'] ?? $row['created_at'] ?? 'now');
+            $idleMinutes = (time() - $updatedAt) / 60;
+
+            if ($idleMinutes > self::SESSION_IDLE_TIMEOUT_MINUTES) {
+                $archiveStmt = $db->prepare(
+                    'UPDATE ai_conversation_sessions
+                        SET status = \'archived\', updated_at = NOW()
+                      WHERE id = :id AND organizer_id = :org_id AND status = \'active\''
+                );
+                $archiveStmt->execute(['id' => $row['id'], 'org_id' => $organizerId]);
+                // Fall through to step 3 — create a new session.
+            } else {
+                $row['context_json'] = json_decode($row['context_json'] ?: '{}', true);
+                $row['metadata_json'] = json_decode($row['metadata_json'] ?: '{}', true);
+                $row['_created'] = false;
+                return $row;
+            }
         }
 
         // 3. Create a new session bound to the composite key.

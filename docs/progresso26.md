@@ -45,7 +45,7 @@
 | F | LLM dizia "vendas de hoje" sem confirmação de data no tool result | 🟡 fix aplicado, **não revalidado** | hotfix 2 (`293096b`) — directive 3.1 |
 | F.2 | tool not found → LLM emitia zeros falsos + checklist genérico ("revisar branding") | ✅ resolvido | hotfix 3 (`f84505f`) — directive 3.3 |
 | G | LLM respondia "vou buscar os dados, um momento" sem chamar tool | 🟡 fix aplicado, **não revalidado** | hotfix 2 — directive 3.2 |
-| H | LLM reusa entidade de turno anterior ("trance formation" continuou aparecendo na pergunta seguinte sobre bar) | 🔴 **fix aplicado mas NÃO funcionou no reteste** | hotfix 4 (`fde5943`) — directive 3.4 |
+| H | LLM reusa entidade de turno anterior ("trance formation" continuou aparecendo na pergunta seguinte sobre bar) | 🟡 **hotfix 5 aplicado (programático) — aguarda smoke** | hotfix 5: idle timeout 10min + janela 6 msgs + removida directive 3.4 |
 | I | find_events em loop 3x sem encadear pra get_bar_sales_snapshot | 🟡 fix aplicado, **não revalidado** | hotfix 4 — directive 3.5 |
 
 **Validações SQL pós-aplicação:**
@@ -159,6 +159,22 @@ Validação: `session_key col=1`, `platform_guide agent=1`, `platform skills=4`,
 - BE-S1-C1 (077_ai_platform_guide — registry insert)
 - BE-S1-C2 (PlatformKnowledgeService NOVO)
 - BE-S1-C3 (4 skills do Platform Guide)
+
+### Hotfix 5 — Bug H (cross-topic contamination) — 2026-04-12
+
+**Causa raiz diagnosticada:** NÃO era problema de prompt/directive. O `findOrCreateSession` reusava sessões ativas por até 24h (session_key idêntica = mesma surface+evento). `buildConversationalContext` carregava 20 mensagens de histórico. LLM recebia turnos antigos ("trance formation") misturados com a pergunta nova ("bar"). Directives 3.1-3.5 eram inúteis: o histórico contaminado já estava no contexto conversacional.
+
+**3 fixes programáticos (zero prompt engineering):**
+
+| Fix | Arquivo | Mudança |
+|---|---|---|
+| **1. Idle timeout 10min** | `AIConversationService.php` | `findOrCreateSession` agora checa `updated_at` da sessão encontrada. Se idle >10min → archive + cria nova sessão. User que ficou parado ganha slate limpo |
+| **2. Janela de histórico 6 msgs** | `AIController.php` L447 | `buildConversationalContext(..., 6)` — max 3 exchanges no prompt em vez de 10. Rede de segurança dentro da janela de 10min |
+| **3. Removida directive 3.4** | `AIPromptCatalogService.php` | Anti-anáfora era prompt bloat que não funcionava (comprovado no reteste). Agora redundante com fix programático |
+
+`php -l` PASS nos 3 arquivos. Zero impacto no contrato V3 (frontend/mobile não muda nada).
+
+**Revalidação necessária:** smoke test com cenário "pergunta A → idle >10min → pergunta B" para confirmar sessão nova. Cenário "A → B dentro de 10min" para confirmar que janela de 6 msgs limita contaminação.
 
 ### Sprint 2
 _(aguardando)_
