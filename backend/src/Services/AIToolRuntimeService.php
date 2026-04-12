@@ -768,6 +768,29 @@ final class AIToolRuntimeService
                 'agent_keys' => ['management', 'marketing'],
             ],
 
+            // --- BE-S5-A5+A6: Semantic search tools ---
+            [
+                'name' => 'semantic_search_docs',
+                'description' => 'Busca semantica em documentos do organizador usando embeddings vetoriais. Retorna os chunks mais relevantes por similaridade de cosseno.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'query' => ['type' => 'string', 'description' => 'Texto da busca semantica.'],
+                    'top_k' => ['type' => 'integer', 'description' => 'Numero de resultados (default 5, max 20).'],
+                ], 'required' => ['query'], 'additionalProperties' => false],
+                'aliases' => ['semantic_search_docs', 'vector_search', 'documents.semantic_search'],
+                'type' => 'read', 'surfaces' => ['documents', 'finance'], 'agent_keys' => ['documents', 'management', 'contracting'],
+            ],
+            [
+                'name' => 'hybrid_search_docs',
+                'description' => 'Busca hibrida: combina keyword (ILIKE) + similaridade vetorial para encontrar trechos relevantes de documentos.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'query' => ['type' => 'string', 'description' => 'Texto da busca.'],
+                    'category' => ['type' => 'string', 'description' => 'Filtrar por categoria de arquivo.'],
+                    'top_k' => ['type' => 'integer', 'description' => 'Numero de resultados (default 5).'],
+                ], 'required' => ['query'], 'additionalProperties' => false],
+                'aliases' => ['hybrid_search_docs', 'documents.hybrid_search'],
+                'type' => 'read', 'surfaces' => ['documents', 'finance'], 'agent_keys' => ['documents', 'management', 'contracting'],
+            ],
+
             // --- BE-S4-B5..B8: Internal skills (diagnostic + incidents) ---
             [
                 'name' => 'diagnose_agent_route',
@@ -1566,6 +1589,10 @@ final class AIToolRuntimeService
             'get_finance_overview' => self::executeFinanceOverview($db, $organizerId, $eventId),
             'get_supplier_payment_status' => self::executeSupplierPaymentStatus($db, $organizerId, $eventId),
             'get_ticket_sales_snapshot' => self::executeTicketSalesSnapshot($db, $organizerId, $eventId),
+
+            // Semantic search (BE-S5)
+            'semantic_search_docs' => self::executeSemanticSearchDocs($db, $organizerId, $arguments),
+            'hybrid_search_docs' => self::executeHybridSearchDocs($db, $organizerId, $arguments),
 
             // Internal skills B5-B8 (BE-S4 diagnostic)
             'diagnose_agent_route' => self::executeDiagnoseAgentRoute($db, $organizerId, $arguments),
@@ -2396,6 +2423,83 @@ final class AIToolRuntimeService
             'total_sold' => $totalSold,
             'total_available' => $totalAvail,
             'sell_through_pct' => $totalAvail > 0 ? round($totalSold / $totalAvail * 100, 1) : 0,
+        ];
+    }
+
+    // ── BE-S5-A5+A6: Semantic search tools ─────────────────────────
+
+    private static function executeSemanticSearchDocs(PDO $db, int $organizerId, array $arguments): array
+    {
+        $query = trim((string)($arguments['query'] ?? ''));
+        if ($query === '') { throw new RuntimeException('query e obrigatoria.', 422); }
+        $topK = min(max((int)($arguments['top_k'] ?? 5), 1), 20);
+
+        require_once __DIR__ . '/AIEmbeddingService.php';
+        $apiKey = trim((string)getenv('OPENAI_API_KEY'));
+        if ($apiKey === '') { return ['error' => 'OPENAI_API_KEY nao configurada', 'results' => []]; }
+
+        $queryEmbedding = AIEmbeddingService::embedQuery($apiKey, $query);
+        if ($queryEmbedding === null) { return ['error' => 'Falha ao gerar embedding da query', 'results' => []]; }
+
+        $vectorStr = '[' . implode(',', $queryEmbedding) . ']';
+
+        try {
+            $stmt = $db->prepare("
+                SELECT de.id, de.file_id, de.chunk_index, de.chunk_text,
+                       of.original_name AS file_name, of.category,
+                       1 - (de.embedding <=> :vec::vector) AS similarity
+                FROM public.document_embeddings de
+                INNER JOIN public.organizer_files of ON of.id = de.file_id
+                WHERE de.organizer_id = :org
+                ORDER BY de.embedding <=> :vec::vector
+                LIMIT :k
+            ");
+            $stmt->bindValue(':vec', $vectorStr);
+            $stmt->bindValue(':org', $organizerId, \PDO::PARAM_INT);
+            $stmt->bindValue(':k', $topK, \PDO::PARAM_INT);
+            $stmt->execute();
+            $results = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        } catch (\Throwable $e) {
+            return ['error' => 'pgvector nao disponivel: ' . $e->getMessage(), 'results' => []];
+        }
+
+        return ['query' => $query, 'total_results' => count($results), 'results' => $results];
+    }
+
+    private static function executeHybridSearchDocs(PDO $db, int $organizerId, array $arguments): array
+    {
+        $query = trim((string)($arguments['query'] ?? ''));
+        if ($query === '') { throw new RuntimeException('query e obrigatoria.', 422); }
+        $category = strtolower(trim((string)($arguments['category'] ?? '')));
+        $topK = min(max((int)($arguments['top_k'] ?? 5), 1), 20);
+
+        // Keyword search
+        $kwWhere = ["f.organizer_id = :org", "f.parsed_status = 'parsed'"];
+        $kwParams = [':org' => $organizerId];
+        if ($category !== '') { $kwWhere[] = 'f.category = :cat'; $kwParams[':cat'] = $category; }
+        $kw = '%' . strtolower($query) . '%';
+        $kwWhere[] = '(LOWER(f.original_name) LIKE :kw OR LOWER(COALESCE(f.notes, \'\')) LIKE :kw OR LOWER(COALESCE(f.parsed_data::text, \'\')) LIKE :kw)';
+        $kwParams[':kw'] = $kw;
+
+        $kwStmt = $db->prepare('SELECT f.id, f.original_name, f.category FROM public.organizer_files f WHERE ' . implode(' AND ', $kwWhere) . ' LIMIT ' . $topK);
+        $kwStmt->execute($kwParams);
+        $keywordResults = $kwStmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        // Vector search (if available)
+        $vectorResults = [];
+        try {
+            $vectorSearch = self::executeSemanticSearchDocs($db, $organizerId, ['query' => $query, 'top_k' => $topK]);
+            $vectorResults = $vectorSearch['results'] ?? [];
+        } catch (\Throwable $e) {
+            // pgvector not available — keyword-only
+        }
+
+        return [
+            'query' => $query,
+            'keyword_results' => $keywordResults,
+            'vector_results' => $vectorResults,
+            'keyword_count' => count($keywordResults),
+            'vector_count' => count($vectorResults),
         ];
     }
 

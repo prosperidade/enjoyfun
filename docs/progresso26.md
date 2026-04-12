@@ -397,6 +397,11 @@ AIEmbeddingService + upload trigger.
 - `AIEmbeddingService.php` (NOVO): pipeline extractText → chunkText (500 chars, 100 overlap) → callEmbeddingsApi (text-embedding-3-small, 1536 dims) → INSERT document_embeddings. Gated por `FEATURE_AI_PGVECTOR`
 - `embedQuery()`: gera embedding de uma query (para semantic search)
 - `orgFileAutoparse()` agora recebe `$organizerId` e dispara `generateEmbeddings()` após parse success (fire-and-forget)
+
+#### Commit 3 — BE-S5-A5 + A6 + A7 ✅
+Semantic + hybrid search tools.
+- `semantic_search_docs(query, top_k?)`: gera embedding da query → cosine similarity `<=>` → top-K chunks. Graceful fallback se pgvector não disponível
+- `hybrid_search_docs(query, category?, top_k?)`: combina keyword ILIKE + vector search. Funciona em modo keyword-only quando pgvector não está instalado
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 
