@@ -319,6 +319,19 @@ Session summarization + memory recall.
 - **C1** `summarizeSessionToMemory()`: auto-triggered no `archiveSession()` para sessões >6 msgs. Extrai tópicos das mensagens do user → grava em `ai_agent_memories` com `memory_type=session_summary`
 - **C2** `recallRelevantMemories()`: top-3 memórias por (organizer, surface, relevance DESC). Injetadas no system prompt como "CONTEXTO DE SESSOES ANTERIORES". Atualiza `last_recalled_at` + `recall_count`. Gated por `FEATURE_AI_MEMORY_RECALL`
 - **C3** Template de recall: prioriza dados frescos das tools sobre memórias
+
+#### Commit 7 — BE-S3-C4 ✅
+4 memory tools (agent-facing) para gestão de memória em runtime.
+- `write_working_memory(title, summary, tags?)` — agente registra fato com memory_type=working_memory
+- `read_working_memory(keyword?, limit?)` — busca por keyword em title/summary, top-N por relevance
+- `score_memory_relevance(memory_id, score)` — ajusta score 0-100
+- `forget_obsolete_memory(memory_id)` — marca como obsoleta (score=0, não é mais recalled)
+
+**Sprint 3 Backend 100% concluído** — 15/15 tickets entregues em 7 commits.
+- `FEATURE_AI_PLATFORM_GUIDE=true` ativado
+- `FEATURE_AI_RAG_PRAGMATIC=true` ativado
+- `FEATURE_AI_MEMORY_RECALL=true` ativado
+- Migration 079 aplicada
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 

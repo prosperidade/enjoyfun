@@ -768,6 +768,76 @@ final class AIToolRuntimeService
                 'agent_keys' => ['management', 'marketing'],
             ],
 
+            // --- BE-S3-C4: Memory tools (agent-facing) ---
+            [
+                'name' => 'write_working_memory',
+                'description' => 'Registra um fato ou aprendizado na memoria do agente para recall em sessoes futuras.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'title' => ['type' => 'string', 'description' => 'Titulo curto do fato (max 150 chars).'],
+                        'summary' => ['type' => 'string', 'description' => 'Resumo do aprendizado (max 500 chars).'],
+                        'tags' => ['type' => 'string', 'description' => 'Tags separadas por virgula (ex: "vendas,bar,tendencia").'],
+                    ],
+                    'required' => ['title', 'summary'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['write_working_memory', 'save_memory', 'memory.write'],
+                'type' => 'write',
+                'surfaces' => ['dashboard', 'bar', 'food', 'shop', 'parking', 'workforce', 'artists', 'finance', 'documents'],
+                'agent_keys' => ['management', 'bar', 'logistics', 'documents', 'contracting', 'marketing'],
+            ],
+            [
+                'name' => 'read_working_memory',
+                'description' => 'Busca memorias anteriores do agente por keyword ou surface. Retorna top-5 por relevancia.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'keyword' => ['type' => 'string', 'description' => 'Busca no titulo e resumo.'],
+                        'limit' => ['type' => 'integer', 'description' => 'Max resultados (default 5).'],
+                    ],
+                    'required' => [],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['read_working_memory', 'recall_memory', 'memory.read'],
+                'type' => 'read',
+                'surfaces' => ['dashboard', 'bar', 'food', 'shop', 'parking', 'workforce', 'artists', 'finance', 'documents'],
+                'agent_keys' => ['management', 'bar', 'logistics', 'documents', 'contracting', 'marketing'],
+            ],
+            [
+                'name' => 'score_memory_relevance',
+                'description' => 'Ajusta o score de relevancia de uma memoria (0-100). Use para aumentar ou diminuir prioridade de recall.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'memory_id' => ['type' => 'integer', 'description' => 'ID da memoria.'],
+                        'score' => ['type' => 'number', 'description' => 'Novo score de relevancia (0-100).'],
+                    ],
+                    'required' => ['memory_id', 'score'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['score_memory_relevance', 'memory.score'],
+                'type' => 'write',
+                'surfaces' => ['dashboard'],
+                'agent_keys' => ['management'],
+            ],
+            [
+                'name' => 'forget_obsolete_memory',
+                'description' => 'Marca uma memoria como obsoleta (relevance=0). Nao sera mais recalled.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'memory_id' => ['type' => 'integer', 'description' => 'ID da memoria a esquecer.'],
+                    ],
+                    'required' => ['memory_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['forget_obsolete_memory', 'memory.forget'],
+                'type' => 'write',
+                'surfaces' => ['dashboard'],
+                'agent_keys' => ['management'],
+            ],
+
             // --- BE-S3-B2: RAG skills ---
             [
                 'name' => 'read_file_excerpt',
@@ -1416,6 +1486,12 @@ final class AIToolRuntimeService
             'get_finance_overview' => self::executeFinanceOverview($db, $organizerId, $eventId),
             'get_supplier_payment_status' => self::executeSupplierPaymentStatus($db, $organizerId, $eventId),
             'get_ticket_sales_snapshot' => self::executeTicketSalesSnapshot($db, $organizerId, $eventId),
+
+            // Memory tools (BE-S3-C4)
+            'write_working_memory' => self::executeWriteWorkingMemory($db, $organizerId, $arguments, $context),
+            'read_working_memory' => self::executeReadWorkingMemory($db, $organizerId, $arguments),
+            'score_memory_relevance' => self::executeScoreMemoryRelevance($db, $organizerId, $arguments),
+            'forget_obsolete_memory' => self::executeForgetObsoleteMemory($db, $organizerId, $arguments),
 
             // RAG skills (BE-S3-B2)
             'read_file_excerpt' => self::executeReadFileExcerpt($db, $organizerId, $arguments),
@@ -2229,6 +2305,84 @@ final class AIToolRuntimeService
             'total_available' => $totalAvail,
             'sell_through_pct' => $totalAvail > 0 ? round($totalSold / $totalAvail * 100, 1) : 0,
         ];
+    }
+
+    // ── BE-S3-C4: Memory tools ─────────────────────────────────────
+
+    private static function executeWriteWorkingMemory(PDO $db, int $organizerId, array $arguments, array $context): array
+    {
+        $title = trim((string)($arguments['title'] ?? ''));
+        $summary = trim((string)($arguments['summary'] ?? ''));
+        if ($title === '' || $summary === '') { throw new RuntimeException('title e summary sao obrigatorios.', 422); }
+
+        $tags = array_filter(array_map('trim', explode(',', (string)($arguments['tags'] ?? ''))));
+
+        require_once __DIR__ . '/AIMemoryStoreService.php';
+        $memId = AIMemoryStoreService::recordMemory($db, [
+            'organizer_id'      => $organizerId,
+            'event_id'          => isset($context['event_id']) ? (int)$context['event_id'] : null,
+            'agent_key'         => $context['agent_key'] ?? null,
+            'surface'           => $context['surface'] ?? null,
+            'memory_type'       => 'working_memory',
+            'title'             => mb_substr($title, 0, 150),
+            'summary'           => mb_substr($summary, 0, 500),
+            'content'           => null,
+            'importance'        => 3,
+            'source_entrypoint' => 'agent_tool',
+            'tags_json'         => json_encode($tags),
+        ]);
+
+        return ['memory_id' => $memId, 'status' => 'saved', 'title' => $title];
+    }
+
+    private static function executeReadWorkingMemory(PDO $db, int $organizerId, array $arguments): array
+    {
+        $keyword = strtolower(trim((string)($arguments['keyword'] ?? '')));
+        $limit = min(max((int)($arguments['limit'] ?? 5), 1), 20);
+
+        $where = ['organizer_id = :org', 'relevance_score > 0'];
+        $params = [':org' => $organizerId];
+
+        if ($keyword !== '') {
+            $where[] = '(LOWER(title) LIKE :kw OR LOWER(summary) LIKE :kw)';
+            $params[':kw'] = '%' . $keyword . '%';
+        }
+
+        $stmt = $db->prepare(
+            'SELECT id, title, summary, surface, agent_key, memory_type, relevance_score, created_at
+             FROM public.ai_agent_memories
+             WHERE ' . implode(' AND ', $where) . '
+             ORDER BY relevance_score DESC, created_at DESC
+             LIMIT ' . $limit
+        );
+        $stmt->execute($params);
+        $memories = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        return ['total' => count($memories), 'memories' => $memories];
+    }
+
+    private static function executeScoreMemoryRelevance(PDO $db, int $organizerId, array $arguments): array
+    {
+        $memId = self::nullablePositiveInt($arguments['memory_id'] ?? null);
+        $score = (float)($arguments['score'] ?? 50);
+        if ($memId === null) { throw new RuntimeException('memory_id e obrigatorio.', 422); }
+        $score = max(0, min(100, $score));
+
+        $stmt = $db->prepare('UPDATE public.ai_agent_memories SET relevance_score = :score, updated_at = NOW() WHERE id = :id AND organizer_id = :org');
+        $stmt->execute([':score' => $score, ':id' => $memId, ':org' => $organizerId]);
+
+        return ['memory_id' => $memId, 'new_score' => $score, 'updated' => $stmt->rowCount() > 0];
+    }
+
+    private static function executeForgetObsoleteMemory(PDO $db, int $organizerId, array $arguments): array
+    {
+        $memId = self::nullablePositiveInt($arguments['memory_id'] ?? null);
+        if ($memId === null) { throw new RuntimeException('memory_id e obrigatorio.', 422); }
+
+        $stmt = $db->prepare('UPDATE public.ai_agent_memories SET relevance_score = 0, updated_at = NOW() WHERE id = :id AND organizer_id = :org');
+        $stmt->execute([':id' => $memId, ':org' => $organizerId]);
+
+        return ['memory_id' => $memId, 'status' => 'forgotten', 'updated' => $stmt->rowCount() > 0];
     }
 
     // ── BE-S3-B2: RAG skills ───────────────────────────────────────
