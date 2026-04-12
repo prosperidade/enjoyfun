@@ -137,37 +137,29 @@ _(nenhum ticket — aguarda fim do S0 do Backend)_
 
 **Status MO-S1:** ✅ todos os 5 tickets concluídos. `npm run typecheck` PASS. Branch `claude-mo/sprint-1/ai-session-v3` (rebased em main, HEAD `3992aa4` após Backend Sprint 1 fechar com `aa9bf10`).
 
-#### Smoke conjunto Sprint 1 — sessão 2026-04-12 (parcial / inconclusa)
+#### Smoke conjunto Sprint 1 — PASSOU 2026-04-12
 
-**Validado via curl direto no host (backend 100% OK):**
-- `POST /api/auth/login` com header `X-Client: mobile` → retorna `access_token` populado + `access_transport: "body"` (RS256, `aud=enjoyfun-api`, `organizer_id=2`, `roles=[admin]`). Sem o header, backend cai no fluxo cookie HttpOnly e devolve `access_token: ""` — comportamento correto da hardening "cookie transport forced em prod".
-- `GET /api/events` com Bearer → 3 eventos retornados (`aldeia da transformação`, `EnjoyFun 2026`, `UBUNTU`) no shape `data: [...]`, que casa com o parser de [enjoyfun-app/src/api/events.ts:18](../enjoyfun-app/src/api/events.ts#L18) (`Array.isArray(body) → body`).
-- Conclusão: **contrato V3 do Backend está funcional**, eventos existem, parser do mobile está alinhado, `X-Client: mobile` é respeitado.
+**Sessão 1 (2026-04-12 madrugada) — parcial, backend OK via curl:**
+- `POST /api/auth/login` com `X-Client: mobile` → `access_token` populado + `access_transport: "body"` (RS256, `aud=enjoyfun-api`, `organizer_id=2`). Sem header → `access_token: ""` (cookie transport correto).
+- `GET /api/events` com Bearer → 3 eventos retornados. Parser mobile casa com shape `data: [...]`.
+- App bloqueado: token velho no SecureStore, sem botão de logout, `10.0.2.2` inacessível no emulator.
 
-**Não validado (bloqueado no ambiente do emulator):**
-- Login real via app dentro do Expo Go (Android emulator) — app caía direto na tela de Chat sem passar pelo Login porque havia JWT residual no `expo-secure-store` de uma sessão anterior.
-- `POST /api/ai/chat` real com payload V3 — bloqueado pelo mesmo problema (token velho expirado → 401 → `listEvents()` engole silencioso e exibe "nenhum evento ativo" → chat retorna "network error").
-- Exibição dos 3 eventos no `SurfacePicker` / dropdown de evento.
-- Exercício do prompt directives BE-S1-A5 (PT-BR / no-invent / tools-first) ponta a ponta.
+**Sessão 2 (2026-04-12 manhã) — smoke PASS:**
+- Adicionado botão **"Sair"** no header (substitui placeholder "Ajustes") com `clearAuth()` + `navigation.reset` pro Login.
+- Descoberta causa raiz da rede: `10.0.2.2` não funciona neste setup Windows (provavelmente Hyper-V). Solução: usar IP LAN (`192.168.1.147:8080`) via `.env` no worktree.
+- Backend PHP 8.4.1 em `0.0.0.0:8080` confirmado servindo requests do device (log: `192.168.1.206 Accepted`).
+- `.env` criado em `enjoyfun-app/` com `EXPO_PUBLIC_API_URL=http://192.168.1.147:8080/api`. `client.ts` revertido pro default `localhost:8080` (`.env` faz override).
+- **Login real via app** ✅ — tela de Login aparece, login com `admin@enjoyfun.com.br` funciona, token salvo no SecureStore.
+- **Chat envia e backend responde** ✅ — payload V3 chega, backend processa, resposta retorna.
+- **IA alucina** — respostas não seguem prompt directives BE-S1-A5 (PT-BR/no-invent/tools-first). Bug de backend/IA, não do contrato mobile V3. André vai tratar em chat separado (Chat 1 Backend).
 
-**Diagnóstico residual (hipóteses não fechadas):**
-1. **Token velho no SecureStore** (mais provável): Clear Storage do Expo Go via menu Android Settings não foi consumado pelo operador, OU o emulator Android não estava expondo a opção esperada no menu de Apps. `adb shell pm clear host.exp.exponent` é o caminho definitivo mas não foi executado.
-2. **Bind do PHP `localhost` vs `0.0.0.0`**: o runbook §1.1 documenta `php -S localhost:8080` (loopback only). Para o Android emulator alcançar via `10.0.2.2:8080` o PHP precisa rodar com `php -S 0.0.0.0:8080`. Foi corrigido na ordem do smoke mas não foi confirmado se o backend estava efetivamente em `0.0.0.0` no momento dos testes.
-3. **`EXPO_PUBLIC_API_URL` não chegando ao bundle**: a env foi setada via `$env:EXPO_PUBLIC_API_URL=...` no PowerShell antes do `npx expo start --clear`. Não há diagnóstico no app pra imprimir o `baseURL` efetivo do `apiClient` em runtime, então não dá pra confirmar se o emulator estava tentando `10.0.2.2:8080` ou caindo no default `localhost:8080` (que dentro do emulator significa o próprio emulator, não o host).
-4. **PHP 8.5.1 vs 8.4.1**: a primeira tentativa rodou com `C:\php\php.exe` que estava apontando pro 8.5.1 (banido pelo runbook §1.1 por causa do dispatcher bug). Foi corrigido pra `C:\php84\php.exe` (8.4.1) no meio da sessão, mas o smoke não foi re-executado completamente após a troca.
-5. **`listEvents()` engole erros silenciosamente** ([api/events.ts:23](../enjoyfun-app/src/api/events.ts#L23) `catch {}`): qualquer 401 / 500 / network error vira lista vazia sem feedback. UX issue conhecido — não é ticket MO-S1, fica anotado pra próxima rodada.
+**Conclusão:** contrato V3 do mobile está funcional ponta a ponta. Os 5 tickets MO-S1 + botão logout + `.env` LAN resolvem o ciclo. Alucinação da IA é escopo do Backend.
 
-**Estado da branch ao final da sessão:**
-- `enjoyfun-app/app.json` → `extra.embeddedV3: true` (commitado nessa sessão pra deixar a próxima tentativa destravada — flag fica ON no worktree mobile).
-- Nenhum código de domínio modificado. Os 5 arquivos do MO-S1 (`aiSession.ts`, `featureFlags.ts`, `AISessionContext.tsx`, `SurfacePicker.tsx`, `ChatScreen.tsx`) continuam intactos no commit `3992aa4`.
-
-**Próxima sessão de smoke deve, em ordem:**
-1. Confirmar `C:\php84\php.exe -S 0.0.0.0:8080 -t backend/public backend/public/router_dev.php` rodando com PHP 8.4.1.
-2. `adb shell pm clear host.exp.exponent` antes de abrir o app (caminho definitivo, ignora menu do emulator).
-3. Iniciar o Expo no MESMO PowerShell onde `$env:EXPO_PUBLIC_API_URL="http://10.0.2.2:8080/api"` está setado.
-4. Confirmar visualmente que o Login aparece (não cai direto no Chat).
-5. Login + biometria + selecionar evento + perguntar "qual a venda do bar?" → validar PT-BR + no-invent + blocos visuais.
-6. Se ainda bloquear, considerar adicionar um log temporário no [api/client.ts](../enjoyfun-app/src/api/client.ts) imprimindo `apiClient.defaults.baseURL` no boot pra confirmar a env.
+**Lições de setup pra próximas sessões:**
+1. PHP: sempre `C:\php84\php.exe -S 0.0.0.0:8080 -t backend/public` (8.4.1, bind all interfaces).
+2. Rede: `10.0.2.2` não funciona neste host Windows. Usar IP LAN via `enjoyfun-app/.env` (`EXPO_PUBLIC_API_URL`). IP muda por rede — atualizar `.env` ao trocar.
+3. Expo: `npx expo start --clear` no mesmo terminal onde `.env` é visível.
+4. Botão "Sair" agora existe no header do ChatScreen — usar pra resetar SecureStore sem depender de `adb`.
 
 ### Sprint 2
 _(aguardando)_

@@ -26,6 +26,7 @@ import type { EventSummary } from '@/api/events';
 import type { ChatMessage, ActionItem } from '@/lib/types';
 import { t, currentLocale } from '@/lib/i18n';
 import { speak, stopSpeaking } from '@/lib/voice';
+import { clearAuth } from '@/lib/auth';
 import type { RootStackParamList } from '../../App';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
@@ -198,9 +199,21 @@ export function ChatScreen({ navigation }: Props) {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.headerBtn}
-          onPress={() => Alert.alert(t('settings'), t('settings_soon'))}
+          onPress={() =>
+            Alert.alert(t('logout'), t('confirm_logout'), [
+              { text: t('cancel'), style: 'cancel' },
+              {
+                text: t('logout'),
+                style: 'destructive',
+                onPress: async () => {
+                  await clearAuth();
+                  navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+                },
+              },
+            ])
+          }
         >
-          <Text style={styles.headerBtnText}>{t('settings')}</Text>
+          <Text style={styles.headerBtnText}>{t('logout')}</Text>
         </TouchableOpacity>
       </View>
 
