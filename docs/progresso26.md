@@ -437,6 +437,63 @@ MemPalace Docker sidecar + Redis + docker-compose.
 - `docker/mempalace/Dockerfile`: Node 20 Alpine, 19 rooms (1 por módulo)
 - `docker/mempalace/server.js`: REST API — store/search/recall memories, file persistence, 1000/room cap
 - `docker-compose.yml`: +redis (7-alpine) + mempalace services com healthchecks e volumes
+
+#### Commit 2 — BE-S6-A3+A4+A5+A6 ✅
+Memory bridge + hybrid recall.
+- `AIMemoryBridgeService.php` (NOVO): HTTP bridge PHP→MemPalace (store/search/recall) com fallback graceful
+- Migration 086: `memory_embeddings` (graceful skip — pgvector não instalado)
+- Auto-log em MemPalace após cada insight (fire-and-forget)
+- Recall híbrido: PostgreSQL top-3 + MemPalace top-2
+
+#### Commit 3 — BE-S6-B1+B2+B3 ✅
+SSE streaming service + endpoint.
+- `AIStreamingService.php` (NOVO): initSSE, emit events (token, tool_start, tool_end, block, done, error)
+- `GET /ai/chat/stream?session_id=` — SSE endpoint (placeholder mode até Redis ativo)
+
+#### Commit 4 — BE-S6-B4+B5 ✅
+Redis config + nginx SSE.
+- nginx: `location /api/ai/chat/stream` com `fastcgi_buffering off`, `proxy_buffering off`, `gzip off`, 300s timeout
+- Redis config no `.env` (REDIS_HOST, REDIS_PORT)
+
+#### Commit 5 — BE-S6-C1+C2+C3+C4 ✅
+Supervisor + WhatsApp concierge.
+- `AISupervisorService.php` (NOVO): classify (keyword Tier 1) + handleWhatsAppMessage (delega para expert agent)
+- IntentRouter: `conversation_mode=whatsapp` → force Supervisor
+
+#### Commit 6 — BE-S6-D1+D2+D3 ✅
+Test suites atualizadas.
+- `ai_e2e_smoke.sh` (NOVO): 12 checks (health, 6 surfaces, approvals, voice, SSE)
+- `security_scan.sh`: +5 checks EMAS (#21-25: approval bypass, MemPalace cross-tenant, SSE auth, prompt sanitization, RAG leakage)
+
+#### Commit 7 — BE-S6-D4+D5 ✅
+Fechamento EMAS.
+
+---
+
+## EMAS COMPLETO — Resumo Final
+
+**6 Sprints executados em 2026-04-12 (1 dia):**
+
+| Sprint | Tickets | Commits | Foco |
+|--------|---------|---------|------|
+| S1 (hotfixes) | Bug H+I | 4 | Session contamination + tool dedup |
+| S2 | 20/20 | 8 | Lazy context + 12 skills + PT-BR |
+| S3 | 15/15 | 7 | Platform Guide + RAG + Memory |
+| S4 | 13/13 | 6 | Observability + Grounding |
+| S5 | 19/19 | 6 | pgvector + Approvals + Voice |
+| S6 | 19/19 | 7 | MemPalace + SSE + Supervisor + Hardening |
+| **TOTAL** | **86 tickets + 4 hotfixes** | **38 commits** | **EMAS v1 completo** |
+
+**Feature flags criados:** 12 (LAZY_CONTEXT, PT_BR_LABELS, PLATFORM_GUIDE, RAG_PRAGMATIC, MEMORY_RECALL, PGVECTOR, TOOL_WRITE, VOICE_PROXY, MEMPALACE, SSE_STREAMING, SUPERVISOR, EMBEDDED_V3)
+
+**Migrations aplicadas:** 083-086 (083/084/086 graceful skip por falta de pgvector)
+
+**Serviços novos criados:** AIMonitoringService, AIGroundingValidatorService, AIEmbeddingService, AIMemoryBridgeService, AIStreamingService, AISupervisorService, ApprovalWorkflowService, PlatformKnowledgeService (S1)
+
+**Pendências de infra (não bloqueiam código):**
+- pgvector: instalar extension no PostgreSQL → re-rodar migrations 083/084/086
+- Redis: `docker-compose up redis` → SSE pub/sub ativo
+- MemPalace: `docker-compose up mempalace` → memory bridge ativo
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 
