@@ -266,7 +266,13 @@ _(nenhum ticket — aguarda fim do S0 do Backend)_
 4. Botão "Sair" agora existe no header do ChatScreen — usar pra resetar SecureStore sem depender de `adb`.
 
 ### Sprint 2
-_(aguardando)_
+- **MO-S2-02** ✅ `enjoyfun-app/src/components/SurfacePicker.tsx` — expandido de 2 pra 10 surfaces com ícones e labels PT-BR (dashboard, documents, bar, food, shop, parking, artists, workforce, tickets, finance). Export renomeado de `SURFACE_OPTIONS_S1` → `SURFACE_OPTIONS`. Default prop atualizado.
+- **MO-S2-04** ✅ `enjoyfun-app/src/lib/i18n.ts` — 60+ labels adicionados em pt/en/es: 10 surfaces, 15 tool activity prefixes, 24 suggestion pills por surface, 3 strings gerais (new_conversation, select_surface, no_event_hint).
+- **MO-S2-05** ✅ `enjoyfun-app/src/components/SuggestionPills.tsx` NOVO — pills contextuais por surface (2-3 sugestões cada), scroll horizontal, `onPress` envia texto da pill direto pro `handleSend`. Mapeamento `PILLS_BY_SURFACE` cobre as 10 surfaces operacionais.
+- **MO-S2-03** ✅ `enjoyfun-app/src/components/ToolActivityIndicator.tsx` NOVO — indicador durante loading baseado em `tool_calls_summary`. Labels PT-BR por tool prefix (15 mappings). Mostra status ok/erro + duração em ms após resposta.
+- **MO-S2-01** ✅ `enjoyfun-app/src/screens/ChatScreen.tsx` — state `lastToolCalls` captura `tool_calls_summary` do V3. `ToolActivityIndicator` renderiza durante `sending`. `SuggestionPills` renderizam quando chat está vazio (por surface). Todas as 10 surfaces funcionais via SurfacePicker.
+
+**Status MO-S2:** ✅ todos os 5 tickets concluídos. `npm run typecheck` PASS.
 
 ### Sprint 3
 _(aguardando)_

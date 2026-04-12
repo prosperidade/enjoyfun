@@ -17,20 +17,17 @@ export interface SurfaceOption {
   description?: string;
 }
 
-// Sprint 1: somente Dashboard + Documentos. Sprint 2 expande para 10 surfaces.
-export const SURFACE_OPTIONS_S1: SurfaceOption[] = [
-  {
-    key: 'dashboard',
-    label: 'Painel do evento',
-    icon: '\u{1F4CA}',
-    description: 'KPIs, vendas e visao geral',
-  },
-  {
-    key: 'documents',
-    label: 'Documentos',
-    icon: '\u{1F4C4}',
-    description: 'Arquivos do organizador',
-  },
+export const SURFACE_OPTIONS: SurfaceOption[] = [
+  { key: 'dashboard', label: 'Painel do evento', icon: '\u{1F4CA}', description: 'KPIs, vendas e visao geral' },
+  { key: 'documents', label: 'Documentos', icon: '\u{1F4C4}', description: 'Arquivos do organizador' },
+  { key: 'bar', label: 'Bar', icon: '\u{1F37A}', description: 'Vendas e estoque de bebidas' },
+  { key: 'food', label: 'Alimentacao', icon: '\u{1F354}', description: 'Pratos e refeicoes' },
+  { key: 'shop', label: 'Loja', icon: '\u{1F6CD}', description: 'Mercadorias e produtos' },
+  { key: 'parking', label: 'Estacionamento', icon: '\u{1F697}', description: 'Fluxo e capacidade' },
+  { key: 'artists', label: 'Artistas', icon: '\u{1F3B5}', description: 'Lineup e logistica' },
+  { key: 'workforce', label: 'Equipes', icon: '\u{1F465}', description: 'Cobertura de turnos' },
+  { key: 'tickets', label: 'Ingressos', icon: '\u{1F3AB}', description: 'Vendas por lote e canal' },
+  { key: 'finance', label: 'Financeiro', icon: '\u{1F4B0}', description: 'Orcamento e pagamentos' },
 ];
 
 interface Props {
@@ -42,7 +39,7 @@ interface Props {
 
 export function SurfacePicker({
   value,
-  options = SURFACE_OPTIONS_S1,
+  options = SURFACE_OPTIONS,
   onChange,
   disabled,
 }: Props) {

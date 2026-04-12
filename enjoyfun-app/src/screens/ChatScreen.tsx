@@ -17,8 +17,10 @@ import { colors, spacing, typography, radius } from '@/theme';
 import { ChatInput } from '@/components/ChatInput';
 import { MessageBubble } from '@/components/MessageBubble';
 import { SurfacePicker } from '@/components/SurfacePicker';
+import { SuggestionPills } from '@/components/SuggestionPills';
+import { ToolActivityIndicator } from '@/components/ToolActivityIndicator';
 import { sendChatMessage } from '@/api/chat';
-import { sendMessage as sendMessageV3, type Surface } from '@/lib/aiSession';
+import { sendMessage as sendMessageV3, type Surface, type ToolCallSummary } from '@/lib/aiSession';
 import { getEmbeddedV3Flag } from '@/lib/featureFlags';
 import { useAISession } from '@/context/AISessionContext';
 import { useEvent } from '@/context/EventContext';
@@ -53,6 +55,7 @@ export function ChatScreen({ navigation }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [legacySessionId, setLegacySessionId] = useState<string | undefined>(undefined);
   const [sending, setSending] = useState(false);
+  const [lastToolCalls, setLastToolCalls] = useState<ToolCallSummary[] | undefined>(undefined);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const ttsEnabledRef = useRef(true);
@@ -77,6 +80,7 @@ export function ChatScreen({ navigation }: Props) {
       };
       setMessages((prev) => [...prev, userMsg, loadingMsg]);
       setSending(true);
+      setLastToolCalls(undefined);
       try {
         const eventIdNum =
           activeEvent && activeEvent.id != null ? Number(activeEvent.id) : null;
@@ -89,6 +93,7 @@ export function ChatScreen({ navigation }: Props) {
             locale: currentLocale,
           });
           aiSession.recordResponse(surface, eventIdNum, res);
+          setLastToolCalls(res.tool_calls_summary);
         } else {
           const context: Record<string, unknown> = { locale: currentLocale };
           if (eventIdNum != null) context.event_id = eventIdNum;
@@ -274,6 +279,10 @@ export function ChatScreen({ navigation }: Props) {
             </View>
           }
         />
+        {sending && <ToolActivityIndicator loading={sending} toolCallsSummary={lastToolCalls} />}
+        {!sending && messages.length === 0 && (
+          <SuggestionPills surface={surface} onPress={handleSend} disabled={sending} />
+        )}
         <ChatInput onSend={handleSend} disabled={sending} />
       </KeyboardAvoidingView>
     </SafeAreaView>
