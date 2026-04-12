@@ -78,6 +78,16 @@ final class AIOrchestratorService
         $effectiveProvider = self::resolveEffectiveProvider($db, $organizerId, $agentExecution, $legacyConfig);
         $runtime = AIProviderConfigService::resolveRuntime($db, $organizerId, $effectiveProvider);
         $systemPrompt = AIPromptCatalogService::composeSystemPrompt($legacyConfig, $agentExecution, $surface, $db);
+
+        // BE-S3-C2: Inject relevant memories into system prompt (gated by FEATURE_AI_MEMORY_RECALL)
+        $memoryRecallEnabled = class_exists('Features') && \Features::enabled('FEATURE_AI_MEMORY_RECALL');
+        if ($memoryRecallEnabled) {
+            $memoryContext = self::recallRelevantMemories($db, $organizerId, $surface);
+            if ($memoryContext !== '') {
+                $systemPrompt .= "\n\n" . $memoryContext;
+            }
+        }
+
         $prompt = AIPromptCatalogService::buildUserPrompt($surface, $context, $question);
         $toolCatalog = AIToolRuntimeService::buildToolCatalog($context, $db, $organizerId);
         $startedAt = gmdate('Y-m-d H:i:s');
@@ -688,7 +698,9 @@ final class AIOrchestratorService
             }
 
             // Call provider with full message history
-            $stepResult = self::requestInsightWithMessages($runtime, $messages, $toolCatalog);
+            // BE-S2: Force tool_choice=required on the first step to prevent hallucination
+            $forceTools = ($step === 1);
+            $stepResult = self::requestInsightWithMessages($runtime, $messages, $toolCatalog, $forceTools);
             $totalUsage = self::mergeUsage($totalUsage, (array)($stepResult['usage'] ?? []));
             $totalDurationMs += max(0, (int)($stepResult['request_duration_ms'] ?? 0));
             $lastResult = $stepResult;
@@ -823,16 +835,16 @@ final class AIOrchestratorService
      * Call provider using full canonical messages (multi-turn).
      * Delegates to provider-specific serializers.
      */
-    private static function requestInsightWithMessages(array $runtime, array $messages, array $toolCatalog = []): array
+    private static function requestInsightWithMessages(array $runtime, array $messages, array $toolCatalog = [], bool $forceTools = false): array
     {
         return match ($runtime['provider'] ?? 'openai') {
-            'gemini' => self::requestGeminiInsightWithMessages($runtime, $messages, $toolCatalog),
-            'claude' => self::requestClaudeInsightWithMessages($runtime, $messages, $toolCatalog),
-            default => self::requestOpenAiInsightWithMessages($runtime, $messages, $toolCatalog),
+            'gemini' => self::requestGeminiInsightWithMessages($runtime, $messages, $toolCatalog, $forceTools),
+            'claude' => self::requestClaudeInsightWithMessages($runtime, $messages, $toolCatalog, $forceTools),
+            default => self::requestOpenAiInsightWithMessages($runtime, $messages, $toolCatalog, $forceTools),
         };
     }
 
-    private static function requestOpenAiInsightWithMessages(array $runtime, array $messages, array $toolCatalog = []): array
+    private static function requestOpenAiInsightWithMessages(array $runtime, array $messages, array $toolCatalog = [], bool $forceTools = false): array
     {
         $apiKey = trim((string)($runtime['api_key'] ?? ''));
         if ($apiKey === '') {
@@ -858,7 +870,7 @@ final class AIOrchestratorService
         $openAiTools = AIToolRuntimeService::buildOpenAiToolDefinitions($toolCatalog);
         if ($openAiTools !== []) {
             $payloadData['tools'] = $openAiTools;
-            $payloadData['tool_choice'] = 'auto';
+            $payloadData['tool_choice'] = $forceTools ? 'required' : 'auto';
         }
         $payload = json_encode($payloadData, JSON_UNESCAPED_UNICODE);
 
@@ -889,7 +901,7 @@ final class AIOrchestratorService
         ];
     }
 
-    private static function requestGeminiInsightWithMessages(array $runtime, array $messages, array $toolCatalog = []): array
+    private static function requestGeminiInsightWithMessages(array $runtime, array $messages, array $toolCatalog = [], bool $forceTools = false): array
     {
         $apiKey = trim((string)($runtime['api_key'] ?? ''));
         if ($apiKey === '') {
@@ -914,6 +926,11 @@ final class AIOrchestratorService
         $geminiTools = AIToolRuntimeService::buildGeminiToolDefinitions($toolCatalog);
         if ($geminiTools !== []) {
             $payloadData['tools'] = $geminiTools;
+            if ($forceTools) {
+                $payloadData['tool_config'] = [
+                    'function_calling_config' => ['mode' => 'ANY']
+                ];
+            }
         }
         $payload = json_encode($payloadData, JSON_UNESCAPED_UNICODE);
 
@@ -946,7 +963,7 @@ final class AIOrchestratorService
         ];
     }
 
-    private static function requestClaudeInsightWithMessages(array $runtime, array $messages, array $toolCatalog = []): array
+    private static function requestClaudeInsightWithMessages(array $runtime, array $messages, array $toolCatalog = [], bool $forceTools = false): array
     {
         $apiKey = trim((string)($runtime['api_key'] ?? ''));
         if ($apiKey === '') {
@@ -976,6 +993,9 @@ final class AIOrchestratorService
         $claudeTools = AIToolRuntimeService::buildClaudeToolDefinitions($toolCatalog);
         if ($claudeTools !== []) {
             $payloadData['tools'] = $claudeTools;
+            if ($forceTools) {
+                $payloadData['tool_choice'] = ['type' => 'any'];
+            }
         }
         $payload = json_encode($payloadData, JSON_UNESCAPED_UNICODE);
 
@@ -1252,6 +1272,54 @@ final class AIOrchestratorService
             'tool_calls' => $approvalPolicy['tool_calls'] ?? [],
             'tool_results' => ($result['tool_results'] ?? []) !== [] ? $result['tool_results'] : null,
         ], static fn(mixed $value): bool => $value !== null);
+    }
+
+    /**
+     * BE-S3-C2: Recall top-3 relevant memories for the current surface/organizer.
+     * Injects a "CONTEXTO DE SESSOES ANTERIORES" block into the system prompt.
+     * Updates recall tracking (last_recalled_at, recall_count) for recalled memories.
+     */
+    private static function recallRelevantMemories(PDO $db, int $organizerId, string $surface): string
+    {
+        try {
+            $stmt = $db->prepare("
+                SELECT id, title, summary
+                FROM public.ai_agent_memories
+                WHERE organizer_id = :org
+                  AND (surface = :surface OR surface IS NULL)
+                  AND relevance_score > 20
+                ORDER BY relevance_score DESC, created_at DESC
+                LIMIT 3
+            ");
+            $stmt->execute([':org' => $organizerId, ':surface' => $surface]);
+            $memories = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            if (empty($memories)) {
+                return '';
+            }
+
+            // Update recall tracking
+            $ids = array_column($memories, 'id');
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $db->prepare("
+                UPDATE public.ai_agent_memories
+                SET last_recalled_at = NOW(), recall_count = recall_count + 1
+                WHERE id IN ({$placeholders})
+            ")->execute($ids);
+
+            // Build context block
+            $lines = ["CONTEXTO DE SESSOES ANTERIORES (top-3 memorias relevantes):"];
+            foreach ($memories as $i => $m) {
+                $n = $i + 1;
+                $lines[] = "{$n}. {$m['title']}: {$m['summary']}";
+            }
+            $lines[] = "Use estas memorias como contexto adicional, mas SEMPRE priorize dados frescos das tools.";
+
+            return implode("\n", $lines);
+        } catch (\Throwable $e) {
+            error_log('[AIOrchestratorService] recallRelevantMemories failed: ' . $e->getMessage());
+            return '';
+        }
     }
 
     private static function recordLearningMemory(

@@ -247,7 +247,60 @@ final class AIConversationService
              WHERE id = :id AND organizer_id = :org_id AND status = \'active\''
         );
         $stmt->execute(['id' => $sessionId, 'org_id' => $organizerId]);
-        return $stmt->rowCount() > 0;
+        $archived = $stmt->rowCount() > 0;
+
+        // BE-S3-C1: Auto-summarize sessions with >6 messages into ai_agent_memories
+        if ($archived) {
+            try {
+                self::summarizeSessionToMemory($db, $sessionId, $organizerId);
+            } catch (\Throwable $e) {
+                error_log('[AIConversationService] summarizeSession failed: ' . $e->getMessage());
+            }
+        }
+
+        return $archived;
+    }
+
+    /**
+     * BE-S3-C1: Extract a summary from an archived session and store as memory.
+     * Only runs for sessions with >6 messages. Fire-and-forget (errors logged, not thrown).
+     */
+    public static function summarizeSessionToMemory(PDO $db, string $sessionId, int $organizerId): void
+    {
+        $msgCount = self::countMessages($db, $sessionId, $organizerId);
+        if ($msgCount < 6) {
+            return; // Too short to summarize
+        }
+
+        // Get session metadata
+        $session = self::getSession($db, $sessionId, $organizerId);
+        if (!$session) { return; }
+
+        // Get the last few user messages as summary source
+        $messages = self::getHistory($db, $sessionId, $organizerId, 10);
+        $userMessages = array_filter($messages, fn($m) => $m['role'] === 'user');
+        $topics = array_map(fn($m) => mb_substr($m['content'], 0, 100), array_slice($userMessages, 0, 5));
+        $topicsSummary = implode(' | ', $topics);
+
+        $surface = $session['surface'] ?? 'unknown';
+        $agentKey = $session['routed_agent_key'] ?? 'management';
+        $title = "Sessao {$surface}: " . mb_substr($topicsSummary, 0, 150);
+        $summary = "Conversa com {$msgCount} msgs na surface {$surface} (agente {$agentKey}). Topicos: {$topicsSummary}";
+
+        require_once __DIR__ . '/AIMemoryStoreService.php';
+        \EnjoyFun\Services\AIMemoryStoreService::recordMemory($db, [
+            'organizer_id'      => $organizerId,
+            'event_id'          => $session['event_id'] ?? null,
+            'agent_key'         => $agentKey,
+            'surface'           => $surface,
+            'memory_type'       => 'session_summary',
+            'title'             => $title,
+            'summary'           => mb_substr($summary, 0, 2000),
+            'content'           => mb_substr("Mensagens do usuario: " . implode("\n", array_map(fn($m) => $m['content'], $userMessages)), 0, 8000),
+            'importance'        => 2,
+            'source_entrypoint' => 'session_archive',
+            'tags_json'         => json_encode(['session_summary', $surface, $agentKey]),
+        ]);
     }
 
     /**

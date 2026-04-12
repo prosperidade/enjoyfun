@@ -313,6 +313,12 @@ Migration `079_ai_memory_relevance.sql` aplicada.
 - `last_recalled_at` TIMESTAMP — tracking de quando a memória foi usada
 - `recall_count` INT DEFAULT 0 — quantas vezes foi recalled
 - 2 indexes: `idx_ai_memories_org_relevance` (top-N por relevância) + `idx_ai_memories_last_recalled` (decay de stale)
+
+#### Commit 6 — BE-S3-C1 + C2 + C3 ✅
+Session summarization + memory recall.
+- **C1** `summarizeSessionToMemory()`: auto-triggered no `archiveSession()` para sessões >6 msgs. Extrai tópicos das mensagens do user → grava em `ai_agent_memories` com `memory_type=session_summary`
+- **C2** `recallRelevantMemories()`: top-3 memórias por (organizer, surface, relevance DESC). Injetadas no system prompt como "CONTEXTO DE SESSOES ANTERIORES". Atualiza `last_recalled_at` + `recall_count`. Gated por `FEATURE_AI_MEMORY_RECALL`
+- **C3** Template de recall: prioriza dados frescos das tools sobre memórias
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 
