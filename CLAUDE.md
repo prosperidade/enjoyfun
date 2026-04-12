@@ -346,7 +346,7 @@ enjoyfun/
 
 ---
 
-## 🗺️ ESTADO DOS MÓDULOS (2026-04-04)
+## 🗺️ ESTADO DOS MÓDULOS (2026-04-12)
 
 | Módulo | Estado Funcional | Pendências |
 |--------|-----------------|-----------|
@@ -365,17 +365,22 @@ enjoyfun/
 | Channels / Mensageria | 🟡 Hardened | Idempotência via correlation_id. Retry/replay pendentes |
 | Analytics v1 | ✅ Encerrado | Snapshots materializados na V4 |
 | Dashboard | ✅ Funcional | — |
-| IA (insights setoriais) | ✅ Hardened | Rate limiting, prompt sanitization, PII scrub, spending caps |
-| Health Check | ✅ Real | Deep check + métricas (não mais dummy) |
-| Agents Hub | ✅ Implementado | 12 agentes, 33+ tools, prompts profissionais, approval workflow |
-| AI V2 (Agent Registry) | ✅ Implementado | DB-driven agents/skills, pluggable. Gated por feature flags |
-| AI V2 (Chat Conversacional) | ✅ Implementado | POST /ai/chat, multi-turn, IntentRouter, PII scrub, RLS |
-| AI V2 (UI Simplificada) | ✅ Implementado | UnifiedAIChat flutuante, AIAssistants cards, zero jargao |
-| Embedded Support Bot | ✅ Parcial | ArtistAIAssistant embarcado. WorkforceAI, ParkingAI, POS existentes |
+| IA (EMAS v1) | ✅ **COMPLETO** | 13 agentes, 50+ tools, lazy context, grounding score, approval workflow, voice proxy, SSE, supervisor, memory recall, PT-BR labels |
+| Health Check | ✅ Real | Deep check + métricas + GET /ai/health (monitoring por agente) |
+| Agents Hub | ✅ Implementado | 13 agentes (incl. platform_guide), 50+ skills, DB-driven registry |
+| AI Platform Guide | ✅ Implementado | 6 skills, 16 módulos indexados, 13 conceitos, persona didática |
+| AI RAG | ✅ Implementado | search_documents, read_file_excerpt, extract_file_entities, compare_documents, cite_document_evidence, semantic_search, hybrid_search |
+| AI Memory | ✅ Implementado | Session summarization, memory recall (top-3 + MemPalace), write/read/score/forget working memory |
+| AI Grounding | ✅ Implementado | 5 heurísticas, score 0-100 por resposta, 12/12 testes PASS |
+| AI Approvals | ✅ Implementado | 6 write skills via approval workflow, 3 endpoints (pending/confirm/cancel) |
+| AI Voice Proxy | ✅ Implementado | POST /ai/voice/transcribe (Whisper), elimina key do bundle mobile |
+| AI SSE Streaming | ✅ Foundation | AIStreamingService + endpoint + nginx config (ativa com Redis) |
+| AI Supervisor | ✅ Implementado | WhatsApp concierge, keyword classification, delegate_to_expert |
+| AI Observability | ✅ Implementado | AIMonitoringService, 8 internal skills (diagnostic), tool execution logging |
 | MCP Server Integration | ✅ Foundation | CRUD + discovery + tool execution + merge no catalog |
-| Organizer File Hub | ✅ Foundation | Upload, auto-parse CSV/JSON, UI /files, agente documents |
+| Organizer File Hub | ✅ Implementado | Upload, auto-parse, FTS search, embeddings pipeline (pgvector pending) |
 | Gateways de Pagamento | ✅ Asaas ativo | Asaas PIX real + webhook + split 1%/99% + recharge integrado |
-| Docker / Deploy | 🟡 Presente | Dockerfile, docker-compose.yml, nginx/default.conf |
+| Docker / Deploy | ✅ Expandido | +Redis + MemPalace sidecar + SSE nginx config |
 | Logística de Artistas | 🔴 Pendente | ADR não escrito ainda |
 | Controle de Custos | 🔴 Pendente | ADR não escrito ainda |
 | Customer App / PWA | 🟡 Parcial | Recharge com Asaas PIX real. Service Worker e push pendentes |
@@ -415,8 +420,7 @@ enjoyfun/
 - [ ] Telemetria: ampliar `resolveCriticalEndpointLabel` para PDV + tickets + cards
 
 ### P2 — Expansão de produto
-- [ ] **Agents Hub**: `AIOrchestratorService` + adapters por provider + UI dedicada
-- [ ] **Embedded Support Bot**: `/ai/assist` contextual em todas as superfícies
+- [x] **EMAS completo**: 13 agentes, 50+ tools, Platform Guide, RAG, Memory, Grounding, Approvals, Voice, SSE, Supervisor
 - [ ] **Logística de Artistas**: ADR + migrations + UI no ParticipantsHub
 - [ ] **Controle de Custos do Evento**: `event_cost_items` + `event_budget` + dashboard financeiro
 - [ ] **Gateways de Pagamento**: completar Asaas + Mercado Pago + Pagar.me com split 1%/99%
@@ -516,40 +520,57 @@ REGRAS INVIOLÁVEIS:
 
 Auditorias técnicas entram por `docs/auditorias.md`; arquivos legados estão em `docs/archive/root_legacy/`.
 
-### 🎯 EVENTO REAL — D-Day adiado pro próximo evento do grupo (Sprint EMAS em curso)
+### 🎯 EMAS COMPLETO — Backend entregue 2026-04-12
 
-D-Day original 2026-04-29 foi adiado pelo André porque a base IA precisava de refundação completa (EMAS — Embedded Multi-Agent System). Sprint EMAS roda 2026-04-11 → ~2026-05-12 em 3 frentes paralelas. Plano em `execucaobacklogtripla.md`. Diário em `docs/progresso26.md`. ADRs em `docs/adr_emas_architecture_v1.md` + `adr_platform_guide_agent_v1.md` + `adr_voice_proxy_v1.md`.
+EMAS (Embedded Multi-Agent System) foi refundado completamente em 2026-04-12. Plano em `execucaobacklogtripla.md`. Diário em `docs/progresso26.md`. ADRs em `docs/adr_emas_architecture_v1.md` + `adr_platform_guide_agent_v1.md` + `adr_voice_proxy_v1.md`.
 
-**Status Sprint 1 EMAS (encerramento 2026-04-11):**
-- Backend: 13/13 tickets ✅ + 4 hotfixes pós-smoke (`a29b1dd` → `293096b` → `f84505f` → `fde5943`) + 6 migrations aplicadas (069/070/074/075/076/077)
-- Mobile: 5/5 MO-S1 ✅ (commit `8d1c307` no worktree `enjoyfun-mobile`)
-- Frontend Web: FE-S1 ✅ (commits `47346da` + `4faba5e` no worktree `enjoyfun-codex`)
+**Resultado Backend: 6 sprints, 86 tickets + 4 hotfixes = 90 entregas em 38 commits.**
 
-**Pendências EMAS para 2026-04-12:**
-1. 🔴 **Bug H persistente** — LLM continua respondendo sobre "trance formation" mesmo após directive 3.4 (anti-anáfora). Investigar primeiro: cache de session_id no AIContext do frontend mantendo histórico contaminado após backend archivar. Possível fix: detectar HTTP 410 e criar nova sessão automaticamente, OU botão "Nova conversa" no EmbeddedAIChat.
-2. 🟡 Revalidar bugs F (alucinação "hoje"), G (chatty "vou buscar"), I (find_events loop) — fixes aplicados em hotfix 2+4 mas não reconfirmados pós-restart.
-3. 🟡 Bug I residual — fix programático: bloquear `find_events` chamado 2x na mesma turn no `AIToolRuntimeService` (Sprint 2 Trilha A).
-4. 🟢 Skills retornarem JSON em PT-BR nativo (fix raiz do Bug C — atualmente é dicionário defensivo no `AdaptiveResponseService`).
-5. 🟢 Bounded loop V2 com 2ª passada explícita: restaurar `tool_choice=required` na 1ª + `auto` na 2ª (Sprint 2).
-6. 🟢 BE-S0-03 — `organizer_ai_providers` pgcrypto re-encrypt (warning não-fatal openai/org 2).
-7. 🟢 UX/CSS Codex — cards estourando, chat muito alto (FE-S2 cosmetic).
+| Sprint | Tickets | Foco | Status |
+|--------|---------|------|--------|
+| S1 (hotfixes 5-7) | Bug H+I | Session idle timeout + tool dedup + getHistory DESC | ✅ |
+| S2 | 20/20 | Lazy context + 12 skills operacionais + PT-BR labels | ✅ |
+| S3 | 15/15 | Platform Guide (6 skills) + RAG (4 skills + evidence) + Memory (recall + summarize) | ✅ |
+| S4 | 13/13 | Observability (monitoring + health) + 8 internal skills + Grounding score (12/12 tests) | ✅ |
+| S5 | 19/19 | pgvector + Approval workflow + 6 write skills + Voice proxy (Whisper) | ✅ |
+| S6 | 19/19 | MemPalace sidecar + SSE streaming + Supervisor WhatsApp + Hardening (tests + security) | ✅ |
 
-**Worktrees ativos:**
-- `c:\Users\Administrador\Desktop\enjoyfun` → Backend (Claude Chat 1), branch `main`
-- `c:\Users\Administrador\Desktop\enjoyfun-mobile` → Mobile (Claude Chat 2), branch `claude-mo/sprint-1/ai-session-v3`
-- `c:\Users\Administrador\Desktop\enjoyfun-codex` → Frontend Web (Codex VS Code), branch `codex/sprint-1/fe-s1-embedded-ai-chat`
+**Serviços novos criados:**
+| Serviço | Arquivo | Sprint |
+|---------|---------|--------|
+| AIMonitoringService | `backend/src/Services/AIMonitoringService.php` | S4 |
+| AIGroundingValidatorService | `backend/src/Services/AIGroundingValidatorService.php` | S4 |
+| AIEmbeddingService | `backend/src/Services/AIEmbeddingService.php` | S5 |
+| ApprovalWorkflowService | `backend/src/Services/ApprovalWorkflowService.php` | S5 |
+| AIMemoryBridgeService | `backend/src/Services/AIMemoryBridgeService.php` | S6 |
+| AIStreamingService | `backend/src/Services/AIStreamingService.php` | S6 |
+| AISupervisorService | `backend/src/Services/AISupervisorService.php` | S6 |
 
-**6 migrations EMAS aplicadas no Postgres em 2026-04-11 22:30:**
-- `069_rls_ai_memory_reports` (RLS em ai_agent_memories + ai_event_reports + ai_event_report_sections)
-- `070_session_composite_key` (session_key + conversation_mode + routing_trace_id)
-- `074_manifest_sync` (marker)
-- `075_ai_routing_events` (audit trail de routing)
-- `076_ai_tool_executions` (audit trail de tool calls)
-- `077_ai_platform_guide` (13º agent + 4 builtin skills + mappings)
+**12 feature flags:** EMBEDDED_V3, LAZY_CONTEXT, PT_BR_LABELS, PLATFORM_GUIDE, RAG_PRAGMATIC, MEMORY_RECALL, PGVECTOR, TOOL_WRITE, VOICE_PROXY, MEMPALACE, SSE_STREAMING, SUPERVISOR
 
-Manifest replay window expandido de 039..059 para 039..077.
+**Migrations EMAS aplicadas (069-086):**
+- 069-077: Sprint 0+1 (RLS, session key, routing events, tool executions, platform guide)
+- 078: ai_label_translations (92 labels PT-BR)
+- 079: ai_memory_relevance (relevance_score + recall tracking)
+- 080: ai_agent_usage_daily (metrics materialização)
+- 081: ai_skill_versioning (version, deprecated_at, successor_key)
+- 082: ai_prompt_versions (prompt change tracking)
+- 083-084: pgvector + document_embeddings (graceful skip — pgvector não instalado)
+- 085: ai_approval_requests (approval workflow)
+- 086: memory_embeddings (graceful skip — pgvector não instalado)
+
+**Pendências de infra (código pronto, falta deploy):**
+- pgvector: instalar extension no PostgreSQL → re-rodar migrations 083/084/086
+- Redis: `docker-compose up redis` → SSE pub/sub ativo
+- MemPalace: `docker-compose up mempalace` → memory bridge ativo
+- BE-S0-03: pgcrypto re-encrypt `organizer_ai_providers` (warning não-fatal)
+
+**Worktrees:**
+- `c:\Users\Administrador\Desktop\enjoyfun` → Backend (main)
+- `c:\Users\Administrador\Desktop\enjoyfun-mobile` → Mobile
+- `c:\Users\Administrador\Desktop\enjoyfun-codex` → Frontend Web
 
 ---
 
 *EnjoyFun Platform v2.0 — SaaS White Label Multi-tenant*
-*Atualizado: 2026-04-12 — Sprint 1 EMAS encerrado (3 frentes verdes em código, smoke parcial com bugs residuais H/I documentados em docs/progresso26.md)*
+*Atualizado: 2026-04-12 — EMAS v1 Backend COMPLETO (6 sprints, 90 entregas, 38 commits). Diário completo em docs/progresso26.md*
