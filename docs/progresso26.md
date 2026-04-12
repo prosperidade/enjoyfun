@@ -242,6 +242,13 @@ Refactor `AIContextBuilderService` com feature flag `FEATURE_AI_LAZY_CONTEXT`.
 - `loadOrganizerFilesSummary` no orchestrator também guarded: lazy → array vazio (files viram tools)
 - Métodos eager (parking/workforce/artists) ficam como dead code até flag ser validada, depois cleanup
 
+#### Commit 4 — BE-S2-A2 + A3 + A4 ✅
+3 document tools para lazy context (substituem `loadOrganizerFilesSummary` eager).
+- `read_organizer_file(file_id)` — lê parsed_data completo de um arquivo
+- `search_documents(category?, keyword?, limit?)` — busca por categoria + ILIKE no nome/notas
+- `list_documents_by_category` — GROUP BY category com contagem e nomes
+- 3 schema entries no tool registry + 3 dispatch lines + 3 execute methods
+
 ### Sprint 3
 _(aguardando)_
 

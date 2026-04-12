@@ -635,6 +635,56 @@ final class AIToolRuntimeService
                 'agent_keys' => ['documents'],
             ],
 
+            // --- BE-S2-A2/A3/A4: Document tools (lazy context) ---
+            [
+                'name' => 'read_organizer_file',
+                'description' => 'Le o conteudo completo parseado de um arquivo do organizador pelo ID. Retorna o parsed_data (JSON) com todas as linhas/entradas do arquivo.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'file_id' => ['type' => 'integer', 'description' => 'ID do arquivo no organizer_files.'],
+                    ],
+                    'required' => ['file_id'],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['read_organizer_file', 'read_file', 'documents.read'],
+                'type' => 'read',
+                'surfaces' => ['documents', 'finance', 'logistics'],
+                'agent_keys' => ['documents', 'management', 'contracting', 'logistics'],
+            ],
+            [
+                'name' => 'search_documents',
+                'description' => 'Busca arquivos do organizador por categoria e/ou palavra-chave no nome ou notas. Retorna id, nome, categoria e resumo de cada match.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'category' => ['type' => 'string', 'description' => 'Filtrar por categoria: general, financial, contracts, logistics, marketing, operational, reports, spreadsheets.'],
+                        'keyword' => ['type' => 'string', 'description' => 'Busca por nome do arquivo ou notas (case-insensitive).'],
+                        'limit' => ['type' => 'integer', 'description' => 'Max resultados (default 10, max 50).'],
+                    ],
+                    'required' => [],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['search_documents', 'search_files', 'documents.search'],
+                'type' => 'read',
+                'surfaces' => ['documents', 'finance', 'logistics'],
+                'agent_keys' => ['documents', 'management', 'contracting', 'logistics'],
+            ],
+            [
+                'name' => 'list_documents_by_category',
+                'description' => 'Lista todos os arquivos parseados do organizador agrupados por categoria. Retorna contagem e nomes por categoria.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [],
+                    'required' => [],
+                    'additionalProperties' => false,
+                ],
+                'aliases' => ['list_documents_by_category', 'documents.categories', 'list_file_categories'],
+                'type' => 'read',
+                'surfaces' => ['documents', 'finance'],
+                'agent_keys' => ['documents', 'management'],
+            ],
+
             // --- Content agent tools ---
             [
                 'name' => 'get_event_content_context',
@@ -1108,6 +1158,9 @@ final class AIToolRuntimeService
             'get_organizer_files' => self::executeGetOrganizerFiles($db, $organizerId, $arguments),
             'get_parsed_file_data' => self::executeGetParsedFileData($db, $organizerId, $arguments),
             'categorize_file_entries' => self::executeCategorizeFileEntries($db, $organizerId, $arguments),
+            'read_organizer_file' => self::executeReadOrganizerFile($db, $organizerId, $arguments),
+            'search_documents' => self::executeSearchDocuments($db, $organizerId, $arguments),
+            'list_documents_by_category' => self::executeListDocumentsByCategory($db, $organizerId),
 
             // Content
             'get_event_content_context' => self::executeEventContentContext($db, $organizerId, $eventId),
@@ -1745,6 +1798,103 @@ final class AIToolRuntimeService
         } catch (\Throwable $e) {
             return ['file_id' => $fileId, 'status' => 'failed', 'message' => $e->getMessage()];
         }
+    }
+
+    // ── BE-S2-A2/A3/A4: Document tools ────────────────────────────
+
+    /** BE-S2-A2: Read full parsed data of an organizer file. */
+    private static function executeReadOrganizerFile(PDO $db, int $organizerId, array $arguments): array
+    {
+        $fileId = self::nullablePositiveInt($arguments['file_id'] ?? null);
+        if ($fileId === null) {
+            throw new RuntimeException('file_id e obrigatorio.', 422);
+        }
+
+        $stmt = $db->prepare("
+            SELECT id, original_name, category, file_type, parsed_data, notes, created_at
+            FROM public.organizer_files
+            WHERE id = :id AND organizer_id = :org AND parsed_status = 'parsed'
+        ");
+        $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return ['file_id' => $fileId, 'found' => false, 'message' => 'Arquivo nao encontrado ou nao foi parseado.'];
+        }
+
+        $parsedData = json_decode($row['parsed_data'] ?? '{}', true);
+        return [
+            'file_id'       => (int)$row['id'],
+            'found'         => true,
+            'original_name' => $row['original_name'],
+            'category'      => $row['category'],
+            'file_type'     => $row['file_type'],
+            'notes'         => $row['notes'],
+            'created_at'    => $row['created_at'],
+            'parsed_data'   => $parsedData,
+        ];
+    }
+
+    /** BE-S2-A3: Search documents by category and/or keyword. */
+    private static function executeSearchDocuments(PDO $db, int $organizerId, array $arguments): array
+    {
+        $category = strtolower(trim((string)($arguments['category'] ?? '')));
+        $keyword = trim((string)($arguments['keyword'] ?? ''));
+        $limit = min(max((int)($arguments['limit'] ?? 10), 1), 50);
+
+        $where = ["organizer_id = :org", "parsed_status = 'parsed'"];
+        $params = [':org' => $organizerId];
+
+        if ($category !== '') {
+            $where[] = 'category = :cat';
+            $params[':cat'] = $category;
+        }
+        if ($keyword !== '') {
+            $where[] = '(LOWER(original_name) LIKE :kw OR LOWER(COALESCE(notes, \'\')) LIKE :kw)';
+            $params[':kw'] = '%' . strtolower($keyword) . '%';
+        }
+
+        $sql = 'SELECT id, original_name, category, file_type, notes, created_at
+                FROM public.organizer_files
+                WHERE ' . implode(' AND ', $where) . '
+                ORDER BY updated_at DESC NULLS LAST
+                LIMIT ' . $limit;
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $files = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'total_matches' => count($files),
+            'filters' => ['category' => $category ?: 'all', 'keyword' => $keyword ?: null],
+            'files' => $files,
+        ];
+    }
+
+    /** BE-S2-A4: List documents grouped by category. */
+    private static function executeListDocumentsByCategory(PDO $db, int $organizerId): array
+    {
+        $stmt = $db->prepare("
+            SELECT category, COUNT(*) AS file_count,
+                   array_agg(original_name ORDER BY updated_at DESC) AS file_names
+            FROM public.organizer_files
+            WHERE organizer_id = :org AND parsed_status = 'parsed'
+            GROUP BY category
+            ORDER BY file_count DESC
+        ");
+        $stmt->execute([':org' => $organizerId]);
+        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        // PostgreSQL array_agg returns a string like {a,b,c}, parse it
+        foreach ($rows as &$r) {
+            $r['file_count'] = (int)$r['file_count'];
+            $raw = $r['file_names'] ?? '';
+            if (is_string($raw) && str_starts_with($raw, '{')) {
+                $r['file_names'] = explode(',', trim($raw, '{}'));
+            }
+        }
+
+        return ['organizer_id' => $organizerId, 'categories' => $rows];
     }
 
     private static function executeEventContentContext(PDO $db, int $organizerId, ?int $eventId): array
