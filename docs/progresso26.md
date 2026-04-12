@@ -129,7 +129,13 @@ _(aguardando)_
 _(nenhum ticket — aguarda fim do S0 do Backend)_
 
 ### Sprint 1
-_(começa no dia 2, depois de BE-S1-A2 em main)_
+- **MO-S1-01** ✅ `enjoyfun-app/src/lib/aiSession.ts` — wrapper `sendMessage(surface, eventId, message, opts)` montando payload V3 da §1.2 (`message`, `surface`, `event_id`, `agent_key?`, `conversation_mode`, `context_data`, `locale`, `stream:false`). Tipos `Surface` (11), `ConversationMode` (5), `AdaptiveResponseV3` com `text_fallback` garantido + `tool_calls_summary` + `evidence` + `approval_request` + `routing_trace_id` + `agent_used`.
+- **MO-S1-05** ✅ `enjoyfun-app/src/lib/featureFlags.ts` — `getEmbeddedV3Flag()` lê `Constants.expoConfig?.extra?.embeddedV3` com fallback para `EXPO_PUBLIC_FEATURE_AI_EMBEDDED_V3`. `app.json` ganhou `extra.embeddedV3:false` (default off conforme §1.5).
+- **MO-S1-03** ✅ `enjoyfun-app/src/context/AISessionContext.tsx` — store por chave composta `surface+eventId` com `recordResponse` que persiste `sessionId` + `lastResponseMeta` (agentUsed/routingTraceId/toolCallsSummary/evidence/approvalRequest). Auto-archive 100% client-side via `archiveSurface`/`archiveEvent`/`archiveAll` (§1.8 #6).
+- **MO-S1-04** ✅ `enjoyfun-app/src/components/SurfacePicker.tsx` — picker no header com 2 surfaces no S1 (Painel do evento, Documentos), labels PT-BR, modal acessível. Lista expansível para 10 surfaces no S2 via prop `options`.
+- **MO-S1-02** ✅ `enjoyfun-app/src/screens/ChatScreen.tsx` — state `surface` (default `dashboard`), `SurfacePicker` no header, `handleSend` chama `sendMessageV3` sob `getEmbeddedV3Flag()` (reusando `sessionId` cacheado por `surface+eventId`) e mantém path legacy `sendChatMessage` quando flag off. Trocar surface limpa msgs locais e re-dispara welcome. Trocar evento chama `archiveEvent(prevId)`. `event_id` enviado como `number | null` (§1.8 #1, #4). `AISessionProvider` plugado em `App.tsx`.
+
+**Status MO-S1:** ✅ todos os 5 tickets concluídos. `npm run typecheck` PASS. Branch `claude-mo/sprint-1/ai-session-v3`. Aguardando smoke conjunto do dia 5 do Sprint 1 (André liga `extra.embeddedV3` / `EXPO_PUBLIC_FEATURE_AI_EMBEDDED_V3` quando Backend e Web também estiverem prontos).
 
 ### Sprint 2
 _(aguardando)_

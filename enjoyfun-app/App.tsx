@@ -11,6 +11,7 @@ import { setUnauthorizedHandler } from '@/api/client';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { ChatScreen } from '@/screens/ChatScreen';
 import { EventProvider } from '@/context/EventContext';
+import { AISessionProvider } from '@/context/AISessionContext';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -63,15 +64,17 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <EventProvider>
-        <NavigationContainer ref={navRef} theme={navTheme}>
-          <Stack.Navigator
-            initialRouteName={initialRoute}
-            screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}
-          >
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Chat" component={ChatScreen} />
-          </Stack.Navigator>
-        </NavigationContainer>
+        <AISessionProvider>
+          <NavigationContainer ref={navRef} theme={navTheme}>
+            <Stack.Navigator
+              initialRouteName={initialRoute}
+              screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}
+            >
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Chat" component={ChatScreen} />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </AISessionProvider>
       </EventProvider>
     </SafeAreaProvider>
   );

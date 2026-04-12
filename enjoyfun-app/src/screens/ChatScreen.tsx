@@ -16,7 +16,11 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, spacing, typography, radius } from '@/theme';
 import { ChatInput } from '@/components/ChatInput';
 import { MessageBubble } from '@/components/MessageBubble';
+import { SurfacePicker } from '@/components/SurfacePicker';
 import { sendChatMessage } from '@/api/chat';
+import { sendMessage as sendMessageV3, type Surface } from '@/lib/aiSession';
+import { getEmbeddedV3Flag } from '@/lib/featureFlags';
+import { useAISession } from '@/context/AISessionContext';
 import { useEvent } from '@/context/EventContext';
 import type { EventSummary } from '@/api/events';
 import type { ChatMessage, ActionItem } from '@/lib/types';
@@ -32,6 +36,8 @@ function uid(): string {
 
 export function ChatScreen({ navigation }: Props) {
   const { activeEvent, events, selectEvent, refresh: refreshEvents } = useEvent();
+  const aiSession = useAISession();
+  const v3Enabled = getEmbeddedV3Flag();
   // EventProvider mounts before login and fails the first /events call while
   // there's no token. Re-fetch on ChatScreen mount since this screen only
   // renders after a successful login.
@@ -42,8 +48,9 @@ export function ChatScreen({ navigation }: Props) {
     // only on first mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const [surface, setSurface] = useState<Surface>('dashboard');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
+  const [legacySessionId, setLegacySessionId] = useState<string | undefined>(undefined);
   const [sending, setSending] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
@@ -51,6 +58,7 @@ export function ChatScreen({ navigation }: Props) {
   useEffect(() => { ttsEnabledRef.current = ttsEnabled; }, [ttsEnabled]);
   useEffect(() => () => { stopSpeaking(); }, []);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const welcomeFiredRef = useRef(false);
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -69,10 +77,28 @@ export function ChatScreen({ navigation }: Props) {
       setMessages((prev) => [...prev, userMsg, loadingMsg]);
       setSending(true);
       try {
-        const context: Record<string, unknown> = { locale: currentLocale };
-        if (activeEvent) context.event_id = activeEvent.id;
-        const res = await sendChatMessage({ question: text, session_id: sessionId, context });
-        if (res.session_id && !sessionId) setSessionId(res.session_id);
+        const eventIdNum =
+          activeEvent && activeEvent.id != null ? Number(activeEvent.id) : null;
+        let res;
+        if (v3Enabled) {
+          const cached = aiSession.getSession(surface, eventIdNum);
+          res = await sendMessageV3(surface, eventIdNum, text, {
+            sessionId: cached?.sessionId,
+            conversationMode: 'embedded',
+            locale: currentLocale,
+          });
+          aiSession.recordResponse(surface, eventIdNum, res);
+        } else {
+          const context: Record<string, unknown> = { locale: currentLocale };
+          if (eventIdNum != null) context.event_id = eventIdNum;
+          const legacy = await sendChatMessage({
+            question: text,
+            session_id: legacySessionId,
+            context,
+          });
+          if (legacy.session_id && !legacySessionId) setLegacySessionId(legacy.session_id);
+          res = legacy;
+        }
         setMessages((prev) =>
           prev.map((m) =>
             m.id === loadingMsg.id
@@ -96,7 +122,7 @@ export function ChatScreen({ navigation }: Props) {
         setSending(false);
       }
     },
-    [sessionId, activeEvent],
+    [v3Enabled, surface, activeEvent, legacySessionId, aiSession],
   );
 
   const toggleTts = useCallback(() => {
@@ -108,15 +134,27 @@ export function ChatScreen({ navigation }: Props) {
 
   const handlePickEvent = useCallback(
     async (event: EventSummary) => {
+      const prevId =
+        activeEvent && activeEvent.id != null ? Number(activeEvent.id) : null;
       await selectEvent(event);
       setPickerOpen(false);
-      setSessionId(undefined);
+      setLegacySessionId(undefined);
+      aiSession.archiveEvent(prevId);
       setMessages([]);
     },
-    [selectEvent],
+    [selectEvent, activeEvent, aiSession],
   );
 
-  const welcomeFiredRef = useRef(false);
+  const handleSurfaceChange = useCallback(
+    (next: Surface) => {
+      if (next === surface) return;
+      setSurface(next);
+      setMessages([]);
+      welcomeFiredRef.current = false;
+    },
+    [surface],
+  );
+
   useEffect(() => {
     if (welcomeFiredRef.current) return;
     if (!activeEvent || messages.length > 0 || sending) return;
@@ -152,6 +190,9 @@ export function ChatScreen({ navigation }: Props) {
             {activeEvent ? t('header_subtitle_touch') : t('header_subtitle_empty')}
           </Text>
         </TouchableOpacity>
+        <View style={styles.headerSurface}>
+          <SurfacePicker value={surface} onChange={handleSurfaceChange} />
+        </View>
         <TouchableOpacity style={styles.headerIcon} onPress={toggleTts}>
           <Text style={styles.headerIconText}>{ttsEnabled ? '\u{1F50A}' : '\u{1F507}'}</Text>
         </TouchableOpacity>
@@ -244,6 +285,9 @@ const styles = StyleSheet.create({
   headerLeft: {
     flex: 1,
     marginRight: spacing.sm,
+  },
+  headerSurface: {
+    marginRight: spacing.xs,
   },
   headerTitle: {
     ...typography.h2,
