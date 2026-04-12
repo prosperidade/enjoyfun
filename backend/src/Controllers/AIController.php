@@ -38,6 +38,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'GET' && $id === 'approvals' && $sub === 'pending' => listPendingApprovals($query),
         $method === 'POST' && $id === 'approvals' && ctype_digit((string)$sub) && $subId === 'confirm' => confirmApproval((int)$sub, $body),
         $method === 'POST' && $id === 'approvals' && ctype_digit((string)$sub) && $subId === 'cancel' => cancelApproval((int)$sub, $body),
+        $method === 'POST' && $id === 'voice' && $sub === 'transcribe' => transcribeVoice(),
         default => jsonError("Rota não encontrada: {$method} /{$id}", 404),
     };
 }
@@ -735,6 +736,90 @@ function getAiHealth(): void
         $ref = uniqid();
         error_log("[AIController::getAiHealth] Error (Ref: {$ref}) - " . $e->getMessage());
         jsonError("Erro ao gerar relatório de saúde da IA (Ref: {$ref})", 500);
+    }
+}
+
+// ── BE-S5-C7: Voice proxy (Whisper) ─────────────────────────────
+
+/**
+ * POST /ai/voice/transcribe — receives audio from mobile, proxies to
+ * OpenAI Whisper API, returns transcript. Eliminates the need for
+ * EXPO_PUBLIC_OPENAI_KEY in the mobile bundle.
+ */
+function transcribeVoice(): void
+{
+    $voiceFlag = getenv('FEATURE_AI_VOICE_PROXY');
+    if (!in_array(strtolower((string)$voiceFlag), ['1', 'true', 'yes', 'on'], true)) {
+        jsonError('Voice proxy desabilitado', 403);
+    }
+
+    $operator = requireAuth(['admin', 'organizer', 'manager', 'bartender', 'staff']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+    if ($organizerId <= 0) { jsonError('Organizer inválido.', 403); }
+
+    $db = Database::getInstance();
+    \EnjoyFun\Services\AIRateLimitService::enforce($db, $organizerId);
+
+    // Accept multipart audio file
+    if (empty($_FILES['audio'])) {
+        jsonError('Campo audio (file upload) é obrigatório.', 422);
+    }
+
+    $audioFile = $_FILES['audio'];
+    if ($audioFile['error'] !== UPLOAD_ERR_OK) {
+        jsonError('Erro no upload do áudio: ' . $audioFile['error'], 422);
+    }
+
+    // Max 25MB (Whisper limit)
+    if ($audioFile['size'] > 25 * 1024 * 1024) {
+        jsonError('Áudio excede 25MB.', 422);
+    }
+
+    $apiKey = trim((string)getenv('OPENAI_API_KEY'));
+    if ($apiKey === '') {
+        jsonError('OPENAI_API_KEY não configurada.', 503);
+    }
+
+    $locale = trim((string)($_POST['locale'] ?? 'pt'));
+    $language = substr($locale, 0, 2);
+
+    try {
+        $ch = curl_init('https://api.openai.com/v1/audio/transcriptions');
+        $cFile = new \CURLFile($audioFile['tmp_name'], $audioFile['type'] ?: 'audio/webm', 'audio.webm');
+
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => [
+                'file'     => $cFile,
+                'model'    => 'whisper-1',
+                'language' => $language,
+            ],
+            CURLOPT_HTTPHEADER => ["Authorization: Bearer {$apiKey}"],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 30,
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode !== 200 || !$response) {
+            error_log("[AIController::transcribeVoice] Whisper API error HTTP {$httpCode}");
+            jsonError('Falha na transcrição de áudio.', 503);
+        }
+
+        $decoded = json_decode($response, true);
+        $transcript = trim((string)($decoded['text'] ?? ''));
+
+        jsonSuccess([
+            'transcript' => $transcript,
+            'language'   => $language,
+        ], 'Transcrição concluída.');
+
+    } catch (Throwable $e) {
+        $ref = uniqid();
+        error_log("[AIController::transcribeVoice] Error (Ref: {$ref}) - " . $e->getMessage());
+        jsonError("Erro na transcrição (Ref: {$ref})", 500);
     }
 }
 

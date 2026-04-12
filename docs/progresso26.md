@@ -414,6 +414,19 @@ Approval workflow formalizado.
 - `update_stock_quantity`, `create_task_assignment`, `send_campaign_message`, `create_budget_line`, `import_payables_csv`, `rollback_last_action`
 - Handler genérico `executeWriteSkillViaApproval()`: cria approval request com summary legível em vez de executar direto
 - Todas type='write' — bounded loop nunca auto-executa, sempre cria approval pending
+
+#### Commit 6 — BE-S5-C7 ✅
+Voice proxy (Whisper) — elimina OPENAI_KEY do bundle mobile.
+- `POST /ai/voice/transcribe` no AIController: recebe áudio multipart, proxy pra OpenAI Whisper, retorna transcript
+- Auth JWT obrigatório + rate limiting + max 25MB
+- Gated por `FEATURE_AI_VOICE_PROXY=true` (ativado)
+- Mobile (MO-S5-06) vai apontar pra este endpoint em vez de chamar OpenAI direto
+
+**Sprint 5 Backend 100% concluído** — 19/19 tickets entregues em 6 commits.
+- Migrations 083-085 aplicadas (083/084 graceful skip por falta de pgvector)
+- `FEATURE_AI_VOICE_PROXY=true` ativado
+- 6 write skills via approval workflow
+- Semantic + hybrid search tools prontos (ativam quando pgvector instalado)
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 
