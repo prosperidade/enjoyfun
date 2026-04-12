@@ -438,8 +438,129 @@ class AdaptiveResponseService
         return 'text';
     }
 
+    /**
+     * EMAS BE-S1-A5 + hotfix smoke 2026-04-11: traduz chaves técnicas das tools
+     * (revenue, total_sold, sell_through_pct, etc.) para PT-BR de negócios antes
+     * de exibir como label de bloco. Sem isso, os blocks vinham com labels em
+     * inglês mesmo com hardened directives no system prompt — porque o LLM não
+     * controla as chaves do JSON retornado pelas tools, só o texto livre.
+     * Fix definitivo (Sprint 2 Trilha B) é normalizar as próprias skills.
+     * Aqui é tradução defensiva no rendering layer.
+     */
+    private const LABEL_TRANSLATIONS = [
+        // Vendas / Receita
+        'revenue' => 'Receita',
+        'total_revenue' => 'Receita total',
+        'gross_revenue' => 'Receita bruta',
+        'net_revenue' => 'Receita líquida',
+        'sales' => 'Vendas',
+        'total_sales' => 'Vendas totais',
+        'sales_today' => 'Vendas de hoje',
+        'transactions' => 'Transações',
+        'transaction_count' => 'Nº de transações',
+        'avg_ticket' => 'Ticket médio',
+        'average_ticket' => 'Ticket médio',
+        'ticket_medio' => 'Ticket médio',
+        // Ingressos
+        'tickets_sold' => 'Ingressos vendidos',
+        'total_sold' => 'Total vendido',
+        'total_available' => 'Total disponível',
+        'total_remaining' => 'Restante',
+        'remaining' => 'Restante',
+        'sell_through' => 'Sell-through',
+        'sell_through_pct' => 'Sell-through (%)',
+        'velocity' => 'Velocidade',
+        'capacity' => 'Capacidade',
+        'capacity_remaining' => 'Capacidade restante',
+        'no_show' => 'No-show',
+        'no_show_rate' => 'Taxa de no-show',
+        'lots' => 'Lotes',
+        'current_lot' => 'Lote atual',
+        // Workforce
+        'workforce_total' => 'Equipe total',
+        'workforce_active' => 'Equipe ativa',
+        'headcount' => 'Headcount',
+        'headcount_expected' => 'Headcount previsto',
+        'headcount_actual' => 'Headcount real',
+        'shifts_active' => 'Turnos ativos',
+        'meals_served' => 'Refeições servidas',
+        // Financeiro
+        'total_costs' => 'Custos totais',
+        'estimated_margin' => 'Margem estimada',
+        'gross_margin' => 'Margem bruta',
+        'net_margin' => 'Margem líquida',
+        'profit' => 'Lucro',
+        'expenses' => 'Despesas',
+        'cash_flow' => 'Fluxo de caixa',
+        'pending_payments' => 'Pagamentos pendentes',
+        'received_payments' => 'Pagamentos recebidos',
+        // Operacional
+        'occupancy' => 'Ocupação',
+        'occupancy_rate' => 'Taxa de ocupação',
+        'capture_rate' => 'Capture rate',
+        'queue_length' => 'Tamanho da fila',
+        'avg_wait_time' => 'Tempo médio de espera',
+        // Estoque
+        'stock_level' => 'Nível de estoque',
+        'stock_remaining' => 'Estoque restante',
+        'top_products' => 'Produtos mais vendidos',
+        'product_mix' => 'Mix de produtos',
+        'rupture' => 'Ruptura',
+        'rupture_count' => 'Itens em ruptura',
+        // Estacionamento
+        'parked_count' => 'Veículos no estacionamento',
+        'sectors_active' => 'Setores ativos',
+        // Tempo
+        'today' => 'Hoje',
+        'yesterday' => 'Ontem',
+        'last_hour' => 'Última hora',
+        'last_24h' => 'Últimas 24h',
+        'created_at' => 'Criado em',
+        'updated_at' => 'Atualizado em',
+        // Genéricos
+        'count' => 'Quantidade',
+        'total' => 'Total',
+        'name' => 'Nome',
+        'status' => 'Status',
+        'type' => 'Tipo',
+        'category' => 'Categoria',
+    ];
+
+    private const TOOL_NAME_TRANSLATIONS = [
+        'get_event_kpi_dashboard'        => 'KPIs do evento',
+        'get_finance_summary'            => 'Resumo financeiro',
+        'get_cross_module_analytics'     => 'Análise cruzada',
+        'get_ticket_demand_signals'      => 'Sinais de demanda',
+        'get_bar_sales_snapshot'         => 'Vendas do bar',
+        'get_food_sales_snapshot'        => 'Vendas de alimentação',
+        'get_shop_sales_snapshot'        => 'Vendas da loja',
+        'get_parking_status'             => 'Status do estacionamento',
+        'get_workforce_status'           => 'Status da equipe',
+        'get_meals_status'               => 'Status das refeições',
+        'get_artist_logistics'           => 'Logística de artistas',
+        'get_messaging_summary'          => 'Resumo de mensageria',
+        'find_events'                    => 'Buscar eventos',
+        'get_module_help'                => 'Ajuda do módulo',
+        'get_configuration_steps'        => 'Passos de configuração',
+        'navigate_to_screen'             => 'Ir para tela',
+        'diagnose_organizer_setup'       => 'Diagnóstico do setup',
+    ];
+
     private static function prettyLabel(string $raw): string
     {
+        $key = strtolower(trim($raw));
+        if ($key === '') {
+            return '';
+        }
+        // Tool name translation (full match)
+        if (isset(self::TOOL_NAME_TRANSLATIONS[$key])) {
+            return self::TOOL_NAME_TRANSLATIONS[$key];
+        }
+        // Field label translation (full match)
+        if (isset(self::LABEL_TRANSLATIONS[$key])) {
+            return self::LABEL_TRANSLATIONS[$key];
+        }
+        // Fallback: snake_case to Title Case (legacy behavior)
         $s = trim(str_replace('_', ' ', $raw));
         return $s === '' ? '' : mb_convert_case($s, MB_CASE_TITLE, 'UTF-8');
     }

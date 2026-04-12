@@ -780,9 +780,14 @@ final class AIOrchestratorService
         $model = trim((string)($runtime['model'] ?? 'gpt-4o-mini'));
         $baseUrl = rtrim((string)($runtime['base_url'] ?? 'https://api.openai.com/v1'), '/');
 
-        // EMAS BE-S1-A4: temp 0.25 + tool_choice 'required' on 1st pass.
-        // Forces the model to call a tool before answering — eliminates fabrication
-        // on operational surfaces. ADR docs/adr_emas_architecture_v1.md decisão 3.
+        // EMAS BE-S1-A4 + hotfix smoke 2026-04-11: temp 0.25 mantida, mas
+        // tool_choice volta de 'required' para 'auto'. Razão: 'required' fazia
+        // o LLM ficar em loop chamando tools sem nunca gerar texto (bounded
+        // loop atingia max_steps com insight vazio → fallback feio "Reformule
+        // a pergunta..."). O hardenedDirectives() do AIPromptCatalogService
+        // (BE-S1-A5) já força tool-use via prompt — redundante e quebrava o
+        // bounded loop V2. Restaurar 'required' exige implementar segunda
+        // passada explícita com tool_choice='auto'/'none' (ticket Sprint 2).
         $payloadData = [
             'model' => $model,
             'messages' => self::serializeMessagesForOpenAi($messages),
@@ -791,7 +796,7 @@ final class AIOrchestratorService
         $openAiTools = AIToolRuntimeService::buildOpenAiToolDefinitions($toolCatalog);
         if ($openAiTools !== []) {
             $payloadData['tools'] = $openAiTools;
-            $payloadData['tool_choice'] = 'required';
+            $payloadData['tool_choice'] = 'auto';
         }
         $payload = json_encode($payloadData, JSON_UNESCAPED_UNICODE);
 
