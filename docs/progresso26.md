@@ -427,6 +427,16 @@ Voice proxy (Whisper) — elimina OPENAI_KEY do bundle mobile.
 - `FEATURE_AI_VOICE_PROXY=true` ativado
 - 6 write skills via approval workflow
 - Semantic + hybrid search tools prontos (ativam quando pgvector instalado)
+
+### Sprint 6 (FINAL)
+
+**Início:** 2026-04-12 | **Plano:** 7 commits, 4 trilhas (A MemPalace + B SSE + C Supervisor + D Hardening)
+
+#### Commit 1 — BE-S6-A1 + A2 ✅
+MemPalace Docker sidecar + Redis + docker-compose.
+- `docker/mempalace/Dockerfile`: Node 20 Alpine, 19 rooms (1 por módulo)
+- `docker/mempalace/server.js`: REST API — store/search/recall memories, file persistence, 1000/room cap
+- `docker-compose.yml`: +redis (7-alpine) + mempalace services com healthchecks e volumes
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 

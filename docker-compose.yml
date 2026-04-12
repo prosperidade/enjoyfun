@@ -103,10 +103,51 @@ services:
     networks:
       - enjoyfun
 
+  # ---------- Redis (SSE pub/sub + rate limiting) ------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT_EXTERNAL:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - enjoyfun
+
+  # ---------- MemPalace Sidecar (long-term AI memory) -------------------------
+  mempalace:
+    build:
+      context: ./docker/mempalace
+    restart: unless-stopped
+    ports:
+      - "${MEMPALACE_PORT_EXTERNAL:-3100}:3100"
+    volumes:
+      - mempalace_data:/data
+    environment:
+      MEMPALACE_PORT: "3100"
+      MEMPALACE_WING: enjoyfun_hub
+      MEMPALACE_ROOMS: "events,tickets,cards,bar,food,shop,parking,workforce,meals,artists,messaging,branding,finance,files,ai,superadmin,platform_guide,documents,analytics"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:3100/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - enjoyfun
+
 volumes:
   pgdata:
     driver: local
   backend_logs:
+    driver: local
+  redis_data:
+    driver: local
+  mempalace_data:
     driver: local
 
 networks:
