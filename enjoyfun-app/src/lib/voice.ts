@@ -1,9 +1,8 @@
-// Voice layer — STT via OpenAI Whisper + TTS via expo-speech.
+// Voice layer — STT via backend voice proxy + TTS via expo-speech.
 //
-// DIVIDA TECNICA: EXPO_PUBLIC_OPENAI_KEY vaza no bundle JS do cliente.
-// Qualquer um com o APK pode extrair a chave. Pos D-Day, mover a chamada
-// Whisper para um endpoint backend /ai/voice/transcribe que faz proxy
-// com a chave servidora + rate limiting via AIRateLimitService.
+// Transcricao de audio usa POST /ai/voice/transcribe no backend, que faz
+// proxy para OpenAI Whisper com a chave servidora + rate limiting via
+// AIRateLimitService. Nenhuma API key externa e exposta no bundle mobile.
 
 import { useCallback } from 'react';
 import {
@@ -13,9 +12,9 @@ import {
   setAudioModeAsync,
 } from 'expo-audio';
 import * as Speech from 'expo-speech';
+import { getToken } from '@/lib/auth';
 
-const WHISPER_URL = 'https://api.openai.com/v1/audio/transcriptions';
-const WHISPER_MODEL = 'whisper-1';
+const VOICE_PROXY_URL = `${process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:8000'}/api/ai/voice/transcribe`;
 
 export interface VoiceRecorderApi {
   isRecording: boolean;
@@ -72,9 +71,9 @@ export function useVoiceRecorder(): VoiceRecorderApi {
 }
 
 export async function transcribe(uri: string, locale: string): Promise<string> {
-  const key = process.env.EXPO_PUBLIC_OPENAI_KEY;
-  if (!key) {
-    throw new Error('EXPO_PUBLIC_OPENAI_KEY nao configurado');
+  const token = await getToken();
+  if (!token) {
+    throw new Error('Token de autenticacao nao encontrado. Faca login novamente.');
   }
 
   const form = new FormData();
@@ -83,13 +82,15 @@ export async function transcribe(uri: string, locale: string): Promise<string> {
     name: 'audio.m4a',
     type: 'audio/m4a',
   } as unknown as Blob);
-  form.append('model', WHISPER_MODEL);
   const lang = locale.slice(0, 2);
   if (lang) form.append('language', lang);
 
-  const res = await fetch(WHISPER_URL, {
+  const res = await fetch(VOICE_PROXY_URL, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${key}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Client': 'mobile',
+    },
     body: form,
   });
 
