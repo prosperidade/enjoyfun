@@ -2438,13 +2438,28 @@ final class AIToolRuntimeService
             $stmt->bindValue(':emb', $vectorStr);
             $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
             $stmt->execute();
-            
+            $vectorResults = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            // If vector table exists but has no embeddings for this org, fall back to FTS
+            if (empty($vectorResults)) {
+                return array_merge(self::executeSearchDocuments($db, $organizerId, [
+                    'keyword' => $query,
+                    'category' => $category,
+                    'limit' => $limit
+                ]), ['search_mode' => 'fallback_fts_empty_vectors']);
+            }
+
             return [
-                'results' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+                'results' => $vectorResults,
                 'search_mode' => 'semantic_vector'
             ];
         } catch (\Throwable $e) {
-            return ['error' => $e->getMessage()];
+            // Table missing or query error — fall back to FTS
+            return array_merge(self::executeSearchDocuments($db, $organizerId, [
+                'keyword' => $query,
+                'category' => $category,
+                'limit' => $limit
+            ]), ['search_mode' => 'fallback_fts_error']);
         }
     }
 
@@ -2524,20 +2539,32 @@ final class AIToolRuntimeService
     private static function executeCiteDocumentEvidence(PDO $db, int $organizerId, array $arguments): array
     {
         $fileId = self::nullablePositiveInt($arguments['file_id'] ?? null);
-        $excerpt = trim((string)($arguments['excerpt'] ?? ''));
+        $excerpt = trim((string)($arguments['excerpt'] ?? $arguments['snippet'] ?? ''));
         $relevance = trim((string)($arguments['relevance'] ?? ''));
+        $category = trim((string)($arguments['category'] ?? ''));
 
         if (!$fileId || $excerpt === '') {
             return ['status' => 'failed', 'error' => 'file_id e excerpt sao obrigatorios.'];
         }
 
-        // V3 Logic: Log the citation so the response builder can include it in the 'evidence' block.
-        error_log(sprintf("[AIEvidence] Citation stored for org %d, file %d: %s", $organizerId, $fileId, $excerpt));
+        // Look up the file to get its name and validate tenant ownership
+        $stmt = $db->prepare("SELECT id, original_name, category FROM organizer_files WHERE id = :id AND organizer_id = :org");
+        $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+        $file = $stmt->fetch(PDO::FETCH_ASSOC);
 
+        if (!$file) {
+            return ['status' => 'failed', 'error' => 'Arquivo nao encontrado ou nao pertence a este organizador.'];
+        }
+
+        // Return structured result that AdaptiveResponseService can render as an evidence block
         return [
+            'type' => 'document_chunk',
             'status' => 'cited',
-            'file_id' => $fileId,
-            'message' => 'Evidencia registrada com sucesso para fundamentacao da resposta.'
+            'file_id' => (int)$file['id'],
+            'file_name' => $file['original_name'],
+            'snippet' => $excerpt,
+            'relevance' => $relevance !== '' ? $relevance : null,
+            'category' => $category !== '' ? $category : ($file['category'] ?? null),
         ];
     }
 

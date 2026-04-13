@@ -435,9 +435,6 @@ function handleChat(array $body): void
         }
 
         // 2. Intent routing
-        //    Unified routing for all surfaces (B2B/B2C). The IntentRouter
-        //    is responsible for selecting the correct agent (E.g. b2c_concierge).
-        $surfaceForRouting = strtolower(trim((string)($context['surface'] ?? 'dashboard')));
         if (in_array(strtolower((string)getenv('FEATURE_AI_INTENT_ROUTER')), ['1', 'true', 'yes', 'on'], true)) {
             // BE-S1-A2: Always run IntentRouter when the flag is on.
             //    agent_key from the client is just a hint, never an override.

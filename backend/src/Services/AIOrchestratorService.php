@@ -2286,8 +2286,7 @@ final class AIOrchestratorService
 
         // 2. Remove inline tool names wrapped in backticks or standalone
         //    e.g. `get_pos_sales_snapshot` or get_pos_sales_snapshot(...)
-        $text = preg_replace('/`(?:get_|find_|search_|read_|list_|create_|update_|delete_|diagnose_|navigate_)\w+(?:\([^)]*\))?`/', '', $text) ?? $text;
-        $text = preg_replace('/\b(?:get_|find_|search_|read_|list_|create_|update_|delete_|diagnose_|navigate_)\w+(?:\([^)]*\))?/', '', $text) ?? $text;
+        $text = preg_replace('/`?(?:get_|find_|search_|read_|list_|create_|update_|delete_|diagnose_|navigate_)\w+(?:\([^)]*\))?`?/', '', $text) ?? $text;
 
         // 3. Remove "vou buscar", "vou consultar", "chamando a tool" style phrases
         $text = preg_replace('/(?:vou\s+(?:buscar|consultar|verificar|olhar|checar)|chamei\s+a?\s*tool|executando\s+a?\s*(?:tool|ferramenta)|chamando\s+a?\s*(?:tool|ferramenta))[^.]*[.!]?\s*/iu', '', $text) ?? $text;
