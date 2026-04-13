@@ -497,17 +497,113 @@ Fechamento EMAS.
 - Migration `078_ai_label_translations.sql` precisa ser aplicada antes de ligar `FEATURE_AI_PT_BR_LABELS`
 - `FEATURE_AI_LAZY_CONTEXT` pode ser ligado após smoke dos tools (commits 1-5)
 
-### Sprint 3
-_(aguardando)_
+---
 
-### Sprint 4
-_(aguardando)_
+## ⚠️ Mudanças B2C Hub / Concierge IA — NÃO APROVADAS (2026-04-12~13)
 
-### Sprint 5
-_(aguardando)_
+> **AVISO:** Estas mudanças foram feitas por conversas paralelas (IDs: `dac72f53` = "Auditing AI Agent Implementation" e `c6f4e11c` = "Integrating Bidirectional B2C AI Chat"). A página inicial do concierge **não deveria ter sido alterada dessa forma**. As mudanças estão no working tree (NÃO commitadas) e precisam de revisão antes de decidir se serão mantidas, revertidas ou refeitas.
 
-### Sprint 6
-_(aguardando)_
+### Status: 🔴 NÃO COMMITADO — REVISÃO NECESSÁRIA
+
+`git status` mostra os seguintes arquivos modificados/novos:
+
+| Arquivo | Tipo | O que foi feito |
+|---|---|---|
+| `frontend/src/App.jsx` | **MODIFICADO** | Adicionou rota `/b2c-hub` apontando para `<B2CHub />` + import lazy do componente |
+| `frontend/src/pages/B2CHub.jsx` | **NOVO (untracked)** | Página inteira do B2C Hub com mapa 3D + chat do concierge IA embutido |
+| `frontend/src/components/B2CMapEngine.jsx` | **NOVO (untracked)** | Motor 3D com React Three Fiber (octaedro holográfico wireframe + Sparkles + OrbitControls) |
+| `frontend/package.json` | **MODIFICADO** | +3 deps: `@react-three/drei`, `@react-three/fiber`, `three` |
+| `frontend/package-lock.json` | **MODIFICADO** | lockfile atualizado com as deps 3D |
+| `frontend/vite.config.js` | **MODIFICADO** | porta `3003→5173` + `host: true` (expor para rede local) |
+| `backend/src/Controllers/AIController.php` | **MODIFICADO** | Short-circuit para `surface=b2c`: cria `routeResult` direto com `agent_key=b2c_concierge` sem passar pelo IntentRouter |
+| `backend/src/Services/AIOrchestratorService.php` | **MODIFICADO** | (a) Zera `toolCatalog` quando `surface=b2c` (concierge sem tools). (b) Novo `sanitizeInsightForUser()` que remove nomes de tools/JSON do texto. (c) `forceTools` só ativa se `toolCatalog` não vazio. (d) Fallback simplificado |
+| `backend/src/Services/AIPromptCatalogService.php` | **MODIFICADO** | (a) System prompt B2C leve (sem preamble SaaS/directives operacionais). (b) Directive 4 nova: "NUNCA exponha nomes de tools". (c) `buildB2CPrompt()` nova surface. (d) Agente `b2c_concierge` registrado no `surfaceCatalog` com persona amigável |
+
+### Detalhes das mudanças no Frontend
+
+#### `App.jsx` — rota B2C Hub
+
+```diff
++ const B2CHub = lazy(() => import("./pages/B2CHub"));
+  ...
++ <Route path="/b2c-hub" element={<B2CHub />} />
+```
+
+**Problema:** a rota `/b2c-hub` é pública (fora do `<PrivateRoute>`), acessível sem autenticação. Isso pode ser intencional (B2C = visitante), mas precisa de revisão.
+
+#### `vite.config.js` — porta e host
+
+```diff
+- const DEFAULT_DEV_SERVER_PORT = 3003
++ const DEFAULT_DEV_SERVER_PORT = 5173
+
++ host: true,  // server config
+```
+
+**Problema:** mudou a porta de dev de 3003 para 5173. Pode quebrar proxy/CORS configurado no nginx/backend que apontava pra 3003.
+
+#### `B2CHub.jsx` — página completa (15.5 KB, 318 linhas)
+
+- Header com logo ENJOYFUN + avatar mock (DiceBear)
+- Holographic Pass card com QR code (hardcoded: "ELITE NEON", "#EF-2026-X99", "Zona A")
+- Seção "MAPA INTERATIVO" com `<B2CMapEngine />` (canvas 3D React Three Fiber)
+- Chat do "CONCIERGE IA" com balões brutalistas, quick pills, scroll automático
+- Comunicação bidirecional com React Native via `window.ReactNativeWebView.postMessage` (actions: `ready`, `send_message`)
+- Protocolo de mensagens: `ai_start`, `ai_token`, `ai_complete`, `ai_error`
+- Fallback mock quando não está em WebView (ambiente web puro)
+
+#### `B2CMapEngine.jsx` — motor 3D (62 linhas)
+
+- Canvas React Three Fiber com `PerspectiveCamera` + `OrbitControls`
+- Geometria: octaedro wireframe roxo com emissive, rotação automática
+- Sparkles (100 partículas, cor neon)
+- Error boundary para WebGL indisponível
+- **Nota:** é um placeholder — o modelo GLB do evento virá depois
+
+### Detalhes das mudanças no Backend
+
+#### `AIController.php` — routing B2C
+
+- Quando `surface=b2c`: bypassa o `AIIntentRouterService` inteiro e cria `routeResult` hardcoded com `agent_key=b2c_concierge`, `confidence=1.0`
+- Isso impede que o visitante acione tools operacionais (get_kpi, find_events, etc.)
+
+#### `AIOrchestratorService.php` — concierge sem tools + sanitizer
+
+- `$toolCatalog = []` quando `surface=b2c` → LLM opera em modo puramente conversacional
+- Novo método `sanitizeInsightForUser()`:
+  - Remove linhas com nomes de tools (`get_*`, `find_*`, `search_*`, etc.)
+  - Remove backticks com nomes de tools
+  - Remove frases como "vou buscar", "chamei a tool"
+  - Remove fragmentos JSON
+  - Remove menções a `tool_choice`, `tool_calls`
+  - Colapsa linhas em branco múltiplas
+- `forceTools` agora só ativa se `!empty($toolCatalog)` (evita crash quando concierge B2C)
+
+#### `AIPromptCatalogService.php` — persona B2C + directive 4
+
+- System prompt B2C: "assistente virtual amigável para visitantes de eventos" + identidade do agente, SEM preamble SaaS
+- Directive 4 adicionada: "NUNCA EXPONHA NOMES DE TOOLS OU INTERNALS TECNICOS"
+- `buildB2CPrompt()`: surface de visitante, instrui não usar tools operacionais
+- Agente `b2c_concierge` registrado com `temperature: 0.7`, `max_tokens: 500`, persona: "concierge virtual simpático"
+
+### ⚠️ Problemas identificados (precisam de decisão)
+
+| # | Problema | Impacto | Decisão pendente |
+|---|---|---|---|
+| 1 | Rota `/b2c-hub` é pública | Visitante pode acessar sem login — pode ser intencional para B2C | Confirmar se é intencional |
+| 2 | Porta vite mudou 3003→5173 | Pode quebrar configuração de proxy existente | Reverter ou atualizar nginx |
+| 3 | Dados hardcoded no HolographicPass | QR code, ID "#EF-2026-X99", nível "ELITE NEON" são mock | Conectar com dados reais ou manter como demo |
+| 4 | `host: true` expõe dev server | Acessível por qualquer IP na rede local | Avaliar segurança em dev |
+| 5 | 3 deps novas pesadas (three.js ~600KB) | Aumenta bundle size do frontend inteiro | Considerar code splitting ou lazy loading |
+| 6 | Agente `b2c_concierge` sem tools | Não consulta dados reais do evento — responde genericamente | Implementar tools B2C específicas depois |
+| 7 | Página inicial do concierge alterada | **André reportou que NÃO era pra ter sido feito dessa forma** | Reverter e refazer conforme especificação |
+
+### Ação recomendada
+
+As mudanças estão no working tree e podem ser:
+- **Revertidas:** `git checkout -- frontend/src/App.jsx frontend/vite.config.js frontend/package.json frontend/package-lock.json backend/src/Controllers/AIController.php backend/src/Services/AIOrchestratorService.php backend/src/Services/AIPromptCatalogService.php` + deletar `frontend/src/pages/B2CHub.jsx` e `frontend/src/components/B2CMapEngine.jsx`
+- **Mantidas parcialmente:** aceitar mudanças de backend (directive 4, sanitizer) e reverter frontend
+- **Commitadas após ajuste:** refazer a abordagem do concierge conforme orientação do André
 
 ---
 
