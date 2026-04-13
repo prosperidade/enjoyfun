@@ -528,17 +528,29 @@ function handleChat(array $body): void
         );
 
         // 8. Build response
+        // Build tool_calls_summary from tool_results (executed tools with timing),
+        // falling back to tool_calls (LLM requests) when results are empty.
+        $toolResultsRaw = is_array($result['tool_results'] ?? null) ? $result['tool_results'] : [];
         $toolCallsRaw = is_array($result['tool_calls'] ?? null) ? $result['tool_calls'] : [];
         $toolCallsSummary = [];
-        foreach ($toolCallsRaw as $tc) {
-            if (!is_array($tc)) {
-                continue;
+        if ($toolResultsRaw !== []) {
+            foreach ($toolResultsRaw as $tr) {
+                if (!is_array($tr)) continue;
+                $toolCallsSummary[] = [
+                    'tool'        => (string)($tr['tool_name'] ?? $tr['tool'] ?? $tr['name'] ?? 'tool'),
+                    'duration_ms' => isset($tr['duration_ms']) ? (int)$tr['duration_ms'] : null,
+                    'ok'          => ($tr['status'] ?? 'completed') === 'completed',
+                ];
             }
-            $toolCallsSummary[] = [
-                'tool'        => (string)($tc['tool'] ?? $tc['name'] ?? 'tool'),
-                'duration_ms' => isset($tc['duration_ms']) ? (int)$tc['duration_ms'] : null,
-                'ok'          => array_key_exists('ok', $tc) ? (bool)$tc['ok'] : true,
-            ];
+        } else {
+            foreach ($toolCallsRaw as $tc) {
+                if (!is_array($tc)) continue;
+                $toolCallsSummary[] = [
+                    'tool'        => (string)($tc['tool'] ?? $tc['name'] ?? 'tool'),
+                    'duration_ms' => isset($tc['duration_ms']) ? (int)$tc['duration_ms'] : null,
+                    'ok'          => array_key_exists('ok', $tc) ? (bool)$tc['ok'] : true,
+                ];
+            }
         }
 
         $response = [
