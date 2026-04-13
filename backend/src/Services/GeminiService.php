@@ -187,6 +187,114 @@ PROMPT;
         return "Nenhum insight capturado.";
     }
 
+    /**
+     * BE-S5-A5: Gemini File API - Upload document to Google for Long Context analysis.
+     * Temporary storage (48h).
+     */
+    public static function uploadFile(string $filePath, string $mimeType, string $displayName): ?array
+    {
+        $apiKey = getenv('GEMINI_API_KEY');
+        if (!$apiKey) return null;
+
+        $fileSize = filesize($filePath);
+        $url = "https://generativelanguage.googleapis.com/upload/v1beta/files?key=" . $apiKey;
+
+        // Metadata for the upload
+        $metadata = json_encode([
+            'file' => [
+                'display_name' => $displayName,
+            ]
+        ]);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => [
+                'X-Goog-Upload-Protocol: multipart',
+                'X-Goog-Upload-Command: upload, finalize',
+                "X-Goog-Upload-Header-Content-Length: {$fileSize}",
+                "X-Goog-Upload-Header-Content-Type: {$mimeType}",
+                'Content-Type: application/json',
+            ],
+            CURLOPT_POSTFIELDS => $metadata . "\n" . file_get_contents($filePath),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 60,
+        ]);
+
+        $response = curl_exec($ch);
+        curl_close($ch);
+
+        $json = json_decode($response, true);
+        return $json['file'] ?? null;
+    }
+
+    /** Check if file is processed and ready (ACTIVE state). */
+    public static function getFileStatus(string $fileUri): string
+    {
+        $apiKey = getenv('GEMINI_API_KEY');
+        $ch = curl_init($fileUri . "?key=" . $apiKey);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $response = curl_exec($ch);
+        curl_close($ch);
+
+        $json = json_decode($response, true);
+        return (string)($json['state'] ?? 'FAILED');
+    }
+
+    /**
+     * BE-S5-A6: Multi-file analysis via Long Context.
+     * Takes an array of ['mime_type' => '...', 'file_uri' => '...']
+     */
+    public static function analyzeWithLongContext(array $files, string $userPrompt, array $options = []): array
+    {
+        $apiKey = getenv('GEMINI_API_KEY');
+        if (!$apiKey) return ['insight' => 'Config error.'];
+
+        $model = $options['model'] ?? 'gemini-1.5-pro'; // Pro is needed for 2M context
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=" . $apiKey;
+
+        $parts = [];
+        foreach ($files as $f) {
+            $parts[] = [
+                'file_data' => [
+                    'mime_type' => $f['mime_type'],
+                    'file_uri'  => $f['file_uri']
+                ]
+            ];
+        }
+        $parts[] = ['text' => $userPrompt];
+
+        $data = [
+            'contents' => [
+                ['role' => 'user', 'parts' => $parts]
+            ],
+            'generationConfig' => [
+                'temperature' => 0.2,
+                'response_mime_type' => 'text/plain',
+            ]
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($data),
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 90,
+        ]);
+
+        $response = curl_exec($ch);
+        curl_close($ch);
+
+        $json = json_decode($response, true);
+        $text = $json['candidates'][0]['content']['parts'][0]['text'] ?? 'Falha na análise de contexto longo.';
+
+        return [
+            'insight' => trim((string)$text),
+            'usage'   => $json['usageMetadata'] ?? []
+        ];
+    }
+
     // ── Circuit Breaker Helpers ──────────────────────────────────────────────────
 
     private static function isCircuitOpen(): bool

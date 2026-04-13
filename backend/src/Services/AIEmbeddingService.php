@@ -11,10 +11,10 @@ use PDO;
 
 final class AIEmbeddingService
 {
-    private const CHUNK_SIZE = 500;
-    private const CHUNK_OVERLAP = 100;
-    private const EMBEDDING_MODEL = 'text-embedding-3-small';
-    private const EMBEDDING_DIMENSIONS = 1536;
+    private const CHUNK_SIZE = 1000;
+    private const CHUNK_OVERLAP = 200;
+    private const EMBEDDING_MODEL = 'text-embedding-004'; // Google text-embedding-004
+    private const EMBEDDING_DIMENSIONS = 768; // Gemini 1.5 dimensions
 
     /**
      * Generate embeddings for a parsed organizer file.
@@ -42,15 +42,22 @@ final class AIEmbeddingService
             $chunks = self::chunkText($text);
             if (empty($chunks)) { return false; }
 
-            // 3. Generate embeddings via OpenAI
-            $apiKey = trim((string)getenv('OPENAI_API_KEY'));
+            // 3. Generate embeddings via Google
+            $apiKey = trim((string)getenv('GEMINI_API_KEY'));
             if ($apiKey === '') {
-                error_log('[AIEmbeddingService] OPENAI_API_KEY not configured');
+                error_log('[AIEmbeddingService] GEMINI_API_KEY not configured');
                 return false;
             }
 
-            $embeddings = self::callEmbeddingsApi($apiKey, $chunks);
-            if ($embeddings === null) { return false; }
+            // check if pgvector exists in DB
+            $hasVector = self::checkVectorSupport($db);
+            if (!$hasVector) {
+                error_log('[AIEmbeddingService] pgvector not available. Skipping local embedding storage.');
+                return false;
+            }
+
+            $embeddings = self::callGoogleEmbeddingsApi($apiKey, $chunks);
+            if ($embeddings === null) return false;
 
             // 4. Delete old embeddings for this file
             $db->prepare("DELETE FROM public.document_embeddings WHERE file_id = :fid AND organizer_id = :org")
@@ -120,23 +127,23 @@ final class AIEmbeddingService
         return $chunks;
     }
 
-    /** Call OpenAI embeddings API. Returns array of float arrays, or null on error. */
-    private static function callEmbeddingsApi(string $apiKey, array $texts): ?array
+    /** Call Google Embeddings API. */
+    private static function callGoogleEmbeddingsApi(string $apiKey, array $texts): ?array
     {
-        $payload = json_encode([
-            'model' => self::EMBEDDING_MODEL,
-            'input' => $texts,
-            'dimensions' => self::EMBEDDING_DIMENSIONS,
-        ], JSON_UNESCAPED_UNICODE);
+        $payload = [
+            'requests' => array_map(fn($t) => [
+                'model' => 'models/' . self::EMBEDDING_MODEL,
+                'content' => ['parts' => [['text' => $t]]]
+            ], $texts)
+        ];
 
-        $ch = curl_init('https://api.openai.com/v1/embeddings');
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/" . self::EMBEDDING_MODEL . ":batchEmbedContents?key=" . $apiKey;
+
+        $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $payload,
-            CURLOPT_HTTPHEADER => [
-                'Content-Type: application/json',
-                "Authorization: Bearer {$apiKey}",
-            ],
+            CURLOPT_POSTFIELDS => json_encode($payload),
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 30,
         ]);
@@ -145,24 +152,26 @@ final class AIEmbeddingService
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        if ($httpCode !== 200 || !$response) {
-            error_log("[AIEmbeddingService] OpenAI API error HTTP {$httpCode}");
-            return null;
-        }
+        if ($httpCode !== 200) return null;
 
         $decoded = json_decode($response, true);
-        $data = $decoded['data'] ?? [];
-        if (empty($data)) { return null; }
+        return array_map(fn($e) => $e['values'] ?? [], $decoded['embeddings'] ?? []);
+    }
 
-        // Sort by index and extract embedding arrays
-        usort($data, fn($a, $b) => ($a['index'] ?? 0) - ($b['index'] ?? 0));
-        return array_map(fn($d) => $d['embedding'] ?? [], $data);
+    private static function checkVectorSupport(PDO $db): bool
+    {
+        try {
+            $stmt = $db->query("SELECT 1 FROM pg_extension WHERE extname = 'vector'");
+            return $stmt->fetchColumn() !== false;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /** Generate embedding for a single query string. */
     public static function embedQuery(string $apiKey, string $query): ?array
     {
-        $result = self::callEmbeddingsApi($apiKey, [$query]);
+        $result = self::callGoogleEmbeddingsApi($apiKey, [$query]);
         return $result[0] ?? null;
     }
 }

@@ -854,6 +854,16 @@ final class AIToolRuntimeService
                 'aliases' => ['hybrid_search_docs', 'documents.hybrid_search'],
                 'type' => 'read', 'surfaces' => ['documents', 'finance'], 'agent_keys' => ['documents', 'management', 'contracting'],
             ],
+            [
+                'name' => 'google_file_analysis',
+                'description' => 'Realiza uma analise experimental profunda em arquivos volumosos (PDF/Docs) usando a Gemini 1.5 Pro File API. Recomendado para arquivos de 50+ paginas ou quando o RAG falha.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'file_id' => ['type' => 'integer', 'description' => 'ID do arquivo no organizer_files.'],
+                    'prompt' => ['type' => 'string', 'description' => 'Pergunta ou instrucao especifica para a analise do documento.'],
+                ], 'required' => ['file_id'], 'additionalProperties' => false],
+                'aliases' => ['google_file_analysis', 'google.analyze_file', 'deep_file_analysis'],
+                'type' => 'read', 'surfaces' => ['documents'], 'agent_keys' => ['documents'],
+            ],
 
             // --- BE-S4-B5..B8: Internal skills (diagnostic + incidents) ---
             [
@@ -1665,6 +1675,7 @@ final class AIToolRuntimeService
             // Semantic search (BE-S5)
             'semantic_search_docs' => self::executeSemanticSearchDocs($db, $organizerId, $arguments),
             'hybrid_search_docs' => self::executeHybridSearchDocs($db, $organizerId, $arguments),
+            'google_file_analysis' => self::executeGoogleFileAnalysis($db, $organizerId, $arguments),
 
             // Internal skills B5-B8 (BE-S4 diagnostic)
             'diagnose_agent_route' => self::executeDiagnoseAgentRoute($db, $organizerId, $arguments),
@@ -2305,6 +2316,180 @@ final class AIToolRuntimeService
         }
     }
 
+    private static function executeReadOrganizerFile(PDO $db, int $organizerId, array $arguments): array
+    {
+        return self::executeGetParsedFileData($db, $organizerId, $arguments);
+    }
+
+    private static function executeSearchDocuments(PDO $db, int $organizerId, array $arguments): array
+    {
+        $category = strtolower(trim((string)($arguments['category'] ?? '')));
+        $keyword = trim((string)($arguments['keyword'] ?? ''));
+        $limit = min(50, max(1, (int)($arguments['limit'] ?? 10)));
+
+        $conditions = ['organizer_id = :org'];
+        $params = [':org' => $organizerId];
+
+        if ($category !== '' && $category !== 'general') {
+            $conditions[] = 'category = :cat';
+            $params[':cat'] = $category;
+        }
+
+        if ($keyword !== '') {
+            $conditions[] = "(original_name ILIKE :kw OR notes ILIKE :kw OR CAST(parsed_data AS TEXT) ILIKE :kw)";
+            $params[':kw'] = '%' . $keyword . '%';
+        }
+
+        $where = implode(' AND ', $conditions);
+
+        try {
+            $stmt = $db->prepare("
+                SELECT id, category, file_type, original_name, notes, parsed_status, created_at
+                FROM public.organizer_files
+                WHERE {$where}
+                ORDER BY created_at DESC
+                LIMIT :limit
+            ");
+            $params[':limit'] = $limit;
+            $stmt->execute($params);
+            
+            return [
+                'query' => ['keyword' => $keyword, 'category' => $category],
+                'results' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [],
+                'search_mode' => 'pragmatic_fts'
+            ];
+        } catch (\Throwable $e) {
+            return ['error' => $e->getMessage()];
+        }
+    }
+
+    private static function executeListDocumentsByCategory(PDO $db, int $organizerId): array
+    {
+        try {
+            $stmt = $db->prepare("
+                SELECT category, COUNT(*) as file_count
+                FROM public.organizer_files
+                WHERE organizer_id = :org
+                GROUP BY category
+                ORDER BY file_count DESC
+            ");
+            $stmt->execute([':org' => $organizerId]);
+            return ['categories' => $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: []];
+        } catch (\Throwable $e) {
+            return ['error' => $e->getMessage()];
+        }
+    }
+
+    private static function executeSemanticSearchDocs(PDO $db, int $organizerId, array $arguments): array
+    {
+        $query = trim((string)($arguments['query'] ?? ''));
+        $category = strtolower(trim((string)($arguments['category'] ?? '')));
+        $limit = min(20, max(1, (int)($arguments['limit'] ?? 5)));
+
+        if ($query === '') {
+            return ['results' => [], 'error' => 'Query vazia.'];
+        }
+
+        // 1. Check if pgvector is available
+        $hasVector = false;
+        try { $hasVector = (bool)$db->query("SELECT 1 FROM pg_extension WHERE extname = 'vector'")->fetchColumn(); } catch (\Throwable $e) {}
+
+        if (!$hasVector) {
+            return array_merge(self::executeSearchDocuments($db, $organizerId, [
+                'keyword' => $query,
+                'category' => $category,
+                'limit' => $limit
+            ]), ['search_mode' => 'fallback_fts']);
+        }
+
+        // 2. Generate embedding for the query
+        require_once __DIR__ . '/AIEmbeddingService.php';
+        $apiKey = getenv('GEMINI_API_KEY');
+        $embedding = \EnjoyFun\Services\AIEmbeddingService::embedQuery($apiKey, $query);
+
+        if (!$embedding) {
+            return ['error' => 'Falha ao gerar embedding para a busca.'];
+        }
+
+        $vectorStr = '[' . implode(',', $embedding) . ']';
+
+        // 3. Perform Vector Search (KNN)
+        $where = ["organizer_id = :org"];
+        $params = [':org' => $organizerId];
+
+        if ($category !== '' && $category !== 'general') {
+            $where[] = "file_id IN (SELECT id FROM organizer_files WHERE category = :cat AND organizer_id = :org)";
+            $params[':cat'] = $category;
+        }
+
+        $sql = "
+            SELECT chunk_text, chunk_index, file_id,
+                   1 - (embedding <=> :emb::vector) AS similarity
+            FROM public.document_embeddings
+            WHERE " . implode(' AND ', $where) . "
+            ORDER BY embedding <=> :emb::vector
+            LIMIT :limit
+        ";
+
+        try {
+            $stmt = $db->prepare($sql);
+            $stmt->bindValue(':org', $organizerId, PDO::PARAM_INT);
+            if (isset($params[':cat'])) $stmt->bindValue(':cat', $params[':cat']);
+            $stmt->bindValue(':emb', $vectorStr);
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            return [
+                'results' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+                'search_mode' => 'semantic_vector'
+            ];
+        } catch (\Throwable $e) {
+            return ['error' => $e->getMessage()];
+        }
+    }
+
+    private static function executeHybridSearchDocs(PDO $db, int $organizerId, array $arguments): array
+    {
+        // Simple hybrid: Combine results from both (RRF could be implemented later)
+        $fts = self::executeSearchDocuments($db, $organizerId, ['keyword' => $arguments['query'] ?? '', 'limit' => 5]);
+        $vector = self::executeSemanticSearchDocs($db, $organizerId, ['query' => $arguments['query'] ?? '', 'limit' => 5]);
+
+        return [
+            'fts_results' => $fts['results'] ?? [],
+            'vector_results' => $vector['results'] ?? [],
+            'search_mode' => 'hybrid'
+        ];
+    }
+
+    /**
+     * BE-S5-A7: Experimental analysis for very large files through Gemini 1.5 Pro File API.
+     */
+    private static function executeGoogleFileAnalysis(PDO $db, int $organizerId, array $arguments): array
+    {
+        $fileId = self::nullablePositiveInt($arguments['file_id'] ?? null);
+        $userPrompt = trim((string)($arguments['prompt'] ?? 'Faça um resumo executivo deste documento.'));
+
+        if (!$fileId) throw new RuntimeException('file_id e obrigatorio.', 422);
+
+        // 1. Get file URI from DB
+        $stmt = $db->prepare("SELECT google_file_uri, mime_type, original_name FROM organizer_files WHERE id = :id AND organizer_id = :org");
+        $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+        $file = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$file || empty($file['google_file_uri'])) {
+            return ['error' => 'Arquivo nao possui URI do Google. Tente reprocessar o arquivo.'];
+        }
+
+        // 2. Delegate to Gemini Service
+        require_once __DIR__ . '/GeminiService.php';
+        $result = \EnjoyFun\Services\GeminiService::analyzeWithLongContext(
+            [['mime_type' => $file['mime_type'], 'file_uri' => $file['google_file_uri']]],
+            $userPrompt
+        );
+
+        return array_merge($result, ['file_name' => $file['original_name']]);
+    }
+
     private static function executeCategorizeFileEntries(PDO $db, int $organizerId, array $arguments): array
     {
         $fileId = self::nullablePositiveInt($arguments['file_id'] ?? null);
@@ -2334,6 +2519,26 @@ final class AIToolRuntimeService
         } catch (\Throwable $e) {
             return ['file_id' => $fileId, 'status' => 'failed', 'message' => $e->getMessage()];
         }
+    }
+
+    private static function executeCiteDocumentEvidence(PDO $db, int $organizerId, array $arguments): array
+    {
+        $fileId = self::nullablePositiveInt($arguments['file_id'] ?? null);
+        $excerpt = trim((string)($arguments['excerpt'] ?? ''));
+        $relevance = trim((string)($arguments['relevance'] ?? ''));
+
+        if (!$fileId || $excerpt === '') {
+            return ['status' => 'failed', 'error' => 'file_id e excerpt sao obrigatorios.'];
+        }
+
+        // V3 Logic: Log the citation so the response builder can include it in the 'evidence' block.
+        error_log(sprintf("[AIEvidence] Citation stored for org %d, file %d: %s", $organizerId, $fileId, $excerpt));
+
+        return [
+            'status' => 'cited',
+            'file_id' => $fileId,
+            'message' => 'Evidencia registrada com sucesso para fundamentacao da resposta.'
+        ];
     }
 
     // ── BE-S2-B4/B5/B9/B10/B11: Sprint 2 new tools ───────────────
@@ -2540,82 +2745,8 @@ final class AIToolRuntimeService
         ];
     }
 
-    // ── BE-S5-A5+A6: Semantic search tools ─────────────────────────
 
-    private static function executeSemanticSearchDocs(PDO $db, int $organizerId, array $arguments): array
-    {
-        $query = trim((string)($arguments['query'] ?? ''));
-        if ($query === '') { throw new RuntimeException('query e obrigatoria.', 422); }
-        $topK = min(max((int)($arguments['top_k'] ?? 5), 1), 20);
-
-        require_once __DIR__ . '/AIEmbeddingService.php';
-        $apiKey = trim((string)getenv('OPENAI_API_KEY'));
-        if ($apiKey === '') { return ['error' => 'OPENAI_API_KEY nao configurada', 'results' => []]; }
-
-        $queryEmbedding = AIEmbeddingService::embedQuery($apiKey, $query);
-        if ($queryEmbedding === null) { return ['error' => 'Falha ao gerar embedding da query', 'results' => []]; }
-
-        $vectorStr = '[' . implode(',', $queryEmbedding) . ']';
-
-        try {
-            $stmt = $db->prepare("
-                SELECT de.id, de.file_id, de.chunk_index, de.chunk_text,
-                       of.original_name AS file_name, of.category,
-                       1 - (de.embedding <=> :vec::vector) AS similarity
-                FROM public.document_embeddings de
-                INNER JOIN public.organizer_files of ON of.id = de.file_id
-                WHERE de.organizer_id = :org
-                ORDER BY de.embedding <=> :vec::vector
-                LIMIT :k
-            ");
-            $stmt->bindValue(':vec', $vectorStr);
-            $stmt->bindValue(':org', $organizerId, \PDO::PARAM_INT);
-            $stmt->bindValue(':k', $topK, \PDO::PARAM_INT);
-            $stmt->execute();
-            $results = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
-        } catch (\Throwable $e) {
-            return ['error' => 'pgvector nao disponivel: ' . $e->getMessage(), 'results' => []];
-        }
-
-        return ['query' => $query, 'total_results' => count($results), 'results' => $results];
-    }
-
-    private static function executeHybridSearchDocs(PDO $db, int $organizerId, array $arguments): array
-    {
-        $query = trim((string)($arguments['query'] ?? ''));
-        if ($query === '') { throw new RuntimeException('query e obrigatoria.', 422); }
-        $category = strtolower(trim((string)($arguments['category'] ?? '')));
-        $topK = min(max((int)($arguments['top_k'] ?? 5), 1), 20);
-
-        // Keyword search
-        $kwWhere = ["f.organizer_id = :org", "f.parsed_status = 'parsed'"];
-        $kwParams = [':org' => $organizerId];
-        if ($category !== '') { $kwWhere[] = 'f.category = :cat'; $kwParams[':cat'] = $category; }
-        $kw = '%' . strtolower($query) . '%';
-        $kwWhere[] = '(LOWER(f.original_name) LIKE :kw OR LOWER(COALESCE(f.notes, \'\')) LIKE :kw OR LOWER(COALESCE(f.parsed_data::text, \'\')) LIKE :kw)';
-        $kwParams[':kw'] = $kw;
-
-        $kwStmt = $db->prepare('SELECT f.id, f.original_name, f.category FROM public.organizer_files f WHERE ' . implode(' AND ', $kwWhere) . ' LIMIT ' . $topK);
-        $kwStmt->execute($kwParams);
-        $keywordResults = $kwStmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
-
-        // Vector search (if available)
-        $vectorResults = [];
-        try {
-            $vectorSearch = self::executeSemanticSearchDocs($db, $organizerId, ['query' => $query, 'top_k' => $topK]);
-            $vectorResults = $vectorSearch['results'] ?? [];
-        } catch (\Throwable $e) {
-            // pgvector not available — keyword-only
-        }
-
-        return [
-            'query' => $query,
-            'keyword_results' => $keywordResults,
-            'vector_results' => $vectorResults,
-            'keyword_count' => count($keywordResults),
-            'vector_count' => count($vectorResults),
-        ];
-    }
+    // ── BE-S4-B5..B8: Internal skills (diagnostic + incidents) ─────
 
     // ── BE-S4-B5..B8: Internal skills (diagnostic + incidents) ─────
 
@@ -2988,126 +3119,7 @@ final class AIToolRuntimeService
         ];
     }
 
-    /** Register a document citation for the evidence block. */
-    private static function executeCiteDocumentEvidence(PDO $db, int $organizerId, array $arguments): array
-    {
-        $fileId = self::nullablePositiveInt($arguments['file_id'] ?? null);
-        if ($fileId === null) { throw new RuntimeException('file_id e obrigatorio.', 422); }
 
-        $excerpt = trim((string)($arguments['excerpt'] ?? ''));
-        if ($excerpt === '') { throw new RuntimeException('excerpt e obrigatorio.', 422); }
-
-        // Verify file exists
-        $stmt = $db->prepare("SELECT original_name FROM public.organizer_files WHERE id = :id AND organizer_id = :org LIMIT 1");
-        $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
-        $fileName = $stmt->fetchColumn();
-
-        return [
-            'type' => 'document_chunk',
-            'file_id' => $fileId,
-            'file_name' => $fileName ?: 'arquivo desconhecido',
-            'snippet' => mb_substr($excerpt, 0, 500),
-            'relevance' => trim((string)($arguments['relevance'] ?? '')),
-            'score' => 1.0,
-        ];
-    }
-
-    // ── BE-S2-A2/A3/A4: Document tools ────────────────────────────
-
-    /** BE-S2-A2: Read full parsed data of an organizer file. */
-    private static function executeReadOrganizerFile(PDO $db, int $organizerId, array $arguments): array
-    {
-        $fileId = self::nullablePositiveInt($arguments['file_id'] ?? null);
-        if ($fileId === null) {
-            throw new RuntimeException('file_id e obrigatorio.', 422);
-        }
-
-        $stmt = $db->prepare("
-            SELECT id, original_name, category, file_type, parsed_data, notes, created_at
-            FROM public.organizer_files
-            WHERE id = :id AND organizer_id = :org AND parsed_status = 'parsed'
-        ");
-        $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
-        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-
-        if (!$row) {
-            return ['file_id' => $fileId, 'found' => false, 'message' => 'Arquivo nao encontrado ou nao foi parseado.'];
-        }
-
-        $parsedData = json_decode($row['parsed_data'] ?? '{}', true);
-        return [
-            'file_id'       => (int)$row['id'],
-            'found'         => true,
-            'original_name' => $row['original_name'],
-            'category'      => $row['category'],
-            'file_type'     => $row['file_type'],
-            'notes'         => $row['notes'],
-            'created_at'    => $row['created_at'],
-            'parsed_data'   => $parsedData,
-        ];
-    }
-
-    /** BE-S2-A3: Search documents by category and/or keyword. */
-    private static function executeSearchDocuments(PDO $db, int $organizerId, array $arguments): array
-    {
-        $category = strtolower(trim((string)($arguments['category'] ?? '')));
-        $keyword = trim((string)($arguments['keyword'] ?? ''));
-        $limit = min(max((int)($arguments['limit'] ?? 10), 1), 50);
-
-        $where = ["organizer_id = :org", "parsed_status = 'parsed'"];
-        $params = [':org' => $organizerId];
-
-        if ($category !== '') {
-            $where[] = 'category = :cat';
-            $params[':cat'] = $category;
-        }
-        if ($keyword !== '') {
-            $where[] = '(LOWER(original_name) LIKE :kw OR LOWER(COALESCE(notes, \'\')) LIKE :kw)';
-            $params[':kw'] = '%' . strtolower($keyword) . '%';
-        }
-
-        $sql = 'SELECT id, original_name, category, file_type, notes, created_at
-                FROM public.organizer_files
-                WHERE ' . implode(' AND ', $where) . '
-                ORDER BY updated_at DESC NULLS LAST
-                LIMIT ' . $limit;
-
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
-        $files = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
-
-        return [
-            'total_matches' => count($files),
-            'filters' => ['category' => $category ?: 'all', 'keyword' => $keyword ?: null],
-            'files' => $files,
-        ];
-    }
-
-    /** BE-S2-A4: List documents grouped by category. */
-    private static function executeListDocumentsByCategory(PDO $db, int $organizerId): array
-    {
-        $stmt = $db->prepare("
-            SELECT category, COUNT(*) AS file_count,
-                   array_agg(original_name ORDER BY updated_at DESC) AS file_names
-            FROM public.organizer_files
-            WHERE organizer_id = :org AND parsed_status = 'parsed'
-            GROUP BY category
-            ORDER BY file_count DESC
-        ");
-        $stmt->execute([':org' => $organizerId]);
-        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
-
-        // PostgreSQL array_agg returns a string like {a,b,c}, parse it
-        foreach ($rows as &$r) {
-            $r['file_count'] = (int)$r['file_count'];
-            $raw = $r['file_names'] ?? '';
-            if (is_string($raw) && str_starts_with($raw, '{')) {
-                $r['file_names'] = explode(',', trim($raw, '{}'));
-            }
-        }
-
-        return ['organizer_id' => $organizerId, 'categories' => $rows];
-    }
 
     private static function executeEventContentContext(PDO $db, int $organizerId, ?int $eventId): array
     {

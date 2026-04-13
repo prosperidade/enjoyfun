@@ -434,12 +434,13 @@ function handleChat(array $body): void
             );
         }
 
-        // 2. Intent routing — short-circuit L361 removed (BE-S1-A2).
-        //    Always run IntentRouter when the flag is on. agent_key from the
-        //    client is just a hint passed via $context, never an override.
-        //    BE-S1-A3 will turn that hint into a +5 routing bonus.
-        $intentRouterFlag = getenv('FEATURE_AI_INTENT_ROUTER');
-        if (in_array(strtolower((string)$intentRouterFlag), ['1', 'true', 'yes', 'on'], true)) {
+        // 2. Intent routing
+        //    Unified routing for all surfaces (B2B/B2C). The IntentRouter
+        //    is responsible for selecting the correct agent (E.g. b2c_concierge).
+        $surfaceForRouting = strtolower(trim((string)($context['surface'] ?? 'dashboard')));
+        if (in_array(strtolower((string)getenv('FEATURE_AI_INTENT_ROUTER')), ['1', 'true', 'yes', 'on'], true)) {
+            // BE-S1-A2: Always run IntentRouter when the flag is on.
+            //    agent_key from the client is just a hint, never an override.
             $routeResult = \EnjoyFun\Services\AIIntentRouterService::routeIntent(
                 $db, $organizerId, $question, $context
             );

@@ -14,6 +14,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'GET' && is_numeric($id) && $sub === null => orgFileGet($db, (int)$id),
         $method === 'GET' && is_numeric($id) && $sub === 'parsed' => orgFileGetParsed($db, (int)$id),
         $method === 'POST' && is_numeric($id) && $sub === 'parse' => orgFileReparse($db, (int)$id),
+        $method === 'POST' && is_numeric($id) && $sub === 'analyze' => orgFileAnalyzeWithGoogle($db, (int)$id),
         $method === 'DELETE' && is_numeric($id) => orgFileDelete($db, (int)$id),
         default => jsonError('Endpoint nao encontrado em organizer-files.', 404),
     };
@@ -51,7 +52,8 @@ function orgFileList(PDO $db, array $query): void
 
     $stmt = $db->prepare("
         SELECT id, event_id, category, file_type, original_name, mime_type, file_size_bytes,
-               parsed_status, parsed_at, notes, uploaded_by_user_id, created_at
+               parsed_status, parsed_at, notes, uploaded_by_user_id, created_at,
+               embedding_status, google_file_uri
         FROM public.organizer_files
         WHERE {$where}
         ORDER BY created_at DESC
@@ -214,7 +216,7 @@ function orgFileUpload(PDO $db): void
     }
 
     // Reload record
-    $stmt = $db->prepare("SELECT id, event_id, category, file_type, original_name, mime_type, file_size_bytes, parsed_status, parsed_at, notes, created_at FROM public.organizer_files WHERE id = :id AND organizer_id = :org LIMIT 1");
+    $stmt = $db->prepare("SELECT id, event_id, category, file_type, original_name, mime_type, file_size_bytes, parsed_status, parsed_at, notes, created_at, embedding_status, google_file_uri FROM public.organizer_files WHERE id = :id AND organizer_id = :org LIMIT 1");
     $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
     $record = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -317,6 +319,70 @@ function orgFileDelete(PDO $db, int $fileId): void
     jsonSuccess(null, 'Arquivo removido.');
 }
 
+/**
+ * POST /organizer-files/{id}/analyze
+ * Triggers Google Gemini Long Context analysis for large/complex files (PDF, DOCX, etc.).
+ * Uploads to Gemini File API (48h retention) and stores the URI for downstream RAG.
+ */
+function orgFileAnalyzeWithGoogle(PDO $db, int $fileId): void
+{
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+
+    $stmt = $db->prepare("SELECT storage_path, file_type, mime_type, file_size_bytes, original_name FROM public.organizer_files WHERE id = :id AND organizer_id = :org LIMIT 1");
+    $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+    $file = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$file) {
+        jsonError('Arquivo nao encontrado.', 404);
+    }
+
+    $fullPath = BASE_PATH . '/public' . $file['storage_path'];
+    if (!file_exists($fullPath)) {
+        jsonError('Arquivo fisico nao encontrado no servidor.', 404);
+    }
+
+    $apiKey = trim((string)getenv('GEMINI_API_KEY'));
+    if ($apiKey === '') {
+        jsonError('GEMINI_API_KEY nao configurada. Analise Google indisponivel.', 503);
+    }
+
+    // Update status to indexing
+    $db->prepare("UPDATE public.organizer_files SET embedding_status = 'indexing', updated_at = NOW() WHERE id = :id AND organizer_id = :org")
+       ->execute([':id' => $fileId, ':org' => $organizerId]);
+
+    try {
+        require_once BASE_PATH . '/src/Services/GeminiService.php';
+
+        $mimeType = $file['mime_type'] ?: 'application/octet-stream';
+        $uploaded = \EnjoyFun\Services\GeminiService::uploadFile($fullPath, $mimeType, $file['original_name']);
+
+        if (!$uploaded || empty($uploaded['uri'])) {
+            $db->prepare("UPDATE public.organizer_files SET embedding_status = 'failed', updated_at = NOW() WHERE id = :id")
+               ->execute([':id' => $fileId]);
+            jsonError('Falha no upload para Google File API.', 502);
+        }
+
+        $fileUri = $uploaded['uri'];
+        $sha256 = hash_file('sha256', $fullPath);
+
+        $db->prepare("UPDATE public.organizer_files SET google_file_uri = :uri, google_file_sha256 = :sha, embedding_status = 'indexed', updated_at = NOW() WHERE id = :id AND organizer_id = :org")
+           ->execute([':uri' => $fileUri, ':sha' => $sha256, ':id' => $fileId, ':org' => $organizerId]);
+
+        jsonSuccess([
+            'file_id' => $fileId,
+            'google_file_uri' => $fileUri,
+            'embedding_status' => 'indexed',
+        ], 'Arquivo enviado para analise Google com sucesso.');
+
+    } catch (\Throwable $e) {
+        $db->prepare("UPDATE public.organizer_files SET embedding_status = 'failed', updated_at = NOW() WHERE id = :id")
+           ->execute([':id' => $fileId]);
+        error_log('[OrganizerFileController] Google analyze error: ' . $e->getMessage());
+        jsonError('Erro ao enviar para Google: ' . substr($e->getMessage(), 0, 200), 500);
+    }
+}
+
 // ──────────────────────────────────────────────────────────────
 //  Auto-parse engine (CSV / JSON)
 // ──────────────────────────────────────────────────────────────
@@ -345,7 +411,19 @@ function orgFileAutoparse(PDO $db, int $fileId, string $fullPath, string $fileTy
             require_once BASE_PATH . '/src/Services/AIEmbeddingService.php';
             \EnjoyFun\Services\AIEmbeddingService::generateEmbeddings($db, $organizerId, $fileId);
         } catch (\Throwable $embErr) {
-            error_log('[OrganizerFileController] Embedding generation failed (non-blocking): ' . $embErr->getMessage());
+            error_log('[OrganizerFileController] Embedding generation failed: ' . $embErr->getMessage());
+        }
+
+        // BE-S5-A5: Trigger Google File API Upload (for Long Context / Knowledge Base)
+        try {
+            require_once BASE_PATH . '/src/Services/GeminiService.php';
+            $gFile = \EnjoyFun\Services\GeminiService::uploadFile($fullPath, (string)$fileType, (string)basename($fullPath));
+            if ($gFile && isset($gFile['uri'])) {
+                $db->prepare("UPDATE public.organizer_files SET google_file_uri = :uri, updated_at = NOW() WHERE id = :id")
+                   ->execute([':uri' => $gFile['uri'], ':id' => $fileId]);
+            }
+        } catch (\Throwable $gErr) {
+            error_log('[OrganizerFileController] Google File Upload failed: ' . $gErr->getMessage());
         }
     } catch (\Throwable $e) {
         $db->prepare("UPDATE public.organizer_files SET parsed_status = 'failed', parsed_error = :err, updated_at = NOW() WHERE id = :id")

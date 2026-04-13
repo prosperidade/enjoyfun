@@ -90,6 +90,7 @@ final class AIOrchestratorService
 
         $prompt = AIPromptCatalogService::buildUserPrompt($surface, $context, $question);
         $toolCatalog = AIToolRuntimeService::buildToolCatalog($context, $db, $organizerId);
+
         $startedAt = gmdate('Y-m-d H:i:s');
 
         // Bug H diagnostic: log where "trance formation" appears in the LLM input
@@ -294,14 +295,9 @@ final class AIOrchestratorService
         }
 
         $finalInsight = trim((string)($result['insight'] ?? ''));
+        $finalInsight = self::sanitizeInsightForUser($finalInsight);
         if ($finalInsight === '' && ($result['tool_results'] ?? []) !== []) {
-            $summaryParts = [];
-            foreach ($result['tool_results'] as $tr) {
-                $toolName = $tr['tool_name'] ?? 'tool';
-                $status = $tr['status'] ?? 'unknown';
-                $summaryParts[] = "- {$toolName}: {$status}";
-            }
-            $finalInsight = "O agente executou ferramentas operacionais:\n" . implode("\n", $summaryParts) . "\n\nReformule a pergunta para obter uma análise textual dos dados.";
+            $finalInsight = 'Busquei os dados solicitados. Veja os detalhes nos cards abaixo.';
         } elseif ($finalInsight === '') {
             $finalInsight = 'O provedor de IA retornou uma resposta vazia. Tente novamente ou reformule a pergunta.';
         }
@@ -734,8 +730,8 @@ final class AIOrchestratorService
             }
 
             // Call provider with full message history
-            // BE-S2: Force tool_choice=required on the first step to prevent hallucination
-            $forceTools = ($step === 1);
+            // BE-S2: Force tool_choice=required on the first step to prevent hallucination (ONLY if tools exist)
+            $forceTools = ($step === 1) && !empty($toolCatalog);
             $stepResult = self::requestInsightWithMessages($runtime, $messages, $toolCatalog, $forceTools);
             $totalUsage = self::mergeUsage($totalUsage, (array)($stepResult['usage'] ?? []));
             $totalDurationMs += max(0, (int)($stepResult['request_duration_ms'] ?? 0));
@@ -2268,5 +2264,46 @@ final class AIOrchestratorService
         return strlen($trimmed) > $limit
             ? rtrim(substr($trimmed, 0, max(1, $limit - 3))) . '...'
             : $trimmed;
+    }
+
+    /**
+     * Sanitize the LLM insight text before showing it to the end user.
+     * Removes:
+     *  - Internal tool/function names (get_*, find_*, search_*, read_*, list_*, etc.)
+     *  - Phrases like "vou buscar", "vou consultar", "chamei a tool"
+     *  - Raw JSON fragments
+     *  - tool_choice / tool_calls metadata
+     *  - Lines that are just a tool name or tool_name:status
+     */
+    private static function sanitizeInsightForUser(string $text): string
+    {
+        if (trim($text) === '') {
+            return '';
+        }
+
+        // 1. Remove lines that are just "- tool_name: status" (the old fallback pattern)
+        $text = preg_replace('/^[\s-]*(?:get_|find_|search_|read_|list_|create_|update_|delete_|diagnose_|navigate_)\w+\s*:\s*\w+\s*$/m', '', $text) ?? $text;
+
+        // 2. Remove inline tool names wrapped in backticks or standalone
+        //    e.g. `get_pos_sales_snapshot` or get_pos_sales_snapshot(...)
+        $text = preg_replace('/`(?:get_|find_|search_|read_|list_|create_|update_|delete_|diagnose_|navigate_)\w+(?:\([^)]*\))?`/', '', $text) ?? $text;
+        $text = preg_replace('/\b(?:get_|find_|search_|read_|list_|create_|update_|delete_|diagnose_|navigate_)\w+(?:\([^)]*\))?/', '', $text) ?? $text;
+
+        // 3. Remove "vou buscar", "vou consultar", "chamando a tool" style phrases
+        $text = preg_replace('/(?:vou\s+(?:buscar|consultar|verificar|olhar|checar)|chamei\s+a?\s*tool|executando\s+a?\s*(?:tool|ferramenta)|chamando\s+a?\s*(?:tool|ferramenta))[^.]*[.!]?\s*/iu', '', $text) ?? $text;
+
+        // 4. Remove raw JSON fragments (lines starting with { or [, multi-line)
+        $text = preg_replace('/^\s*[\[{].*?[\]}]\s*$/ms', '', $text) ?? $text;
+
+        // 5. Remove "tool_choice", "tool_calls", "function_call" metadata references
+        $text = preg_replace('/\b(?:tool_choice|tool_calls|function_call|tool_call|tool_name|tool_result)\b[^.]*[.]?\s*/i', '', $text) ?? $text;
+
+        // 6. Remove sentences mentioning "O agente executou ferramentas" / "ferramentas operacionais"
+        $text = preg_replace('/O\s+agente\s+executou\s+ferramentas[^.]*[.]\s*/iu', '', $text) ?? $text;
+
+        // 7. Clean up resulting blank lines
+        $text = preg_replace('/\n{3,}/', "\n\n", $text) ?? $text;
+
+        return trim($text);
     }
 }
