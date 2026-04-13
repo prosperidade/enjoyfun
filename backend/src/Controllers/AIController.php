@@ -368,6 +368,7 @@ function handleChat(array $body): void
         }
     }
 
+
     // Auto-select event when event_id is missing (frontend may not have selected one).
     // Pick the most recent event of the organizer to avoid empty tool catalogs.
     if (empty($context['event_id']) || (int)($context['event_id'] ?? 0) <= 0) {

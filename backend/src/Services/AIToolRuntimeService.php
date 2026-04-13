@@ -3633,13 +3633,31 @@ final class AIToolRuntimeService
             }
         }
 
+        // Fallback: if ticket_batches has no data, count from tickets table directly
+        // (some events use tickets without the batch system)
+        if ($totalSold === 0 && $totalAvailable === 0) {
+            $directStmt = $db->prepare("
+                SELECT
+                    COUNT(*)::int AS total,
+                    COUNT(*) FILTER (WHERE status IN ('paid','used','valid'))::int AS sold
+                FROM public.tickets
+                WHERE event_id = :evt AND organizer_id = :org
+            ");
+            $directStmt->execute([':evt' => $eventId, ':org' => $organizerId]);
+            $direct = $directStmt->fetch(\PDO::FETCH_ASSOC);
+            if ($direct && (int)$direct['total'] > 0) {
+                $totalAvailable = (int)$direct['total'];
+                $totalSold = (int)$direct['sold'];
+            }
+        }
+
         return [
             'event_id' => $eventId,
             'ticket_types' => $types,
             'batches' => $batches,
             'total_available' => $totalAvailable,
             'total_sold' => $totalSold,
-            'total_remaining' => $totalAvailable - $totalSold,
+            'total_remaining' => max(0, $totalAvailable - $totalSold),
             'sell_through_pct' => $totalAvailable > 0 ? round(($totalSold / $totalAvailable) * 100, 1) : 0,
         ];
     }

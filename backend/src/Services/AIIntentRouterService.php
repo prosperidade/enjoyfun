@@ -63,6 +63,29 @@ final class AIIntentRouterService
             ];
         }
 
+        // Surface-locked agents: when the user is on a specific page, the
+        // embedded chat should ALWAYS use that page's specialist agent.
+        // Keywords only disambiguate within the SAME surface, not across surfaces.
+        $surfaceLockedAgents = [
+            'dashboard'  => 'management',
+            'bar'        => 'bar',
+            'parking'    => 'logistics',
+            'workforce'  => 'logistics',
+            'tickets'    => 'marketing',
+            'artists'    => 'artists',
+            'documents'  => 'documents',
+            'finance'    => 'management',
+        ];
+        if ($explicitSurface !== '' && isset($surfaceLockedAgents[$explicitSurface])) {
+            return [
+                'agent_key'        => $surfaceLockedAgents[$explicitSurface],
+                'surface'          => $explicitSurface,
+                'confidence'       => 0.9,
+                'reasoning'        => "Surface lock: {$explicitSurface} → {$surfaceLockedAgents[$explicitSurface]}",
+                'routing_trace_id' => $routingTraceId,
+            ];
+        }
+
         // Tier 1: Keyword/pattern matching with hint bonus
         $tier1 = self::tier1KeywordRoute($question, $explicitSurface, $agentHint);
         $result = $tier1;
