@@ -911,18 +911,23 @@ final class AIOrchestratorService
                 }
                 $messages[] = $userMsg;
             }
-            // Add tool results as context for the synthesis step
+            // Add tool results as context and immediately request synthesis
+            // (no more tool calls — the LLM must produce a text response now)
             $messages[] = [
                 'role' => 'user',
-                'content' => "DADOS DAS FERRAMENTAS CONSULTADAS (use esses dados para responder):\n\n" . implode("\n\n", $toolResultsSummary),
+                'content' => "DADOS DAS FERRAMENTAS CONSULTADAS (use esses dados para responder ao usuario em portugues, com conclusao, numeros e analise):\n\n" . implode("\n\n", $toolResultsSummary),
             ];
 
             $lastResult['tool_calls'] = $toolRuntime['tool_calls'] ?? $readOnlyToolCalls;
 
-            // If this is the last allowed step and tools were executed, mark termination
-            if ($step === $maxSteps) {
-                $exitReason = 'max_steps_reached';
-            }
+            // Synthesis step: call LLM WITHOUT tools to force text generation
+            $synthesisResult = self::requestInsightWithMessages($runtime, $messages, []);
+            $totalUsage = self::mergeUsage($totalUsage, (array)($synthesisResult['usage'] ?? []));
+            $totalDurationMs += max(0, (int)($synthesisResult['request_duration_ms'] ?? 0));
+            $lastResult['insight'] = $synthesisResult['insight'] ?? '';
+            $lastResult['model'] = $synthesisResult['model'] ?? $lastResult['model'] ?? '';
+            $exitReason = 'completed';
+            break; // Done — synthesis produced, exit loop
         }
 
         // Build final result
