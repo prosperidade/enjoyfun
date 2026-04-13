@@ -29,6 +29,8 @@ const strings: Record<Lang, Record<string, string>> = {
   pt: {
     welcome_prompt:
       'Monte uma visao geral do evento de hoje: proximos horarios, lineup, mapa e principais alertas.',
+    welcome_prompt_general:
+      'Ola! Sou o assistente da plataforma EnjoyFun. Como posso te ajudar?',
     empty_title: 'Ola! Como posso ajudar?',
     empty_body:
       'Pergunte sobre vendas, staff, financeiro ou qualquer operacao do seu evento.',
@@ -44,10 +46,20 @@ const strings: Record<Lang, Record<string, string>> = {
     transcribe_error: 'Falha ao transcrever audio',
     tts_on: 'Voz ligada',
     tts_off: 'Voz desligada',
+    surface_general: 'Suporte ao Organizador',
+    surface_dashboard: 'Painel do Evento',
+    surface_parking: 'Estacionamento',
+    surface_bar: 'Bar',
+    surface_artists: 'Artistas',
+    surface_workforce: 'Equipe',
+    surface_finance: 'Financeiro',
+    new_session: 'Nova conversa',
   },
   en: {
     welcome_prompt:
       'Give me an overview of today at this event: upcoming schedule, lineup, map and key alerts.',
+    welcome_prompt_general:
+      'Hi! I am the EnjoyFun platform assistant. How can I help you?',
     empty_title: 'Hi! How can I help?',
     empty_body:
       'Ask about sales, staff, finance or any operation of your event.',
@@ -63,10 +75,20 @@ const strings: Record<Lang, Record<string, string>> = {
     transcribe_error: 'Failed to transcribe audio',
     tts_on: 'Voice on',
     tts_off: 'Voice off',
+    surface_general: 'Organizer Support',
+    surface_dashboard: 'Event Dashboard',
+    surface_parking: 'Parking',
+    surface_bar: 'Bar',
+    surface_artists: 'Artists',
+    surface_workforce: 'Workforce',
+    surface_finance: 'Finance',
+    new_session: 'New conversation',
   },
   es: {
     welcome_prompt:
       'Dame un resumen del evento de hoy: proximos horarios, lineup, mapa y alertas principales.',
+    welcome_prompt_general:
+      'Hola! Soy el asistente de la plataforma EnjoyFun. Como puedo ayudarte?',
     empty_title: 'Hola! Como puedo ayudarte?',
     empty_body:
       'Pregunta sobre ventas, staff, finanzas o cualquier operacion de tu evento.',
@@ -82,6 +104,14 @@ const strings: Record<Lang, Record<string, string>> = {
     transcribe_error: 'Error al transcribir audio',
     tts_on: 'Voz activada',
     tts_off: 'Voz desactivada',
+    surface_general: 'Soporte al Organizador',
+    surface_dashboard: 'Panel del Evento',
+    surface_parking: 'Estacionamiento',
+    surface_bar: 'Bar',
+    surface_artists: 'Artistas',
+    surface_workforce: 'Equipo',
+    surface_finance: 'Finanzas',
+    new_session: 'Nueva conversacion',
   },
 };
 

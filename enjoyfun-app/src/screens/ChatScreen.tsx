@@ -19,7 +19,7 @@ import { MessageBubble } from '@/components/MessageBubble';
 import { sendChatMessage } from '@/api/chat';
 import { useEvent } from '@/context/EventContext';
 import type { EventSummary } from '@/api/events';
-import type { ChatMessage, ActionItem } from '@/lib/types';
+import type { ChatMessage, ChatSurface, ActionItem } from '@/lib/types';
 import { t, currentLocale } from '@/lib/i18n';
 import { speak, stopSpeaking } from '@/lib/voice';
 import type { RootStackParamList } from '../../App';
@@ -30,18 +30,28 @@ function uid(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-export function ChatScreen({ navigation }: Props) {
+const SURFACE_LABELS: Partial<Record<ChatSurface, string>> = {
+  general: 'surface_general',
+  dashboard: 'surface_dashboard',
+  parking: 'surface_parking',
+  bar: 'surface_bar',
+  artists: 'surface_artists',
+  workforce: 'surface_workforce',
+  finance: 'surface_finance',
+};
+
+export function ChatScreen({ navigation, route }: Props) {
+  const routeSurface = route.params?.surface;
+
   const { activeEvent, events, selectEvent, refresh: refreshEvents } = useEvent();
-  // EventProvider mounts before login and fails the first /events call while
-  // there's no token. Re-fetch on ChatScreen mount since this screen only
-  // renders after a successful login.
   useEffect(() => {
     if (events.length === 0) {
       refreshEvents();
     }
-    // only on first mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const [surface, setSurface] = useState<ChatSurface>(routeSurface ?? 'dashboard');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const [sending, setSending] = useState(false);
@@ -51,6 +61,17 @@ export function ChatScreen({ navigation }: Props) {
   useEffect(() => { ttsEnabledRef.current = ttsEnabled; }, [ttsEnabled]);
   useEffect(() => () => { stopSpeaking(); }, []);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+
+  // Reset session when surface changes via route params
+  useEffect(() => {
+    if (routeSurface && routeSurface !== surface) {
+      setSurface(routeSurface);
+      setSessionId(undefined);
+      setMessages([]);
+      welcomeFiredRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeSurface]);
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -69,14 +90,24 @@ export function ChatScreen({ navigation }: Props) {
       setMessages((prev) => [...prev, userMsg, loadingMsg]);
       setSending(true);
       try {
-        const context: Record<string, unknown> = { locale: currentLocale };
-        if (activeEvent) context.event_id = activeEvent.id;
-        const res = await sendChatMessage({ question: text, session_id: sessionId, context });
-        if (res.session_id && !sessionId) setSessionId(res.session_id);
+        const res = await sendChatMessage({
+          question: text,
+          session_id: sessionId,
+          surface,
+          event_id: activeEvent?.id ?? null,
+          locale: currentLocale,
+        });
+        if (res.session_id) setSessionId(res.session_id);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === loadingMsg.id
-              ? { ...m, loading: false, response: res, text: res.text_fallback }
+              ? {
+                  ...m,
+                  loading: false,
+                  response: res,
+                  text: res.text_fallback,
+                  toolCalls: res.tool_calls_summary,
+                }
               : m,
           ),
         );
@@ -96,7 +127,7 @@ export function ChatScreen({ navigation }: Props) {
         setSending(false);
       }
     },
-    [sessionId, activeEvent],
+    [sessionId, activeEvent, surface],
   );
 
   const toggleTts = useCallback(() => {
@@ -112,17 +143,39 @@ export function ChatScreen({ navigation }: Props) {
       setPickerOpen(false);
       setSessionId(undefined);
       setMessages([]);
+      welcomeFiredRef.current = false;
     },
     [selectEvent],
   );
 
+  const handleSwitchToGeneral = useCallback(() => {
+    setSurface('general');
+    setSessionId(undefined);
+    setMessages([]);
+    welcomeFiredRef.current = false;
+  }, []);
+
+  const handleNewSession = useCallback(() => {
+    setSessionId(undefined);
+    setMessages([]);
+    welcomeFiredRef.current = false;
+  }, []);
+
   const welcomeFiredRef = useRef(false);
   useEffect(() => {
     if (welcomeFiredRef.current) return;
-    if (!activeEvent || messages.length > 0 || sending) return;
+    if (messages.length > 0 || sending) return;
+    // For general surface, fire welcome without needing an event
+    if (surface === 'general') {
+      welcomeFiredRef.current = true;
+      handleSend(t('welcome_prompt_general'));
+      return;
+    }
+    // For event-scoped surfaces, wait until an event is selected
+    if (!activeEvent) return;
     welcomeFiredRef.current = true;
     handleSend(t('welcome_prompt'));
-  }, [activeEvent, messages.length, sending, handleSend]);
+  }, [activeEvent, messages.length, sending, handleSend, surface]);
 
   const handleAction = useCallback(
     async (item: ActionItem) => {
@@ -137,6 +190,9 @@ export function ChatScreen({ navigation }: Props) {
     [],
   );
 
+  const surfaceLabelKey = SURFACE_LABELS[surface];
+  const surfaceLabel = surfaceLabelKey ? t(surfaceLabelKey as any) : '';
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
@@ -146,20 +202,28 @@ export function ChatScreen({ navigation }: Props) {
           disabled={events.length === 0}
         >
           <Text style={styles.headerTitle}>
-            {activeEvent?.name ?? 'EnjoyFun'} {events.length > 0 ? '▾' : ''}
+            {activeEvent?.name ?? 'EnjoyFun'} {events.length > 0 ? '\u25BE' : ''}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {activeEvent ? t('header_subtitle_touch') : t('header_subtitle_empty')}
+            {surfaceLabel || (activeEvent ? t('header_subtitle_touch') : t('header_subtitle_empty'))}
           </Text>
         </TouchableOpacity>
+
+        {/* Sparkle — Platform Guide (surface=general) */}
+        <TouchableOpacity
+          style={[styles.headerIcon, surface === 'general' && styles.headerIconActive]}
+          onPress={handleSwitchToGeneral}
+        >
+          <Text style={styles.headerIconText}>{'\u2728'}</Text>
+        </TouchableOpacity>
+
+        {/* New session */}
+        <TouchableOpacity style={styles.headerIcon} onPress={handleNewSession}>
+          <Text style={styles.headerIconText}>{'\u{1F504}'}</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.headerIcon} onPress={toggleTts}>
           <Text style={styles.headerIconText}>{ttsEnabled ? '\u{1F50A}' : '\u{1F507}'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.headerBtn}
-          onPress={() => Alert.alert(t('settings'), t('settings_soon'))}
-        >
-          <Text style={styles.headerBtnText}>{t('settings')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -300,7 +364,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surface,
-    marginRight: spacing.xs,
+    marginLeft: spacing.xs,
+  },
+  headerIconActive: {
+    backgroundColor: colors.accentMuted,
+    borderWidth: 1,
+    borderColor: colors.accent,
   },
   headerIconText: {
     fontSize: 16,

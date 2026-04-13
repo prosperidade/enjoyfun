@@ -1,11 +1,13 @@
 import { apiClient } from './client';
-import type { AdaptiveResponse, ChatSession } from '@/lib/types';
+import type { AdaptiveResponse, ChatSession, ChatSurface } from '@/lib/types';
 
 export interface SendChatMessageInput {
   question: string;
   session_id?: string;
+  surface?: ChatSurface;
+  event_id?: number | null;
+  locale?: string;
   agent_key?: string;
-  context?: Record<string, unknown>;
 }
 
 interface ApiEnvelope<T> {

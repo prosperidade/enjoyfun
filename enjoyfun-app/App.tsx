@@ -11,10 +11,11 @@ import { setUnauthorizedHandler } from '@/api/client';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { ChatScreen } from '@/screens/ChatScreen';
 import { EventProvider } from '@/context/EventContext';
+import type { ChatSurface } from '@/lib/types';
 
 export type RootStackParamList = {
   Login: undefined;
-  Chat: undefined;
+  Chat: { surface?: ChatSurface } | undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();

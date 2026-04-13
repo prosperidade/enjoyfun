@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { colors, spacing, radius, typography } from '@/theme';
 import type { ChatMessage, ActionItem } from '@/lib/types';
 import { AdaptiveUIRenderer } from './AdaptiveUIRenderer';
+import { ToolCallBadge } from './ToolCallBadge';
 
 interface Props {
   message: ChatMessage;
@@ -24,6 +25,8 @@ export function MessageBubble({ message, onAction }: Props) {
   const blocks = message.response?.blocks;
   const hasBlocks = Array.isArray(blocks) && blocks.length > 0;
   const fallbackText = message.text ?? message.response?.text_fallback ?? '';
+  const toolCalls = message.toolCalls ?? message.response?.tool_calls_summary;
+  const hasToolCalls = Array.isArray(toolCalls) && toolCalls.length > 0;
 
   return (
     <View style={styles.assistantRow}>
@@ -33,11 +36,16 @@ export function MessageBubble({ message, onAction }: Props) {
           <View style={[styles.skelLine, { width: '90%' }]} />
           <View style={[styles.skelLine, { width: '75%' }]} />
         </View>
-      ) : hasBlocks ? (
-        <AdaptiveUIRenderer blocks={blocks} onAction={onAction} />
-      ) : fallbackText ? (
-        <Text style={styles.assistantText}>{fallbackText}</Text>
-      ) : null}
+      ) : (
+        <>
+          {hasToolCalls ? <ToolCallBadge tools={toolCalls!} /> : null}
+          {hasBlocks ? (
+            <AdaptiveUIRenderer blocks={blocks} onAction={onAction} />
+          ) : fallbackText ? (
+            <Text style={styles.assistantText}>{fallbackText}</Text>
+          ) : null}
+        </>
+      )}
     </View>
   );
 }

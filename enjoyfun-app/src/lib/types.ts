@@ -161,11 +161,35 @@ export interface AdaptiveMeta {
   model?: string;
 }
 
+export interface ToolCallSummary {
+  tool: string;
+  duration_ms?: number | null;
+  ok: boolean;
+}
+
+export type ChatSurface =
+  | 'general'
+  | 'dashboard'
+  | 'parking'
+  | 'bar'
+  | 'workforce'
+  | 'artists'
+  | 'analytics'
+  | 'finance'
+  | 'messaging'
+  | 'marketing'
+  | 'customer';
+
 export interface AdaptiveResponse {
   session_id: string;
   agent_key?: string;
+  surface?: string;
+  confidence?: number;
+  outcome?: string;
+  execution_id?: number | null;
   blocks: Block[];
   text_fallback?: string;
+  tool_calls_summary?: ToolCallSummary[];
   meta?: AdaptiveMeta;
 }
 
@@ -176,6 +200,7 @@ export interface ChatMessage {
   role: MessageRole;
   text?: string;
   response?: AdaptiveResponse;
+  toolCalls?: ToolCallSummary[];
   createdAt: number;
   loading?: boolean;
 }
