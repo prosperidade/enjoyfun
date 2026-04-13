@@ -173,6 +173,51 @@ cd frontend
 npx eslint --config eslint.config.js src/...
 ```
 
+### 3. Redis + MemPalace (Docker)
+
+Servicos auxiliares para SSE streaming, rate limiting e memoria semantica do EMAS.
+
+**Pre-requisito:** Docker Desktop rodando. O projeto "amigao do meio ambiente" pode coexistir.
+
+```bash
+cd c:/Users/Administrador/Desktop/enjoyfun
+
+# Subir Redis (porta 6380 — evita conflito com outros projetos na 6379) + MemPalace (porta 3100)
+docker compose -f docker-compose.services.yml up -d
+
+# Verificar
+docker compose -f docker-compose.services.yml ps
+docker exec enjoyfun-redis-1 redis-cli ping   # Deve retornar PONG
+curl http://localhost:3100/health              # Deve retornar {"status":"ok","wing":"enjoyfun_hub","rooms":19}
+```
+
+**Configuracao no backend/.env** (ja configurado):
+```ini
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6380
+MEMPALACE_URL=http://127.0.0.1:3100
+```
+
+**Feature flags relacionadas:**
+- `FEATURE_AI_MEMPALACE=true` — ativa bridge PHP → MemPalace
+- `FEATURE_AI_SSE_STREAMING=true` — ativa SSE via Redis pub/sub
+
+**Parar os servicos:**
+```bash
+docker compose -f docker-compose.services.yml down
+```
+
+### 4. Mobile (Expo)
+
+```bash
+cd enjoyfun-app
+npx expo start
+```
+
+O app mobile conecta no backend via `EXPO_PUBLIC_API_URL` (default `http://10.0.2.2:8000` para Android emulator). Para device fisico na mesma LAN, usar o IP local (ex: `http://192.168.1.x:8080`).
+
+**Voice proxy:** Transcricao de voz vai via `/api/ai/voice/transcribe` (backend proxy para Whisper). NAO usa mais `EXPO_PUBLIC_OPENAI_KEY` diretamente.
+
 ## Verificações rápidas
 
 ### API

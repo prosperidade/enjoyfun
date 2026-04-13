@@ -279,7 +279,77 @@ Apos a limpeza das 3 frentes + Two-Tier AI + Documents Hub + KB V3 UI implementa
 1. ~~**Materialização do EmbeddedAIChat.jsx** no Web Frontend~~ **FEITO**
 2. ~~**Implementacao do OrganizerFiles.jsx** (Hub de Documentos) no Codex, integrando o chat especializado em RAG~~ **FEITO**
 3. ~~**KB V3 UI: Indexacao Inteligente + Evidence + Deep Analysis**~~ **FEITO**
-4. **Backend: emitir campo `evidence`** no response do `/ai/chat` quando tools RAG sao invocados (conectar `cite_document_evidence` → array `evidence` no Orchestrator).
-5. **Smoke Test E2E** entre o novo chat Web e o Backend purificado.
+4. ~~**Backend: emitir campo `evidence`** no response do `/ai/chat`~~ **FEITO** — `cite_document_evidence` retorna structured data do DB
+5. ~~**Smoke Test E2E** entre o novo chat Web e o Backend purificado~~ **FEITO** — 8/8 surfaces PASS
 6. **Draft da Arquitetura de Assets B2C (Nativa)**, focando em glTF Cached e Modelos Flash/Mini para economia de custos.
+
+---
+
+## 6. Auditoria Completa + Fixes Agentes (2026-04-13, sessao 2)
+
+### 6.1 Diagnostico — 12 Findings
+
+Varredura em 13 agentes, 50+ tools, routing, prompts e frontend:
+
+| # | Sev | Finding | Fix |
+|---|-----|---------|-----|
+| 6+11 | CRITICO | AIAssistants enviava `agent_key` sem `surface`; UnifiedAIChat nao repassava `agent_key` | Corrigido em ambos componentes |
+| 9 | ALTO | Bar ignorava time_filter ("hoje") | Schema + prompt reescritos |
+| 10 | MEDIO | 16 stub tools desperdicavam chamadas LLM | Desativados no DB |
+| — | CRITICO | `tool_call_id not found` quebrava dashboard e multi-turn | Bounded loop reescrito: resultados injetados como texto |
+| — | ALTO | Platform Guide sem tools (event_id null guard) | Guard skip pra agentes event-agnostic + 33 schemas corrigidos |
+| — | ALTO | `find_events` em loop 3x | Short-circuit + directive 3.6 |
+| — | MEDIO | `tool_calls_summary` vazio na UI | Construido de `tool_results` em vez de `tool_calls` |
+
+### 6.2 Fixes Aplicados
+
+| Fix | Arquivos | Commit |
+|-----|----------|--------|
+| AIAssistants routing | AIAssistants.jsx | `6a5b0d4` |
+| UnifiedAIChat agent_key | UnifiedAIChat.jsx | `6a5b0d4` |
+| time_filter schema | AIToolRuntimeService.php | `6a5b0d4` |
+| Bar + 5 agentes tool docs | AIPromptCatalogService.php | `6a5b0d4` |
+| 16 stubs desativados | DB ai_skill_registry | DB update |
+| tool_call_id multi-step | AIOrchestratorService.php | `d1fef9e` |
+| Platform Guide event-agnostic | AIToolRuntimeService + AISkillRegistryService | `7cc0c76` |
+| find_events short-circuit | AIToolRuntimeService.php | `d1fef9e` |
+| tool_calls_summary | AIController.php | `965dcd0` |
+| EventTemplateController | EventTemplateController.php | `23b2850` |
+| curl_close deprecated | 10 arquivos | `580802e` |
+| Voice proxy mobile | voice.ts | `17d1c4f` |
+
+### 6.3 Infra Operacional
+
+| Servico | Status | Porta | Docker |
+|---------|--------|-------|--------|
+| PostgreSQL | ✅ | 5432 | Nativo |
+| PHP 8.4 backend | ✅ | 8080 | Nativo |
+| Redis 7 | ✅ PONG | 6380 | `docker-compose.services.yml` |
+| MemPalace | ✅ 19 rooms | 3100 | `docker-compose.services.yml` |
+| Frontend Vite | ✅ | 3003 | Nativo |
+
+Migrations aplicadas: 063 + 078-086. Feature flags: todas 16 ON.
+
+### 6.4 Smoke Test Final — 8/8 PASS
+
+| Surface | Agent | Tool | ms |
+|---------|-------|------|----|
+| bar | bar | get_pos_sales_snapshot | 15 |
+| dashboard | management | get_event_kpi_dashboard | 30 |
+| tickets | marketing | get_ticket_demand_signals | 9 |
+| parking | logistics | get_parking_live_snapshot | 7 |
+| workforce | logistics | get_event_shift_coverage | 13 |
+| platform_guide | platform_guide | list_platform_features | 2 |
+| artists | artists | 6 tools | 24 |
+| documents | documents | list_documents_by_category | 9 |
+
+### 6.5 Pendencias Pos-Sessao
+
+| Pri | Tarefa |
+|-----|--------|
+| P1 | Re-encrypt pgcrypto `organizer_ai_providers` (warning nao-fatal) |
+| P2 | Load test k6 com endpoints EMAS |
+| P2 | Limpar 12+ branches remotas mortas |
+| P3 | Tier 2 LLM routing (flag FEATURE_AI_INTENT_ROUTER_LLM) |
+| P3 | Agents `feedback`, `content`, `media` sem tools de dominio — precisam de skills proprias |
 

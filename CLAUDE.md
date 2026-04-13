@@ -1,6 +1,6 @@
 # CLAUDE.md — EnjoyFun Platform
 ## Guia Completo para IA: Arquitetura, Estado Real e Visão de Negócio
-### Atualizado: 2026-04-12 (encerramento Sprint 1 EMAS — D-Day adiado pro próximo evento)
+### Atualizado: 2026-04-13 (EMAS auditoria completa + 8/8 agents PASS — D-Day adiado pro próximo evento)
 
 ---
 
@@ -119,6 +119,15 @@ super_admin / admin (André)
 | **Evidence blocks** | `AdaptiveUIRenderer.jsx` | Citations with file names, excerpts, relevance scores |
 | **KB V3 Hybrid** | `OrganizerFileController.php` + `GeminiService.php` | Google File API upload + long context analysis + pgvector + FTS fallback |
 | **Mobile V3 contract** | `enjoyfun-app/` | Surface routing, ToolCallBadge, explicit payload |
+| **Agent routing fix** | `AIAssistants.jsx` + `UnifiedAIChat.jsx` | AIAssistants envia surface+agent_key, UnifiedAIChat repassa agent_key no payload, reset sessao ao trocar agente |
+| **tool_calls_summary fix** | `AIController.php` | Summary construido de tool_results (execucoes reais) em vez de tool_calls (pedidos LLM) |
+| **Bounded loop V3** | `AIOrchestratorService.php` | Tool results injetados como texto no step de sintese — elimina tool_call_id errors da OpenAI |
+| **find_events short-circuit** | `AIToolRuntimeService.php` | Retorna imediatamente quando event_id ja esta no contexto |
+| **Time filter precision** | `AIToolRuntimeService.php` + `AIPromptCatalogService.php` | Schema explicita "hoje→24h"; 6 agentes com FERRAMENTAS DISPONIVEIS no prompt |
+| **16 stub tools desativados** | DB `ai_skill_registry` | is_active=false em tools sem tabela — nao desperdicam chamadas LLM |
+| **Redis + MemPalace** | `docker-compose.services.yml` | Redis 7 na 6380 + MemPalace na 3100 via Docker |
+| **Voice proxy mobile** | `enjoyfun-app/src/lib/voice.ts` | Whisper via /ai/voice/transcribe (JWT), OPENAI_KEY removida do bundle |
+| **Smoke 8/8 surfaces** | Todas as surfaces | bar/dashboard/tickets/parking/workforce/platform_guide/artists/documents — todos PASS |
 
 ### 🟡 PENDÊNCIAS DE SEGURANÇA (pré-evento real ~2026-04-29)
 
@@ -580,4 +589,4 @@ EMAS (Embedded Multi-Agent System) foi refundado completamente em 2026-04-12. Pl
 ---
 
 *EnjoyFun Platform v2.0 — SaaS White Label Multi-tenant*
-*Atualizado: 2026-04-13 — EMAS v1 Backend COMPLETO (6 sprints, 90 entregas, 38 commits). Diário completo em docs/progresso26.md*
+*Atualizado: 2026-04-13 — EMAS v1 COMPLETO + auditoria agentes (8/8 surfaces PASS, 20 commits sessao). Diarios em docs/progresso26.md + docs/progresso27.md*
