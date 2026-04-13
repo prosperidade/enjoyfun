@@ -1207,7 +1207,10 @@ final class AIToolRuntimeService
     public static function buildToolCatalog(array $context, ?PDO $db = null, ?int $organizerId = null): array
     {
         $eventId = self::nullablePositiveInt($context['event_id'] ?? null);
-        if ($eventId === null) {
+        // Event-agnostic agents (platform_guide, supervisor) work without event_id
+        $agentKey = strtolower(trim((string)($context['agent_key'] ?? '')));
+        $eventAgnosticAgents = ['platform_guide', 'supervisor'];
+        if ($eventId === null && !in_array($agentKey, $eventAgnosticAgents, true)) {
             return [];
         }
 
@@ -1300,12 +1303,21 @@ final class AIToolRuntimeService
     {
         $tools = [];
         foreach ($catalog as $tool) {
+            $schema = $tool['input_schema'];
+            // OpenAI requires parameters to be a JSON object, not an empty array.
+            // PHP json_decode('{}', true) produces [], which json_encode turns back
+            // into [] instead of {}. Force minimal valid schema when empty.
+            if (empty($schema) || $schema === []) {
+                $schema = (object)['type' => 'object', 'properties' => (object)[]];
+            } elseif (is_array($schema) && isset($schema['properties']) && $schema['properties'] === []) {
+                $schema['properties'] = (object)[];
+            }
             $tools[] = [
                 'type' => 'function',
                 'function' => [
                     'name' => $tool['name'],
                     'description' => $tool['description'],
-                    'parameters' => $tool['input_schema'],
+                    'parameters' => $schema,
                 ],
             ];
         }

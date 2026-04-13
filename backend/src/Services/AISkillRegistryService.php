@@ -112,7 +112,9 @@ final class AISkillRegistryService
         $agentKey = strtolower(trim((string)($context['agent_key'] ?? '')));
         $eventId = (int)($context['event_id'] ?? 0);
 
-        if ($eventId <= 0) {
+        // Event-agnostic agents (platform_guide, supervisor) work without event_id
+        $eventAgnosticAgents = ['platform_guide', 'supervisor'];
+        if ($eventId <= 0 && !in_array($agentKey, $eventAgnosticAgents, true)) {
             return [];
         }
 
