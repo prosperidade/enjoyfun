@@ -142,7 +142,6 @@ function sendBulkWhatsApp(array $body): void
         $resp = curl_exec($ch);
         $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
-        curl_close($ch);
 
         if ($status >= 200 && $status < 300) {
             $successCount++;
@@ -266,7 +265,6 @@ function sendWhatsAppMessage(array $body): void
     $resp   = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlError = curl_error($ch);
-    curl_close($ch);
 
     if ($status < 200 || $status >= 300) {
         $errorLabel = $curlError !== '' ? $curlError : "HTTP {$status}";

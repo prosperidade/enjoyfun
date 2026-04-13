@@ -409,7 +409,6 @@ function deliverOtpCode(string $identifier, string $otp, array $cfg): array
         ]);
         $waResp = curl_exec($ch);
         $waStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         if ($waStatus < 200 || $waStatus >= 300) {
             error_log("[OTP-WA] Falha HTTP {$waStatus}: {$waResp}");

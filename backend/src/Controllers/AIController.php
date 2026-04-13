@@ -847,7 +847,6 @@ function transcribeVoice(): void
 
         $response = curl_exec($ch);
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         if ($httpCode !== 200 || !$response) {
             error_log("[AIController::transcribeVoice] Whisper API error HTTP {$httpCode}");

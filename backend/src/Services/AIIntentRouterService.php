@@ -477,7 +477,6 @@ PROMPT;
 
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
 
             if ($httpCode !== 200 || !$response) {
                 error_log("[IntentRouter::Tier2] OpenAI returned HTTP {$httpCode}");
@@ -527,7 +526,6 @@ PROMPT;
 
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
 
             if ($httpCode !== 200 || !$response) {
                 return null;

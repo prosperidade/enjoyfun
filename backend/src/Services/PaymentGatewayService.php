@@ -1392,7 +1392,6 @@ class PaymentGatewayService
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
-        curl_close($ch);
 
         if ($response === false) {
             throw new \RuntimeException('Erro de conexao com Asaas: ' . $curlError);
@@ -1430,7 +1429,6 @@ class PaymentGatewayService
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
-        curl_close($ch);
 
         if ($response === false) {
             throw new \RuntimeException('Erro de conexao com Asaas: ' . $curlError);

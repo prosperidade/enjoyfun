@@ -243,7 +243,6 @@ final class AIMCPClientService
         $rawResponse = curl_exec($ch);
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
-        curl_close($ch);
 
         if ($rawResponse === false || $curlError !== '') {
             throw new RuntimeException("Erro de conexao com MCP server: {$curlError}", 502);

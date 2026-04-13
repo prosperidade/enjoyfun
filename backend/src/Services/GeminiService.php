@@ -130,7 +130,6 @@ PROMPT;
             $endMs = round(microtime(true) * 1000);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $curlError = curl_error($ch);
-            curl_close($ch);
 
             $lastHttpCode = $httpCode;
             $lastResponse = $response;
@@ -222,7 +221,6 @@ PROMPT;
         ]);
 
         $response = curl_exec($ch);
-        curl_close($ch);
 
         $json = json_decode($response, true);
         return $json['file'] ?? null;
@@ -235,7 +233,6 @@ PROMPT;
         $ch = curl_init($fileUri . "?key=" . $apiKey);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         $response = curl_exec($ch);
-        curl_close($ch);
 
         $json = json_decode($response, true);
         return (string)($json['state'] ?? 'FAILED');
@@ -284,7 +281,6 @@ PROMPT;
         ]);
 
         $response = curl_exec($ch);
-        curl_close($ch);
 
         $json = json_decode($response, true);
         $text = $json['candidates'][0]['content']['parts'][0]['text'] ?? 'Falha na análise de contexto longo.';

@@ -39,7 +39,6 @@ final class AIMemoryBridgeService
             ]);
             $response = curl_exec($ch);
             $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
 
             if ($code === 201 && $response) {
                 $decoded = json_decode($response, true);
@@ -68,7 +67,6 @@ final class AIMemoryBridgeService
             ]);
             $response = curl_exec($ch);
             $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
 
             if ($code === 200 && $response) {
                 $decoded = json_decode($response, true);
@@ -97,7 +95,6 @@ final class AIMemoryBridgeService
             ]);
             $response = curl_exec($ch);
             $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
 
             if ($code === 200 && $response) {
                 $decoded = json_decode($response, true);
@@ -118,7 +115,6 @@ final class AIMemoryBridgeService
             curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 2, CURLOPT_CONNECTTIMEOUT => 1]);
             $response = curl_exec($ch);
             $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
             return $code === 200;
         } catch (\Throwable $e) { return false; }
     }
