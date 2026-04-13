@@ -110,6 +110,15 @@ final class AIOrchestratorService
 
         try {
             if ($useBoundedLoop) {
+                // Pass clean conversation history (text-only, no tool_calls)
+                // to give the LLM multi-turn context without breaking the
+                // OpenAI tool_call_id contract.
+                $cleanHistory = array_filter(
+                    $msgHistory,
+                    static fn(array $m): bool => in_array($m['role'] ?? '', ['user', 'assistant', 'system'], true)
+                                                 && !empty($m['content'])
+                                                 && !isset($m['tool_call_id'])
+                );
                 $result = self::runBoundedInteractionLoop(
                     $db,
                     $operator,
@@ -118,7 +127,10 @@ final class AIOrchestratorService
                     $systemPrompt,
                     $prompt,
                     $toolCatalog,
-                    $agentExecution
+                    $agentExecution,
+                    3,
+                    50000,
+                    array_values($cleanHistory)
                 );
             } else {
                 $result = self::requestInsight($runtime, $systemPrompt, $prompt, $toolCatalog);
@@ -707,9 +719,23 @@ final class AIOrchestratorService
         array $toolCatalog,
         ?array $agentExecution,
         int $maxSteps = 3,
-        int $maxTotalTokens = 50000
+        int $maxTotalTokens = 50000,
+        array $conversationHistory = []
     ): array {
         $messages = self::buildCanonicalMessages($systemPrompt, $prompt);
+        // Inject clean conversation history between system and user messages
+        // so the LLM has multi-turn context (text-only, no tool_call_ids).
+        if ($conversationHistory !== []) {
+            $userMsg = array_pop($messages); // remove current user message
+            foreach ($conversationHistory as $histMsg) {
+                // Skip if it's the same as current question (avoid duplication)
+                if ($histMsg['role'] === 'user' && ($histMsg['content'] ?? '') === $prompt) {
+                    continue;
+                }
+                $messages[] = ['role' => $histMsg['role'], 'content' => (string)($histMsg['content'] ?? '')];
+            }
+            $messages[] = $userMsg; // re-add current user message at the end
+        }
         $totalUsage = ['prompt_tokens' => 0, 'completion_tokens' => 0];
         $totalDurationMs = 0;
         $allToolResults = [];
