@@ -1,43 +1,19 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { MessageCircle, X, Send, Loader2, RotateCcw, Sparkles, ChevronDown, History } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, Send, Loader2, RotateCcw, Sparkles, ChevronDown, History } from 'lucide-react';
 import { sendChatMessage, listChatSessions, getChatSession } from '../api/aiChat';
 import { approveAIExecution, rejectAIExecution } from '../api/ai';
 import AIResponseRenderer from './AIResponseRenderer';
 import { loadCatalog } from '../lib/aiActionCatalog';
-import { t, currentLocale } from '../lib/i18n';
+import { currentLocale } from '../lib/i18n';
 import { useEventScope } from '../context/EventScopeContext';
 import AdaptiveUIRenderer from './AdaptiveUIRenderer';
 
-// Route-to-surface mapping
-const ROUTE_SURFACE_MAP = {
-  '/parking': 'parking',
-  '/bar': 'bar',
-  '/food': 'food',
-  '/shop': 'shop',
-  '/artists': 'artists',
-  '/participants': 'workforce',
-  '/meals-control': 'meals-control',
-  '/messaging': 'messaging',
-  '/tickets': 'tickets',
-  '/analytics': 'analytics',
-  '/finance': 'finance',
-  '/cards': 'cards',
-  '/': 'dashboard',
-};
+// Platform Guide — fixed surface, no route detection
+const SURFACE = 'general';
 
-function detectSurface(pathname) {
-  // Exact match first
-  if (ROUTE_SURFACE_MAP[pathname]) return ROUTE_SURFACE_MAP[pathname];
-  // Prefix match for nested routes (e.g. /artists/123 -> artists)
-  for (const [route, surface] of Object.entries(ROUTE_SURFACE_MAP)) {
-    if (route !== '/' && pathname.startsWith(route)) return surface;
-  }
-  return 'dashboard';
-}
-
-// Agent key to friendly name
 const AGENT_LABELS = {
+  platform_guide: 'Guia da Plataforma',
   marketing: 'Vendas e Divulgacao',
   logistics: 'Operacoes',
   management: 'Gestao Executiva',
@@ -72,10 +48,7 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
-  const location = useLocation();
   const navigate = useNavigate();
-
-  const surface = detectSurface(location.pathname);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -248,7 +221,7 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
         session_id: sessionId,
         context: {
           event_id: effectiveEventId || undefined,
-          surface: surfaceOverride || surface,
+          surface: surfaceOverride || SURFACE,
           locale: currentLocale,
           ...(extraContext || {}),
         },
@@ -309,7 +282,7 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
         <button
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center shadow-lg shadow-purple-900/40 hover:shadow-purple-900/60 hover:scale-105 transition-all duration-200 group"
-          title="Perguntar a IA"
+          title="Guia da Plataforma"
         >
           <Sparkles size={24} className="text-white group-hover:rotate-12 transition-transform" />
           {hasUnread && (
@@ -329,7 +302,7 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
                 <Sparkles size={16} className="text-white" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-white">Assistente EnjoyFun</h3>
+                <h3 className="text-sm font-semibold text-white">Guia da Plataforma</h3>
                 <div className="text-[10px] text-gray-400 flex items-center gap-1.5">
                   {lastAgent && (
                     <>
@@ -461,15 +434,15 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-700/30 flex items-center justify-center mb-4">
                   <Sparkles size={24} className="text-purple-400" />
                 </div>
-                <h4 className="text-sm font-semibold text-white mb-1">Como posso ajudar?</h4>
+                <h4 className="text-sm font-semibold text-white mb-1">Guia da Plataforma</h4>
                 <p className="text-xs text-gray-400 mb-4">
-                  Pergunte qualquer coisa sobre o seu evento. Eu vou encontrar o melhor assistente para responder.
+                  Tire duvidas sobre funcionalidades, fluxos e configuracoes da EnjoyFun.
                 </p>
                 <div className="space-y-2 w-full">
                   {[
-                    'Como estao as vendas de ingresso?',
-                    'Tem algum artista com logistica pendente?',
-                    'Qual o faturamento do bar hoje?',
+                    'Como funciona o cashless?',
+                    'Como cadastrar workforce no evento?',
+                    'O que cada modulo faz?',
                   ].map((suggestion) => (
                     <button
                       key={suggestion}
@@ -507,7 +480,7 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
                       onApprove={handleApprove}
                       onReject={handleReject}
                       actionParams={{
-                        event_id: eventId || undefined,
+                        event_id: effectiveEventId || undefined,
                         ...(extraContext || {}),
                       }}
                     />
@@ -541,7 +514,7 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Pergunte sobre o seu evento..."
+                placeholder="Pergunte sobre a plataforma..."
                 rows={1}
                 className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5 text-sm text-gray-200 placeholder-gray-500 resize-none focus:border-purple-600 focus:ring-0 outline-none max-h-24 overflow-y-auto"
                 style={{ minHeight: '40px' }}

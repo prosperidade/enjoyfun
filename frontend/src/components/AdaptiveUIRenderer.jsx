@@ -20,6 +20,9 @@ import {
   Music,
   Image as ImageIcon,
   ImageOff,
+  FileText,
+  Quote,
+  ExternalLink,
 } from 'lucide-react';
 import {
   BarChart,
@@ -137,6 +140,8 @@ function BlockRouter({ block, onAction }) {
       return <MapBlock block={block} />;
     case 'image':
       return <ImageBlock block={block} />;
+    case 'evidence':
+      return <EvidenceBlock block={block} onAction={onAction} />;
     default:
       return null;
   }
@@ -634,6 +639,69 @@ function ImageBlock({ block }) {
         />
       )}
       {block.caption && <div className="px-4 py-2 text-xs text-gray-400">{block.caption}</div>}
+    </div>
+  );
+}
+
+function EvidenceBlock({ block, onAction }) {
+  const citations = Array.isArray(block.citations) ? block.citations : [];
+  if (citations.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 overflow-hidden">
+      {block.title && (
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/10">
+          <Quote size={14} className="text-amber-400" />
+          <span className="text-xs font-medium text-gray-200">{block.title}</span>
+          <span className="text-[10px] text-gray-500 ml-auto">{citations.length} citacao(oes)</span>
+        </div>
+      )}
+      <div className="p-3 space-y-2">
+        {citations.map((cite, i) => (
+          <div
+            key={cite.file_id || i}
+            className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 hover:border-amber-500/40 transition-colors"
+          >
+            <div className="flex items-start gap-2.5">
+              <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mt-0.5">
+                <FileText size={13} className="text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-semibold text-amber-300 truncate">
+                    {cite.file_name || `Arquivo #${cite.file_id || i + 1}`}
+                  </span>
+                  {cite.category && (
+                    <span className="rounded-full bg-white/5 border border-white/10 px-1.5 py-0.5 text-[9px] text-gray-400">
+                      {cite.category}
+                    </span>
+                  )}
+                </div>
+                {cite.excerpt && (
+                  <blockquote className="text-xs text-gray-300 leading-relaxed border-l-2 border-amber-500/30 pl-2.5 italic">
+                    {cite.excerpt.length > 280 ? `${cite.excerpt.slice(0, 280)}...` : cite.excerpt}
+                  </blockquote>
+                )}
+                {cite.relevance && (
+                  <div className="mt-1.5 text-[10px] text-gray-500">
+                    Relevancia: {cite.relevance}
+                  </div>
+                )}
+              </div>
+              {cite.file_id && onAction && (
+                <button
+                  type="button"
+                  onClick={() => onAction({ action: 'navigate', target: `/files?highlight=${cite.file_id}` })}
+                  className="flex-shrink-0 p-1 text-gray-500 hover:text-amber-400 transition-colors"
+                  title="Ver arquivo"
+                >
+                  <ExternalLink size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

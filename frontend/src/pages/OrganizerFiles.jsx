@@ -12,9 +12,13 @@ import {
   AlertCircle,
   Clock,
   XCircle,
+  Search,
+  Zap,
+  Loader2,
 } from "lucide-react";
 import api from "../lib/api";
 import { useEventScope } from "../context/EventScopeContext";
+import EmbeddedAIChat from "../components/EmbeddedAIChat";
 import Pagination from "../components/Pagination";
 import { DEFAULT_PAGINATION_META, extractPaginationMeta } from "../lib/pagination";
 
@@ -38,6 +42,18 @@ const PARSED_STATUS_META = {
   failed: { icon: XCircle, color: "text-red-400", label: "Erro" },
   skipped: { icon: AlertCircle, color: "text-yellow-400", label: "Ignorado" },
 };
+
+const EMBEDDING_STATUS_META = {
+  pending: { color: "text-gray-500", label: null },
+  indexing: { color: "text-blue-400", label: "Indexando...", animate: true },
+  indexed: { color: "text-emerald-400", label: "Indexado" },
+  failed: { color: "text-red-400", label: "Erro no indice" },
+};
+
+const LARGE_FILE_THRESHOLD = 1 * 1024 * 1024; // 1MB — files above this get the Google option
+
+// Polling interval for files in transitional states (parsing/indexing)
+const STATUS_POLL_INTERVAL = 5000;
 
 function formatBytes(bytes) {
   if (!bytes || bytes <= 0) return "0 B";
@@ -93,6 +109,16 @@ export default function OrganizerFiles() {
   }, [eventId, filterCategory]);
 
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
+
+  // Auto-poll when files are in transitional states (parsing/indexing)
+  useEffect(() => {
+    const hasTransitional = files.some(
+      (f) => f.parsed_status === 'parsing' || f.embedding_status === 'indexing'
+    );
+    if (!hasTransitional) return;
+    const timer = setInterval(fetchFiles, STATUS_POLL_INTERVAL);
+    return () => clearInterval(timer);
+  }, [files, fetchFiles]);
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -160,226 +186,301 @@ export default function OrganizerFiles() {
     }
   };
 
+  const handleAnalyzeGoogle = async (fileId) => {
+    try {
+      await api.post(`/organizer-files/${fileId}/analyze`);
+      toast.success("Arquivo enviado para analise Google.");
+      fetchFiles();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Erro ao enviar para analise Google.");
+    }
+  };
+
+  const parsedCount = files.filter((f) => f.parsed_status === "parsed").length;
+  const chatDescription = `${filesMeta.total} arquivo(s), ${parsedCount} processado(s)`;
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-white">
-            <FileSpreadsheet size={24} />
-            Documentos e Planilhas
-          </h1>
-          <p className="mt-1 text-sm text-gray-400">
-            Suba arquivos (CSV, Excel, PDF, JSON) para que os agentes de IA analisem, categorizem e organizem automaticamente.
-          </p>
-          <p className="mt-2 text-xs text-gray-500">{filesMeta.total} arquivo(s) neste recorte.</p>
-        </div>
+    <div className="flex flex-col gap-6 lg:flex-row">
+      {/* Main content */}
+      <div className="flex-1 min-w-0 space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="flex items-center gap-2 text-2xl font-bold text-white">
+              <FileSpreadsheet size={24} />
+              Documentos e Planilhas
+            </h1>
+            <p className="mt-1 text-sm text-gray-400">
+              Suba arquivos (CSV, Excel, PDF, JSON) para que os agentes de IA analisem, categorizem e organizem automaticamente.
+            </p>
+            <p className="mt-2 text-xs text-gray-500">{filesMeta.total} arquivo(s) neste recorte.</p>
+          </div>
 
-        <div className="flex items-center gap-3">
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200"
-          >
-            <option value="">Todas as categorias</option>
-            {CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </select>
-
-          <button onClick={fetchFiles} disabled={loading} className="rounded-xl border border-gray-700 bg-gray-900 p-2 text-gray-400 hover:text-white">
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          </button>
-        </div>
-      </div>
-
-      {/* Upload area */}
-      <div className="rounded-2xl border border-dashed border-gray-700 bg-gray-950/50 p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end">
-          <div className="flex-1">
-            <label className="mb-1 block text-xs text-gray-400">Categoria</label>
+          <div className="flex items-center gap-3">
             <select
-              value={uploadCategory}
-              onChange={(e) => setUploadCategory(e.target.value)}
-              className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200"
             >
+              <option value="">Todas as categorias</option>
               {CATEGORIES.map((c) => (
                 <option key={c.value} value={c.value}>{c.label}</option>
               ))}
             </select>
-          </div>
-          <div className="flex-1">
-            <label className="mb-1 block text-xs text-gray-400">Notas (opcional)</label>
-            <input
-              type="text"
-              value={uploadNotes}
-              onChange={(e) => setUploadNotes(e.target.value)}
-              placeholder="Descricao do arquivo..."
-              className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200"
-            />
-          </div>
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              onChange={handleUpload}
-              accept=".csv,.xls,.xlsx,.pdf,.json,.doc,.docx,.jpg,.jpeg,.png,.webp"
-              className="hidden"
-              id="file-upload"
-            />
-            <label
-              htmlFor="file-upload"
-              className={`flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600 ${uploading ? "opacity-50 pointer-events-none" : ""}`}
-            >
-              <Upload size={16} />
-              {uploading ? "Enviando..." : "Enviar arquivo"}
-            </label>
-          </div>
-        </div>
-      </div>
 
-      {/* Files list */}
-      <div className="rounded-2xl border border-gray-800 bg-gray-950/70">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-gray-800 text-xs uppercase text-gray-500">
-              <th className="px-4 py-3">Arquivo</th>
-              <th className="px-4 py-3">Categoria</th>
-              <th className="px-4 py-3">Tamanho</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Data</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {files.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                  {loading ? "Carregando..." : "Nenhum arquivo encontrado. Suba seu primeiro arquivo acima."}
-                </td>
-              </tr>
-            ) : (
-              files.map((file) => {
-                const statusMeta = PARSED_STATUS_META[file.parsed_status] || PARSED_STATUS_META.pending;
-                const StatusIcon = statusMeta.icon;
-                return (
-                  <tr key={file.id} className="border-b border-gray-800/50 hover:bg-gray-900/30">
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-gray-200">{file.original_name}</p>
-                        {file.parsed_status === "parsed" && file.category && (
-                          <span
-                            className="inline-flex items-center gap-1 rounded-full border border-emerald-700/60 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-300"
-                            title="Este arquivo e injetado no contexto dos agentes de IA com base na sua categoria."
-                          >
-                            <Sparkles size={10} />
-                            Usado pelos agentes
-                          </span>
-                        )}
-                      </div>
-                      {file.notes && <p className="mt-0.5 text-xs text-gray-500">{file.notes}</p>}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full bg-gray-800 px-2 py-1 text-xs text-gray-300">
-                        {CATEGORIES.find((c) => c.value === file.category)?.label || file.category}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-400">{formatBytes(file.file_size_bytes)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`flex items-center gap-1 text-xs ${statusMeta.color}`}>
-                        <StatusIcon size={12} />
-                        {statusMeta.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{formatDate(file.created_at)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {file.parsed_status === "parsed" && (
-                          <button onClick={() => handleViewParsed(file)} className="text-emerald-400 hover:text-emerald-300" title="Ver dados">
-                            <Eye size={15} />
-                          </button>
-                        )}
-                        <button onClick={() => handleReparse(file.id)} className="text-blue-400 hover:text-blue-300" title="Re-processar">
-                          <RefreshCw size={15} />
-                        </button>
-                        <button onClick={() => handleDelete(file.id)} className="text-red-400 hover:text-red-300" title="Remover">
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-      {!loading && filesMeta.total_pages > 1 ? (
-        <Pagination
-          page={filesMeta.page}
-          totalPages={filesMeta.total_pages}
-          onPrev={() => setPage((current) => Math.max(1, current - 1))}
-          onNext={() => setPage((current) => Math.min(filesMeta.total_pages, current + 1))}
-        />
-      ) : null}
-
-      {/* Parsed data viewer */}
-      {selectedFile && (
-        <div className="rounded-2xl border border-emerald-900/40 bg-[linear-gradient(135deg,_rgba(6,78,59,0.15),_rgba(15,23,42,0.94))] p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-emerald-200">
-              <Bot size={18} />
-              <p className="font-semibold">Dados processados: {selectedFile.original_name}</p>
-            </div>
-            <button onClick={() => { setSelectedFile(null); setParsedData(null); }} className="text-gray-400 hover:text-white">
-              <XCircle size={18} />
+            <button onClick={fetchFiles} disabled={loading} className="rounded-xl border border-gray-700 bg-gray-900 p-2 text-gray-400 hover:text-white">
+              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             </button>
           </div>
+        </div>
 
-          {loadingParsed ? (
-            <p className="mt-4 text-sm text-gray-400">Carregando dados...</p>
-          ) : parsedData ? (
-            <div className="mt-4 space-y-3">
-              <div className="flex gap-4 text-xs text-gray-400">
-                <span>Formato: {parsedData.format || "?"}</span>
-                <span>Linhas: {parsedData.rows_count || 0}</span>
-                {parsedData.headers && <span>Colunas: {parsedData.headers.length}</span>}
-                {parsedData.truncated && <span className="text-amber-400">Truncado (max 500 linhas)</span>}
+        {/* Upload area */}
+        <div className="rounded-2xl border border-dashed border-gray-700 bg-gray-950/50 p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs text-gray-400">Categoria</label>
+              <select
+                value={uploadCategory}
+                onChange={(e) => setUploadCategory(e.target.value)}
+                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200"
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="mb-1 block text-xs text-gray-400">Notas (opcional)</label>
+              <input
+                type="text"
+                value={uploadNotes}
+                onChange={(e) => setUploadNotes(e.target.value)}
+                placeholder="Descricao do arquivo..."
+                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200"
+              />
+            </div>
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                onChange={handleUpload}
+                accept=".csv,.xls,.xlsx,.pdf,.json,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                className="hidden"
+                id="file-upload"
+              />
+              <label
+                htmlFor="file-upload"
+                className={`flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600 ${uploading ? "opacity-50 pointer-events-none" : ""}`}
+              >
+                <Upload size={16} />
+                {uploading ? "Enviando..." : "Enviar arquivo"}
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Files list */}
+        <div className="rounded-2xl border border-gray-800 bg-gray-950/70">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-gray-800 text-xs uppercase text-gray-500">
+                <th className="px-4 py-3">Arquivo</th>
+                <th className="px-4 py-3">Categoria</th>
+                <th className="px-4 py-3">Tamanho</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Data</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {files.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    {loading ? "Carregando..." : "Nenhum arquivo encontrado. Suba seu primeiro arquivo acima."}
+                  </td>
+                </tr>
+              ) : (
+                files.map((file) => {
+                  const statusMeta = PARSED_STATUS_META[file.parsed_status] || PARSED_STATUS_META.pending;
+                  const StatusIcon = statusMeta.icon;
+                  return (
+                    <tr key={file.id} className="border-b border-gray-800/50 hover:bg-gray-900/30">
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-gray-200">{file.original_name}</p>
+                          {file.parsed_status === "parsed" && file.category && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full border border-emerald-700/60 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-300"
+                              title="Este arquivo e injetado no contexto dos agentes de IA com base na sua categoria."
+                            >
+                              <Sparkles size={10} />
+                              Usado pelos agentes
+                            </span>
+                          )}
+                          {file.embedding_status === "indexing" && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-blue-700/60 bg-blue-900/30 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
+                              <Loader2 size={10} className="animate-spin" />
+                              Indexando...
+                            </span>
+                          )}
+                          {file.embedding_status === "indexed" && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full border border-cyan-700/60 bg-cyan-900/30 px-2 py-0.5 text-[10px] font-semibold text-cyan-300"
+                              title="Embeddings gerados — busca semantica ativa."
+                            >
+                              <CheckCircle size={10} />
+                              Indexado
+                            </span>
+                          )}
+                          {file.google_file_uri && file.embedding_status !== 'indexed' && file.parsed_status !== 'parsed' && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full border border-amber-700/60 bg-amber-900/30 px-2 py-0.5 text-[10px] font-semibold text-amber-300"
+                              title="Arquivo enviado para Google, aguardando indexacao completa."
+                            >
+                              <Loader2 size={10} className="animate-spin" />
+                              Preparando para IA...
+                            </span>
+                          )}
+                          {file.google_file_uri && (file.embedding_status === 'indexed' || file.parsed_status === 'parsed') && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full border border-violet-700/60 bg-violet-900/30 px-2 py-0.5 text-[10px] font-semibold text-violet-300"
+                              title="Disponivel para analise profunda via Google Long Context."
+                            >
+                              <Zap size={10} />
+                              Google
+                            </span>
+                          )}
+                        </div>
+                        {file.notes && <p className="mt-0.5 text-xs text-gray-500">{file.notes}</p>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full bg-gray-800 px-2 py-1 text-xs text-gray-300">
+                          {CATEGORIES.find((c) => c.value === file.category)?.label || file.category}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-400">{formatBytes(file.file_size_bytes)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`flex items-center gap-1 text-xs ${statusMeta.color}`}>
+                          <StatusIcon size={12} />
+                          {statusMeta.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-500">{formatDate(file.created_at)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {file.parsed_status === "parsed" && (
+                            <button onClick={() => handleViewParsed(file)} className="text-emerald-400 hover:text-emerald-300" title="Ver dados">
+                              <Eye size={15} />
+                            </button>
+                          )}
+                          {(file.file_size_bytes >= LARGE_FILE_THRESHOLD || ['pdf', 'document'].includes(file.file_type)) && !file.google_file_uri && (
+                            <button
+                              onClick={() => handleAnalyzeGoogle(file.id)}
+                              className="text-violet-400 hover:text-violet-300"
+                              title="Analise Experimental (Google Long Context)"
+                            >
+                              <Zap size={15} />
+                            </button>
+                          )}
+                          <button onClick={() => handleReparse(file.id)} className="text-blue-400 hover:text-blue-300" title="Re-processar">
+                            <RefreshCw size={15} />
+                          </button>
+                          <button onClick={() => handleDelete(file.id)} className="text-red-400 hover:text-red-300" title="Remover">
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        {!loading && filesMeta.total_pages > 1 ? (
+          <Pagination
+            page={filesMeta.page}
+            totalPages={filesMeta.total_pages}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(filesMeta.total_pages, current + 1))}
+          />
+        ) : null}
+
+        {/* Parsed data viewer */}
+        {selectedFile && (
+          <div className="rounded-2xl border border-emerald-900/40 bg-[linear-gradient(135deg,_rgba(6,78,59,0.15),_rgba(15,23,42,0.94))] p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-emerald-200">
+                <Bot size={18} />
+                <p className="font-semibold">Dados processados: {selectedFile.original_name}</p>
               </div>
+              <button onClick={() => { setSelectedFile(null); setParsedData(null); }} className="text-gray-400 hover:text-white">
+                <XCircle size={18} />
+              </button>
+            </div>
 
-              {parsedData.headers && (
-                <div className="max-h-64 overflow-auto rounded-xl border border-gray-800 bg-gray-950">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-800 bg-gray-900">
-                        {parsedData.headers.map((h) => (
-                          <th key={h} className="px-3 py-2 text-gray-400">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(parsedData.rows || []).slice(0, 20).map((row, i) => (
-                        <tr key={i} className="border-b border-gray-800/30">
+            {loadingParsed ? (
+              <p className="mt-4 text-sm text-gray-400">Carregando dados...</p>
+            ) : parsedData ? (
+              <div className="mt-4 space-y-3">
+                <div className="flex gap-4 text-xs text-gray-400">
+                  <span>Formato: {parsedData.format || "?"}</span>
+                  <span>Linhas: {parsedData.rows_count || 0}</span>
+                  {parsedData.headers && <span>Colunas: {parsedData.headers.length}</span>}
+                  {parsedData.truncated && <span className="text-amber-400">Truncado (max 500 linhas)</span>}
+                </div>
+
+                {parsedData.headers && (
+                  <div className="max-h-64 overflow-auto rounded-xl border border-gray-800 bg-gray-950">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-800 bg-gray-900">
                           {parsedData.headers.map((h) => (
-                            <td key={h} className="px-3 py-1.5 text-gray-300">{row[h] ?? ""}</td>
+                            <th key={h} className="px-3 py-2 text-gray-400">{h}</th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      </thead>
+                      <tbody>
+                        {(parsedData.rows || []).slice(0, 20).map((row, i) => (
+                          <tr key={i} className="border-b border-gray-800/30">
+                            {parsedData.headers.map((h) => (
+                              <td key={h} className="px-3 py-1.5 text-gray-300">{row[h] ?? ""}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
-              {parsedData.column_types && (
-                <div className="text-xs text-gray-500">
-                  Tipos detectados: {Object.entries(parsedData.column_types).map(([col, type]) => `${col}(${type})`).join(", ")}
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="mt-4 text-sm text-gray-500">Nenhum dado processado disponivel. Tente re-processar o arquivo.</p>
-          )}
+                {parsedData.column_types && (
+                  <div className="text-xs text-gray-500">
+                    Tipos detectados: {Object.entries(parsedData.column_types).map(([col, type]) => `${col}(${type})`).join(", ")}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-gray-500">Nenhum dado processado disponivel. Tente re-processar o arquivo.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* AI Chat sidebar */}
+      <aside className="w-full lg:w-96 flex-shrink-0">
+        <div className="lg:sticky lg:top-4">
+          <EmbeddedAIChat
+            surface="documents"
+            title="Assistente de Documentos"
+            description={chatDescription}
+            accentColor="amber"
+            suggestions={[
+              'Quais arquivos tenho neste evento?',
+              'Busque nos documentos por "orcamento"',
+              'Resuma os dados da planilha financeira',
+            ]}
+          />
         </div>
-      )}
+      </aside>
     </div>
   );
 }

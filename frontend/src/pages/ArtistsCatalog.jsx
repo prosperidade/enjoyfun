@@ -14,10 +14,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useEventScope } from "../context/EventScopeContext";
-import ArtistAIAssistant from "../components/ArtistAIAssistant";
-import AIChatTrigger from "../components/AIChatTrigger";
-
-const AI_V2_UI_ENABLED = import.meta.env.VITE_FEATURE_AI_V2_UI === 'true';
+import EmbeddedAIChat from "../components/EmbeddedAIChat";
 import {
   ALERT_SEVERITY_META,
   BOOKING_STATUS_META,
@@ -1164,24 +1161,17 @@ export default function ArtistsCatalog() {
       </div>
 
       {eventId && (
-        AI_V2_UI_ENABLED ? (
-          <AIChatTrigger
-            title="Assistente de artistas"
-            description={`Pergunte sobre logistica, alertas, custos e equipe dos ${visibleArtists.length} artistas do evento.`}
-            agentKey="artists"
-            surface="artists"
-          />
-        ) : (
-          <ArtistAIAssistant
-            eventId={eventId}
-            artistsTotal={visibleArtists.length}
-            confirmedCount={visibleArtists.filter((a) => a.booking_status === "confirmed").length}
-            pendingCount={visibleArtists.filter((a) => a.booking_status === "pending").length}
-            totalCost={summary.total}
-            openAlertsCount={visibleArtists.reduce((sum, a) => sum + Number(a.open_alerts_count || 0), 0)}
-            criticalAlertsCount={visibleArtists.reduce((sum, a) => sum + Number(a.critical_alerts_count || 0), 0)}
-          />
-        )
+        <EmbeddedAIChat
+          surface="artists"
+          title="Assistente de Artistas"
+          description={`${visibleArtists.length} artistas no evento`}
+          accentColor="emerald"
+          suggestions={[
+            'Tem algum artista com logistica pendente?',
+            'Qual o custo total do lineup?',
+            'Quais alertas criticos preciso resolver?',
+          ]}
+        />
       )}
     </div>
   );

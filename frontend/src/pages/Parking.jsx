@@ -14,10 +14,7 @@ import api from "../lib/api";
 import { createOfflineQueueRecord, db } from "../lib/db";
 import toast from "react-hot-toast";
 import { useEventScope } from "../context/EventScopeContext";
-import ParkingAIAssistant from "../components/ParkingAIAssistant";
-import AIChatTrigger from "../components/AIChatTrigger";
-
-const AI_V2_UI_ENABLED = import.meta.env.VITE_FEATURE_AI_V2_UI === 'true';
+import EmbeddedAIChat from "../components/EmbeddedAIChat";
 import Pagination from "../components/Pagination";
 import { DEFAULT_PAGINATION_META, extractPaginationMeta } from "../lib/pagination";
 
@@ -569,21 +566,17 @@ export default function Parking() {
             </select>
           </div>
 
-          {AI_V2_UI_ENABLED ? (
-            <AIChatTrigger
-              title="Assistente do estacionamento"
-              description={`Pergunte sobre filas, gargalos, contagem de veiculos e proximas acoes. ${parkedCount} veiculos no local, ${pendingCount} pendentes de bip.`}
-              agentKey="logistics"
-              surface="parking"
-            />
-          ) : (
-            <ParkingAIAssistant
-              eventId={eventId}
-              eventName={selectedEvent?.name || ""}
-              parkedCount={parkedCount}
-              pendingCount={pendingCount}
-            />
-          )}
+          <EmbeddedAIChat
+            surface="parking"
+            title="Assistente do Estacionamento"
+            description={`${parkedCount} veiculos no local, ${pendingCount} pendentes de bip`}
+            accentColor="cyan"
+            suggestions={[
+              'Existe gargalo de entrada agora?',
+              'Quantos veiculos entraram hoje?',
+              'O que devo ajustar na portaria?',
+            ]}
+          />
 
           <div className="table-wrapper">
             {loading ? (
