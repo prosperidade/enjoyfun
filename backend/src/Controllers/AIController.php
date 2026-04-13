@@ -368,6 +368,21 @@ function handleChat(array $body): void
         }
     }
 
+    // Auto-select event when event_id is missing (frontend may not have selected one).
+    // Pick the most recent event of the organizer to avoid empty tool catalogs.
+    if (empty($context['event_id']) || (int)($context['event_id'] ?? 0) <= 0) {
+        $surfaceForAutoSelect = $context['surface'] ?? 'dashboard';
+        $eventAgnosticSurfaces = ['platform_guide'];
+        if (!in_array($surfaceForAutoSelect, $eventAgnosticSurfaces, true)) {
+            $autoStmt = $db->prepare('SELECT id FROM events WHERE organizer_id = :org ORDER BY starts_at DESC NULLS LAST LIMIT 1');
+            $autoStmt->execute([':org' => $organizerId]);
+            $autoEventId = $autoStmt->fetchColumn();
+            if ($autoEventId) {
+                $context['event_id'] = (int)$autoEventId;
+            }
+        }
+    }
+
     try {
         // 1. Session management — EMAS V3 uses composite key, V2 stays legacy.
         if ($isV3Payload && empty($sessionId)) {
