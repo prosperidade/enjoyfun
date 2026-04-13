@@ -880,11 +880,43 @@ final class AIOrchestratorService
             // Merge any cached duplicate results with fresh results
             $stepToolResults = array_merge($cachedToolResults, $stepToolResults);
 
-            // Append tool results to canonical history
-            self::appendToolResultMessages($messages, $stepToolResults);
+            // Collect all tool results
             $allToolResults = array_merge($allToolResults, $stepToolResults);
 
-            // Update tool calls with runtime info
+            // Instead of appending tool_result messages with tool_call_ids (which
+            // breaks OpenAI's contract in multi-step scenarios), reset the message
+            // array and inject tool results as a user message with the data as text.
+            // This avoids the "tool_call_id not found" error completely.
+            $toolResultsSummary = [];
+            foreach ($stepToolResults as $tr) {
+                $toolName = $tr['tool_name'] ?? 'tool';
+                $data = $tr['result'] ?? $tr['error_message'] ?? 'sem dados';
+                $toolResultsSummary[] = "[{$toolName}]: " . (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE) : (string)$data);
+            }
+            // Also include cached duplicates
+            foreach ($cachedToolResults as $tr) {
+                $toolName = $tr['tool_name'] ?? 'tool';
+                $data = $tr['result'] ?? 'cached';
+                $toolResultsSummary[] = "[{$toolName}] (cached): " . (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE) : (string)$data);
+            }
+
+            // Reset messages: keep system + conversation history + original user question
+            // + inject tool results as a system-style context message
+            $messages = self::buildCanonicalMessages($systemPrompt, $prompt);
+            if ($conversationHistory !== []) {
+                $userMsg = array_pop($messages);
+                foreach ($conversationHistory as $histMsg) {
+                    if ($histMsg['role'] === 'user' && ($histMsg['content'] ?? '') === $prompt) continue;
+                    $messages[] = ['role' => $histMsg['role'], 'content' => (string)($histMsg['content'] ?? '')];
+                }
+                $messages[] = $userMsg;
+            }
+            // Add tool results as context for the synthesis step
+            $messages[] = [
+                'role' => 'user',
+                'content' => "DADOS DAS FERRAMENTAS CONSULTADAS (use esses dados para responder):\n\n" . implode("\n\n", $toolResultsSummary),
+            ];
+
             $lastResult['tool_calls'] = $toolRuntime['tool_calls'] ?? $readOnlyToolCalls;
 
             // If this is the last allowed step and tools were executed, mark termination

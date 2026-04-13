@@ -1640,7 +1640,7 @@ final class AIToolRuntimeService
             'get_shift_gaps' => self::executeShiftGaps($db, $organizerId, $eventId),
 
             // Event lookup (cross-cutting)
-            'find_events' => self::executeFindEvents($db, $organizerId, $arguments),
+            'find_events' => self::executeFindEvents($db, $organizerId, $arguments, $eventId),
 
             // Management
             'get_event_kpi_dashboard' => self::executeEventKpiDashboard($db, $organizerId, $eventId),
@@ -3329,8 +3329,23 @@ final class AIToolRuntimeService
         ];
     }
 
-    private static function executeFindEvents(PDO $db, int $organizerId, array $arguments): array
+    private static function executeFindEvents(PDO $db, int $organizerId, array $arguments, ?int $contextEventId = null): array
     {
+        // Short-circuit: if event_id is already in context, return it immediately
+        // to prevent the LLM from calling find_events in a loop.
+        if ($contextEventId !== null && $contextEventId > 0) {
+            $stmt = $db->prepare('SELECT id, name, slug, status, starts_at, ends_at, venue_name, capacity FROM events WHERE id = :id AND organizer_id = :org');
+            $stmt->execute([':id' => $contextEventId, ':org' => $organizerId]);
+            $event = $stmt->fetch(\PDO::FETCH_ASSOC);
+            if ($event) {
+                return [
+                    'events' => [$event],
+                    'total' => 1,
+                    'hint' => 'Evento ja selecionado pelo usuario. Use o event_id=' . $contextEventId . ' nas proximas tools.',
+                ];
+            }
+        }
+
         $nameQuery = trim((string)($arguments['name_query'] ?? ''));
         $status = strtolower(trim((string)($arguments['status'] ?? '')));
         $limit = (int)($arguments['limit'] ?? 10);
