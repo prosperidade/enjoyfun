@@ -89,7 +89,15 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
         setLastAgent(detail.agent_key);
       }
       if (detail.surface) {
-        setSurfaceOverride(detail.surface);
+        // Reset session when switching to a different surface/agent
+        // to avoid cross-agent history contamination
+        setSurfaceOverride((prev) => {
+          if (prev && prev !== detail.surface) {
+            setSessionId(null);
+            setMessages([]);
+          }
+          return detail.surface;
+        });
       }
       if (detail.context) {
         setExtraContext(detail.context);
@@ -222,6 +230,7 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
         context: {
           event_id: effectiveEventId || undefined,
           surface: surfaceOverride || SURFACE,
+          agent_key: lastAgent || undefined,
           locale: currentLocale,
           ...(extraContext || {}),
         },

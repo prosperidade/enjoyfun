@@ -469,7 +469,7 @@ final class AIToolRuntimeService
                     'properties' => [
                         'event_id' => ['type' => 'integer', 'description' => 'Event identifier.'],
                         'sector' => ['type' => 'string', 'description' => 'Optional: bar, food, shop.'],
-                        'time_filter' => ['type' => 'string', 'description' => 'Optional: 1h, 6h, 12h, 24h, all.'],
+                        'time_filter' => ['type' => 'string', 'description' => "Filtro temporal OBRIGATORIO quando usuario menciona periodo. '1h'=ultima hora, '6h', '12h', '24h'=hoje/dia/agora, 'all'=acumulado total. Quando usuario perguntar 'hoje','do dia','agora' SEMPRE passe '24h'. Default='all'."],
                     ],
                     'required' => ['event_id'],
                     'additionalProperties' => false,

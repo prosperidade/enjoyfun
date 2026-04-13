@@ -413,9 +413,16 @@ export default function AIAssistants() {
   };
 
   const openChat = (agentKey) => {
-    // Dispatch custom event to open UnifiedAIChat with pre-filled context
+    // Map agent_key to its primary surface so the backend routes correctly
+    const AGENT_SURFACE_MAP = {
+      marketing: 'tickets', logistics: 'parking', management: 'dashboard',
+      bar: 'bar', contracting: 'artists', feedback: 'dashboard',
+      data_analyst: 'dashboard', content: 'dashboard', media: 'dashboard',
+      documents: 'documents', artists: 'artists', artists_travel: 'artists',
+      platform_guide: 'platform_guide',
+    };
     window.dispatchEvent(new CustomEvent('enjoyfun:open-ai-chat', {
-      detail: { agent_key: agentKey }
+      detail: { agent_key: agentKey, surface: AGENT_SURFACE_MAP[agentKey] || 'dashboard' }
     }));
   };
 
