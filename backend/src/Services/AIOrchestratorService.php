@@ -2342,23 +2342,27 @@ final class AIOrchestratorService
         // 1. Remove lines that are just "- tool_name: status" (the old fallback pattern)
         $text = preg_replace('/^[\s-]*(?:get_|find_|search_|read_|list_|create_|update_|delete_|diagnose_|navigate_)\w+\s*:\s*\w+\s*$/m', '', $text) ?? $text;
 
-        // 2. Remove inline tool names wrapped in backticks or standalone
-        //    e.g. `get_pos_sales_snapshot` or get_pos_sales_snapshot(...)
-        $text = preg_replace('/`?(?:get_|find_|search_|read_|list_|create_|update_|delete_|diagnose_|navigate_)\w+(?:\([^)]*\))?`?/', '', $text) ?? $text;
+        // 2. Remove tool names in brackets [tool_name] or backticks `tool_name`
+        //    These are the most common leak patterns (LLM suggests actions with internal tool names)
+        $text = preg_replace('/\[\w{3,50}_\w+\]/', '', $text) ?? $text;
+        $text = preg_replace('/`\w{3,50}_\w+(?:\([^)]*\))?`/', '', $text) ?? $text;
 
-        // 3. Remove "vou buscar", "vou consultar", "chamando a tool" style phrases
+        // 3. Remove standalone tool-like identifiers (snake_case with known prefixes)
+        $text = preg_replace('/\b(?:get_|find_|search_|read_|list_|create_|update_|delete_|diagnose_|navigate_|open_|schedule_|set_|send_|import_|rollback_|add_|check_|validate_|report_|detect_|handoff_|summarize_|route_|score_|forget_|write_|explain_|categorize_|close_)\w+(?:\([^)]*\))?/', '', $text) ?? $text;
+
+        // 4. Remove "vou buscar", "vou consultar", "chamando a tool" style phrases
         $text = preg_replace('/(?:vou\s+(?:buscar|consultar|verificar|olhar|checar)|chamei\s+a?\s*tool|executando\s+a?\s*(?:tool|ferramenta)|chamando\s+a?\s*(?:tool|ferramenta))[^.]*[.!]?\s*/iu', '', $text) ?? $text;
 
-        // 4. Remove raw JSON fragments (lines starting with { or [, multi-line)
+        // 5. Remove raw JSON fragments (lines starting with { or [, multi-line)
         $text = preg_replace('/^\s*[\[{].*?[\]}]\s*$/ms', '', $text) ?? $text;
 
-        // 5. Remove "tool_choice", "tool_calls", "function_call" metadata references
+        // 6. Remove "tool_choice", "tool_calls", "function_call" metadata references
         $text = preg_replace('/\b(?:tool_choice|tool_calls|function_call|tool_call|tool_name|tool_result)\b[^.]*[.]?\s*/i', '', $text) ?? $text;
 
-        // 6. Remove sentences mentioning "O agente executou ferramentas" / "ferramentas operacionais"
+        // 7. Remove sentences mentioning "O agente executou ferramentas" / "ferramentas operacionais"
         $text = preg_replace('/O\s+agente\s+executou\s+ferramentas[^.]*[.]\s*/iu', '', $text) ?? $text;
 
-        // 7. Clean up resulting blank lines
+        // 8. Clean up resulting blank lines
         $text = preg_replace('/\n{3,}/', "\n\n", $text) ?? $text;
 
         return trim($text);
