@@ -17,7 +17,7 @@ use EnjoyFun\Services\EventTemplateService;
 
 function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, array $body, array $query): void
 {
-    $user = authMiddleware();
+    $user = requireAuth();
     $db = Database::getInstance();
     $organizerId = (int)($user['organizer_id'] ?? 0);
 
