@@ -27,6 +27,7 @@ import WorkforceCostConnector from "../modules/dashboard/WorkforceCostConnector"
 import FinancialHealthConnector from "../modules/dashboard/FinancialHealthConnector";
 import ArtistAlertBadge from "../modules/dashboard/ArtistAlertBadge";
 import { toast } from "react-hot-toast";
+import EmbeddedAIChat from "../components/EmbeddedAIChat";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -298,6 +299,18 @@ export default function Dashboard() {
         <FinancialHealthConnector eventId={eventId} />
         <ArtistAlertBadge eventId={eventId} />
       </section>
+
+      <EmbeddedAIChat
+        surface="dashboard"
+        title="Assistente do Painel"
+        description="Visao geral do evento e operacao"
+        accentColor="purple"
+        suggestions={[
+          'Como esta a operacao do evento agora?',
+          'Quais setores vendem mais?',
+          'Tem algo critico que preciso resolver?',
+        ]}
+      />
     </div>
   );
 }

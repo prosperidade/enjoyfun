@@ -24,6 +24,7 @@ import { usePosOfflineSync } from "../modules/pos/hooks/usePosOfflineSync";
 import { usePosReports } from "../modules/pos/hooks/usePosReports";
 import { createProductForm } from "../modules/pos/utils/createProductForm";
 import { getSectorInfo } from "../modules/pos/utils/getSectorInfo";
+import EmbeddedAIChat from "../components/EmbeddedAIChat";
 
 function isCanonicalCardId(value) {
   return /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
@@ -502,6 +503,18 @@ export default function POS({ fixedSector = "bar" }) {
               </div>
             </ReportsPanel>
           )}
+
+          <EmbeddedAIChat
+            surface="bar"
+            title={`Assistente ${sectorInfo.title}`}
+            description={`PDV ${sectorInfo.title} — ${products.length} produtos cadastrados`}
+            accentColor="purple"
+            suggestions={[
+              'Qual produto mais vendido hoje?',
+              'Tem algum item com estoque critico?',
+              'Resumo de vendas do turno atual',
+            ]}
+          />
         </div>
       </main>
     </div>

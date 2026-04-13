@@ -14,6 +14,7 @@ import { QRCodeCanvas } from "qrcode.react";
 import { Link, useSearchParams } from "react-router-dom";
 import * as otplib from "otplib";
 import { useEventScope } from "../context/EventScopeContext";
+import EmbeddedAIChat from "../components/EmbeddedAIChat";
 import Pagination from "../components/Pagination";
 import { DEFAULT_PAGINATION_META, extractPaginationMeta } from "../lib/pagination";
 
@@ -409,6 +410,18 @@ export default function Tickets() {
           onNext={() => setPage((current) => Math.min(ticketMeta.total_pages, current + 1))}
         />
       ) : null}
+
+      <EmbeddedAIChat
+        surface="tickets"
+        title="Assistente de Ingressos"
+        description={`${ticketMeta.total} ingressos comerciais`}
+        accentColor="cyan"
+        suggestions={[
+          'Quantos ingressos foram vendidos hoje?',
+          'Quais lotes ainda tem disponibilidade?',
+          'Resumo de vendas por comissario',
+        ]}
+      />
 
       {selectedTicket ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
