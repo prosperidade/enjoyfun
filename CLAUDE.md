@@ -115,6 +115,10 @@ super_admin / admin (André)
 | **Runbook PHP 8.4 Windows** | `docs/runbook_local.md` secao 1.1 | PHP 8.5.1 bandido por bug do dispatcher, setup completo do 8.4 + cacert documentado |
 | **Event selector global (web)** | `frontend/src/context/EventScopeContext.jsx` | Carrega lista de eventos, auto-select, dropdown no chat flutuante. Fix do R$0 no dashboard sem evento |
 | **Adaptive prompt engineering** | `AIPromptCatalogService::adaptiveResponseContract()` | System prompt instrui LLM a invocar tools de dados e deixar blocos visuais renderizarem as metricas em vez de texto |
+| **Two-Tier AI (Web)** | `EmbeddedAIChat.jsx` + pages | Domain chats embedded in 9 surfaces, UnifiedAIChat downgraded to Platform Guide |
+| **Evidence blocks** | `AdaptiveUIRenderer.jsx` | Citations with file names, excerpts, relevance scores |
+| **KB V3 Hybrid** | `OrganizerFileController.php` + `GeminiService.php` | Google File API upload + long context analysis + pgvector + FTS fallback |
+| **Mobile V3 contract** | `enjoyfun-app/` | Surface routing, ToolCallBadge, explicit payload |
 
 ### 🟡 PENDÊNCIAS DE SEGURANÇA (pré-evento real ~2026-04-29)
 
@@ -128,7 +132,7 @@ super_admin / admin (André)
 | ~~Validar audience claim no AuthMiddleware~~ | ~~Semana 1~~ | ✅ Resolvido `b63620c` aud=enjoyfun-api | ~~WARN~~ |
 | ~~**Rotacionar API keys externas**~~ | ~~Semana 2~~ | ✅ Resolvido 2026-04-11 22:30 — André rotacionou OPENAI_API_KEY + GEMINI_API_KEY nos consoles, chaves antigas revogadas, .env atualizado | ~~HIGH~~ |
 | **Rotacionar pgcrypto key de `organizer_ai_providers`** | Pre D-Day | `decrypt` falha pro openai/org 2 com "Assinatura do payload cifrado invalida". Fallback env cobre mas vaza warning no log a cada /ai/chat | MEDIUM |
-| **Mover Whisper para endpoint backend** | Pos D-Day | `EXPO_PUBLIC_OPENAI_KEY` vaza no bundle JS do mobile. APK decompilavel expoe a chave | HIGH |
+| ~~**Mover Whisper para endpoint backend**~~ | ~~Pos D-Day~~ | ✅ Resolvido 2026-04-13 — Voice proxy implementado, mobile apontando para /ai/voice/transcribe | ~~HIGH~~ |
 | **Ticket upstream PHP 8.5.1 dispatcher bug** | Pos D-Day | Windows NTS x64 + `php -S` + `extension=curl` corrompe function table. Reproducer em `docs/runbook_local.md` secao 1.1 | LOW |
 | ~~VALIDATE CONSTRAINT nas FKs NOT VALID~~ | ~~Semana 2~~ | ✅ Resolvido migration 060 `2671d2f` | ~~WARN~~ |
 | ~~RLS em vendors e otp_codes~~ | ~~Semana 2~~ | ✅ Resolvido migration 061 `2671d2f` | ~~WARN~~ |
@@ -136,6 +140,7 @@ super_admin / admin (André)
 | **Redis rate limiting** | Pos-evento | Rate limiting atual e DB-based, Redis e mais performante | LOW |
 | **Cloudflare WAF** | No deploy | Sem protecao de edge | LOW |
 | **jti blacklist (Redis)** | Pos-evento | jti e gerado mas sem blacklist — replay possivel ate expiracao do token | LOW |
+| ~~**Aplicar migrations 078-086**~~ | ~~Pre D-Day~~ | ✅ Resolvido 2026-04-13 | ~~MEDIUM~~ |
 
 ---
 
@@ -177,6 +182,7 @@ super_admin / admin (André)
 - Migration `009`: não aplicada (escopo reduzido ao seguro)
 - Aplicar migrations recentes nos ambientes ativos conforme janela de manutenção
 - Drift replay suportado: janela `039..059` provada; `034..038` com divergência pendente de reconciliação
+- ✅ Migrations 078-086 aplicadas (2026-04-13) — labels PT-BR, memory relevance, metrics, skill versioning, pgvector tables, approvals, memory embeddings
 
 ### Tabelas com `organizer_id` (multi-tenant ativo):
 `events` · `products` · `sales` · `tickets` · `ticket_types` · `digital_cards` · `parking_records` · `users` · `guests` · `event_participants` · `event_days` · `event_shifts` · `event_meal_services` · `workforce_assignments` · `workforce_roles` · `workforce_event_roles` · `participant_meals` · `ai_usage_logs` · `audit_log` · `card_issue_batches` · `refresh_tokens` · `vendors` · `organizer_mcp_servers` · `organizer_mcp_server_tools` · `organizer_files` · `organizer_ai_providers` · `organizer_ai_agents` · `ai_agent_executions` · `ai_agent_memories` · `ai_event_reports` · `ai_conversation_sessions` · `ai_conversation_messages`
@@ -365,7 +371,7 @@ enjoyfun/
 | Channels / Mensageria | 🟡 Hardened | Idempotência via correlation_id. Retry/replay pendentes |
 | Analytics v1 | ✅ Encerrado | Snapshots materializados na V4 |
 | Dashboard | ✅ Funcional | — |
-| IA (EMAS v1) | ✅ **COMPLETO** | 13 agentes, 50+ tools, lazy context, grounding score, approval workflow, voice proxy, SSE, supervisor, memory recall, PT-BR labels |
+| IA (EMAS v1) | ✅ **COMPLETO + Two-Tier UI** | 13 agentes, 50+ tools, lazy context, grounding score, approval workflow, voice proxy, SSE, supervisor, memory recall, PT-BR labels |
 | Health Check | ✅ Real | Deep check + métricas + GET /ai/health (monitoring por agente) |
 | Agents Hub | ✅ Implementado | 13 agentes (incl. platform_guide), 50+ skills, DB-driven registry |
 | AI Platform Guide | ✅ Implementado | 6 skills, 16 módulos indexados, 13 conceitos, persona didática |
@@ -379,6 +385,7 @@ enjoyfun/
 | AI Observability | ✅ Implementado | AIMonitoringService, 8 internal skills (diagnostic), tool execution logging |
 | MCP Server Integration | ✅ Foundation | CRUD + discovery + tool execution + merge no catalog |
 | Organizer File Hub | ✅ Implementado | Upload, auto-parse, FTS search, embeddings pipeline (pgvector pending) |
+| Documents Hub / RAG | ✅ Implementado | KB V3 hybrid (pgvector + Google File API + FTS) |
 | Gateways de Pagamento | ✅ Asaas ativo | Asaas PIX real + webhook + split 1%/99% + recharge integrado |
 | Docker / Deploy | ✅ Expandido | +Redis + MemPalace sidecar + SSE nginx config |
 | Logística de Artistas | 🔴 Pendente | ADR não escrito ainda |
@@ -573,4 +580,4 @@ EMAS (Embedded Multi-Agent System) foi refundado completamente em 2026-04-12. Pl
 ---
 
 *EnjoyFun Platform v2.0 — SaaS White Label Multi-tenant*
-*Atualizado: 2026-04-12 — EMAS v1 Backend COMPLETO (6 sprints, 90 entregas, 38 commits). Diário completo em docs/progresso26.md*
+*Atualizado: 2026-04-13 — EMAS v1 Backend COMPLETO (6 sprints, 90 entregas, 38 commits). Diário completo em docs/progresso26.md*

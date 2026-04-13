@@ -1,0 +1,59 @@
+# ==============================================================================
+# EnjoyFun — Auxiliary Services Only (Redis + MemPalace)
+# ==============================================================================
+# Use this when PostgreSQL, backend, frontend, and nginx run natively.
+#
+# Start Docker Desktop first, then:
+#   docker compose -f docker-compose.services.yml up -d
+#
+# Stop:
+#   docker compose -f docker-compose.services.yml down
+# ==============================================================================
+
+services:
+  # ---------- Redis (SSE pub/sub + rate limiting) ------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - enjoyfun-services
+
+  # ---------- MemPalace Sidecar (long-term AI memory) -------------------------
+  mempalace:
+    build:
+      context: ./docker/mempalace
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - mempalace_data:/data
+    environment:
+      MEMPALACE_PORT: "3100"
+      MEMPALACE_WING: enjoyfun_hub
+      MEMPALACE_ROOMS: "events,tickets,cards,bar,food,shop,parking,workforce,meals,artists,messaging,branding,finance,files,ai,superadmin,platform_guide,documents,analytics"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:3100/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - enjoyfun-services
+
+volumes:
+  redis_data:
+    driver: local
+  mempalace_data:
+    driver: local
+
+networks:
+  enjoyfun-services:
+    driver: bridge
