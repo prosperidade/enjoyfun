@@ -374,7 +374,7 @@ function handleChat(array $body): void
         $surfaceForAutoSelect = $context['surface'] ?? 'dashboard';
         $eventAgnosticSurfaces = ['platform_guide'];
         if (!in_array($surfaceForAutoSelect, $eventAgnosticSurfaces, true)) {
-            $autoStmt = $db->prepare('SELECT id FROM events WHERE organizer_id = :org ORDER BY starts_at DESC NULLS LAST LIMIT 1');
+            $autoStmt = $db->prepare("SELECT e.id FROM events e LEFT JOIN sales s ON s.event_id = e.id WHERE e.organizer_id = :org GROUP BY e.id ORDER BY COUNT(s.id) DESC, e.starts_at DESC NULLS LAST LIMIT 1");
             $autoStmt->execute([':org' => $organizerId]);
             $autoEventId = $autoStmt->fetchColumn();
             if ($autoEventId) {
