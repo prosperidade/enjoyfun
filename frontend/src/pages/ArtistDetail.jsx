@@ -650,7 +650,7 @@ export default function ArtistDetail() {
       type: "timeline",
       title: timeline ? "Editar timeline operacional" : "Criar timeline operacional",
       description:
-        "Ajuste os horarios-base da operacao. O backend recalcula janelas e alertas a partir desses marcos.",
+        "Ajuste os horarios-base da operacao. As janelas e alertas sao recalculados automaticamente.",
       submitLabel: timeline ? "Salvar timeline" : "Criar timeline",
       form: {
         landing_at: toDateTimeInputValue(timeline?.landing_at || logistics?.arrival_at),
@@ -1977,7 +1977,7 @@ export default function ArtistDetail() {
                 </label>
               </div>
               <p className="text-sm text-gray-500">
-                Ao salvar, o backend recalcula automaticamente a timeline operacional e os alertas desta contratacao.
+                Ao salvar, a timeline operacional e os alertas desta contratacao sao recalculados automaticamente.
               </p>
             </>
           )}

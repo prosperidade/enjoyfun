@@ -554,7 +554,7 @@ export default function ArtistsCatalog() {
       setArtists([]);
       setTimelineByBookingId({});
       setMeta(null);
-      setLoadError("A estrutura do modulo ainda nao esta pronta no backend.");
+      setLoadError("O modulo de atracoes ainda nao esta disponivel. Contate o suporte.");
       return;
     }
 
@@ -911,7 +911,7 @@ export default function ArtistsCatalog() {
           helper={
             eventId
               ? "Lineup filtrado por contratacao e risco operacional."
-              : `Catalogo do organizador (${formatNumber(meta?.total ?? artists.length)} no backend).`
+              : `Catalogo do organizador (${formatNumber(meta?.total ?? artists.length)} atracoes cadastradas).`
           }
         />
         <SummaryCard

@@ -3232,14 +3232,14 @@ export default function MealsControl() {
             <div>
               <p className="text-sm font-semibold text-white">Camada financeira complementar</p>
               <p className="mt-1 text-xs text-gray-500">
-                Mantida visualmente secundaria e condicional ao schema e a configuracao real de `meal_unit_cost`.
+                Projecao de custos com base no valor unitario da refeicao configurado.
               </p>
               {!projectionEnabled && (
                 <p className="mt-2 text-xs text-gray-500">
                   {financialDiagnosticsIssues.includes("meal_unit_cost_schema_unavailable")
                     ? "A leitura operacional do Meals continua ativa. Apenas a projeção financeira está indisponível neste ambiente."
                     : financialDiagnosticsIssues.includes("meal_unit_cost_not_configured")
-                      ? "A leitura operacional do Meals continua ativa. Apenas a projeção financeira segue zerada até configurar `meal_unit_cost`."
+                      ? "O controle de refeicoes continua ativo. Configure o valor unitario da refeicao nas configuracoes financeiras para ativar a projecao de custos."
                       : "A leitura operacional do Meals continua ativa. Apenas a projeção financeira deste recorte está degradada."}
                 </p>
               )}
