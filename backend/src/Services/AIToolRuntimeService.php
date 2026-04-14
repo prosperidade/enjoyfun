@@ -3403,16 +3403,27 @@ final class AIToolRuntimeService
         $tickets->execute([':org' => $organizerId, ':evt' => $eventId]);
         $ticketData = $tickets->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        // workforce: join via event_role → event_id (not event_shifts, which may be null)
+        // workforce: count + estimated costs (payment * shifts + meals * shifts * meal_cost)
         $workforce = $db->prepare("
             SELECT COUNT(DISTINCT wa.id) AS total,
-                   COALESCE(SUM(wer.payment_amount), 0) AS workforce_cost
+                   COALESCE(SUM(wer.payment_amount * GREATEST(wer.max_shifts_event, 1)), 0) AS workforce_payment,
+                   COALESCE(SUM(wer.meals_per_day * GREATEST(wer.max_shifts_event, 1)), 0) AS workforce_meals_qty
             FROM public.workforce_assignments wa
             JOIN public.workforce_event_roles wer ON wer.id = wa.event_role_id
             WHERE wa.organizer_id = :org AND wer.event_id = :evt
         ");
         $workforce->execute([':org' => $organizerId, ':evt' => $eventId]);
         $wfData = $workforce->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        // Meal cost from event_meal_services (average active meal cost)
+        $mealCostStmt = $db->prepare("SELECT COALESCE(AVG(cost_per_meal), 0) FROM public.event_meal_services WHERE event_id = :evt AND is_active = true");
+        $mealCostStmt->execute([':evt' => $eventId]);
+        $mealUnitCost = (float)$mealCostStmt->fetchColumn();
+
+        $workforcePayment = (float)($wfData['workforce_payment'] ?? 0);
+        $workforceMealsQty = (int)($wfData['workforce_meals_qty'] ?? 0);
+        $workforceMealsCost = $workforceMealsQty * $mealUnitCost;
+        $workforceTotalCost = $workforcePayment + $workforceMealsCost;
 
         // BE-S2-B8: cost breakdown + margin (including workforce costs)
         $artistCosts = $db->prepare("SELECT COALESCE(SUM(cache_amount), 0) AS total FROM public.event_artists WHERE organizer_id = :org AND event_id = :evt AND booking_status <> 'cancelled'");
@@ -3423,9 +3434,8 @@ final class AIToolRuntimeService
         $logisticsCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
         $logisticsCostTotal = (float)$logisticsCosts->fetchColumn();
 
-        $workforceCost = (float)($wfData['workforce_cost'] ?? 0);
         $revenue = (float)($salesData['revenue'] ?? 0);
-        $totalCosts = $artistCostTotal + $logisticsCostTotal + $workforceCost;
+        $totalCosts = $artistCostTotal + $logisticsCostTotal + $workforceTotalCost;
         $margin = $revenue - $totalCosts;
 
         return [
@@ -3438,7 +3448,9 @@ final class AIToolRuntimeService
             'costs' => [
                 'artist_cache' => $artistCostTotal,
                 'logistics' => $logisticsCostTotal,
-                'workforce' => $workforceCost,
+                'workforce_payment' => $workforcePayment,
+                'workforce_meals' => $workforceMealsCost,
+                'workforce_total' => $workforceTotalCost,
                 'total' => $totalCosts,
             ],
             'margin' => $margin,
@@ -3462,18 +3474,28 @@ final class AIToolRuntimeService
         $logisticsCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
         $logData = $logisticsCosts->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        // Workforce costs (payment_amount per assignment via event_role)
+        // Workforce costs (payment * shifts + meals * shifts * meal_cost)
         $wfCosts = $db->prepare("
-            SELECT COUNT(wa.id) AS headcount, COALESCE(SUM(wer.payment_amount), 0) AS workforce_cost
+            SELECT COUNT(wa.id) AS headcount,
+                   COALESCE(SUM(wer.payment_amount * GREATEST(wer.max_shifts_event, 1)), 0) AS workforce_payment,
+                   COALESCE(SUM(wer.meals_per_day * GREATEST(wer.max_shifts_event, 1)), 0) AS workforce_meals_qty
             FROM public.workforce_assignments wa
             JOIN public.workforce_event_roles wer ON wer.id = wa.event_role_id
             WHERE wa.organizer_id = :org AND wer.event_id = :evt
         ");
         $wfCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
-        $wfData = $wfCosts->fetch(\PDO::FETCH_ASSOC) ?: [];
-        $workforceCost = (float)($wfData['workforce_cost'] ?? 0);
+        $wfRow = $wfCosts->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        $mealCostStmt = $db->prepare("SELECT COALESCE(AVG(cost_per_meal), 0) FROM public.event_meal_services WHERE event_id = :evt AND is_active = true");
+        $mealCostStmt->execute([':evt' => $eventId]);
+        $mealUnitCost = (float)$mealCostStmt->fetchColumn();
+
+        $wfPayment = (float)($wfRow['workforce_payment'] ?? 0);
+        $wfMealsQty = (int)($wfRow['workforce_meals_qty'] ?? 0);
+        $wfMealsCost = $wfMealsQty * $mealUnitCost;
+        $wfTotalCost = $wfPayment + $wfMealsCost;
         $logisticsTotal = (float)($logData['logistics_total'] ?? 0);
-        $totalCosts = $cacheTotal + $logisticsTotal + $workforceCost;
+        $totalCosts = $cacheTotal + $logisticsTotal + $wfTotalCost;
 
         return [
             'event_id' => $eventId,
@@ -3481,8 +3503,10 @@ final class AIToolRuntimeService
             'costs' => [
                 'artist_cache' => $cacheTotal,
                 'artist_logistics' => $logisticsTotal,
-                'workforce' => $workforceCost,
-                'workforce_headcount' => (int)($wfData['headcount'] ?? 0),
+                'workforce_payment' => $wfPayment,
+                'workforce_meals' => $wfMealsCost,
+                'workforce_total' => $wfTotalCost,
+                'workforce_headcount' => (int)($wfRow['headcount'] ?? 0),
                 'pending_items' => (int)($logData['pending_count'] ?? 0),
             ],
             'total_costs' => $totalCosts,
