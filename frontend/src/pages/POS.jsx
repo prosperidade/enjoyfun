@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useNavigate } from "react-router-dom";
 import { useNetwork } from "../hooks/useNetwork";
@@ -48,6 +48,7 @@ export default function POS({ fixedSector = "bar" }) {
   const [savingProduct, setSavingProduct] = useState(false);
   const [prodForm, setProdForm] = useState(() => createProductForm(fixedSector));
   const [hasOpenedReports, setHasOpenedReports] = useState(false);
+  const cardResolveTimerRef = useRef(null);
 
   const {
     catalogError,
@@ -129,9 +130,15 @@ export default function POS({ fixedSector = "bar" }) {
   }, [tab]);
 
   const handleCardReferenceChange = (value) => {
-    const trimmedValue = value.trim();
     setCardReference(value);
     setCardResolveError("");
+
+    if (cardResolveTimerRef.current) {
+      clearTimeout(cardResolveTimerRef.current);
+      cardResolveTimerRef.current = null;
+    }
+
+    const trimmedValue = value.trim();
 
     if (trimmedValue === "") {
       setResolvedCardId("");
@@ -139,17 +146,19 @@ export default function POS({ fixedSector = "bar" }) {
       return;
     }
 
-    if (
-      resolvedCardMeta?.reference === trimmedValue &&
-      Number(resolvedCardMeta?.event_id || 0) === Number(eventId || 0) &&
-      isCanonicalCardId(String(resolvedCardMeta?.card_id || resolvedCardId || ""))
-    ) {
-      setResolvedCardId(String(resolvedCardMeta.card_id || resolvedCardId || ""));
-      return;
-    }
+    cardResolveTimerRef.current = setTimeout(() => {
+      if (
+        resolvedCardMeta?.reference === trimmedValue &&
+        Number(resolvedCardMeta?.event_id || 0) === Number(eventId || 0) &&
+        isCanonicalCardId(String(resolvedCardMeta?.card_id || resolvedCardId || ""))
+      ) {
+        setResolvedCardId(String(resolvedCardMeta.card_id || resolvedCardId || ""));
+        return;
+      }
 
-    setResolvedCardId("");
-    setResolvedCardMeta(null);
+      setResolvedCardId("");
+      setResolvedCardMeta(null);
+    }, 300);
   };
 
   const resolveCheckoutCardId = async () => {
