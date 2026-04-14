@@ -446,6 +446,10 @@ initializeCurrentRequestContext($method, $uri, $resource, $id, $sub, $subId, $_G
         'organizer-mcp' => BASE_PATH . '/src/Controllers/MCPServerController.php',
         'organizer-files' => BASE_PATH . '/src/Controllers/OrganizerFileController.php',
         'event-templates' => BASE_PATH . '/src/Controllers/EventTemplateController.php',
+        'event-stages'         => BASE_PATH . '/src/Controllers/EventStageController.php',
+        'event-sectors'        => BASE_PATH . '/src/Controllers/EventSectorController.php',
+        'event-parking-config' => BASE_PATH . '/src/Controllers/EventParkingConfigController.php',
+        'event-pdv-points'     => BASE_PATH . '/src/Controllers/EventPdvPointController.php',
     ];
 
 if ($resource === '' || $resource === 'ping') {
