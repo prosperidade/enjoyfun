@@ -70,22 +70,6 @@ const inferSectorFromRoleName = (name = "") => {
   return sector.replace(/^_+|_+$/g, "");
 };
 
-const normalizeCostBucket = (value = "", roleName = "") => {
-  const roleKey = normalizeSector(roleName);
-  if (/^(equipe|time|staff)(_|$)/.test(roleKey)) {
-    return "operational";
-  }
-  if (/(gerente|diretor|coordenador|supervisor|lider|chefe|manager)/.test(roleKey)) {
-    return "managerial";
-  }
-
-  const normalized = String(value || "").toLowerCase().trim();
-  if (normalized === "managerial" || normalized === "operational") {
-    return normalized;
-  }
-
-  return "operational";
-};
 
 const hasLeadershipIdentity = (row = {}) => {
   const hasBoundIdentity =
@@ -101,7 +85,7 @@ const hasLeadershipIdentity = (row = {}) => {
 const inferRoleClassFromRoleName = (name = "", costBucket = "") => {
   const roleKey = normalizeSector(name);
   if (!roleKey) {
-    return normalizeCostBucket(costBucket, name) === "managerial" ? "manager" : "operational";
+    return (costBucket || 'operational') === "managerial" ? "manager" : "operational";
   }
 
   if (/^(equipe|time|staff)(_|$)/.test(roleKey)) {
@@ -117,7 +101,7 @@ const inferRoleClassFromRoleName = (name = "", costBucket = "") => {
     return "supervisor";
   }
 
-  return normalizeCostBucket(costBucket, name) === "managerial" ? "manager" : "operational";
+  return (costBucket || 'operational') === "managerial" ? "manager" : "operational";
 };
 
 const parseSqlDateTime = (value = "") => {
@@ -203,7 +187,7 @@ const shouldPreferEventTree = (treeStatus = null, eventRoles = []) =>
   eventRoles.some(
     (row) =>
       !Number(row?.parent_event_role_id || 0) &&
-      normalizeCostBucket(row?.cost_bucket, row?.role_name) === "managerial"
+      (row?.cost_bucket || 'operational') === "managerial"
   );
 
 const hasEventManagerRoots = (eventRoles = []) =>
@@ -211,7 +195,7 @@ const hasEventManagerRoots = (eventRoles = []) =>
   eventRoles.some(
     (row) =>
       !Number(row?.parent_event_role_id || 0) &&
-      normalizeCostBucket(row?.cost_bucket, row?.role_name) === "managerial"
+      (row?.cost_bucket || 'operational') === "managerial"
   );
 
 const buildManagerRows = (managers = [], roles = [], assignments = []) => {
@@ -239,7 +223,7 @@ const buildManagerRows = (managers = [], roles = [], assignments = []) => {
       manager_key: managerKey,
       role_id: roleId,
       sector,
-      cost_bucket: normalizeCostBucket(manager?.cost_bucket, manager?.role_name),
+      cost_bucket: manager?.cost_bucket || 'operational',
       person_name: manager?.person_name || manager?.role_name || "Gerente",
       phone: manager?.phone || "",
       team_size: Number(manager?.team_size || (sector ? teamSizeBySector[sector] || 0 : 0))
@@ -248,7 +232,7 @@ const buildManagerRows = (managers = [], roles = [], assignments = []) => {
 
   roles.forEach((role) => {
     const roleId = Number(role?.id || 0);
-    const costBucket = normalizeCostBucket(role?.cost_bucket, role?.name);
+    const costBucket = role?.cost_bucket || 'operational';
     if (costBucket !== "managerial" || roleId <= 0) {
       return;
     }
@@ -352,10 +336,7 @@ const buildRootHeadcountMap = (eventRoles = [], assignments = []) => {
     const rootId = Number(assignment?.root_manager_event_role_id || 0);
     if (rootId <= 0) return;
     const boundEventRole = eventRolesById[Number(assignment?.event_role_id || 0)] || null;
-    const normalizedCostBucket = normalizeCostBucket(
-      boundEventRole?.cost_bucket || assignment?.cost_bucket,
-      boundEventRole?.role_name || assignment?.role_name
-    );
+    const normalizedCostBucket = (boundEventRole?.cost_bucket || assignment?.cost_bucket) || 'operational';
     if (normalizedCostBucket === "managerial") {
       return;
     }
@@ -376,7 +357,7 @@ const buildRootHeadcountMap = (eventRoles = [], assignments = []) => {
   });
 
   eventRoles.forEach((row) => {
-    if (normalizeCostBucket(row?.cost_bucket, row?.role_name) !== "managerial") {
+    if ((row?.cost_bucket || 'operational') !== "managerial") {
       return;
     }
 
@@ -409,7 +390,7 @@ const buildManagerRowsFromEventTree = (eventRoles = [], assignments = []) => {
     .filter(
       (row) =>
         Number(row?.parent_event_role_id || 0) <= 0 &&
-        normalizeCostBucket(row?.cost_bucket, row?.role_name) === "managerial"
+        (row?.cost_bucket || 'operational') === "managerial"
     )
     .map((row) => {
       const eventRoleId = Number(row?.id || 0);
@@ -424,7 +405,7 @@ const buildManagerRowsFromEventTree = (eventRoles = [], assignments = []) => {
         role_id: Number(row?.role_id || 0),
         role_name: row?.role_name || "Cargo gerencial",
         sector: normalizeSector(row?.sector || row?.role_sector || inferSectorFromRoleName(row?.role_name || "")),
-        cost_bucket: normalizeCostBucket(row?.cost_bucket, row?.role_name),
+        cost_bucket: row?.cost_bucket || 'operational',
         person_name:
           row?.leader_participant_name ||
           row?.leader_name ||
@@ -495,7 +476,7 @@ const buildManagerStructureRows = (eventRoles = [], assignments = [], manager = 
     .filter((row) => Number(row?.root_event_role_id || row?.id || 0) === rootId)
     .map((row) => {
       const eventRoleId = Number(row?.id || 0);
-      const normalizedCostBucket = normalizeCostBucket(row?.cost_bucket, row?.role_name);
+      const normalizedCostBucket = row?.cost_bucket || 'operational';
       const normalizedRoleClass = inferRoleClassFromRoleName(row?.role_name, normalizedCostBucket);
       const isManagerial = normalizedCostBucket === "managerial";
       const filledLeadership = isManagerial && hasLeadershipIdentity(row) ? 1 : 0;
@@ -1006,7 +987,7 @@ export default function WorkforceOpsTab({ eventId }) {
     const uniqueKeys = new Set();
 
     assignments.forEach((assignment) => {
-      if (normalizeCostBucket(assignment?.cost_bucket, assignment?.role_name) !== "managerial") {
+      if ((assignment?.cost_bucket || 'operational') !== "managerial") {
         return;
       }
 
@@ -1455,7 +1436,7 @@ export default function WorkforceOpsTab({ eventId }) {
       return;
     }
 
-    const inferredCostBucket = normalizeCostBucket("", safeName);
+    const inferredCostBucket = 'operational';
     const inferredRoleClass = inferRoleClassFromRoleName(safeName, inferredCostBucket);
 
     setSavingNewRole(true);
