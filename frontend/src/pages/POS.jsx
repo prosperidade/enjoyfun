@@ -380,6 +380,88 @@ export default function POS({ fixedSector = "bar" }) {
     }
   };
 
+  // ─── COMPONENTE INLINE: CUSTOS ───
+  function CostsSummaryCard({ reportData: rd, products: prods, loading: isLoading }) {
+    if (isLoading) {
+      return (
+        <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl animate-pulse">
+          <h3 className="text-gray-400 text-xs font-bold uppercase">Custos do Setor</h3>
+          <div className="mt-4 space-y-3">
+            <div className="h-5 bg-gray-800 rounded w-2/3" />
+            <div className="h-5 bg-gray-800 rounded w-1/2" />
+            <div className="h-5 bg-gray-800 rounded w-1/2" />
+            <div className="h-5 bg-gray-800 rounded w-1/3" />
+          </div>
+        </div>
+      );
+    }
+
+    if (!rd || !rd.mix_chart || rd.mix_chart.length === 0) {
+      return (
+        <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
+          <h3 className="text-gray-400 text-xs font-bold uppercase">Custos do Setor</h3>
+          <p className="text-gray-500 text-sm mt-4">Sem dados de vendas.</p>
+        </div>
+      );
+    }
+
+    const productMap = {};
+    (prods || []).forEach((p) => {
+      productMap[p.name] = Number(p.cost_price || 0);
+    });
+
+    let totalCost = 0;
+    let hasCostData = false;
+    rd.mix_chart.forEach((item) => {
+      const costPrice = productMap[item.name] || 0;
+      if (costPrice > 0) hasCostData = true;
+      totalCost += costPrice * (Number(item.qty) || 0);
+    });
+
+    const revenue = Number(rd.total_revenue || 0);
+    const margin = revenue - totalCost;
+    const marginPct = revenue > 0 ? ((margin / revenue) * 100).toFixed(1) : "0.0";
+
+    const fmtBRL = (v) =>
+      v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+    return (
+      <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
+        <h3 className="text-gray-400 text-xs font-bold uppercase">Custos do Setor</h3>
+
+        {!hasCostData ? (
+          <p className="text-amber-400/80 text-sm mt-4">
+            Configure o custo dos produtos no estoque.
+          </p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400 text-sm">Custo Produtos Vendidos</span>
+              <span className="text-white font-bold text-lg">{fmtBRL(totalCost)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400 text-sm">Receita Total</span>
+              <span className="text-white font-bold text-lg">{fmtBRL(revenue)}</span>
+            </div>
+            <div className="border-t border-gray-800 my-1" />
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400 text-sm">Margem Estimada</span>
+              <span className={`font-bold text-lg ${margin >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {fmtBRL(margin)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400 text-sm">Margem %</span>
+              <span className={`font-bold text-lg ${margin >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {marginPct}%
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // ─── RENDERIZAÇÃO PRINCIPAL ───
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
@@ -511,6 +593,12 @@ export default function POS({ fixedSector = "bar" }) {
                 loadingReports={loadingReports}
                 reportData={reportData}
                 reportError={reportError}
+              />
+
+              <CostsSummaryCard
+                reportData={reportData}
+                products={products}
+                loading={loadingReports}
               />
 
               <div className="flex flex-col gap-8 w-full">
