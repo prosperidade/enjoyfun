@@ -61,10 +61,16 @@ const nav = [
     roles: ["admin", "organizer", "staff"],
   },
   {
-    to: "/scanner",
-    icon: Scan,
     label: "Credenciamento",
+    icon: Scan,
     roles: ["admin", "organizer", "staff"],
+    isParent: true,
+    groupKey: "scanner",
+    subItems: [
+      { to: "/scanner?mode=portaria",  label: "Scanner de Ingressos",        icon: Ticket         },
+      { to: "/scanner?mode=parking",   label: "Scanner de Estacionamento",   icon: ParkingSquare  },
+      { to: "/scanner?mode=meals",     label: "Scanner de Refeicoes",        icon: UtensilsCrossed },
+    ],
   },
   {
     to: "/participants",
@@ -75,7 +81,7 @@ const nav = [
   {
     to: "/artists",
     icon: MicVocal,
-    label: "Artistas / Lineup",
+    label: "Atracoes / Logistica",
     roles: ["admin", "organizer", "manager", "staff"],
   },
   {
@@ -164,10 +170,14 @@ export default function Sidebar({ isOpen, onClose }) {
   const [financeOpen, setFinanceOpen] = useState(
     location.pathname.startsWith("/finance"),
   );
+  const [scannerOpen, setScannerOpen] = useState(
+    location.pathname.startsWith("/scanner"),
+  );
 
   const groupState = {
     pdv:     [pdvOpen,     setPdvOpen],
     finance: [financeOpen, setFinanceOpen],
+    scanner: [scannerOpen, setScannerOpen],
   };
 
   // roles: [] → length === 0 → sempre visível
