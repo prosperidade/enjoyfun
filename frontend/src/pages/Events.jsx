@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "../lib/api";
 import EventTemplateSelector from "../components/EventTemplateSelector";
+import EventModulesSelector, { MODULE_PRESETS } from "../components/EventModulesSelector";
+import { StagesSection, SectorsSection, ParkingConfigSection, PdvPointsSection, LocationSection } from "../components/EventModuleSections";
 import {
   CalendarDays,
   Plus,
@@ -51,6 +53,19 @@ function createEmptyEventForm() {
     capacity: "",
     event_timezone: getBrowserTimeZone(),
     event_type: "",
+    modules_enabled: [],
+    latitude: "",
+    longitude: "",
+    city: "",
+    state: "",
+    country: "BR",
+    zip_code: "",
+    venue_type: "outdoor",
+    age_rating: "",
+    map_3d_url: "",
+    map_image_url: "",
+    map_seating_url: "",
+    map_parking_url: "",
   };
 }
 
@@ -104,6 +119,20 @@ function mapEventToForm(event) {
     status: event?.status || "draft",
     capacity: event?.capacity ?? "",
     event_timezone: event?.event_timezone || "",
+    event_type: event?.event_type || "",
+    modules_enabled: Array.isArray(event?.modules_enabled) ? event.modules_enabled : [],
+    latitude: event?.latitude ?? "",
+    longitude: event?.longitude ?? "",
+    city: event?.city || "",
+    state: event?.state || "",
+    country: event?.country || "BR",
+    zip_code: event?.zip_code || "",
+    venue_type: event?.venue_type || "outdoor",
+    age_rating: event?.age_rating || "",
+    map_3d_url: event?.map_3d_url || "",
+    map_image_url: event?.map_image_url || "",
+    map_seating_url: event?.map_seating_url || "",
+    map_parking_url: event?.map_parking_url || "",
   };
 }
 
@@ -554,6 +583,19 @@ export default function Events() {
       ...form,
       capacity: form.capacity === "" ? 0 : Number(form.capacity),
       event_type: form.event_type || null,
+      modules_enabled: form.modules_enabled || [],
+      latitude: form.latitude !== "" ? Number(form.latitude) : null,
+      longitude: form.longitude !== "" ? Number(form.longitude) : null,
+      city: form.city || null,
+      state: form.state || null,
+      country: form.country || "BR",
+      zip_code: form.zip_code || null,
+      venue_type: form.venue_type || "outdoor",
+      age_rating: form.age_rating || null,
+      map_3d_url: form.map_3d_url || null,
+      map_image_url: form.map_image_url || null,
+      map_seating_url: form.map_seating_url || null,
+      map_parking_url: form.map_parking_url || null,
       commercial_config: {
         ticket_types: ticketTypesForSave.map(serializeTicketType),
         batches: batchesForSave.map(serializeBatch),
@@ -650,7 +692,11 @@ export default function Events() {
               {!editingEventId && (
                 <EventTemplateSelector
                   selected={form.event_type}
-                  onSelect={(key) => setForm((f) => ({ ...f, event_type: key }))}
+                  onSelect={(key) => setForm((f) => ({
+                    ...f,
+                    event_type: key,
+                    modules_enabled: MODULE_PRESETS[key] || [],
+                  }))}
                   disabled={saving}
                 />
               )}
@@ -1044,6 +1090,37 @@ export default function Events() {
                   </div>
                 </div>
               </div>
+
+              {/* ── Modulos do Evento ── */}
+              <EventModulesSelector
+                modules={form.modules_enabled}
+                onToggle={(key) =>
+                  setForm((f) => ({
+                    ...f,
+                    modules_enabled: f.modules_enabled.includes(key)
+                      ? f.modules_enabled.filter((m) => m !== key)
+                      : [...f.modules_enabled, key],
+                  }))
+                }
+                disabled={saving}
+              />
+
+              {/* ── Secoes de configuracao por modulo ativo ── */}
+              {form.modules_enabled.includes("location") && (
+                <LocationSection form={form} setForm={setForm} />
+              )}
+              {form.modules_enabled.includes("stages") && (
+                <StagesSection eventId={editingEventId} />
+              )}
+              {form.modules_enabled.includes("sectors") && (
+                <SectorsSection eventId={editingEventId} />
+              )}
+              {form.modules_enabled.includes("parking_config") && (
+                <ParkingConfigSection eventId={editingEventId} />
+              )}
+              {form.modules_enabled.includes("pdv_points") && (
+                <PdvPointsSection eventId={editingEventId} />
+              )}
 
               <div className="flex items-end gap-3">
                 <button
