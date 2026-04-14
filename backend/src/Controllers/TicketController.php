@@ -38,11 +38,12 @@ function listTickets(array $query): void
     $eventId = isset($query['event_id']) && is_numeric($query['event_id']) ? (int)$query['event_id'] : null;
     $ticketBatchId = isset($query['ticket_batch_id']) && is_numeric($query['ticket_batch_id']) ? (int)$query['ticket_batch_id'] : null;
     $commissaryId = isset($query['commissary_id']) && is_numeric($query['commissary_id']) ? (int)$query['commissary_id'] : null;
-    $sector = isset($query['sector']) && trim((string)$query['sector']) !== '' ? trim((string)$query['sector']) : null;
     $search = trim((string)($query['search'] ?? ''));
 
     try {
         $db = Database::getInstance();
+        $hasSectorColumn = ticketTypesHasColumn($db, 'sector');
+        $sector = $hasSectorColumn && isset($query['sector']) && trim((string)$query['sector']) !== '' ? trim((string)$query['sector']) : null;
         $schema = ticketCommercialSchema($db);
         $hasBatchSupport = $schema['ticket_batches'] && $schema['tickets_ticket_batch_id'];
         $hasCommissarySupport = $schema['commissaries'] && $schema['tickets_commissary_id'];
@@ -76,7 +77,7 @@ function listTickets(array $query): void
                 t.purchased_at,
                 t.used_at,
                 tt.name AS type_name,
-                tt.sector AS type_sector,
+                " . ($hasSectorColumn ? "tt.sector AS type_sector," : "NULL AS type_sector,") . "
                 e.name AS event_name,
                 e.id AS event_id,
                 {$selectBatch},
@@ -599,6 +600,11 @@ function ticketColumnExists(PDO $db, string $table, string $column): bool
     return (bool)$stmt->fetchColumn();
 }
 
+function ticketTypesHasColumn(PDO $db, string $column): bool
+{
+    return ticketColumnExists($db, 'ticket_types', $column);
+}
+
 function ticketCommercialSchema(PDO $db): array
 {
     $cache = $GLOBALS['__ticket_commercial_schema_cache'] ?? null;
@@ -685,13 +691,16 @@ function listTicketTypes(array $query): void
             }
         }
 
+        $hasSectorCol = ticketTypesHasColumn($db, 'sector');
+        $sectorExpr = $hasSectorCol ? 'tt.sector' : 'NULL AS sector';
+
         $sql = "
             SELECT
                 tt.id,
                 tt.event_id,
                 tt.name,
                 COALESCE(tt.price, 0)::float AS price,
-                tt.sector,
+                {$sectorExpr},
                 'organizer' AS scope_origin
             FROM ticket_types tt
             INNER JOIN events e ON e.id = tt.event_id

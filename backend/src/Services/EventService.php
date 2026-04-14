@@ -512,6 +512,21 @@ class EventService
         ];
     }
 
+    private static function ticketTypesHasSector(PDO $db): bool
+    {
+        static $result = null;
+        if ($result !== null) return $result;
+        $stmt = $db->prepare("
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'ticket_types' AND column_name = 'sector'
+            )
+        ");
+        $stmt->execute();
+        $result = (bool)$stmt->fetchColumn();
+        return $result;
+    }
+
     private static function normalizeBatchPayload(array $item): array
     {
         $ticketTypeId = isset($item['ticket_type_id']) && $item['ticket_type_id'] !== '' && $item['ticket_type_id'] !== null
@@ -833,12 +848,22 @@ class EventService
                     );
                 }
 
-                $stmtUpdate = $db->prepare("
-                    UPDATE ticket_types
-                    SET name = ?, price = ?, sector = ?, updated_at = NOW()
-                    WHERE id = ? AND event_id = ? AND organizer_id = ?
-                ");
-                $stmtUpdate->execute([$name, $item['price'], $item['sector'] ?? null, $item['id'], $eventId, $organizerId]);
+                $hasSector = self::ticketTypesHasSector($db);
+                if ($hasSector) {
+                    $stmtUpdate = $db->prepare("
+                        UPDATE ticket_types
+                        SET name = ?, price = ?, sector = ?, updated_at = NOW()
+                        WHERE id = ? AND event_id = ? AND organizer_id = ?
+                    ");
+                    $stmtUpdate->execute([$name, $item['price'], $item['sector'] ?? null, $item['id'], $eventId, $organizerId]);
+                } else {
+                    $stmtUpdate = $db->prepare("
+                        UPDATE ticket_types
+                        SET name = ?, price = ?, updated_at = NOW()
+                        WHERE id = ? AND event_id = ? AND organizer_id = ?
+                    ");
+                    $stmtUpdate->execute([$name, $item['price'], $item['id'], $eventId, $organizerId]);
+                }
 
                 $keptIds[] = $item['id'];
                 if ($item['client_key']) {
@@ -847,12 +872,22 @@ class EventService
                 continue;
             }
 
-            $stmtInsert = $db->prepare("
-                INSERT INTO ticket_types (event_id, name, price, sector, created_at, updated_at, organizer_id)
-                VALUES (?, ?, ?, ?, NOW(), NOW(), ?)
-                RETURNING id
-            ");
-            $stmtInsert->execute([$eventId, $name, $item['price'], $item['sector'] ?? null, $organizerId]);
+            $hasSector = self::ticketTypesHasSector($db);
+            if ($hasSector) {
+                $stmtInsert = $db->prepare("
+                    INSERT INTO ticket_types (event_id, name, price, sector, created_at, updated_at, organizer_id)
+                    VALUES (?, ?, ?, ?, NOW(), NOW(), ?)
+                    RETURNING id
+                ");
+                $stmtInsert->execute([$eventId, $name, $item['price'], $item['sector'] ?? null, $organizerId]);
+            } else {
+                $stmtInsert = $db->prepare("
+                    INSERT INTO ticket_types (event_id, name, price, created_at, updated_at, organizer_id)
+                    VALUES (?, ?, ?, NOW(), NOW(), ?)
+                    RETURNING id
+                ");
+                $stmtInsert->execute([$eventId, $name, $item['price'], $organizerId]);
+            }
             $newId = (int)$stmtInsert->fetchColumn();
             $keptIds[] = $newId;
             if ($item['client_key']) {

@@ -13,8 +13,11 @@ class ProductService
         $sector = self::normalizeSector($sector);
         $sectorScopeSql = self::buildSectorScopeSql($sector, 'sector');
 
+        $hasCostPrice = self::columnExists($db, 'products', 'cost_price');
+        $costPriceExpr = $hasCostPrice ? 'CAST(cost_price AS FLOAT) as cost_price' : '0::float as cost_price';
+
         $stmt = $db->prepare("
-            SELECT id, event_id, name, CAST(price AS FLOAT) as price, CAST(cost_price AS FLOAT) as cost_price, stock_qty, sector, low_stock_threshold
+            SELECT id, event_id, name, CAST(price AS FLOAT) as price, {$costPriceExpr}, stock_qty, sector, low_stock_threshold
             FROM public.products
             WHERE event_id = ? AND organizer_id = ? AND {$sectorScopeSql}
             ORDER BY name ASC
@@ -53,21 +56,30 @@ class ProductService
             throw new RuntimeException('Produto já cadastrado neste setor.', 409);
         }
 
-        $stmt = $db->prepare("
-            INSERT INTO public.products (event_id, organizer_id, name, price, cost_price, stock_qty, sector, low_stock_threshold)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            RETURNING id
-        ");
-        $stmt->execute([
+        $hasCostPrice = self::columnExists($db, 'products', 'cost_price');
+        $cols = 'event_id, organizer_id, name, price, stock_qty, sector, low_stock_threshold';
+        $placeholders = '?, ?, ?, ?, ?, ?, ?';
+        $values = [
             $eventId,
             $organizerId,
             $name,
             (float)($payload['price'] ?? 0),
-            (float)($payload['cost_price'] ?? 0),
             (int)($payload['stock_qty'] ?? 0),
             $sector,
             self::resolveLowStockThreshold($sector, $payload),
-        ]);
+        ];
+        if ($hasCostPrice) {
+            $cols .= ', cost_price';
+            $placeholders .= ', ?';
+            $values[] = (float)($payload['cost_price'] ?? 0);
+        }
+
+        $stmt = $db->prepare("
+            INSERT INTO public.products ({$cols})
+            VALUES ({$placeholders})
+            RETURNING id
+        ");
+        $stmt->execute($values);
 
         return ['id' => (int)$stmt->fetchColumn()];
     }
@@ -82,20 +94,27 @@ class ProductService
             throw new RuntimeException('Preco deve ser maior que zero.', 422);
         }
 
-        $stmt = $db->prepare("
-            UPDATE public.products
-            SET name = ?, price = ?, cost_price = ?, stock_qty = ?, low_stock_threshold = ?, updated_at = NOW()
-            WHERE id = ? AND organizer_id = ? AND " . self::buildSectorScopeSql($sector, 'sector')
-        );
-        $stmt->execute([
+        $hasCostPrice = self::columnExists($db, 'products', 'cost_price');
+        $setClause = 'name = ?, price = ?, stock_qty = ?, low_stock_threshold = ?, updated_at = NOW()';
+        $values = [
             trim((string)($payload['name'] ?? '')),
             (float)($payload['price'] ?? 0),
-            (float)($payload['cost_price'] ?? 0),
             (int)($payload['stock_qty'] ?? 0),
             self::resolveLowStockThreshold($sector, $payload),
-            $id,
-            $organizerId,
-        ]);
+        ];
+        if ($hasCostPrice) {
+            $setClause = 'name = ?, price = ?, cost_price = ?, stock_qty = ?, low_stock_threshold = ?, updated_at = NOW()';
+            array_splice($values, 2, 0, [(float)($payload['cost_price'] ?? 0)]);
+        }
+        $values[] = $id;
+        $values[] = $organizerId;
+
+        $stmt = $db->prepare("
+            UPDATE public.products
+            SET {$setClause}
+            WHERE id = ? AND organizer_id = ? AND " . self::buildSectorScopeSql($sector, 'sector')
+        );
+        $stmt->execute($values);
 
         if ($stmt->rowCount() === 0) {
             throw new RuntimeException(self::buildOutOfScopeMessage($sector), 404);
@@ -208,5 +227,23 @@ class ProductService
         if ($organizerId <= 0) {
             throw new RuntimeException('Organizer inválido.', 403);
         }
+    }
+
+    private static function columnExists(PDO $db, string $table, string $column): bool
+    {
+        static $cache = [];
+        $key = "{$table}.{$column}";
+        if (isset($cache[$key])) {
+            return $cache[$key];
+        }
+        $stmt = $db->prepare("
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = ? AND column_name = ?
+            )
+        ");
+        $stmt->execute([$table, $column]);
+        $cache[$key] = (bool)$stmt->fetchColumn();
+        return $cache[$key];
     }
 }
