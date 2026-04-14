@@ -1,3 +1,5 @@
+import toast from "react-hot-toast";
+
 export default function StockForm({
   currentSector,
   onCancel,
@@ -12,13 +14,25 @@ export default function StockForm({
     return null;
   }
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (parseFloat(prodForm.price) <= 0) {
+      toast.error("Preco deve ser maior que zero");
+      return;
+    }
+    if (parseInt(prodForm.low_stock_threshold, 10) < 0) {
+      setProdForm({ ...prodForm, low_stock_threshold: 0 });
+    }
+    onSubmit(e);
+  };
+
   return (
     <div className="bg-gray-900 p-6 rounded-2xl border border-purple-800/40">
       <h3 className="text-white font-bold mb-4">
         {prodForm.id ? "Editar" : "Novo"} Produto
       </h3>
       <form
-        onSubmit={onSubmit}
+        onSubmit={handleSubmit}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
       >
         <div className="lg:col-span-1">
@@ -45,6 +59,7 @@ export default function StockForm({
           <input
             className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
             type="number"
+            min="0.01"
             step="0.01"
             required
             value={prodForm.price}
@@ -56,6 +71,7 @@ export default function StockForm({
           <input
             className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
             type="number"
+            min="0"
             required
             value={prodForm.stock_qty}
             onChange={(e) =>
@@ -71,6 +87,7 @@ export default function StockForm({
           <input
             className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
             type="number"
+            min="0"
             required
             value={prodForm.low_stock_threshold}
             onChange={(e) =>

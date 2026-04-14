@@ -34,6 +34,10 @@ class ProductService
             throw new RuntimeException('Nome do produto é obrigatório.', 422);
         }
 
+        if ((float)($payload['price'] ?? 0) <= 0) {
+            throw new RuntimeException('Preco deve ser maior que zero.', 422);
+        }
+
         $sectorScopeSql = self::buildSectorScopeSql($sector, 'sector');
         $stmtCheck = $db->prepare("
             SELECT id
@@ -72,6 +76,10 @@ class ProductService
         self::assertOrganizer($organizerId);
         $sector = self::normalizeSector($sector);
         self::findScopedProduct($db, $id, $organizerId, $sector);
+
+        if ((float)($payload['price'] ?? 0) <= 0) {
+            throw new RuntimeException('Preco deve ser maior que zero.', 422);
+        }
 
         $stmt = $db->prepare("
             UPDATE public.products
