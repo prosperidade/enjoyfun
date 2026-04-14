@@ -76,7 +76,7 @@ export default function AnalyticalDashboard() {
           badge="Leitura Confiavel"
           iconClassName="text-brand"
           badgeClassName="bg-brand/20 text-brand"
-          description="Metricas confiaveis do contrato analitico atual."
+          description="Indicadores principais do evento selecionado."
         />
 
         <AnalyticsSummaryCards loading={loading} summary={analytics?.summary} />
@@ -169,7 +169,7 @@ export default function AnalyticalDashboard() {
           badge="PDV + Tickets"
           iconClassName="text-cyan-400"
           badgeClassName="bg-cyan-500/15 text-cyan-300"
-          description="Blocos de mix e participacao setorial renderizados somente a partir da trilha analitica dedicada."
+          description="Distribuicao de vendas por setor e mix de produtos do evento."
         />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
@@ -216,7 +216,7 @@ export default function AnalyticalDashboard() {
           badge={analytics?.attendance?.enabled ? "Ativo" : "Condicional"}
           iconClassName="text-amber-400"
           badgeClassName="bg-amber-500/15 text-amber-300"
-          description="Attendance so entra quando o backend confirma base suficiente e sem ambiguidade para o evento filtrado."
+          description="Presenca e participacao confirmada no evento."
         />
 
         <AnalyticsAttendancePanel attendance={analytics?.attendance} />
@@ -229,7 +229,7 @@ export default function AnalyticalDashboard() {
           badge="Módulo Financeiro"
           iconClassName="text-yellow-400"
           badgeClassName="bg-yellow-400/20 text-yellow-400"
-          description="Orçamento, comprometimento e breakdown por categoria alimentados pelo módulo de gestão financeira."
+          description="Resumo do orcamento, contas a pagar e distribuicao por categoria."
         />
         <FinancialSummaryPanel
           eventId={eventId}
