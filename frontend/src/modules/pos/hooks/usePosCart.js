@@ -26,13 +26,13 @@ export function usePosCart() {
 
   const updateQuantity = useCallback((id, delta) => {
     setCart((prev) =>
-      prev.map((item) => {
+      prev.flatMap((item) => {
         if (item.id !== id) {
-          return item;
+          return [item];
         }
 
         const nextQuantity = item.quantity + delta;
-        return nextQuantity > 0 ? { ...item, quantity: nextQuantity } : item;
+        return nextQuantity > 0 ? [{ ...item, quantity: nextQuantity }] : [];
       }),
     );
   }, []);

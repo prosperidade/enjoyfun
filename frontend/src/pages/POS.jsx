@@ -303,7 +303,12 @@ export default function POS({ fixedSector = "bar" }) {
           toast.error(err.response?.data?.message || "Erro na venda.");
         }
       }
-    } catch {
+    } catch (offlineErr) {
+      if (offlineErr?.code === 'HMAC_KEY_MISSING') {
+        toast.error("Sessao expirada. Faca login novamente.");
+        window.location.href = '/login';
+        return;
+      }
       toast.error("Nao foi possivel salvar a venda offline localmente.");
     } finally {
       setProcessingSale(false);
