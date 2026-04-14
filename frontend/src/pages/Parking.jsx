@@ -19,6 +19,7 @@ import Pagination from "../components/Pagination";
 import { DEFAULT_PAGINATION_META, extractPaginationMeta } from "../lib/pagination";
 
 const PAGE_SIZE = 50;
+const VEHICLE_TYPE_LABELS = { car: 'CARRO', motorcycle: 'MOTO', truck: 'CAMINHAO', bus: 'ONIBUS', van: 'VAN' };
 
 export default function Parking() {
   const { eventId, setEventId } = useEventScope();
@@ -266,7 +267,7 @@ export default function Parking() {
           ok: true,
           message: res.data.message,
           holder: res.data.data?.license_plate, // Exibe a Placa do veículo
-          type: res.data.data?.vehicle_type === 'car' ? 'CARRO' : 'MOTO',
+          type: VEHICLE_TYPE_LABELS[res.data.data?.vehicle_type] || (res.data.data?.vehicle_type ? res.data.data.vehicle_type.toUpperCase() : '—'),
           event: res.data.data?.event_name,
           current_status: res.data.data?.current_status,
         });
@@ -328,7 +329,7 @@ export default function Parking() {
           ok: true,
           message: action === "exit" ? "Saída registrada via Offline" : "Entrada registrada via Offline",
           holder: cachedRecord.license_plate,
-          type: cachedRecord.vehicle_type === 'car' ? 'CARRO' : 'MOTO',
+          type: VEHICLE_TYPE_LABELS[cachedRecord.vehicle_type] || (cachedRecord.vehicle_type ? cachedRecord.vehicle_type.toUpperCase() : '—'),
           event: "OFFLINE",
           current_status: action === "exit" ? "Saída Registrada" : "Acesso Liberado",
         });
@@ -400,7 +401,7 @@ export default function Parking() {
                 {selectedTicket.license_plate}
               </p>
               <p className="text-purple-400 font-semibold uppercase">
-                {selectedTicket.vehicle_type === 'car' ? 'Carro' : 'Moto'}
+                {VEHICLE_TYPE_LABELS[selectedTicket.vehicle_type] || (selectedTicket.vehicle_type ? selectedTicket.vehicle_type.toUpperCase() : '—')}
               </p>
               <div className="pt-2">
                 <span className="bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[10px] font-mono text-gray-400 uppercase">
@@ -606,9 +607,9 @@ export default function Parking() {
                         <td className="font-mono font-bold text-white">
                           {r.license_plate}
                         </td>
-                        <td>{r.vehicle_type}</td>
+                        <td>{VEHICLE_TYPE_LABELS[r.vehicle_type] || (r.vehicle_type ? r.vehicle_type.toUpperCase() : '—')}</td>
                         <td className="text-xs text-gray-400">
-                          {new Date(r.entry_at).toLocaleString("pt-BR")}
+                          {r.entry_at ? new Date(r.entry_at).toLocaleString("pt-BR") : "Aguardando"}
                         </td>
                         <td className="text-xs text-gray-400">
                           {r.exit_at ? new Date(r.exit_at).toLocaleString("pt-BR") : "—"}
