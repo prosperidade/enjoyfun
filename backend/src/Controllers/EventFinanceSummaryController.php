@@ -91,6 +91,7 @@ function getSummary(array $query): void
         'overdue_amount' => round($overdue, 2),
         'budget_remaining' => round($freeSlack, 2),
         'is_over_budget' => $committed > $totalBudget && $totalBudget > 0,
+        'overage'        => round(max(0, $committed - $totalBudget), 2),
         'overdue_count'  => (int)$agg['overdue_count'],
         'total_payables' => (int)$agg['total_count'],
     ], 'Resumo financeiro carregado.');
