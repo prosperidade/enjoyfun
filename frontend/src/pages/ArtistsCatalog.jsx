@@ -71,49 +71,7 @@ function SummaryCard({ label, value, helper, tone = "default" }) {
   );
 }
 
-function ModuleStatusCard({ moduleStatus, loading }) {
-  if (loading) {
-    return (
-      <div className="card border-white/5">
-        <p className="text-sm text-gray-500">Lendo status do backend de artistas...</p>
-      </div>
-    );
-  }
-
-  if (!moduleStatus) {
-    return null;
-  }
-
-  const missingTables = Array.isArray(moduleStatus.required_tables)
-    ? moduleStatus.required_tables.filter((item) => !item?.exists)
-    : [];
-
-  return (
-    <div
-      className={`card border ${
-        moduleStatus.schema_ready
-          ? "border-emerald-500/20 bg-emerald-500/5"
-          : "border-red-500/20 bg-red-500/5"
-      }`}
-    >
-      <div className="flex flex-wrap items-center gap-3">
-        <span className={moduleStatus.schema_ready ? "badge-green" : "badge-red"}>
-          {moduleStatus.schema_ready ? "Backend pronto" : "Estrutura pendente"}
-        </span>
-        <span className="text-sm text-gray-400">
-          {moduleStatus.schema_ready
-            ? "Cadastros, contratacoes e operacao de artistas disponiveis."
-            : "O backend ainda nao liberou toda a estrutura do modulo."}
-        </span>
-      </div>
-      {!moduleStatus.schema_ready && missingTables.length > 0 && (
-        <p className="mt-3 text-sm text-red-300">
-          Tabelas ausentes: {missingTables.map((item) => item.table || item.table_name || "desconhecida").join(", ")}
-        </p>
-      )}
-    </div>
-  );
-}
+// ModuleStatusCard removido — migrations ja aplicadas, card era apenas indicador de dev
 
 function ArtistFormModal({ events, selectedEventId, onClose, onSaved }) {
   const [form, setForm] = useState(() => ({
@@ -823,8 +781,6 @@ export default function ArtistsCatalog() {
           )}
         </div>
       </div>
-
-      <ModuleStatusCard moduleStatus={moduleStatus} loading={statusLoading} />
 
       <div className="card space-y-4 border-white/5">
         <div
