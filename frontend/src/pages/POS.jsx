@@ -9,7 +9,6 @@ import CheckoutPanel from "../modules/pos/components/CheckoutPanel";
 import PosHeader from "../modules/pos/components/PosHeader";
 import PosToolbar from "../modules/pos/components/PosToolbar";
 import ProductGrid from "../modules/pos/components/ProductGrid";
-import InsightChat from "../modules/pos/components/InsightChat";
 import ProductMixChart from "../modules/pos/components/ProductMixChart";
 import ReportsPanel from "../modules/pos/components/ReportsPanel";
 import ReportsControls from "../modules/pos/components/ReportsControls";
@@ -513,8 +512,6 @@ export default function POS({ fixedSector = "bar" }) {
                 reportData={reportData}
                 reportError={reportError}
               />
-
-              <InsightChat chatHistory={chatHistory} />
 
               <div className="flex flex-col gap-8 w-full">
                 <SalesTimelineChart

@@ -1,5 +1,3 @@
-import InsightComposer from "./InsightComposer";
-
 const TIME_FILTERS = ["1h", "5h", "24h", "total"];
 
 export default function ReportsControls({
@@ -78,13 +76,7 @@ export default function ReportsControls({
           ))}
         </div>
 
-        <InsightComposer
-          aiQuestion={aiQuestion}
-          loadingInsight={loadingInsight}
-          onAiQuestionChange={onAiQuestionChange}
-          onKeyDown={onInsightComposerKeyDown}
-          onRequestInsight={onRequestInsight}
-        />
+        {/* InsightComposer removido — EmbeddedAIChat no topo da pagina cobre essa funcao */}
       </div>
     </>
   );
