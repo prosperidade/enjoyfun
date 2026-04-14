@@ -66,6 +66,7 @@ function listTickets(array $query): void
                 t.id,
                 t.order_reference,
                 t.qr_token,
+                t.totp_secret,
                 t.status,
                 t.holder_name,
                 t.holder_email,
