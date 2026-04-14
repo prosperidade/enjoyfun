@@ -40,7 +40,7 @@ function listParticipants(array $query): void
     $categoryId = $query['category_id'] ?? null;
     $assignedOnly = ($query['assigned_only'] ?? '0') === '1';
     $roleId = (int)($query['role_id'] ?? 0);
-    $joinAssignments = $assignedOnly ? "JOIN workforce_assignments wa ON wa.participant_id = ep.id" : "";
+    $joinAssignments = $assignedOnly ? "JOIN workforce_assignments wa ON wa.participant_id = ep.id AND wa.event_id = ep.event_id" : "";
     $search = trim((string)($query['search'] ?? ''));
 
     $whereParts = [
