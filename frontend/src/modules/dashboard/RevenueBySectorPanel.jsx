@@ -45,6 +45,14 @@ export default function RevenueBySectorPanel({ loading, salesSectorTotals }) {
               Sem vendas setoriais nas últimas 24h para o filtro atual.
             </p>
           )}
+          {salesSectorTotals &&
+            sectorItems.every(
+              (item) => Number(salesSectorTotals[item.key]?.revenue || 0) === 0
+            ) && (
+              <p className="mt-2 text-center text-sm text-gray-500">
+                Sem vendas registradas nas últimas 24h para este evento.
+              </p>
+            )}
         </div>
       )}
     </div>

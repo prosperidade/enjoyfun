@@ -234,7 +234,7 @@ export default function Dashboard() {
             loading={loading}
             icon={ParkingSquare}
             label="Carros Dentro Agora"
-            value={stats?.summary?.cars_inside}
+            value={stats?.summary?.cars_inside ?? 0}
             color="bg-cyan-600"
             to="/parking"
             subtitle="Registros sem saída no estacionamento"
@@ -282,7 +282,7 @@ export default function Dashboard() {
             loading={loading}
             icon={Users}
             label="Usuários do Organizador"
-            value={stats?.summary?.users_total}
+            value={stats?.summary?.users_total ?? 0}
             color="bg-blue-600"
             to="/users"
             subtitle="Pessoas com acesso administrativo"
