@@ -14,7 +14,7 @@ final class AIProviderConfigService
     private const DEFAULT_MODELS = [
         'openai' => 'gpt-4o-mini',
         'gemini' => 'gemini-2.5-flash',
-        'claude' => 'claude-3-5-sonnet-latest',
+        'claude' => 'claude-sonnet-4-6',
     ];
     private const DEFAULT_APPROVAL_MODE = 'confirm_write';
 

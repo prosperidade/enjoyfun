@@ -154,7 +154,7 @@ final class OrganizerMessagingConfigService
 
     private static function sanitizePayload(array $payload): array
     {
-        return [
+        $sanitized = [
             'resend_api_key' => trim((string)($payload['resend_api_key'] ?? '')),
             'email_sender' => trim((string)($payload['email_sender'] ?? '')),
             'wa_api_url' => rtrim(trim((string)($payload['wa_api_url'] ?? '')), '/'),
@@ -162,6 +162,18 @@ final class OrganizerMessagingConfigService
             'wa_instance' => trim((string)($payload['wa_instance'] ?? '')),
             'wa_webhook_secret' => trim((string)($payload['wa_webhook_secret'] ?? '')),
         ];
+
+        // Reject placeholder strings and too-short values for secret fields
+        $secretFields = ['resend_api_key', 'wa_token', 'wa_webhook_secret'];
+        $placeholders = ['(configurada)', '(configurado)', '(configured)'];
+        foreach ($secretFields as $field) {
+            $val = $sanitized[$field];
+            if ($val !== '' && (mb_strlen($val) < 8 || in_array(mb_strtolower($val), $placeholders, true))) {
+                $sanitized[$field] = '';
+            }
+        }
+
+        return $sanitized;
     }
 
     private static function hasLegacySecrets(array $row): bool
