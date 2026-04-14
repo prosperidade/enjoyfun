@@ -122,6 +122,17 @@ export default function WorkforceCostConnector({ loading, workforceCosts }) {
                   </div>
                 </div>
               ))}
+              <div className="flex items-center justify-between border-t border-gray-600 px-3 py-2 mt-1">
+                <div className="text-xs font-bold uppercase text-gray-300">Total</div>
+                <div className="text-right">
+                  <div className="text-sm font-bold text-emerald-400">
+                    R$ {workforceCosts.by_sector.reduce((sum, row) => sum + Number(row.estimated_payment_total || 0), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-[11px] font-semibold text-gray-500">
+                    {workforceCosts.by_sector.reduce((sum, row) => sum + Number(row.estimated_hours_total || 0), 0).toLocaleString("pt-BR")} h
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
             <EmptyState message="Sem dados de equipe para o filtro atual." />
@@ -129,12 +140,12 @@ export default function WorkforceCostConnector({ loading, workforceCosts }) {
         </div>
 
         <div className="card">
-          <h3 className="mb-4 text-sm font-semibold text-gray-200">Pagamento Estimado por Cargo</h3>
+          <h3 className="mb-4 text-sm font-semibold text-gray-200">Lideranças do Evento</h3>
           {loading ? (
             <LoadingState />
-          ) : workforceCosts?.by_role?.length ? (
+          ) : workforceCosts?.by_role_managerial?.length ? (
             <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1">
-              {workforceCosts.by_role.map((row, index) => (
+              {workforceCosts.by_role_managerial.map((row, index) => (
                 <div
                   key={`${row.sector}-${row.role_name}-${index}`}
                   className="flex items-center justify-between rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-2"
@@ -150,78 +161,19 @@ export default function WorkforceCostConnector({ loading, workforceCosts }) {
                   </div>
                 </div>
               ))}
-            </div>
-          ) : (
-            <EmptyState message="Sem dados de cargo para o filtro atual." />
-          )}
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="card">
-          <h3 className="mb-4 text-sm font-semibold text-gray-200">Lideranças do Evento</h3>
-          {loading ? (
-            <LoadingState />
-          ) : (workforceCosts?.by_role_managerial?.length || 0) > 0 ? (
-            <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1">
-              {(workforceCosts?.by_role_managerial || []).map((row, index) => (
-                <div
-                  key={`${row.sector}-${row.role_name}-${index}`}
-                  className="flex items-center justify-between rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-2"
-                >
-                    <div>
-                      <div className="text-xs font-medium text-white">{row.role_name}</div>
-                      <div className="text-[11px] uppercase text-gray-500">
-                        {row.sector} • {Number(row.planned_members_total ?? row.members ?? 0).toLocaleString("pt-BR")} posição(ões) •{" "}
-                        {Number(row.filled_members_total ?? 0).toLocaleString("pt-BR")} preenchida(s)
-                        {row.present_members_total !== null && row.present_members_total !== undefined
-                          ? ` • ${Number(row.present_members_total ?? 0).toLocaleString("pt-BR")} presente(s)`
-                          : ""}
-                      </div>
-                    </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-amber-400">
-                      R$ {Number(row.estimated_payment_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </div>
-                  </div>
+              <div className="flex items-center justify-between border-t border-gray-600 px-3 py-2 mt-1">
+                <div className="text-xs font-bold uppercase text-gray-300">Total</div>
+                <div className="text-right text-sm font-bold text-emerald-400">
+                  R$ {workforceCosts.by_role_managerial.reduce((sum, row) => sum + Number(row.estimated_payment_total || 0), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </div>
-              ))}
+              </div>
             </div>
           ) : (
             <EmptyState message="Sem lideranças cadastradas no filtro atual." />
           )}
         </div>
-
-        <div className="card">
-          <h3 className="mb-4 text-sm font-semibold text-gray-200">Membros Operacionais (primeiros 20)</h3>
-          {loading ? (
-            <LoadingState />
-          ) : (workforceCosts?.operational_members?.length || 0) > 0 ? (
-            <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1">
-              {(workforceCosts?.operational_members || []).slice(0, 20).map((item) => (
-                <div
-                  key={item.participant_id}
-                  className="flex items-center justify-between rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-2"
-                >
-                  <div>
-                    <div className="text-xs font-medium text-white">{item.participant_name}</div>
-                    <div className="text-[11px] uppercase text-gray-500">
-                      {item.sector} • {item.role_name}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-cyan-400">
-                      R$ {Number(item.estimated_payment_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState message="Sem membros operacionais no filtro atual." />
-          )}
-        </div>
       </div>
+
     </div>
   );
 }

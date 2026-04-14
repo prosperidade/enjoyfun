@@ -89,24 +89,30 @@ export default function FinancialHealthConnector({ eventId }) {
           value={fmt(summary?.total_budget)}
           color="bg-yellow-600"
           subtitle="Previsto aprovado"
+          to="/finance"
+          scopeEventId={eventId}
         />
         <StatCard
           compact
           loading={loading}
           icon={TrendingUp}
-          label="Comprometido"
+          label="Contas a Pagar"
           value={fmt(summary?.committed)}
           color="bg-amber-600"
           subtitle={`${pct.toFixed(0)}% do orçamento`}
+          to="/finance/payables"
+          scopeEventId={eventId}
         />
         <StatCard
           compact
           loading={loading}
           icon={CheckCircle}
-          label="Pago"
+          label="Contas Pagas"
           value={fmt(summary?.paid)}
           color="bg-green-600"
           subtitle="Baixas confirmadas"
+          to="/finance/payables?status=paid"
+          scopeEventId={eventId}
         />
         <StatCard
           compact
@@ -116,7 +122,7 @@ export default function FinancialHealthConnector({ eventId }) {
           value={String(summary?.overdue_count ?? 0)}
           color="bg-red-600"
           subtitle={`${fmt(summary?.overdue_amount)} em aberto`}
-          to="/finance/payables"
+          to="/finance/payables?status=overdue"
           scopeEventId={eventId}
         />
       </div>

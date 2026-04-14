@@ -168,6 +168,7 @@ export default function Dashboard() {
             label="Vendas do Evento"
             value={`R$ ${(stats?.summary?.sales_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
             color="bg-green-600"
+            to="/pos"
             subtitle="Total vendido nos pontos de venda"
           />
           <StatCard
@@ -191,7 +192,7 @@ export default function Dashboard() {
           <StatCard
             loading={loading}
             icon={CreditCard}
-            label="Saldo Ainda Disponível"
+            label="Saldo Disponivel por Evento"
             value={`R$ ${Number(stats?.cashless?.remaining_balance_global || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
             color="bg-emerald-700"
             to="/cards"
