@@ -3403,25 +3403,13 @@ final class AIToolRuntimeService
         $tickets->execute([':org' => $organizerId, ':evt' => $eventId]);
         $ticketData = $tickets->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        // workforce: count + estimated payment using same COALESCE logic as
-        // FinanceWorkforceCostService (wms.payment_amount → wer.payment_amount → 0)
-        $workforce = $db->prepare("
-            SELECT COUNT(DISTINCT wa.id) AS total,
-                   COALESCE(SUM(
-                     COALESCE(wms.payment_amount, wer.payment_amount, 0)
-                     * GREATEST(COALESCE(wms.max_shifts_event, wer.max_shifts_event, 1), 1)
-                   ), 0) AS workforce_payment
-            FROM public.workforce_assignments wa
-            JOIN public.event_participants ep ON ep.id = wa.participant_id
-            LEFT JOIN public.workforce_event_roles wer ON wer.id = wa.event_role_id
-            LEFT JOIN public.workforce_member_settings wms ON wms.participant_id = ep.id
-            WHERE wa.organizer_id = :org AND ep.event_id = :evt
-        ");
-        $workforce->execute([':org' => $organizerId, ':evt' => $eventId]);
-        $wfData = $workforce->fetch(\PDO::FETCH_ASSOC) ?: [];
-
-        $workforcePayment = (float)($wfData['workforce_payment'] ?? 0);
+        // workforce: use FinanceWorkforceCostService directly (single source of truth)
+        require_once __DIR__ . '/FinanceWorkforceCostService.php';
+        $wfReport = FinanceWorkforceCostService::buildReport($db, $organizerId, $eventId);
+        $wfSummary = $wfReport['summary'] ?? [];
+        $workforcePayment = (float)($wfSummary['estimated_payment_total'] ?? 0);
         $workforceTotalCost = $workforcePayment;
+        $wfData = ['total' => (int)($wfSummary['members'] ?? 0)];
 
         // BE-S2-B8: cost breakdown + margin (including workforce costs)
         $artistCosts = $db->prepare("SELECT COALESCE(SUM(cache_amount), 0) AS total FROM public.event_artists WHERE organizer_id = :org AND event_id = :evt AND booking_status <> 'cancelled'");
@@ -3470,23 +3458,11 @@ final class AIToolRuntimeService
         $logisticsCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
         $logData = $logisticsCosts->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        // Workforce costs — same COALESCE logic as FinanceWorkforceCostService
-        $wfCosts = $db->prepare("
-            SELECT COUNT(wa.id) AS headcount,
-                   COALESCE(SUM(
-                     COALESCE(wms.payment_amount, wer.payment_amount, 0)
-                     * GREATEST(COALESCE(wms.max_shifts_event, wer.max_shifts_event, 1), 1)
-                   ), 0) AS workforce_payment
-            FROM public.workforce_assignments wa
-            JOIN public.event_participants ep ON ep.id = wa.participant_id
-            LEFT JOIN public.workforce_event_roles wer ON wer.id = wa.event_role_id
-            LEFT JOIN public.workforce_member_settings wms ON wms.participant_id = ep.id
-            WHERE wa.organizer_id = :org AND ep.event_id = :evt
-        ");
-        $wfCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
-        $wfRow = $wfCosts->fetch(\PDO::FETCH_ASSOC) ?: [];
-
-        $wfPayment = (float)($wfRow['workforce_payment'] ?? 0);
+        // Workforce costs — use FinanceWorkforceCostService (single source of truth)
+        require_once __DIR__ . '/FinanceWorkforceCostService.php';
+        $wfReport2 = FinanceWorkforceCostService::buildReport($db, $organizerId, $eventId);
+        $wfSum2 = $wfReport2['summary'] ?? [];
+        $wfPayment = (float)($wfSum2['estimated_payment_total'] ?? 0);
         $logisticsTotal = (float)($logData['logistics_total'] ?? 0);
         $totalCosts = $cacheTotal + $logisticsTotal + $wfPayment;
 
@@ -3497,7 +3473,7 @@ final class AIToolRuntimeService
                 'artist_cache' => $cacheTotal,
                 'artist_logistics' => $logisticsTotal,
                 'workforce' => $wfPayment,
-                'workforce_headcount' => (int)($wfRow['headcount'] ?? 0),
+                'workforce_headcount' => (int)($wfSum2['members'] ?? 0),
                 'pending_items' => (int)($logData['pending_count'] ?? 0),
             ],
             'total_costs' => $totalCosts,
