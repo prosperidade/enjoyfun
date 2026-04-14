@@ -3403,13 +3403,19 @@ final class AIToolRuntimeService
         $tickets->execute([':org' => $organizerId, ':evt' => $eventId]);
         $ticketData = $tickets->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        // workforce: count + estimated payment (payment_amount * max_shifts_event)
+        // workforce: count + estimated payment using same COALESCE logic as
+        // FinanceWorkforceCostService (wms.payment_amount → wer.payment_amount → 0)
         $workforce = $db->prepare("
             SELECT COUNT(DISTINCT wa.id) AS total,
-                   COALESCE(SUM(wer.payment_amount * GREATEST(wer.max_shifts_event, 1)), 0) AS workforce_payment
+                   COALESCE(SUM(
+                     COALESCE(wms.payment_amount, wer.payment_amount, 0)
+                     * GREATEST(COALESCE(wms.max_shifts_event, wer.max_shifts_event, 1), 1)
+                   ), 0) AS workforce_payment
             FROM public.workforce_assignments wa
-            JOIN public.workforce_event_roles wer ON wer.id = wa.event_role_id
-            WHERE wa.organizer_id = :org AND wer.event_id = :evt
+            JOIN public.event_participants ep ON ep.id = wa.participant_id
+            LEFT JOIN public.workforce_event_roles wer ON wer.id = wa.event_role_id
+            LEFT JOIN public.workforce_member_settings wms ON wms.participant_id = ep.id
+            WHERE wa.organizer_id = :org AND ep.event_id = :evt
         ");
         $workforce->execute([':org' => $organizerId, ':evt' => $eventId]);
         $wfData = $workforce->fetch(\PDO::FETCH_ASSOC) ?: [];
@@ -3464,13 +3470,18 @@ final class AIToolRuntimeService
         $logisticsCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
         $logData = $logisticsCosts->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        // Workforce costs (payment_amount * max_shifts_event — same as dashboard)
+        // Workforce costs — same COALESCE logic as FinanceWorkforceCostService
         $wfCosts = $db->prepare("
             SELECT COUNT(wa.id) AS headcount,
-                   COALESCE(SUM(wer.payment_amount * GREATEST(wer.max_shifts_event, 1)), 0) AS workforce_payment
+                   COALESCE(SUM(
+                     COALESCE(wms.payment_amount, wer.payment_amount, 0)
+                     * GREATEST(COALESCE(wms.max_shifts_event, wer.max_shifts_event, 1), 1)
+                   ), 0) AS workforce_payment
             FROM public.workforce_assignments wa
-            JOIN public.workforce_event_roles wer ON wer.id = wa.event_role_id
-            WHERE wa.organizer_id = :org AND wer.event_id = :evt
+            JOIN public.event_participants ep ON ep.id = wa.participant_id
+            LEFT JOIN public.workforce_event_roles wer ON wer.id = wa.event_role_id
+            LEFT JOIN public.workforce_member_settings wms ON wms.participant_id = ep.id
+            WHERE wa.organizer_id = :org AND ep.event_id = :evt
         ");
         $wfCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
         $wfRow = $wfCosts->fetch(\PDO::FETCH_ASSOC) ?: [];
