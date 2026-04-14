@@ -755,9 +755,49 @@ final class AIOrchestratorService
                 break;
             }
 
-            // Call provider with full message history
-            // BE-S2: Force tool_choice=required on the first step to prevent hallucination (ONLY if tools exist)
-            $forceTools = ($step === 1) && !empty($toolCatalog);
+            // Surface-aware pre-fetch: for surfaces that display multiple data modules
+            // (dashboard, workforce), pre-execute ALL relevant tools and skip the LLM
+            // tool selection step. The LLM only synthesizes the pre-fetched data.
+            $surface = strtolower(trim((string)($context['surface'] ?? '')));
+            $preExecTools = self::getPreExecutionTools($surface);
+            $ctxEventId = isset($context['event_id']) ? (int)$context['event_id'] : null;
+            if ($step === 1 && $preExecTools !== [] && $ctxEventId !== null && $ctxEventId > 0) {
+                // Build fake tool calls for pre-execution
+                $preToolCalls = [];
+                foreach ($preExecTools as $toolName) {
+                    $preToolCalls[] = [
+                        'name' => $toolName,
+                        'tool_name' => $toolName,
+                        'provider_call_id' => 'pre_' . $toolName,
+                        'arguments' => ['event_id' => $ctxEventId],
+                        'type' => 'read',
+                        'risk_level' => 'read',
+                    ];
+                }
+                $toolRuntime = AIToolRuntimeService::executeReadOnlyTools($db, $operator, $context, $preToolCalls);
+                $stepToolResults = $toolRuntime['tool_results'] ?? [];
+                $allToolResults = array_merge($allToolResults, $stepToolResults);
+
+                // Build summary and go straight to synthesis
+                $toolResultsSummary = [];
+                foreach ($stepToolResults as $tr) {
+                    $toolName = $tr['tool_name'] ?? 'tool';
+                    $data = $tr['result'] ?? $tr['error_message'] ?? 'sem dados';
+                    $toolResultsSummary[] = "[{$toolName}]: " . (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE) : (string)$data);
+                }
+                $messages[] = ['role' => 'user', 'content' => "DADOS COMPLETOS DO DASHBOARD (use TODOS esses dados para um briefing executivo completo):\n\n" . implode("\n\n", $toolResultsSummary)];
+
+                $lastResult = ['tool_calls' => $preToolCalls, 'provider' => $runtime['provider'] ?? 'openai', 'model' => $runtime['model'] ?? ''];
+                $synthesisResult = self::requestInsightWithMessages($runtime, $messages, []);
+                $totalUsage = self::mergeUsage($totalUsage, (array)($synthesisResult['usage'] ?? []));
+                $totalDurationMs += max(0, (int)($synthesisResult['request_duration_ms'] ?? 0));
+                $lastResult['insight'] = $synthesisResult['insight'] ?? '';
+                $exitReason = 'completed';
+                break;
+            }
+
+            // Standard path: let the LLM choose which tools to call
+            $forceTools = false;
             $stepResult = self::requestInsightWithMessages($runtime, $messages, $toolCatalog, $forceTools);
             $totalUsage = self::mergeUsage($totalUsage, (array)($stepResult['usage'] ?? []));
             $totalDurationMs += max(0, (int)($stepResult['request_duration_ms'] ?? 0));
@@ -2338,6 +2378,20 @@ final class AIOrchestratorService
      *  - tool_choice / tool_calls metadata
      *  - Lines that are just a tool name or tool_name:status
      */
+    /**
+     * Surfaces that should pre-execute ALL their core tools instead of
+     * waiting for the LLM to pick one. This ensures comprehensive responses
+     * that match the data visible on the page.
+     */
+    private static function getPreExecutionTools(string $surface): array
+    {
+        return match ($surface) {
+            'dashboard' => ['get_event_kpi_dashboard', 'get_pos_sales_snapshot', 'get_ticket_demand_signals', 'get_workforce_costs', 'get_finance_summary'],
+            'workforce' => ['get_event_shift_coverage', 'get_workforce_tree_status', 'get_workforce_costs'],
+            default => [],
+        };
+    }
+
     private static function sanitizeInsightForUser(string $text): string
     {
         if (trim($text) === '') {
