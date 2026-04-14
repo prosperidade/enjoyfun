@@ -119,20 +119,20 @@ export default function Dashboard() {
 
   return (
     <div className="animate-fade-in space-y-10 pb-12">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="page-title flex items-center gap-2">
-            <LayoutDashboard size={22} className="text-brand" />
-            Painel Geral
-          </h1>
-          <p className="mt-1 text-sm text-gray-400">
-            Seja bem-vindo(a),{" "}
-            <span className="font-semibold text-white">{user?.name || "Usuário"}</span>.
-          </p>
-        </div>
+      <div className="text-center">
+        <h1 className="page-title flex items-center justify-center gap-2">
+          <LayoutDashboard size={22} className="text-brand" />
+          Painel Geral
+        </h1>
+        <p className="mt-1 text-sm text-gray-400">
+          Seja bem-vindo(a),{" "}
+          <span className="font-semibold text-white">{user?.name || "Usuário"}</span>.
+        </p>
+      </div>
+      <div className="flex justify-center">
         <select
           name="dashboard_event_id"
-          className="select min-w-[220px] w-auto border-gray-700 bg-gray-900 font-medium"
+          className="select min-w-[280px] w-auto border-gray-700 bg-gray-900 font-medium"
           value={eventId}
           onChange={handleEventChange}
         >
