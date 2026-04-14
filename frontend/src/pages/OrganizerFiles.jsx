@@ -84,6 +84,37 @@ export default function OrganizerFiles() {
   const [uploadCategory, setUploadCategory] = useState("general");
   const [uploadNotes, setUploadNotes] = useState("");
   const fileInputRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimerRef = useRef(null);
+
+  const handleSearchChange = (value) => {
+    setSearchQuery(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!value.trim()) {
+      setSearchResults(null);
+      return;
+    }
+    searchTimerRef.current = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const res = await api.get(`/organizer-files/search?q=${encodeURIComponent(value.trim())}`);
+        setSearchResults(res.data?.data?.files || []);
+      } catch {
+        toast.error("Erro na busca.");
+        setSearchResults(null);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 400);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults(null);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+  };
 
   const fetchFiles = useCallback(async () => {
     setLoading(true);
@@ -278,6 +309,28 @@ export default function OrganizerFiles() {
           </div>
         </div>
 
+        {/* Search */}
+        <div className="relative">
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Buscar arquivos..."
+            className="w-full rounded-xl border border-gray-700 bg-gray-900 py-2 pl-9 pr-9 text-sm text-gray-200 placeholder-gray-500 focus:border-gray-600 focus:outline-none"
+          />
+          {searchQuery && (
+            <button
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+            >
+              <XCircle size={16} />
+            </button>
+          )}
+        </div>
+
+        {searchLoading && <p className="text-sm text-gray-500">Buscando...</p>}
+
         {/* Files list */}
         <div className="rounded-2xl border border-gray-800 bg-gray-950/70">
           <table className="w-full text-left text-sm">
@@ -292,14 +345,14 @@ export default function OrganizerFiles() {
               </tr>
             </thead>
             <tbody>
-              {files.length === 0 ? (
+              {(searchResults !== null ? searchResults : files).length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                    {loading ? "Carregando..." : "Nenhum arquivo encontrado. Suba seu primeiro arquivo acima."}
+                    {loading ? "Carregando..." : searchResults !== null ? "Nenhum resultado encontrado." : "Nenhum arquivo encontrado. Suba seu primeiro arquivo acima."}
                   </td>
                 </tr>
               ) : (
-                files.map((file) => {
+                (searchResults !== null ? searchResults : files).map((file) => {
                   const statusMeta = PARSED_STATUS_META[file.parsed_status] || PARSED_STATUS_META.pending;
                   const StatusIcon = statusMeta.icon;
                   return (
@@ -359,7 +412,10 @@ export default function OrganizerFiles() {
                       </td>
                       <td className="px-4 py-3 text-gray-400">{formatBytes(file.file_size_bytes)}</td>
                       <td className="px-4 py-3">
-                        <span className={`flex items-center gap-1 text-xs ${statusMeta.color}`}>
+                        <span
+                          className={`flex items-center gap-1 text-xs ${statusMeta.color}`}
+                          title={file.parsed_status === 'failed' ? (file.parsed_error || 'Erro desconhecido') : undefined}
+                        >
                           <StatusIcon size={12} />
                           {statusMeta.label}
                         </span>
@@ -396,7 +452,7 @@ export default function OrganizerFiles() {
             </tbody>
           </table>
         </div>
-        {!loading && filesMeta.total_pages > 1 ? (
+        {!loading && searchResults === null && filesMeta.total_pages > 1 ? (
           <Pagination
             page={filesMeta.page}
             totalPages={filesMeta.total_pages}

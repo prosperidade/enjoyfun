@@ -2732,7 +2732,7 @@ export default function ArtistDetail() {
                         <div className="mt-3 grid gap-3 text-sm text-gray-400 md:grid-cols-2">
                           <p>Previsto: {formatDateTime(windowItem.value?.predicted_at)}</p>
                           <p>Alvo: {formatDateTime(windowItem.value?.target_at)}</p>
-                          <p>Margem: {windowItem.value?.margin_minutes ?? "—"} min</p>
+                          <p>Margem: {windowItem.value?.margin_minutes != null ? `${windowItem.value.margin_minutes} min` : "—"}</p>
                           <p>Origem: {windowItem.value?.source || "—"}</p>
                         </div>
                       </div>
