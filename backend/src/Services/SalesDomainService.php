@@ -113,7 +113,8 @@ class SalesDomainService
             }
 
             // Opcional: Validar se o valor do Frontend bate com o Backend (Security Check)
-            if ($expectedTotal > 0 && abs($calculatedTotal - $expectedTotal) > 0.01) {
+            // P3: 5 centavos tolerance for floating point rounding
+            if ($expectedTotal > 0 && abs($calculatedTotal - $expectedTotal) > 0.05) {
                 throw new Exception("Inconsistência de valores: O total enviado difere do cálculo seguro no servidor.");
             }
 
