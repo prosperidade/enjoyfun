@@ -3462,16 +3462,31 @@ final class AIToolRuntimeService
         $logisticsCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
         $logData = $logisticsCosts->fetch(\PDO::FETCH_ASSOC) ?: [];
 
+        // Workforce costs (payment_amount per assignment via event_role)
+        $wfCosts = $db->prepare("
+            SELECT COUNT(wa.id) AS headcount, COALESCE(SUM(wer.payment_amount), 0) AS workforce_cost
+            FROM public.workforce_assignments wa
+            JOIN public.workforce_event_roles wer ON wer.id = wa.event_role_id
+            WHERE wa.organizer_id = :org AND wer.event_id = :evt
+        ");
+        $wfCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
+        $wfData = $wfCosts->fetch(\PDO::FETCH_ASSOC) ?: [];
+        $workforceCost = (float)($wfData['workforce_cost'] ?? 0);
+        $logisticsTotal = (float)($logData['logistics_total'] ?? 0);
+        $totalCosts = $cacheTotal + $logisticsTotal + $workforceCost;
+
         return [
             'event_id' => $eventId,
             'revenue' => $revenueTotal,
             'costs' => [
                 'artist_cache' => $cacheTotal,
-                'artist_logistics' => (float)($logData['logistics_total'] ?? 0),
+                'artist_logistics' => $logisticsTotal,
+                'workforce' => $workforceCost,
+                'workforce_headcount' => (int)($wfData['headcount'] ?? 0),
                 'pending_items' => (int)($logData['pending_count'] ?? 0),
             ],
-            'total_costs' => $cacheTotal + (float)($logData['logistics_total'] ?? 0),
-            'estimated_margin' => $revenueTotal - $cacheTotal - (float)($logData['logistics_total'] ?? 0),
+            'total_costs' => $totalCosts,
+            'estimated_margin' => $revenueTotal - $totalCosts,
         ];
     }
 
