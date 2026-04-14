@@ -169,7 +169,7 @@ export default function Parking() {
         }));
         toast.success("Entrada salva localmente (Offline)!");
         setEntryScanInput("");
-        setRecordsWithCache(prev => [{ id: offlineId, license_plate: scannedPlate, vehicle_type: form.vehicle_type, status: 'parked', created_at: new Date().toISOString() }, ...prev]);
+        setRecordsWithCache(prev => [{ id: offlineId, license_plate: scannedPlate, vehicle_type: form.vehicle_type, status: 'pending', created_at: new Date().toISOString() }, ...prev]);
         return;
       }
       toast.error(err.response?.data?.message || "Erro ao registrar entrada.");
@@ -219,7 +219,7 @@ export default function Parking() {
         toast.success("Entrada salva localmente (Offline)!");
         setShowForm(false);
         setForm({ event_id: String(eventId || ""), license_plate: "", vehicle_type: "car" });
-        setRecordsWithCache(prev => [{ id: offlineId, license_plate: form.license_plate, vehicle_type: form.vehicle_type, status: 'parked', created_at: new Date().toISOString() }, ...prev]);
+        setRecordsWithCache(prev => [{ id: offlineId, license_plate: form.license_plate, vehicle_type: form.vehicle_type, status: 'pending', created_at: new Date().toISOString() }, ...prev]);
         return;
       }
       toast.error(err.response?.data?.message || "Erro ao registrar entrada.");
@@ -683,14 +683,14 @@ export default function Parking() {
             <div className={`card border ${
               !validationResult.ok
                 ? "border-red-500/40 bg-red-900/10"
-                : validationResult.current_status === "parked"
+                : (validationResult.current_status || validationResult.status) === "parked"
                   ? "border-green-500/40 bg-green-900/10" // Entrada = Verde
                   : "border-blue-500/40 bg-blue-900/10"   // Saída = Azul
             }`}>
               <div className="flex items-start gap-4">
                 {!validationResult.ok ? (
                   <XCircle size={40} className="text-red-400 flex-shrink-0" />
-                ) : validationResult.current_status === "parked" ? (
+                ) : (validationResult.current_status || validationResult.status) === "parked" ? (
                   <div className="flex flex-col items-center justify-center bg-green-500/20 text-green-400 p-3 rounded-lg flex-shrink-0">
                     <CheckCircle size={32} />
                     <span className="text-xs font-bold mt-1 uppercase">Entrada</span>
@@ -706,7 +706,7 @@ export default function Parking() {
                   <p className={`font-bold text-xl mb-2 ${
                     !validationResult.ok
                       ? "text-red-400"
-                      : validationResult.current_status === "parked"
+                      : (validationResult.current_status || validationResult.status) === "parked"
                         ? "text-green-400"
                         : "text-blue-400"
                   }`}>

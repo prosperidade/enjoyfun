@@ -20,6 +20,34 @@ import { DEFAULT_PAGINATION_META, extractPaginationMeta } from "../lib/paginatio
 
 const { totp } = otplib;
 const PAGE_SIZE = 25;
+const CACHE_TTL_MS = 7200000; // 2 hours
+
+function setCacheItem(key, data) {
+  localStorage.setItem(key, JSON.stringify({ data, savedAt: Date.now() }));
+}
+
+function getCacheItem(key) {
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.savedAt === "number" && Date.now() - parsed.savedAt < CACHE_TTL_MS) {
+      return parsed.data;
+    }
+    // Also handle legacy entries without savedAt wrapper (plain arrays/objects)
+    if (parsed && typeof parsed.savedAt === "undefined") {
+      // Legacy format — treat as expired, remove
+      localStorage.removeItem(key);
+      return null;
+    }
+    // Expired
+    localStorage.removeItem(key);
+    return null;
+  } catch {
+    localStorage.removeItem(key);
+    return null;
+  }
+}
 
 const statusBadge = {
   pending: "badge-yellow",
@@ -132,12 +160,12 @@ export default function Tickets() {
       .then((r) => {
         const list = r.data.data || [];
         setEvents(list);
-        localStorage.setItem("enjoyfun_tickets_events_cache", JSON.stringify(list));
+        setCacheItem("enjoyfun_tickets_events_cache", list);
       })
       .catch(() => {
-        const cached = localStorage.getItem("enjoyfun_tickets_events_cache");
+        const cached = getCacheItem("enjoyfun_tickets_events_cache");
         if (cached) {
-          try { setEvents(JSON.parse(cached)); } catch { /* ignore */ }
+          try { setEvents(cached); } catch { /* ignore */ }
           toast("Modo Offline: eventos carregados do cache.");
         } else {
           toast.error("Sem internet e sem cache. Carregue os eventos quando estiver online.");
@@ -162,11 +190,11 @@ export default function Tickets() {
     if (typesRes.status === "fulfilled") {
       const data = typesRes.value.data?.data || [];
       setTicketTypes(data);
-      localStorage.setItem(`tickets_types_${effectiveEventId}`, JSON.stringify(data));
+      setCacheItem(`tickets_types_${effectiveEventId}`, data);
     } else {
-      const cached = localStorage.getItem(`tickets_types_${effectiveEventId}`);
+      const cached = getCacheItem(`tickets_types_${effectiveEventId}`);
       if (cached) {
-        try { setTicketTypes(JSON.parse(cached)); } catch { setTicketTypes([]); }
+        try { setTicketTypes(cached); } catch { setTicketTypes([]); }
       } else {
         setTicketTypes([]);
         toast.error("Erro ao carregar tipos de ingresso (offline).");
@@ -176,11 +204,11 @@ export default function Tickets() {
     if (batchesRes.status === "fulfilled") {
       const data = batchesRes.value.data?.data || [];
       setBatches(data);
-      localStorage.setItem(`tickets_batches_${effectiveEventId}`, JSON.stringify(data));
+      setCacheItem(`tickets_batches_${effectiveEventId}`, data);
     } else {
-      const cached = localStorage.getItem(`tickets_batches_${effectiveEventId}`);
+      const cached = getCacheItem(`tickets_batches_${effectiveEventId}`);
       if (cached) {
-        try { setBatches(JSON.parse(cached)); } catch { setBatches([]); }
+        try { setBatches(cached); } catch { setBatches([]); }
       } else {
         setBatches([]);
         toast.error("Erro ao carregar lotes comerciais (offline).");
@@ -190,11 +218,11 @@ export default function Tickets() {
     if (commissariesRes.status === "fulfilled") {
       const data = commissariesRes.value.data?.data || [];
       setCommissaries(data);
-      localStorage.setItem(`tickets_commissaries_${effectiveEventId}`, JSON.stringify(data));
+      setCacheItem(`tickets_commissaries_${effectiveEventId}`, data);
     } else {
-      const cached = localStorage.getItem(`tickets_commissaries_${effectiveEventId}`);
+      const cached = getCacheItem(`tickets_commissaries_${effectiveEventId}`);
       if (cached) {
-        try { setCommissaries(JSON.parse(cached)); } catch { setCommissaries([]); }
+        try { setCommissaries(cached); } catch { setCommissaries([]); }
       } else {
         setCommissaries([]);
         toast.error("Erro ao carregar comissários (offline).");
@@ -226,14 +254,13 @@ export default function Tickets() {
           return !ref.startsWith("EF-GUEST-") && !ref.startsWith("EF-IMP-");
         });
         setTickets(commercialOnly);
-        localStorage.setItem("enjoyfun_tickets_cache", JSON.stringify(commercialOnly));
+        setCacheItem("enjoyfun_tickets_cache", commercialOnly);
       })
       .catch(() => {
-        const cached = localStorage.getItem("enjoyfun_tickets_cache");
+        const cached = getCacheItem("enjoyfun_tickets_cache");
         if (cached) {
-          const parsed = JSON.parse(cached);
-          const commercialOnly = Array.isArray(parsed)
-            ? parsed.filter((ticket) => {
+          const commercialOnly = Array.isArray(cached)
+            ? cached.filter((ticket) => {
                 const ref = String(ticket?.order_reference || "");
                 return !ref.startsWith("EF-GUEST-") && !ref.startsWith("EF-IMP-");
               })
