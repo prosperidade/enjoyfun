@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aether Congres - Professional Networking</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#5e4e74",
+                        "on-surface-variant": "#b7a3cf",
+                        "on-secondary-fixed": "#004931",
+                        "primary-fixed-dim": "#9d81f0",
+                        "outline": "#806e96",
+                        "error-container": "#a70138",
+                        "tertiary-dim": "#8a4cfc",
+                        "error-dim": "#d73357",
+                        "surface-container-low": "#1b0a31",
+                        "error": "#ff6e84",
+                        "on-primary-container": "#290070",
+                        "on-secondary-container": "#e0ffec",
+                        "on-tertiary-container": "#ffffff",
+                        "primary": "#b79fff",
+                        "tertiary": "#af88ff",
+                        "primary-container": "#ab8ffe",
+                        "on-tertiary-fixed": "#200051",
+                        "secondary-container": "#006c4b",
+                        "tertiary-container": "#8342f4",
+                        "surface-tint": "#b79fff",
+                        "secondary": "#68fcbf",
+                        "on-secondary-fixed-variant": "#006948",
+                        "on-primary-fixed-variant": "#330b80",
+                        "tertiary-fixed-dim": "#b48fff",
+                        "on-tertiary-fixed-variant": "#4a00a4",
+                        "surface": "#150629",
+                        "surface-bright": "#372056",
+                        "secondary-dim": "#57edb1",
+                        "surface-container-highest": "#301a4d",
+                        "on-primary-fixed": "#000000",
+                        "tertiary-fixed": "#c0a0ff",
+                        "background": "#150629",
+                        "on-surface": "#efdfff",
+                        "outline-variant": "#514166",
+                        "on-primary": "#361083",
+                        "primary-dim": "#a88cfb",
+                        "on-tertiary": "#2b0065",
+                        "surface-variant": "#301a4d",
+                        "on-background": "#efdfff",
+                        "inverse-primary": "#684cb6",
+                        "inverse-surface": "#fff7ff",
+                        "secondary-fixed": "#68fcbf",
+                        "surface-dim": "#150629",
+                        "on-secondary": "#005e40",
+                        "surface-container-lowest": "#000000",
+                        "surface-container": "#22103a",
+                        "surface-container-high": "#291543",
+                        "secondary-fixed-dim": "#57edb1",
+                        "on-error": "#490013",
+                        "on-error-container": "#ffb2b9",
+                        "primary-fixed": "#ab8ffe"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Manrope"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary selection:text-on-primary">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 bg-[#150629]/60 backdrop-blur-[20px] shadow-[0_10px_30px_rgba(167,139,250,0.05)]">
+<div class="flex justify-between items-center w-full px-6 py-4 max-w-screen-xl mx-auto">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden border border-primary/30">
+<img alt="Avatar" class="w-full h-full object-cover" data-alt="Futuristic holographic badge avatar with glowing geometric patterns and digital interference effects on a dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDmt1tgwLEAYqjiF7hsub9IPTocV23mUyu_BB_uh_LZhRx1xRZWRuD_Jdl04inIr_eceQwibt_ql2l_gASVcif4qlDZl1e6sXBsBcY5k_wKCiUKvPNsNCmg4W5bpnbMmHQzJiHLlTdrMMQgn9LbxUOA_wK0Xxa0KvsscTRdEeUDAWNwmUU2v0BwUmoZIDrxjRe0-Wae_08e5XIaTftQcoL0SCs5uLzmwgQDINaH9tz2PTclfREQZTu8q_F_6Xr6faRqZ1-IAdPLkEg"/>
+</div>
+<h1 class="text-xl font-black tracking-tighter text-white uppercase font-headline">AETHER CONGRES</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-violet-400 hover:text-violet-300 transition-colors duration-300 active:scale-95 transition-transform" data-icon="smart_toy">smart_toy</button>
+</div>
+</div>
+<div class="h-px w-full bg-gradient-to-r from-transparent via-violet-500/20 to-transparent"></div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-screen-xl mx-auto min-h-screen">
+<!-- Hero Section -->
+<section class="mb-12">
+<div class="relative overflow-hidden rounded-xl p-8 bg-surface-container-low border border-outline-variant/15">
+<div class="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-primary/10 rounded-full blur-[100px]"></div>
+<div class="relative z-10 max-w-2xl">
+<span class="inline-block px-3 py-1 rounded-full bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-[0.2em] mb-4">Network Intelligence</span>
+<h2 class="text-5xl md:text-6xl font-headline font-bold text-white tracking-tight leading-none mb-6">Connecting with your Sector</h2>
+<p class="text-on-surface-variant text-lg leading-relaxed max-w-lg">
+                        Our A.I. has mapped the topological landscape of the congress to find peers aligned with your expertise in Quantum Infrastructure and Bio-Synthetics.
+                    </p>
+</div>
+</div>
+</section>
+<!-- Search and Filters (Asymmetric) -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6 mb-12 items-end">
+<div class="md:col-span-8">
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline" data-icon="search">search</span>
+<input class="w-full bg-surface-container-lowest border-none rounded-xl py-4 pl-12 pr-6 text-on-surface focus:ring-1 focus:ring-primary focus:shadow-[0_0_20px_rgba(183,159,255,0.2)] transition-all" placeholder="Search by tech stack, sector, or name..." type="text"/>
+</div>
+</div>
+<div class="md:col-span-4 flex gap-2">
+<button class="flex-1 glass-card border border-outline-variant/20 rounded-xl py-4 font-label text-sm font-semibold tracking-wider text-primary hover:bg-white/10 transition-all uppercase">Filter</button>
+<button class="flex-1 glass-card border border-outline-variant/20 rounded-xl py-4 font-label text-sm font-semibold tracking-wider text-primary hover:bg-white/10 transition-all uppercase">Sort</button>
+</div>
+</div>
+<!-- Networking Feed - Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Professional Card 1 -->
+<div class="group relative glass-card border border-outline-variant/10 rounded-xl p-6 transition-all duration-500 hover:bg-surface-container-high hover:shadow-[0_0_40px_rgba(183,159,255,0.08)]">
+<div class="flex justify-between items-start mb-6">
+<div class="relative">
+<div class="w-20 h-20 rounded-xl overflow-hidden border-2 border-surface-container-highest">
+<img alt="Elias Thorne" class="w-full h-full object-cover" data-alt="Portrait of a professional man with a sleek modern haircut wearing a high-tech dark suit against a soft violet ambient light background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfomypd5Mabu0pbGfFrFLGGKmgLuRNgLeILJxKwYPlBJZ2TgpWvALO9BNPKy0hFyog5uBDFo-Jh4sockRW--7OUMHZ1QVi8WcS7BXH_4LF-mh-ynX9dlSZ1uM0fDFOoXznZdlzsQR77eluza9ZeYVEQGN47395OBBe-lFhwTK7r6H6KXHGFth1BzLyeJT28PRN9V1l7bd8BCXi5uBJrs-fU3fA36aA5-zdeNFVv5yWmR8MCJ7vyX3PQ-A1Cuc4sIeUAXBHVC2A1PY"/>
+</div>
+<div class="absolute -bottom-1 -right-1 w-5 h-5 bg-secondary rounded-full border-4 border-surface ring-4 ring-secondary/20 shadow-[0_0_10px_#68fcbf]"></div>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">Match Score</span>
+<span class="text-xl font-headline font-bold text-secondary">98%</span>
+</div>
+</div>
+<div class="mb-6">
+<h3 class="text-2xl font-headline font-bold text-white mb-1">Elias Thorne</h3>
+<p class="text-primary font-medium text-sm">Lead Architect, Neural-Link Systems</p>
+<div class="mt-4 flex flex-wrap gap-2">
+<span class="px-2 py-1 rounded bg-surface-container-lowest text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">Quantum-AI</span>
+<span class="px-2 py-1 rounded bg-surface-container-lowest text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">Blockchain</span>
+</div>
+</div>
+<button class="w-full py-4 rounded-xl bg-gradient-to-br from-primary to-primary-container text-on-primary font-headline font-bold text-sm tracking-wide transition-all active:scale-95 shadow-lg shadow-primary/10 hover:shadow-primary/20">
+                    Schedule 1:1
+                </button>
+</div>
+<!-- Professional Card 2 -->
+<div class="group relative glass-card border border-outline-variant/10 rounded-xl p-6 transition-all duration-500 hover:bg-surface-container-high hover:shadow-[0_0_40px_rgba(183,159,255,0.08)]">
+<div class="flex justify-between items-start mb-6">
+<div class="relative">
+<div class="w-20 h-20 rounded-xl overflow-hidden border-2 border-surface-container-highest">
+<img alt="Sarah Jenkins" class="w-full h-full object-cover" data-alt="Portrait of a confident woman professional in a futuristic office setting with soft blue and purple lighting and glass reflections" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5gAR1lRvKa-N7yWmp4AGK76UKOzLbp3WrKtEJrVhKIVhRVrDh6GFx-l9oEqtykSB6rjJ8qb2YZnbDDGZdqtjuZoSVYXb7BfZyiVfe21AkssQCfvGZQ57ULnrRJkM412AmiB7vce9w1eV_Q65kCQ_Lely25huLGxvFefc7OzizWz3Ae3Dy0ZXKTk2KZ89z457ayi3UUs6mNVfDY8qB2hqN3dohu3Fg0c7tYbW-4ko9l-8kFFXBnim4bjH3YXPmxOyQTL8JNPdGh8o"/>
+</div>
+<div class="absolute -bottom-1 -right-1 w-5 h-5 bg-secondary rounded-full border-4 border-surface ring-4 ring-secondary/20 shadow-[0_0_10px_#68fcbf]"></div>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">Match Score</span>
+<span class="text-xl font-headline font-bold text-secondary">92%</span>
+</div>
+</div>
+<div class="mb-6">
+<h3 class="text-2xl font-headline font-bold text-white mb-1">Sarah Jenkins</h3>
+<p class="text-primary font-medium text-sm">Director, Bio-Ethics Research</p>
+<div class="mt-4 flex flex-wrap gap-2">
+<span class="px-2 py-1 rounded bg-surface-container-lowest text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">Synthetics</span>
+<span class="px-2 py-1 rounded bg-surface-container-lowest text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">Governance</span>
+</div>
+</div>
+<button class="w-full py-4 rounded-xl bg-gradient-to-br from-primary to-primary-container text-on-primary font-headline font-bold text-sm tracking-wide transition-all active:scale-95 shadow-lg shadow-primary/10 hover:shadow-primary/20">
+                    Schedule 1:1
+                </button>
+</div>
+<!-- Professional Card 3 -->
+<div class="group relative glass-card border border-outline-variant/10 rounded-xl p-6 transition-all duration-500 hover:bg-surface-container-high hover:shadow-[0_0_40px_rgba(183,159,255,0.08)]">
+<div class="flex justify-between items-start mb-6">
+<div class="relative">
+<div class="w-20 h-20 rounded-xl overflow-hidden border-2 border-surface-container-highest">
+<img alt="Marcus Vane" class="w-full h-full object-cover" data-alt="Close up of a professional man with sharp features looking directly at camera, dark techwear clothing, neon violet background glow" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7q5Uv-IDe9CoOueJrKvkauGovE_tncUuRb0vAguNGLlEhvVVpzcwNL38tDYvTm-t0SrxgmeoZsn9PDI-gSwP_yr6wTJJTUc7I6VNMoZzj5nG2l25sWr83CbYvK3SVmMmWYdDHSiiSRIio1GKsIQIUvN09s-Bx8hu5nGq6vcUxOwd5Dk8rig6y93smn5ZsppX3w_yd30drTYH6KnjHfZrs5ALlUuVD9DSXiUNmltVMqQKMRcxjB0DCOQ15Lw7xufkKOYd-3XZ6xbg"/>
+</div>
+<div class="absolute -bottom-1 -right-1 w-5 h-5 bg-on-surface-variant/30 rounded-full border-4 border-surface"></div>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">Match Score</span>
+<span class="text-xl font-headline font-bold text-secondary">85%</span>
+</div>
+</div>
+<div class="mb-6">
+<h3 class="text-2xl font-headline font-bold text-white mb-1">Marcus Vane</h3>
+<p class="text-primary font-medium text-sm">Security Consultant, Orbit-X</p>
+<div class="mt-4 flex flex-wrap gap-2">
+<span class="px-2 py-1 rounded bg-surface-container-lowest text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">Cyber-Ops</span>
+<span class="px-2 py-1 rounded bg-surface-container-lowest text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">Defense</span>
+</div>
+</div>
+<button class="w-full py-4 rounded-xl border border-primary/40 text-primary font-headline font-bold text-sm tracking-wide transition-all active:scale-95 hover:bg-primary/10">
+                    Schedule 1:1
+                </button>
+</div>
+<!-- Professional Card 4 -->
+<div class="group relative glass-card border border-outline-variant/10 rounded-xl p-6 transition-all duration-500 hover:bg-surface-container-high hover:shadow-[0_0_40px_rgba(183,159,255,0.08)]">
+<div class="flex justify-between items-start mb-6">
+<div class="relative">
+<div class="w-20 h-20 rounded-xl overflow-hidden border-2 border-surface-container-highest">
+<img alt="Dr. Aris Thorne" class="w-full h-full object-cover" data-alt="Professional woman doctor in a futuristic lab coat, warm ambient lighting with floating digital data particles in the background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQWcbc_lIN8LOfMlBQbltR1jFfHIJ716R4INfPJQ6-TLCrDIGihEgw1DCyQ3ckhOt7VS81V2jh6Ut3U_GnLVnChO1kTxsFEELwuYZZdEr2ViAcDSIWJTXWZEYLHGTKBB9i7qlkj3B29q0K-2hLrJAPJlGKaWBr16QDcXFGLmtO4FyoqjcGhK2KZUphc_4bTRXoIP6N-oD3q1Yyq1Op6W-lfu1tX-DIqAUIr9Bhd_MCzGzhlsSFewc4ts2Be1DrCNSIjJ5FwCxu3ug"/>
+</div>
+<div class="absolute -bottom-1 -right-1 w-5 h-5 bg-secondary rounded-full border-4 border-surface ring-4 ring-secondary/20 shadow-[0_0_10px_#68fcbf]"></div>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">Match Score</span>
+<span class="text-xl font-headline font-bold text-secondary">81%</span>
+</div>
+</div>
+<div class="mb-6">
+<h3 class="text-2xl font-headline font-bold text-white mb-1">Dr. Aris Thorne</h3>
+<p class="text-primary font-medium text-sm">Bio-Mechanical Engineer</p>
+<div class="mt-4 flex flex-wrap gap-2">
+<span class="px-2 py-1 rounded bg-surface-container-lowest text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">Genomics</span>
+<span class="px-2 py-1 rounded bg-surface-container-lowest text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">AI-Health</span>
+</div>
+</div>
+<button class="w-full py-4 rounded-xl bg-gradient-to-br from-primary to-primary-container text-on-primary font-headline font-bold text-sm tracking-wide transition-all active:scale-95 shadow-lg shadow-primary/10 hover:shadow-primary/20">
+                    Schedule 1:1
+                </button>
+</div>
+<!-- Professional Card 5 -->
+<div class="group relative glass-card border border-outline-variant/10 rounded-xl p-6 transition-all duration-500 hover:bg-surface-container-high hover:shadow-[0_0_40px_rgba(183,159,255,0.08)] lg:col-span-2">
+<div class="flex flex-col md:flex-row gap-8 items-center h-full">
+<div class="relative flex-shrink-0">
+<div class="w-40 h-40 rounded-xl overflow-hidden border-2 border-surface-container-highest">
+<img alt="Xander Wu" class="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700" data-alt="Black and white portrait of a tech visionary with minimal colored neon line on the cheek, futuristic minimal style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBco0uVCntzL_9khVcg54pK4WuWA-_QkpLauskXlUFRJ1g4ylpi1_dGGl4owaiL8MEHsWyZsHHkQqsmuuGrmQeNi5CAoJ766Et0bepg158HWbBE2PuiiYtRx5ALLt48jzLSMYQ4nuh-aSUZIze5GPypRmPLtpO303rgK6jjC8JMVn4ghMXflVkqAPD6EiHXPdH6RX998GW0qcqDO3l0BWuRNtwgvGxyAhuPCczzND8LITOwEj6GK_H22l3hVnpdKGFrtESUweC2dKE"/>
+</div>
+<div class="absolute -bottom-2 -right-2 w-6 h-6 bg-secondary rounded-full border-4 border-surface ring-4 ring-secondary/20 shadow-[0_0_15px_#68fcbf]"></div>
+</div>
+<div class="flex-grow text-center md:text-left">
+<div class="flex justify-between items-start mb-2">
+<div>
+<span class="px-3 py-0.5 rounded-full bg-secondary/10 text-secondary text-[10px] font-bold uppercase tracking-widest mb-2 inline-block">Keynote Speaker</span>
+<h3 class="text-3xl font-headline font-bold text-white mb-1">Xander Wu</h3>
+<p class="text-primary font-medium">Head of Cognitive Logistics, Aether Corp</p>
+</div>
+<div class="hidden md:flex flex-col items-end">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-60">Prime Match</span>
+<span class="text-2xl font-headline font-bold text-secondary">99.9%</span>
+</div>
+</div>
+<p class="text-on-surface-variant text-sm line-clamp-2 mb-6">Expertise in hyper-localizing neural networks for deep space navigation. Available for executive briefings.</p>
+<div class="flex flex-col sm:flex-row gap-4">
+<button class="flex-1 py-4 rounded-xl bg-gradient-to-br from-primary to-primary-container text-on-primary font-headline font-bold text-sm tracking-wide transition-all active:scale-95">
+                                Schedule 1:1
+                            </button>
+<button class="flex-1 py-4 rounded-xl border border-outline-variant/30 text-on-surface-variant font-headline font-bold text-sm tracking-wide hover:bg-white/5 transition-all">
+                                View Research
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-[#150629]/40 backdrop-blur-[20px] shadow-[0_-10px_40px_rgba(167,139,250,0.12)] rounded-t-xl border-t border-white/5">
+<a class="flex flex-col items-center justify-center text-slate-400 px-4 py-2 hover:bg-white/10 transition-all duration-300" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="calendar_today">calendar_today</span>
+<span class="font-['Manrope'] text-[10px] font-semibold uppercase tracking-widest">Schedule</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 px-4 py-2 hover:bg-white/10 transition-all duration-300" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="explore">explore</span>
+<span class="font-['Manrope'] text-[10px] font-semibold uppercase tracking-widest">Floorplan</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-gradient-to-br from-[#b79fff] to-[#ab8ffe] text-[#150629] rounded-lg px-4 py-2 active:scale-90 transition-all duration-200 ease-out" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="hub">hub</span>
+<span class="font-['Manrope'] text-[10px] font-semibold uppercase tracking-widest">Feed</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 px-4 py-2 hover:bg-white/10 transition-all duration-300" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="style">style</span>
+<span class="font-['Manrope'] text-[10px] font-semibold uppercase tracking-widest">Badge</span>
+</a>
+</nav>
+</body></html>

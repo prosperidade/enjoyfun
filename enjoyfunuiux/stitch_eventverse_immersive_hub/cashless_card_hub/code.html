@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EnjoyFun Cashless Card Hub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "surface-container": "#22103a",
+                "background": "#150629",
+                "on-primary-fixed-variant": "#330b80",
+                "primary-fixed": "#ab8ffe",
+                "inverse-surface": "#fff7ff",
+                "secondary-dim": "#57edb1",
+                "tertiary-container": "#8342f4",
+                "primary": "#b79fff",
+                "tertiary-dim": "#8a4cfc",
+                "surface-container-high": "#291543",
+                "on-primary-container": "#290070",
+                "on-error": "#490013",
+                "surface-variant": "#301a4d",
+                "on-surface-variant": "#b7a3cf",
+                "on-secondary-fixed": "#004931",
+                "on-primary": "#361083",
+                "inverse-on-surface": "#5e4e74",
+                "outline-variant": "#514166",
+                "error": "#ff6e84",
+                "inverse-primary": "#684cb6",
+                "primary-container": "#ab8ffe",
+                "on-secondary-fixed-variant": "#006948",
+                "on-tertiary-fixed-variant": "#4a00a4",
+                "surface-dim": "#150629",
+                "on-primary-fixed": "#000000",
+                "error-dim": "#d73357",
+                "surface-tint": "#b79fff",
+                "secondary-fixed": "#68fcbf",
+                "on-surface": "#efdfff",
+                "tertiary-fixed": "#c0a0ff",
+                "tertiary": "#af88ff",
+                "on-secondary": "#005e40",
+                "on-secondary-container": "#e0ffec",
+                "on-error-container": "#ffb2b9",
+                "surface-container-lowest": "#000000",
+                "surface-container-highest": "#301a4d",
+                "secondary-container": "#006c4b",
+                "on-tertiary": "#2b0065",
+                "error-container": "#a70138",
+                "on-background": "#efdfff",
+                "primary-dim": "#a88cfb",
+                "primary-fixed-dim": "#9d81f0",
+                "tertiary-fixed-dim": "#b48fff",
+                "on-tertiary-fixed": "#200051",
+                "secondary": "#68fcbf",
+                "surface-container-low": "#1b0a31",
+                "surface": "#150629",
+                "secondary-fixed-dim": "#57edb1",
+                "surface-bright": "#372056",
+                "outline": "#806e96",
+                "on-tertiary-container": "#ffffff"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+            },
+            "fontFamily": {
+                "headline": ["Space Grotesk"],
+                "body": ["Manrope"],
+                "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #150629;
+            color: #efdfff;
+            font-family: 'Manrope', sans-serif;
+            overflow-x: hidden;
+        }
+        .space-bg {
+            background-image: radial-gradient(circle at 50% 50%, #22103a 0%, #150629 100%);
+        }
+        .glass-card {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(167, 139, 250, 0.15);
+        }
+        .hologram-glow {
+            box-shadow: 0 0 30px rgba(167, 139, 250, 0.2), inset 0 0 20px rgba(167, 139, 250, 0.1);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="space-bg min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#150629]/80 backdrop-blur-xl shadow-[0_0_30px_rgba(167,139,250,0.1)]">
+<div class="flex justify-between items-center px-6 py-4 w-full">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#A78BFA]" data-icon="account_balance_wallet">account_balance_wallet</span>
+<h1 class="font-['Space_Grotesk'] tracking-tighter uppercase text-xl font-bold tracking-widest text-[#A78BFA]">CARD HUB</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform hover:bg-[#A78BFA]/10 p-2 rounded-full">
+<span class="material-symbols-outlined text-[#A78BFA]" data-icon="qr_code_scanner">qr_code_scanner</span>
+</button>
+</div>
+</div>
+<div class="h-[1px] w-full bg-gradient-to-r from-transparent via-[#A78BFA]/20 to-transparent"></div>
+</header>
+<main class="pt-24 px-6 max-w-lg mx-auto">
+<!-- Holographic Wallet Card -->
+<section class="relative mb-8 group">
+<div class="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-full blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+<div class="glass-card hologram-glow rounded-full p-8 relative flex flex-col justify-between aspect-[1.6/1] overflow-hidden">
+<!-- Abstract BG for Card -->
+<div class="absolute top-0 right-0 -mr-10 -mt-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl"></div>
+<div class="absolute bottom-0 left-0 -ml-10 -mb-10 w-32 h-32 bg-secondary/10 rounded-full blur-3xl"></div>
+<div class="flex justify-between items-start">
+<div>
+<p class="font-headline text-[10px] tracking-[0.2em] text-on-surface-variant uppercase opacity-70">Cashless Wallet</p>
+<h2 class="font-headline text-3xl font-bold mt-1 tracking-tight">ENJOY<span class="text-secondary">FUN</span></h2>
+</div>
+<span class="material-symbols-outlined text-4xl text-primary/40" data-icon="contactless">contactless</span>
+</div>
+<div class="mt-auto">
+<p class="font-headline text-[10px] tracking-[0.2em] text-on-surface-variant uppercase mb-1">Current Balance</p>
+<div class="flex items-baseline gap-2">
+<span class="font-headline text-5xl font-extrabold tracking-tighter text-on-surface">450.00</span>
+<span class="font-headline text-xl font-bold text-secondary">FUN</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Quick Recharge -->
+<section class="mb-10">
+<h3 class="font-headline text-sm font-bold tracking-widest text-on-surface-variant mb-4 flex items-center gap-2 uppercase">
+<span class="w-1 h-1 bg-secondary rounded-full"></span> Quick Recharge
+            </h3>
+<div class="grid grid-cols-3 gap-3">
+<button class="surface-container-low hover:surface-container-highest border border-outline-variant/20 py-4 rounded-xl flex flex-col items-center justify-center transition-all active:scale-95 group">
+<span class="font-headline text-lg font-bold group-hover:text-secondary transition-colors">50</span>
+<span class="font-label text-[10px] text-on-surface-variant">CREDITS</span>
+</button>
+<button class="surface-container-low hover:surface-container-highest border border-outline-variant/20 py-4 rounded-xl flex flex-col items-center justify-center transition-all active:scale-95 group">
+<span class="font-headline text-lg font-bold group-hover:text-secondary transition-colors">100</span>
+<span class="font-label text-[10px] text-on-surface-variant">CREDITS</span>
+</button>
+<button class="surface-container-low hover:surface-container-highest border border-outline-variant/20 py-4 rounded-xl flex flex-col items-center justify-center transition-all active:scale-95 group">
+<span class="font-headline text-lg font-bold group-hover:text-secondary transition-colors">200</span>
+<span class="font-label text-[10px] text-on-surface-variant">CREDITS</span>
+</button>
+</div>
+</section>
+<!-- Digital Wallets Integration -->
+<section class="grid grid-cols-2 gap-4 mb-10">
+<button class="flex items-center justify-center gap-2 py-4 px-4 rounded-full bg-surface-container-lowest border border-[#4285F4]/30 hover:bg-[#4285F4]/10 transition-colors group">
+<span class="material-symbols-outlined text-[#4285F4]" data-icon="wallet">wallet</span>
+<span class="font-label text-[10px] font-bold text-on-surface tracking-wider">GOOGLE WALLET</span>
+</button>
+<button class="flex items-center justify-center gap-2 py-4 px-4 rounded-full bg-surface-container-lowest border border-on-surface/30 hover:bg-on-surface/10 transition-colors group">
+<span class="material-symbols-outlined text-on-surface" data-icon="apple">ios</span>
+<span class="font-label text-[10px] font-bold text-on-surface tracking-wider">APPLE WALLET</span>
+</button>
+</section>
+<!-- Where to Use -->
+<section class="mb-10">
+<h3 class="font-headline text-sm font-bold tracking-widest text-on-surface-variant mb-4 flex items-center gap-2 uppercase">
+<span class="w-1 h-1 bg-secondary rounded-full"></span> Where to Use
+            </h3>
+<div class="flex gap-4">
+<div class="flex-1 surface-container-high/40 p-4 rounded-xl flex flex-col items-center gap-2 border border-outline-variant/10">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl" data-icon="local_bar">local_bar</span>
+</div>
+<span class="font-label text-[10px] font-medium text-on-surface-variant uppercase tracking-widest">Neon Bar</span>
+</div>
+<div class="flex-1 surface-container-high/40 p-4 rounded-xl flex flex-col items-center gap-2 border border-outline-variant/10">
+<div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-2xl" data-icon="shopping_bag">shopping_bag</span>
+</div>
+<span class="font-label text-[10px] font-medium text-on-surface-variant uppercase tracking-widest">Gift Shop</span>
+</div>
+<div class="flex-1 surface-container-high/40 p-4 rounded-xl flex flex-col items-center gap-2 border border-outline-variant/10">
+<div class="w-12 h-12 rounded-full bg-tertiary/10 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-2xl" data-icon="restaurant">restaurant</span>
+</div>
+<span class="font-label text-[10px] font-medium text-on-surface-variant uppercase tracking-widest">Food Court</span>
+</div>
+</div>
+</section>
+<!-- Transaction History -->
+<section class="mb-8">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline text-sm font-bold tracking-widest text-on-surface-variant flex items-center gap-2 uppercase">
+<span class="w-1 h-1 bg-secondary rounded-full"></span> Recent History
+                </h3>
+<button class="font-label text-[10px] text-primary font-bold tracking-widest uppercase hover:underline underline-offset-4">View All</button>
+</div>
+<div class="space-y-1">
+<!-- Transaction Item -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low/30 rounded-xl border-b border-outline-variant/5">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-fixed" data-icon="wine_bar">wine_bar</span>
+</div>
+<div>
+<p class="font-body font-bold text-on-surface text-sm">Neon Galaxy Bar</p>
+<p class="font-body text-[10px] text-on-surface-variant">Today, 22:45</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-headline font-bold text-error text-sm">- 45.00 FUN</p>
+<p class="font-body text-[10px] text-on-surface-variant">Approved</p>
+</div>
+</div>
+<!-- Transaction Item -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low/30 rounded-xl border-b border-outline-variant/5">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary" data-icon="add_circle">add_circle</span>
+</div>
+<div>
+<p class="font-body font-bold text-on-surface text-sm">Quick Recharge</p>
+<p class="font-body text-[10px] text-on-surface-variant">Yesterday, 14:20</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-headline font-bold text-secondary text-sm">+ 200.00 FUN</p>
+<p class="font-body text-[10px] text-on-surface-variant">Bank Transfer</p>
+</div>
+</div>
+<!-- Transaction Item -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low/30 rounded-xl">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary" data-icon="fastfood">fastfood</span>
+</div>
+<div>
+<p class="font-body font-bold text-on-surface text-sm">Astro Pizza</p>
+<p class="font-body text-[10px] text-on-surface-variant">Yesterday, 12:10</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-headline font-bold text-error text-sm">- 18.50 FUN</p>
+<p class="font-body text-[10px] text-on-surface-variant">Approved</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 bg-[#150629]/40 backdrop-blur-2xl rounded-t-xl border-t border-[#A78BFA]/15 shadow-[0_-10px_40px_rgba(167,139,250,0.15)]">
+<a class="flex flex-col items-center justify-center text-[#A78BFA]/50 px-4 py-1 hover:text-[#A78BFA] transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="home">home</span>
+<span class="font-['Manrope'] text-[10px] font-bold tracking-[0.1em] uppercase">HOME</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-[#A78BFA]/20 text-[#68fcbf] rounded-xl px-4 py-1 shadow-[0_0_15px_rgba(104,252,191,0.3)] active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="payments">payments</span>
+<span class="font-['Manrope'] text-[10px] font-bold tracking-[0.1em] uppercase">WALLET</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#A78BFA]/50 px-4 py-1 hover:text-[#A78BFA] transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="receipt_long">receipt_long</span>
+<span class="font-['Manrope'] text-[10px] font-bold tracking-[0.1em] uppercase">HISTORY</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#A78BFA]/50 px-4 py-1 hover:text-[#A78BFA] transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="explore">explore</span>
+<span class="font-['Manrope'] text-[10px] font-bold tracking-[0.1em] uppercase">MAP</span>
+</a>
+</nav>
+<!-- Background Decoration Elements -->
+<div class="fixed top-1/4 -left-20 w-64 h-64 bg-primary/5 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+<div class="fixed bottom-1/4 -right-20 w-80 h-80 bg-tertiary/5 rounded-full blur-[120px] pointer-events-none -z-10"></div>
+</body></html>

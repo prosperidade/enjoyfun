@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800;900&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-on-surface": "#5e4e74",
+                    "on-surface-variant": "#b7a3cf",
+                    "on-secondary-fixed": "#004931",
+                    "primary-fixed-dim": "#9d81f0",
+                    "outline": "#806e96",
+                    "error-container": "#a70138",
+                    "tertiary-dim": "#8a4cfc",
+                    "error-dim": "#d73357",
+                    "surface-container-low": "#1b0a31",
+                    "error": "#ff6e84",
+                    "on-primary-container": "#290070",
+                    "on-secondary-container": "#e0ffec",
+                    "on-tertiary-container": "#ffffff",
+                    "primary": "#b79fff",
+                    "tertiary": "#af88ff",
+                    "primary-container": "#ab8ffe",
+                    "on-tertiary-fixed": "#200051",
+                    "secondary-container": "#006c4b",
+                    "tertiary-container": "#8342f4",
+                    "surface-tint": "#b79fff",
+                    "secondary": "#68fcbf",
+                    "on-secondary-fixed-variant": "#006948",
+                    "on-primary-fixed-variant": "#330b80",
+                    "tertiary-fixed-dim": "#b48fff",
+                    "on-tertiary-fixed-variant": "#4a00a4",
+                    "surface": "#150629",
+                    "surface-bright": "#372056",
+                    "secondary-dim": "#57edb1",
+                    "surface-container-highest": "#301a4d",
+                    "on-primary-fixed": "#000000",
+                    "tertiary-fixed": "#c0a0ff",
+                    "background": "#150629",
+                    "on-surface": "#efdfff",
+                    "outline-variant": "#514166",
+                    "on-primary": "#361083",
+                    "primary-dim": "#a88cfb",
+                    "on-tertiary": "#2b0065",
+                    "surface-variant": "#301a4d",
+                    "on-background": "#efdfff",
+                    "inverse-primary": "#684cb6",
+                    "inverse-surface": "#fff7ff",
+                    "secondary-fixed": "#68fcbf",
+                    "surface-dim": "#150629",
+                    "on-secondary": "#005e40",
+                    "surface-container-lowest": "#000000",
+                    "surface-container": "#22103a",
+                    "surface-container-high": "#291543",
+                    "secondary-fixed-dim": "#57edb1",
+                    "on-error": "#490013",
+                    "on-error-container": "#ffb2b9",
+                    "primary-fixed": "#ab8ffe"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Manrope"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .neon-glow-primary {
+            box-shadow: 0 0 20px rgba(183, 159, 255, 0.15);
+        }
+        .neon-glow-secondary {
+            box-shadow: 0 0 15px rgba(104, 252, 191, 0.2);
+        }
+        .qr-gradient {
+            background: linear-gradient(135deg, #b79fff 0%, #68fcbf 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body selection:bg-secondary selection:text-surface overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-[#150629]/60 backdrop-blur-[20px] shadow-[0_10px_30px_rgba(167,139,250,0.05)] bg-gradient-to-b from-violet-500/10 to-transparent">
+<div class="flex justify-between items-center w-full px-6 py-4 max-w-screen-xl mx-auto">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full border-2 border-primary/30 overflow-hidden bg-surface-container-highest">
+<img alt="Commander Alex Profile" class="w-full h-full object-cover" data-alt="futuristic digital portrait of a person with holographic overlays and violet lighting atmospheric tech aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAMjG-X76Zo7Drcz_b3RX1J7Px6WvG_n7SDbTFAyPZb9KGx7X0u_n-pkId7cxrDNFemKwXvukZ4NHi-CFwQhusLox2Wbz9IceHZNNuGxIOAr946M0VQ2Vui8MioblArqB4m4Qt9cizLSJz61Fv7CZwFZglhD9adZeM3NujwyvY4XG935ksrsWUNbBLiTf9zX9KWnNnQ6vxASH6gKjQZfqm5wqfl4PxuxN_EP1cMKnVW0ocMacYvCQ5JLPkdtfFUsDTHTURYXX-THL8"/>
+</div>
+<h1 class="text-xl font-black tracking-tighter text-white uppercase font-['Space_Grotesk']">AETHER CONGRES</h1>
+</div>
+<button class="text-violet-400 hover:text-violet-300 transition-colors duration-300 active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="smart_toy">smart_toy</span>
+</button>
+</div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-screen-xl mx-auto space-y-12">
+<!-- Holographic Attendee Badge -->
+<section class="relative group">
+<div class="absolute -inset-1 bg-gradient-to-r from-primary via-secondary to-tertiary rounded-xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
+<div class="relative glass-panel rounded-xl p-8 border border-white/5 overflow-hidden">
+<div class="flex flex-col md:flex-row justify-between gap-8">
+<div class="flex-1 space-y-6">
+<div>
+<span class="font-label text-xs tracking-[0.2em] text-secondary uppercase opacity-70 mb-2 block">System Identification</span>
+<h2 class="font-headline text-5xl md:text-6xl font-black tracking-tighter text-white uppercase leading-none">Commander Alex</h2>
+<p class="font-headline text-xl text-primary-fixed-dim mt-2 tracking-tight">Aether Systems | Platinum Access</p>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-lowest/50 p-4 rounded-lg border border-white/5">
+<span class="block font-label text-[10px] uppercase tracking-widest text-on-surface-variant mb-1">Status</span>
+<span class="text-secondary font-bold flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+                                    ACTIVE
+                                </span>
+</div>
+<div class="bg-surface-container-lowest/50 p-4 rounded-lg border border-white/5">
+<span class="block font-label text-[10px] uppercase tracking-widest text-on-surface-variant mb-1">Sector</span>
+<span class="text-white font-bold">ALPHA-7</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col items-center justify-center p-4 bg-white/5 rounded-xl border border-white/10 backdrop-blur-md">
+<div class="relative p-2 bg-white rounded-lg shadow-[0_0_30px_rgba(183,159,255,0.4)]">
+<div class="w-32 h-32 md:w-40 md:h-40 qr-gradient p-1 rounded-sm overflow-hidden flex items-center justify-center">
+<div class="bg-white w-full h-full flex items-center justify-center">
+<span class="material-symbols-outlined text-surface text-6xl" data-icon="qr_code_2">qr_code_2</span>
+</div>
+</div>
+</div>
+<span class="mt-4 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Nexus Pass ID: 2187-A</span>
+</div>
+</div>
+<!-- Aesthetic Grid Overlay -->
+<div class="absolute inset-0 pointer-events-none opacity-[0.03]" style="background-image: radial-gradient(circle, #fff 1px, transparent 1px); background-size: 30px 30px;"></div>
+</div>
+</section>
+<!-- Live Sessions Block -->
+<section class="space-y-6">
+<div class="flex items-center justify-between">
+<h3 class="font-headline text-2xl font-bold tracking-tight text-white flex items-center gap-3">
+<span class="material-symbols-outlined text-error" data-icon="sensors" style="font-variation-settings: 'FILL' 1;">sensors</span>
+                    Live Sessions
+                </h3>
+<div class="px-3 py-1 bg-error-container/20 border border-error/30 rounded-full">
+<span class="text-error text-xs font-bold uppercase tracking-tighter">Emergency Alert System Online</span>
+</div>
+</div>
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low border border-white/5">
+<div class="flex flex-col lg:flex-row h-full">
+<div class="relative w-full lg:w-2/3 aspect-video lg:aspect-auto h-full min-h-[300px]">
+<img alt="Live Keynote stream" class="w-full h-full object-cover" data-alt="cinematic shot of a technology conference stage with neon violet lights and high-tech digital displays presenting abstract data visualizations" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCb0CGuHATJ8ps4-1nr109kOcwLXgz-hrVjJS9ndgK5NsnhT6cc4cG-PrUHK0DGAhF3gGnHQGyA3WcHIEkQftHiTp-iZOxR_Zh0qRm6ovxz_GHiQ5XmfxFElW8W9g9lu8eunONOYFJVgK3VMNnlKe4ZK1qLL20OgBXiXcKExwwFfqJkrumpqtfUXmJjWRK5c8VDaLA71QfqZbOz0OyP7M5Nw3YEBbGlqT9u2Hok18AE70ApyhVYmmnjVUWj2A8TOa9fTjI1OFFcUVY"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-transparent to-transparent"></div>
+<div class="absolute bottom-6 left-6 flex items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-primary/20 backdrop-blur-xl border border-primary/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</div>
+<span class="font-bold text-white tracking-tight">Main Hall: Nexus Keynote</span>
+</div>
+</div>
+<div class="p-8 lg:w-1/3 flex flex-col justify-center space-y-6">
+<div>
+<span class="text-secondary font-bold text-xs uppercase tracking-[0.2em] mb-2 block">Happening Now</span>
+<h4 class="font-headline text-3xl font-bold leading-tight text-white">Quantum Encryption in Deep Space Networks</h4>
+<p class="text-on-surface-variant text-sm mt-4 leading-relaxed">Join Dr. Aris Thorne as we delve into the next generation of secure interstellar communications protocol.</p>
+</div>
+<div class="flex flex-col gap-3">
+<button class="w-full py-4 bg-gradient-to-br from-primary to-primary-container text-on-primary-fixed font-black uppercase tracking-widest text-sm rounded-md transition-all duration-300 hover:scale-[1.02] active:scale-95 neon-glow-primary">
+                                Join Stream
+                            </button>
+<button class="w-full py-4 bg-transparent border border-outline-variant/30 text-primary font-bold uppercase tracking-widest text-xs rounded-md hover:bg-white/5 transition-all">
+                                View Details
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Your Schedule Summary -->
+<section class="space-y-6">
+<h3 class="font-headline text-2xl font-bold tracking-tight text-white flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" data-icon="event_note">event_note</span>
+                Your Schedule
+            </h3>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Session 1 -->
+<div class="glass-panel p-6 rounded-xl border-l-4 border-l-secondary relative group cursor-pointer hover:bg-surface-container-high transition-all">
+<div class="flex justify-between items-start mb-4">
+<span class="font-label text-sm font-bold text-secondary">14:00 - 15:30</span>
+<span class="material-symbols-outlined text-white/20 group-hover:text-secondary transition-colors" data-icon="arrow_outward">arrow_outward</span>
+</div>
+<h5 class="font-headline text-lg font-bold text-white mb-2">Synthetic Lifeforms &amp; Ethics</h5>
+<p class="text-xs text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]" data-icon="location_on">location_on</span>
+                        Sector G: Bio-Dome
+                    </p>
+</div>
+<!-- Session 2 -->
+<div class="glass-panel p-6 rounded-xl border-l-4 border-l-primary relative group cursor-pointer hover:bg-surface-container-high transition-all">
+<div class="flex justify-between items-start mb-4">
+<span class="font-label text-sm font-bold text-primary">16:00 - 17:00</span>
+<span class="material-symbols-outlined text-white/20 group-hover:text-primary transition-colors" data-icon="arrow_outward">arrow_outward</span>
+</div>
+<h5 class="font-headline text-lg font-bold text-white mb-2">The Terraform Initiative</h5>
+<p class="text-xs text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]" data-icon="location_on">location_on</span>
+                        Main Hall: Stage A
+                    </p>
+</div>
+<!-- Session 3 -->
+<div class="glass-panel p-6 rounded-xl border-l-4 border-l-tertiary relative group cursor-pointer hover:bg-surface-container-high transition-all">
+<div class="flex justify-between items-start mb-4">
+<span class="font-label text-sm font-bold text-tertiary">17:30 - 18:30</span>
+<span class="material-symbols-outlined text-white/20 group-hover:text-tertiary transition-colors" data-icon="arrow_outward">arrow_outward</span>
+</div>
+<h5 class="font-headline text-lg font-bold text-white mb-2">Exoplanet Resource Mining</h5>
+<p class="text-xs text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]" data-icon="location_on">location_on</span>
+                        Lab 4: Industrial Sector
+                    </p>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 bg-[#150629]/40 backdrop-blur-[20px] shadow-[0_-10px_40px_rgba(167,139,250,0.12)] flex justify-around items-center px-4 pb-6 pt-2 rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-slate-400 px-4 py-2 hover:bg-white/10 transition-all duration-300" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="calendar_today">calendar_today</span>
+<span class="font-['Manrope'] text-[10px] font-semibold uppercase tracking-widest">Schedule</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 px-4 py-2 hover:bg-white/10 transition-all duration-300" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="explore">explore</span>
+<span class="font-['Manrope'] text-[10px] font-semibold uppercase tracking-widest">Floorplan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 px-4 py-2 hover:bg-white/10 transition-all duration-300" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="hub">hub</span>
+<span class="font-['Manrope'] text-[10px] font-semibold uppercase tracking-widest">Feed</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-gradient-to-br from-[#b79fff] to-[#ab8ffe] text-[#150629] rounded-lg px-4 py-2 active:scale-90 transition-all duration-200 ease-out" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="style" style="font-variation-settings: 'FILL' 1;">style</span>
+<span class="font-['Manrope'] text-[10px] font-semibold uppercase tracking-widest">Badge</span>
+</a>
+</nav>
+</body></html>

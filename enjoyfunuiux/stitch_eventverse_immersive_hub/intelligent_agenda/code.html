@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Intelligent Agenda | AETHER CONGRES</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#5e4e74",
+                        "on-surface-variant": "#b7a3cf",
+                        "on-secondary-fixed": "#004931",
+                        "primary-fixed-dim": "#9d81f0",
+                        "outline": "#806e96",
+                        "error-container": "#a70138",
+                        "tertiary-dim": "#8a4cfc",
+                        "error-dim": "#d73357",
+                        "surface-container-low": "#1b0a31",
+                        "error": "#ff6e84",
+                        "on-primary-container": "#290070",
+                        "on-secondary-container": "#e0ffec",
+                        "on-tertiary-container": "#ffffff",
+                        "primary": "#b79fff",
+                        "tertiary": "#af88ff",
+                        "primary-container": "#ab8ffe",
+                        "on-tertiary-fixed": "#200051",
+                        "secondary-container": "#006c4b",
+                        "tertiary-container": "#8342f4",
+                        "surface-tint": "#b79fff",
+                        "secondary": "#68fcbf",
+                        "on-secondary-fixed-variant": "#006948",
+                        "on-primary-fixed-variant": "#330b80",
+                        "tertiary-fixed-dim": "#b48fff",
+                        "on-tertiary-fixed-variant": "#4a00a4",
+                        "surface": "#150629",
+                        "surface-bright": "#372056",
+                        "secondary-dim": "#57edb1",
+                        "surface-container-highest": "#301a4d",
+                        "on-primary-fixed": "#000000",
+                        "tertiary-fixed": "#c0a0ff",
+                        "background": "#150629",
+                        "on-surface": "#efdfff",
+                        "outline-variant": "#514166",
+                        "on-primary": "#361083",
+                        "primary-dim": "#a88cfb",
+                        "on-tertiary": "#2b0065",
+                        "surface-variant": "#301a4d",
+                        "on-background": "#efdfff",
+                        "inverse-primary": "#684cb6",
+                        "inverse-surface": "#fff7ff",
+                        "secondary-fixed": "#68fcbf",
+                        "surface-dim": "#150629",
+                        "on-secondary": "#005e40",
+                        "surface-container-lowest": "#000000",
+                        "surface-container": "#22103a",
+                        "surface-container-high": "#291543",
+                        "secondary-fixed-dim": "#57edb1",
+                        "on-error": "#490013",
+                        "on-error-container": "#ffb2b9",
+                        "primary-fixed": "#ab8ffe"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Manrope"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .text-glow-primary {
+            text-shadow: 0 0 10px rgba(183, 159, 255, 0.5);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body selection:bg-primary selection:text-on-primary">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-[#150629]/60 backdrop-blur-[20px] shadow-[0_10px_30px_rgba(167,139,250,0.05)] border-b border-white/5">
+<div class="flex justify-between items-center w-full px-6 py-4 max-w-screen-xl mx-auto">
+<div class="flex items-center gap-4">
+<div class="h-10 w-10 rounded-full overflow-hidden border-2 border-primary/30">
+<img alt="User Badge" class="w-full h-full object-cover" data-alt="abstract holographic badge with geometric shapes and purple glowing gradients" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBaZFbKml8I2yvbsj_-WUhXo7FAoKSgXHKOkAi05e1m7AaXYGCAGAx0NSvU1u9TBQsIH89_g2QYavi6bYhLi7MpiAQwtMbcXr8YVM3m-NM-zfnzV7k0RgGJVg0Cb0c7Z3Fx3YZONUBgOauympfvVHQegzLdanqAnM4C5G87NWddRepIGgU7vQZma6Nyoy6pSHfPn8_H1zWMK5hSzcFflt5mDhsOSpYmXFZ7dVFeZSwo3oSpWLouW_FajEVb5Evj0iJ4pnS0VUSaKzM"/>
+</div>
+<h1 class="text-xl font-black tracking-tighter text-white uppercase font-headline">AETHER CONGRES</h1>
+</div>
+<div class="flex items-center gap-6">
+<nav class="hidden md:flex gap-8 items-center">
+<a class="font-headline tracking-tight font-bold text-violet-400 transition-colors duration-300" href="#">Schedule</a>
+<a class="font-headline tracking-tight font-bold text-slate-400 hover:text-violet-300 transition-colors duration-300" href="#">Floorplan</a>
+<a class="font-headline tracking-tight font-bold text-slate-400 hover:text-violet-300 transition-colors duration-300" href="#">Feed</a>
+<a class="font-headline tracking-tight font-bold text-slate-400 hover:text-violet-300 transition-colors duration-300" href="#">Badge</a>
+</nav>
+<button class="material-symbols-outlined text-violet-400 active:scale-95 transition-transform" data-icon="smart_toy">smart_toy</button>
+</div>
+</div>
+<div class="h-[1px] w-full bg-gradient-to-r from-transparent via-violet-500/20 to-transparent"></div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-screen-xl mx-auto min-h-screen">
+<!-- Hero Section / Title -->
+<div class="mb-12 relative">
+<div class="absolute -top-20 -left-20 w-64 h-64 bg-primary/10 rounded-full blur-[100px]"></div>
+<span class="font-label text-[10px] uppercase tracking-[0.3em] text-secondary mb-2 block font-bold">Protocol: Agenda v.24.1</span>
+<h2 class="text-5xl md:text-7xl font-black font-headline tracking-tighter text-white leading-none">INTELLIGENT<br/><span class="text-primary text-glow-primary">SCHEDULE</span></h2>
+</div>
+<!-- Filter Chips -->
+<div class="flex gap-3 mb-12 overflow-x-auto pb-4 no-scrollbar">
+<button class="px-6 py-2 rounded-lg glass-panel border border-primary text-primary font-headline text-sm font-bold whitespace-nowrap">All Tracks</button>
+<button class="px-6 py-2 rounded-lg glass-panel border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all font-headline text-sm font-bold whitespace-nowrap">Engineering</button>
+<button class="px-6 py-2 rounded-lg glass-panel border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all font-headline text-sm font-bold whitespace-nowrap">Business</button>
+<button class="px-6 py-2 rounded-lg glass-panel border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all font-headline text-sm font-bold whitespace-nowrap">Design</button>
+<button class="px-6 py-2 rounded-lg glass-panel border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all font-headline text-sm font-bold whitespace-nowrap">Space Ops</button>
+</div>
+<!-- Timeline Container -->
+<div class="relative">
+<!-- Vertical Line -->
+<div class="absolute left-0 md:left-24 top-0 bottom-0 w-px bg-gradient-to-b from-primary/50 via-white/10 to-transparent ml-4 md:ml-0"></div>
+<div class="space-y-12">
+<!-- Session Item 1 (Engineering - Violet) -->
+<div class="relative pl-12 md:pl-0 md:grid md:grid-cols-[120px_1fr] gap-12 group">
+<div class="hidden md:flex flex-col items-end pt-4">
+<span class="text-2xl font-black font-headline text-white">09:00</span>
+<span class="text-[10px] font-label tracking-widest text-slate-500 uppercase font-bold">START OPS</span>
+</div>
+<div class="absolute left-4 md:left-24 top-6 -translate-x-1/2 w-4 h-4 rounded-full border-4 border-background bg-primary shadow-[0_0_15px_rgba(183,159,255,0.8)] z-10"></div>
+<div class="glass-panel p-6 rounded-xl border border-white/5 hover:border-primary/30 transition-all duration-500 group-hover:translate-x-2">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+<div class="space-y-1">
+<div class="flex items-center gap-2 mb-2">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter bg-primary/20 text-primary border border-primary/30">Engineering</span>
+<span class="text-slate-500 text-xs font-medium md:hidden">09:00 — 10:30</span>
+</div>
+<h3 class="text-2xl font-bold font-headline text-white">Quantum Warp Navigation: Theoretical Limits</h3>
+<p class="text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="person">person</span>
+                                    Dr. Aris Thorne
+                                </p>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-slate-400 text-sm flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+                                    Nebula Hall A1
+                                </span>
+<button class="bg-gradient-to-br from-primary to-primary-container text-background font-black font-headline px-6 py-2 rounded-lg text-sm active:scale-90 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                    RESERVED
+                                </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Session Item 2 (Business - Emerald) -->
+<div class="relative pl-12 md:pl-0 md:grid md:grid-cols-[120px_1fr] gap-12 group">
+<div class="hidden md:flex flex-col items-end pt-4">
+<span class="text-2xl font-black font-headline text-white">11:15</span>
+<span class="text-[10px] font-label tracking-widest text-slate-500 uppercase font-bold">MARKET FLOW</span>
+</div>
+<div class="absolute left-4 md:left-24 top-6 -translate-x-1/2 w-4 h-4 rounded-full border-4 border-background bg-secondary shadow-[0_0_15px_rgba(104,252,191,0.5)] z-10"></div>
+<div class="glass-panel p-6 rounded-xl border border-white/5 hover:border-secondary/30 transition-all duration-500 group-hover:translate-x-2">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+<div class="space-y-1">
+<div class="flex items-center gap-2 mb-2">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter bg-secondary/20 text-secondary border border-secondary/30">Business</span>
+<span class="text-slate-500 text-xs font-medium md:hidden">11:15 — 12:45</span>
+</div>
+<h3 class="text-2xl font-bold font-headline text-white">Resource Mining Ethics in the Outer Rim</h3>
+<p class="text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="person">person</span>
+                                    Director Sarah Vance
+                                </p>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-slate-400 text-sm flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+                                    Zenith Command Center
+                                </span>
+<button class="bg-surface-container-highest border border-white/10 hover:border-secondary/50 text-white font-black font-headline px-6 py-2 rounded-lg text-sm active:scale-90 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="bookmark">bookmark</span>
+                                    BOOK SEAT
+                                </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Session Item 3 (Space Ops - Slate/Glass) -->
+<div class="relative pl-12 md:pl-0 md:grid md:grid-cols-[120px_1fr] gap-12 group opacity-60">
+<div class="hidden md:flex flex-col items-end pt-4">
+<span class="text-2xl font-black font-headline text-white">14:00</span>
+<span class="text-[10px] font-label tracking-widest text-slate-500 uppercase font-bold">MAINTENANCE</span>
+</div>
+<div class="absolute left-4 md:left-24 top-6 -translate-x-1/2 w-4 h-4 rounded-full border-4 border-background bg-slate-500 z-10"></div>
+<div class="glass-panel p-6 rounded-xl border border-white/5 transition-all duration-500">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+<div class="space-y-1">
+<div class="flex items-center gap-2 mb-2">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter bg-white/10 text-white/50 border border-white/20">Space Ops</span>
+<span class="text-slate-500 text-xs font-medium md:hidden">14:00 — 15:30</span>
+</div>
+<h3 class="text-2xl font-bold font-headline text-white/50">Zero-G Logistics &amp; Supply Chains</h3>
+<p class="text-slate-600 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="person">person</span>
+                                    Cmdr. Alex Kaan
+                                </p>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-slate-600 text-sm flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+                                    Hangar 7
+                                </span>
+<span class="text-[10px] font-black uppercase tracking-widest text-error">CAPACITY REACHED</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Session Item 4 (Engineering - Violet) -->
+<div class="relative pl-12 md:pl-0 md:grid md:grid-cols-[120px_1fr] gap-12 group">
+<div class="hidden md:flex flex-col items-end pt-4">
+<span class="text-2xl font-black font-headline text-white">16:15</span>
+<span class="text-[10px] font-label tracking-widest text-slate-500 uppercase font-bold">TECH SURGE</span>
+</div>
+<div class="absolute left-4 md:left-24 top-6 -translate-x-1/2 w-4 h-4 rounded-full border-4 border-background bg-primary shadow-[0_0_15px_rgba(183,159,255,0.8)] z-10"></div>
+<div class="glass-panel p-6 rounded-xl border border-white/5 hover:border-primary/30 transition-all duration-500 group-hover:translate-x-2">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+<div class="space-y-1">
+<div class="flex items-center gap-2 mb-2">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter bg-primary/20 text-primary border border-primary/30">Engineering</span>
+<span class="text-slate-500 text-xs font-medium md:hidden">16:15 — 17:45</span>
+</div>
+<h3 class="text-2xl font-bold font-headline text-white">AI-Driven Terraform Algorithms</h3>
+<p class="text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="person">person</span>
+                                    Chief Scientist L. Vonn
+                                </p>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-slate-400 text-sm flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+                                    Nebula Hall A1
+                                </span>
+<button class="bg-surface-container-highest border border-white/10 hover:border-primary/50 text-white font-black font-headline px-6 py-2 rounded-lg text-sm active:scale-90 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="bookmark">bookmark</span>
+                                    BOOK SEAT
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- FAB (Contextual for Schedule) -->
+<button class="fixed right-6 bottom-24 md:bottom-10 z-[60] h-14 w-14 rounded-full bg-gradient-to-br from-primary to-primary-container text-background shadow-[0_0_30px_rgba(167,139,250,0.4)] flex items-center justify-center active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">add</span>
+</button>
+</main>
+<!-- NavigationDrawer (Hidden by default, structure provided) -->
+<div class="fixed inset-y-0 left-0 z-[100] flex flex-col p-8 bg-[#150629] h-full w-80 border-r border-violet-500/10 shadow-[40px_0_80px_rgba(0,0,0,0.5)] transform -translate-x-full transition-all duration-300 ease-in-out" id="drawer">
+<div class="mb-12">
+<div class="flex items-center gap-4 mb-6">
+<div class="h-14 w-14 rounded-full border-2 border-primary overflow-hidden">
+<img alt="Attendee Profile Picture" class="w-full h-full object-cover" data-alt="portrait of a futuristic space commander wearing a sleek uniform with glowing tech accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUathP8HxU3u1jJipXC9eMv1eaReTNHkBgDf2xPkM3OR44cFK-NxBgSQVhQjT4oEET8q1_E8-UGe3_TLulTGAF27KcX-U8t-JPXwlTnhwiv8MuSW6CW0eQC9c8MccHcoTYZB0RNwcoz0rPoOl5-bVitpqAJwhmWQ4iPRs0GcNWc5eMSSOflFItOCSigh9lRk4uRRSq52fVzyurWoIogRXCFlEZQsfElrihNx6kOZhhE5doQ1mbpkX-pusNcLNGMcu47CaequaR3ns"/>
+</div>
+<div>
+<h4 class="font-headline text-lg font-bold text-white">Commander Alex</h4>
+<p class="text-primary text-xs font-bold uppercase tracking-widest">Platinum Badge Holder</p>
+<p class="text-slate-500 text-[10px]">ID: 2187-A</p>
+</div>
+</div>
+<h2 class="text-2xl font-bold text-white font-headline">AETHER MENU</h2>
+</div>
+<nav class="flex flex-col gap-4">
+<a class="flex items-center gap-4 p-3 rounded-lg text-slate-400 hover:bg-violet-900/20 hover:text-white transition-all font-headline text-lg font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="record_voice_over">record_voice_over</span>
+                Speaker List
+            </a>
+<a class="flex items-center gap-4 p-3 rounded-lg text-slate-400 hover:bg-violet-900/20 hover:text-white transition-all font-headline text-lg font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="stars">stars</span>
+                Sponsors
+            </a>
+<a class="flex items-center gap-4 p-3 rounded-lg text-slate-400 hover:bg-violet-900/20 hover:text-white transition-all font-headline text-lg font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="support_agent">support_agent</span>
+                Help Desk
+            </a>
+<a class="flex items-center gap-4 p-3 rounded-lg text-slate-400 hover:bg-violet-900/20 hover:text-white transition-all font-headline text-lg font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                Settings
+            </a>
+<div class="mt-8 pt-8 border-t border-white/5">
+<a class="flex items-center gap-4 p-3 rounded-lg text-error hover:bg-error/10 transition-all font-headline text-lg font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+                    Logout
+                </a>
+</div>
+</nav>
+</div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-[#150629]/40 backdrop-blur-[20px] rounded-t-xl shadow-[0_-10px_40px_rgba(167,139,250,0.12)] md:hidden">
+<a class="flex flex-col items-center justify-center bg-gradient-to-br from-[#b79fff] to-[#ab8ffe] text-[#150629] rounded-lg px-4 py-2 Active: scale-90 transition-all duration-200 ease-out" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="calendar_today" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
+<span class="font-['Manrope'] text-[10px] font-semibold uppercase tracking-widest">Schedule</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 px-4 py-2 hover:bg-white/10 transition-all duration-300 Active: scale-90 transition-all duration-200 ease-out" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="explore">explore</span>
+<span class="font-['Manrope'] text-[10px] font-semibold uppercase tracking-widest">Floorplan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 px-4 py-2 hover:bg-white/10 transition-all duration-300 Active: scale-90 transition-all duration-200 ease-out" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="hub">hub</span>
+<span class="font-['Manrope'] text-[10px] font-semibold uppercase tracking-widest">Feed</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 px-4 py-2 hover:bg-white/10 transition-all duration-300 Active: scale-90 transition-all duration-200 ease-out" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="style">style</span>
+<span class="font-['Manrope'] text-[10px] font-semibold uppercase tracking-widest">Badge</span>
+</a>
+</nav>
+</body></html>

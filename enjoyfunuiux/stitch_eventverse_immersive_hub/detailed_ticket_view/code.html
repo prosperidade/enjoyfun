@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EnjoyFun - Digital Ticket</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&amp;family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary": "#361083",
+                    "on-surface-variant": "#b7a3cf",
+                    "surface-dim": "#150629",
+                    "on-secondary-fixed": "#004931",
+                    "primary": "#b79fff",
+                    "on-tertiary": "#2b0065",
+                    "tertiary-fixed-dim": "#b48fff",
+                    "on-tertiary-fixed": "#200051",
+                    "surface": "#150629",
+                    "error": "#ff6e84",
+                    "surface-container-low": "#1b0a31",
+                    "primary-dim": "#a88cfb",
+                    "secondary-fixed": "#68fcbf",
+                    "secondary-fixed-dim": "#57edb1",
+                    "surface-bright": "#372056",
+                    "on-error": "#490013",
+                    "tertiary": "#af88ff",
+                    "tertiary-dim": "#8a4cfc",
+                    "on-secondary-fixed-variant": "#006948",
+                    "surface-container": "#22103a",
+                    "on-primary-container": "#290070",
+                    "error-container": "#a70138",
+                    "on-tertiary-fixed-variant": "#4a00a4",
+                    "secondary-container": "#006c4b",
+                    "secondary-dim": "#57edb1",
+                    "surface-container-lowest": "#000000",
+                    "outline": "#806e96",
+                    "error-dim": "#d73357",
+                    "on-tertiary-container": "#ffffff",
+                    "background": "#150629",
+                    "inverse-surface": "#fff7ff",
+                    "on-secondary": "#005e40",
+                    "tertiary-fixed": "#c0a0ff",
+                    "inverse-on-surface": "#5e4e74",
+                    "surface-variant": "#301a4d",
+                    "on-secondary-container": "#e0ffec",
+                    "on-background": "#efdfff",
+                    "secondary": "#68fcbf",
+                    "surface-container-highest": "#301a4d",
+                    "on-primary-fixed-variant": "#330b80",
+                    "outline-variant": "#514166",
+                    "inverse-primary": "#684cb6",
+                    "primary-fixed-dim": "#9d81f0",
+                    "on-surface": "#efdfff",
+                    "surface-container-high": "#291543",
+                    "tertiary-container": "#8342f4",
+                    "on-error-container": "#ffb2b9",
+                    "surface-tint": "#b79fff",
+                    "primary-fixed": "#ab8ffe",
+                    "on-primary-fixed": "#000000",
+                    "primary-container": "#ab8ffe"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Manrope"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(183, 159, 255, 0.15);
+        }
+        .holographic-glow {
+            box-shadow: 0 0 40px rgba(167, 139, 250, 0.12), inset 0 0 20px rgba(104, 252, 191, 0.05);
+        }
+        .qr-gradient {
+            background: linear-gradient(135deg, #b79fff 0%, #68fcbf 100%);
+            padding: 2px;
+        }
+        .neon-text-pulse {
+            text-shadow: 0 0 10px rgba(104, 252, 191, 0.6);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body min-h-screen selection:bg-secondary selection:text-on-secondary-fixed">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full flex justify-between items-center px-6 py-4 z-50 bg-transparent backdrop-blur-xl shadow-[0_0_40px_rgba(167,139,250,0.12)]">
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-violet-400/20 transition-all rounded-xl active:scale-95 duration-300">
+<span class="material-symbols-outlined text-violet-400">arrow_back</span>
+</button>
+<span class="text-xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-violet-200 font-['Space_Grotesk']">ENJOYFUN</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full border-2 border-primary/30 overflow-hidden">
+<img alt="Explorer Profile" data-alt="close-up portrait of a digital artist wearing futuristic glasses with neon reflections on their face" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCqUq_cSCsfE4BJMoZ0fdN0kJLBWEmsloxXJlsicy0cDNwGeaIm6_bRRe7UttR-pok2mCdbPzbqxolRfy9dp-9Iqp1fh0DEjn2KnnnEDwYqYA6nt4qUdGNCI2MB_IuRmCtLuqHN-GmblmH8lGCQ7p4jwwyVdC0bpZi8HYFWveSOSGnZE2Qk01gCcRhv6F11yohvrDipuBRFwm62Bp7UthCnKwiYU24phB4Q75f6aljej0LFmikwOt5bWkCn_XVNHEp7nM7nQeutKug"/>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-2xl mx-auto space-y-8">
+<!-- Holographic Ticket Card -->
+<section class="relative group">
+<div class="absolute -inset-1 bg-gradient-to-r from-primary via-secondary to-tertiary rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+<div class="relative glass-card holographic-glow rounded-xl overflow-hidden">
+<!-- Ticket Header -->
+<div class="p-6 border-b border-outline-variant/20 relative">
+<div class="flex justify-between items-start mb-4">
+<div class="space-y-1">
+<span class="label-sm uppercase tracking-[0.2em] text-secondary font-label text-[10px] neon-text-pulse">Event Access Key</span>
+<h1 class="text-3xl font-black font-headline tracking-tighter leading-none text-on-background">NEO-CYBERPUNK FESTIVAL</h1>
+</div>
+<div class="bg-primary/20 text-primary px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase border border-primary/30">
+                            VIP PASS
+                        </div>
+</div>
+<div class="grid grid-cols-2 gap-4 mt-6">
+<div>
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-label">Date</p>
+<p class="font-headline font-bold text-lg text-primary">24 OCT 2077</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-label">Time</p>
+<p class="font-headline font-bold text-lg text-primary">22:00 LMT</p>
+</div>
+</div>
+</div>
+<!-- Ticket Middle Visual -->
+<div class="h-48 relative overflow-hidden">
+<img alt="Cyberpunk Cityscape" class="w-full h-full object-cover opacity-50 grayscale hover:grayscale-0 transition-all duration-700" data-alt="ultramodern cyberpunk city at night with towering skyscrapers, glowing neon violet and teal holographic advertisements, and flying vehicles" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyIjI0ZpUw_FSeYGLgQ1oaZr6QabJ4tzAiZ-1FWmuujR8IPAfXJxT24rEsvwpY0EczQCd0FpZGbS9wNNL2OPjrnnVw7vJvYiz6Cx0BdQBP8EVXz8DrEhkwz_1mN2TM1F3Z4cFdQQOuMc-q4kNhO6QHdtC5-P_5TpyxwSiTYL0bDpx-Lb5n6T7IUoIkOakf8f_nysYqNOJAaVQMSZDCV_YfQ3m1jkdVRZkyFyZk1pBxIRNTjL4RWZyZXQhHPTUoJE-L0NgFpNHBdZ8"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-variant via-transparent to-transparent"></div>
+<div class="absolute inset-0 flex flex-col justify-end p-6">
+<p class="text-[10px] uppercase tracking-widest text-secondary font-label mb-1">Location</p>
+<p class="font-headline font-bold text-xl">NEO-CYBERPUNK HUB, SECTOR 7</p>
+</div>
+</div>
+<!-- Ticket Bottom / QR Section -->
+<div class="p-8 flex flex-col items-center bg-surface-container-highest/40">
+<div class="qr-gradient rounded-xl mb-4 relative group-hover:scale-105 transition-transform duration-500">
+<div class="bg-white p-4 rounded-lg">
+<img alt="Entry QR Code" class="w-40 h-40" data-alt="a high-contrast black and white square qr code on a clean white background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMcCMCLzx542tfVZqKAnlGLFh32x-FMClY95_BtP9LcS7Q_Y3merxUGddIYjselZgHv1OVWCFIEw6zFlj7pWJduAV7Qa69RluNUdTGUGQkaCZGfUiv5L_GsCj7w_ccD4a-LHb735DPC_JxoUY1aJwbiTTByNQyaoXk9refcebdWAJ_Z_inZiXQdnvmHBf_eOmRLZPq4ZAIS15EA3sbzO8gCb5zS2AXhh-d2wgDlXYEzYUBCmLP2R6yfjSgkGcDhFhTwOECqMQA0DY"/>
+</div>
+</div>
+<div class="flex flex-col items-center space-y-1">
+<span class="text-secondary font-label text-[10px] uppercase tracking-[0.3em] font-bold">Scan at Entry</span>
+<div class="flex items-center gap-2 text-on-surface-variant/60 font-mono text-[12px]">
+<span>EF-77-VIP-8892-AX</span>
+<span class="material-symbols-outlined text-sm">content_copy</span>
+</div>
+</div>
+</div>
+<!-- Perforated Line Decoration -->
+<div class="absolute bottom-[280px] -left-3 w-6 h-6 rounded-full bg-background z-10"></div>
+<div class="absolute bottom-[280px] -right-3 w-6 h-6 rounded-full bg-background z-10"></div>
+<div class="absolute bottom-[290px] left-8 right-8 border-t-2 border-dashed border-outline-variant/30"></div>
+</div>
+</section>
+<!-- User Information Section -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="glass-card rounded-xl p-5 flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+<span class="material-symbols-outlined text-primary" data-weight="fill">person</span>
+</div>
+<div>
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-label">Explorer</p>
+<p class="font-headline font-bold text-lg">Alex Rivera</p>
+</div>
+</div>
+<div class="glass-card rounded-xl p-5 flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center border border-secondary/20">
+<span class="material-symbols-outlined text-secondary" data-weight="fill">verified_user</span>
+</div>
+<div>
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-label">Access Level</p>
+<p class="font-headline font-bold text-lg text-secondary">VIP PASS</p>
+</div>
+</div>
+</section>
+<!-- Ticket Benefits / Bento Grid -->
+<section class="space-y-4">
+<h3 class="font-headline font-bold text-xl px-2">Ticket Privileges</h3>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+<div class="surface-container-low rounded-xl p-4 border border-outline-variant/10 flex flex-col gap-3">
+<span class="material-symbols-outlined text-primary text-3xl">king_bed</span>
+<span class="font-label font-bold text-xs uppercase tracking-wider">VIP Lounge Access</span>
+</div>
+<div class="surface-container-low rounded-xl p-4 border border-outline-variant/10 flex flex-col gap-3">
+<span class="material-symbols-outlined text-primary text-3xl">speed</span>
+<span class="font-label font-bold text-xs uppercase tracking-wider">Fast Track Entry</span>
+</div>
+<div class="surface-container-low rounded-xl p-4 border border-outline-variant/10 flex flex-col gap-3 col-span-2 md:col-span-1">
+<span class="material-symbols-outlined text-primary text-3xl">local_bar</span>
+<span class="font-label font-bold text-xs uppercase tracking-wider">2 Drink Tokens Included</span>
+</div>
+</div>
+</section>
+<!-- Actions -->
+<section class="space-y-3 pt-4">
+<button class="w-full py-4 rounded-xl bg-gradient-to-r from-primary to-primary-container text-on-primary font-headline font-black text-lg flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(183,159,255,0.3)] active:scale-95 transition-all">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+                Add to Apple Wallet
+            </button>
+<div class="grid grid-cols-2 gap-3">
+<button class="py-4 rounded-xl glass-card border border-primary/20 text-primary font-headline font-bold flex items-center justify-center gap-2 hover:bg-primary/10 transition-all">
+<span class="material-symbols-outlined text-xl">map</span>
+                    Event Map
+                </button>
+<button class="py-4 rounded-xl glass-card border border-primary/20 text-primary font-headline font-bold flex items-center justify-center gap-2 hover:bg-primary/10 transition-all">
+<span class="material-symbols-outlined text-xl">share</span>
+                    Share
+                </button>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-6 w-full flex justify-around items-center px-4 z-50">
+<div class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md rounded-2xl border border-violet-400/15 bg-slate-900/40 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex justify-around items-center p-2">
+<button class="text-slate-400 p-3 hover:text-violet-300 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">style</span>
+</button>
+<button class="text-slate-400 p-3 hover:text-violet-300 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">map</span>
+</button>
+<button class="text-slate-400 p-3 hover:text-violet-300 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">smart_toy</span>
+</button>
+<button class="bg-gradient-to-br from-violet-400 to-violet-600 text-white rounded-xl p-3 shadow-[0_0_15px_rgba(167,139,250,0.4)] active:scale-90 transition-transform">
+<span class="material-symbols-outlined">event_note</span>
+</button>
+</div>
+</nav>
+</body></html>

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CELESTIAL PASS | Lounge &amp; Rooftop</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-bright": "#372056",
+                    "surface-container-highest": "#301a4d",
+                    "outline": "#806e96",
+                    "tertiary": "#af88ff",
+                    "surface-container": "#22103a",
+                    "on-tertiary-fixed": "#200051",
+                    "secondary-container": "#006c4b",
+                    "surface-container-high": "#291543",
+                    "primary": "#b79fff",
+                    "on-primary-fixed": "#000000",
+                    "on-primary": "#361083",
+                    "on-secondary-container": "#e0ffec",
+                    "secondary-fixed-dim": "#57edb1",
+                    "primary-container": "#ab8ffe",
+                    "on-primary-container": "#290070",
+                    "inverse-primary": "#684cb6",
+                    "outline-variant": "#514166",
+                    "on-background": "#efdfff",
+                    "on-surface": "#efdfff",
+                    "on-error-container": "#ffb2b9",
+                    "primary-fixed-dim": "#9d81f0",
+                    "primary-dim": "#a88cfb",
+                    "secondary": "#68fcbf",
+                    "on-tertiary": "#2b0065",
+                    "on-primary-fixed-variant": "#330b80",
+                    "surface-tint": "#b79fff",
+                    "primary-fixed": "#ab8ffe",
+                    "error": "#ff6e84",
+                    "inverse-on-surface": "#5e4e74",
+                    "on-tertiary-fixed-variant": "#4a00a4",
+                    "error-container": "#a70138",
+                    "on-secondary": "#005e40",
+                    "tertiary-container": "#8342f4",
+                    "surface-container-low": "#1b0a31",
+                    "secondary-dim": "#57edb1",
+                    "error-dim": "#d73357",
+                    "surface-dim": "#150629",
+                    "on-secondary-fixed-variant": "#006948",
+                    "tertiary-fixed": "#c0a0ff",
+                    "on-secondary-fixed": "#004931",
+                    "secondary-fixed": "#68fcbf",
+                    "on-tertiary-container": "#ffffff",
+                    "tertiary-fixed-dim": "#b48fff",
+                    "on-error": "#490013",
+                    "background": "#150629",
+                    "on-surface-variant": "#b7a3cf",
+                    "surface": "#150629",
+                    "surface-container-lowest": "#000000",
+                    "surface-variant": "#301a4d",
+                    "tertiary-dim": "#8a4cfc",
+                    "inverse-surface": "#fff7ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Manrope"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(183, 159, 255, 0.15);
+        }
+        .isometric-view {
+            perspective: 1500px;
+            transform-style: preserve-3d;
+        }
+        .poi-pulse {
+            box-shadow: 0 0 0 0 rgba(104, 252, 191, 0.7);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            70% { box-shadow: 0 0 0 15px rgba(104, 252, 191, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(104, 252, 191, 0); }
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface font-body text-on-surface min-h-screen overflow-x-hidden selection:bg-primary/30">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-violet-950/40 backdrop-blur-xl flex justify-between items-center px-6 py-4 shadow-[0_0_20px_rgba(167,139,250,0.15)] bg-gradient-to-b from-violet-500/10 to-transparent">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-violet-400" data-icon="rocket_launch">rocket_launch</span>
+<h1 class="text-xl font-bold tracking-tighter text-violet-100 font-['Space_Grotesk']">CELESTIAL PASS</h1>
+</div>
+<div class="flex items-center gap-6">
+<nav class="hidden md:flex gap-8 font-label text-sm uppercase tracking-widest">
+<a class="text-violet-500/50 hover:text-violet-200 transition-colors duration-200" href="#">Hub</a>
+<a class="text-violet-300" href="#">Lounge</a>
+<a class="text-violet-500/50 hover:text-violet-200 transition-colors duration-200" href="#">Pass</a>
+<a class="text-violet-500/50 hover:text-violet-200 transition-colors duration-200" href="#">Alerts</a>
+</nav>
+<div class="h-10 w-10 rounded-full border-2 border-primary/30 overflow-hidden active:scale-95 duration-200 cursor-pointer">
+<img alt="User profile hologram" class="w-full h-full object-cover" data-alt="Digital hologram avatar of a user with neon lighting highlights on their face" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDhSNdCOl2yxJLwOBIBlygiVZLGxOVD1BCbMbdUWIwfdtOvKdjypdl6ohMPn9yVSxgDv7_Iwt0MB31Zhd7pYMFAheopEjuipF_NhUE0ngKH5ZsatPaMi74U0rOBWOefgro8YghYC0a-TMl_EH8a1gekCp23jfFY0U2em0YYoJZSq--zbdafg_Ev455zh_hDfLx1Wk6g6theTbTz_Jgc6RDfBdKAaIEczDInWLHeI5lU3MaVdpQKmfRiFWB1YXUgI--mrA4CzZeh1Ok"/>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 px-4 md:px-8 max-w-7xl mx-auto relative">
+<!-- Hero Section & 3D Map Container -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- Left Telemetry Columns -->
+<div class="lg:col-span-3 space-y-6 order-2 lg:order-1">
+<!-- Vibe Check Card -->
+<div class="glass-panel rounded-xl p-5 shadow-[0_0_40px_rgba(167,139,250,0.1)]">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-label uppercase tracking-widest text-on-surface-variant">Vibe Sync</span>
+<span class="material-symbols-outlined text-secondary text-sm" data-icon="graphic_eq" style="font-variation-settings: 'FILL' 1;">graphic_eq</span>
+</div>
+<h3 class="text-2xl font-headline font-bold text-primary mb-1">Ethereal High</h3>
+<p class="text-sm text-on-surface-variant mb-6 italic">Current: Liquid Drum &amp; Bass</p>
+<div class="space-y-3">
+<div class="flex justify-between text-xs font-label">
+<span class="text-on-surface-variant">Energy Level</span>
+<span class="text-secondary">88%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full w-[88%] bg-gradient-to-r from-primary to-secondary"></div>
+</div>
+</div>
+</div>
+<!-- Crowd Density -->
+<div class="glass-panel rounded-xl p-5 border-l-4 border-l-tertiary">
+<span class="text-xs font-label uppercase tracking-widest text-on-surface-variant block mb-3">Live Occupancy</span>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-headline font-extrabold text-on-surface">342</span>
+<span class="text-on-surface-variant text-sm">/ 500 Guests</span>
+</div>
+<div class="mt-4 flex gap-1">
+<div class="h-2 flex-1 rounded-sm bg-secondary"></div>
+<div class="h-2 flex-1 rounded-sm bg-secondary"></div>
+<div class="h-2 flex-1 rounded-sm bg-secondary"></div>
+<div class="h-2 flex-1 rounded-sm bg-outline-variant/30"></div>
+<div class="h-2 flex-1 rounded-sm bg-outline-variant/30"></div>
+</div>
+</div>
+</div>
+<!-- Main 3D Map Visual -->
+<div class="lg:col-span-6 relative order-1 lg:order-2">
+<div class="relative w-full aspect-[4/3] glass-panel rounded-full p-4 overflow-hidden shadow-[0_0_60px_rgba(167,139,250,0.15)] group">
+<!-- Map Background -->
+<div class="absolute inset-0 opacity-40 mix-blend-overlay">
+<img class="w-full h-full object-cover" data-alt="Futuristic isometric 3D floor plan of a luxury rooftop lounge with neon glowing pathways and holographic interfaces" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKQdGMNu8MDwMAQmeBRQYFmekx25Hww970jbz2yh9XQIUrRV7p9Kgrta2DzD5xXmngFFONHxL_6IFdTCBdWGVvNR7iKzbQ5iZCHCFaYds2U00v_Ij-_OjLZJ6EqV2zdMTykNO3bRps_3yoGTgHvCIpCNGtJaZmpmyeI6DbBHE57zBVnF4w8LvuK-UOt9l3b-HN2KZJ2SngpHpkARgQ-zoBmqRv1_oUn4V4bZR4klLtPq-yDvIFOEGr9CkgWYMuHit9t-ov55s8cLg"/>
+</div>
+<!-- 3D Transform Container -->
+<div class="absolute inset-0 flex items-center justify-center isometric-view">
+<div class="relative w-[80%] h-[80%] transform -rotate-x-[35deg] rotate-z-[45deg]">
+<!-- The Grid Base -->
+<div class="absolute inset-0 border border-primary/20 bg-primary/5 rounded-xl"></div>
+<!-- POI: Bar -->
+<div class="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 group/poi">
+<div class="poi-pulse w-6 h-6 bg-secondary rounded-full flex items-center justify-center cursor-pointer transform -rotate-z-[45deg] rotate-x-[35deg] scale-110">
+<span class="material-symbols-outlined text-[#004931] text-xs" data-icon="local_bar" style="font-variation-settings: 'FILL' 1;">local_bar</span>
+</div>
+<div class="absolute bottom-8 left-1/2 -translate-x-1/2 glass-panel px-3 py-1.5 rounded-lg opacity-0 group-hover/poi:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap">
+<p class="text-xs font-bold text-secondary">NEON BAR</p>
+<p class="text-[10px] text-on-surface-variant">2 min wait</p>
+</div>
+</div>
+<!-- POI: Photo Booth -->
+<div class="absolute bottom-1/4 right-1/4 group/poi">
+<div class="poi-pulse w-6 h-6 bg-primary rounded-full flex items-center justify-center cursor-pointer transform -rotate-z-[45deg] rotate-x-[35deg] scale-110">
+<span class="material-symbols-outlined text-on-primary text-xs" data-icon="photo_camera" style="font-variation-settings: 'FILL' 1;">photo_camera</span>
+</div>
+<div class="absolute bottom-8 left-1/2 -translate-x-1/2 glass-panel px-3 py-1.5 rounded-lg opacity-0 group-hover/poi:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap">
+<p class="text-xs font-bold text-primary">GRAD PHOTO OPS</p>
+<p class="text-[10px] text-on-surface-variant">Live upload active</p>
+</div>
+</div>
+<!-- POI: DJ Deck -->
+<div class="absolute top-1/2 right-1/4 group/poi">
+<div class="poi-pulse w-8 h-8 bg-tertiary rounded-full flex items-center justify-center cursor-pointer transform -rotate-z-[45deg] rotate-x-[35deg] scale-110">
+<span class="material-symbols-outlined text-on-tertiary text-sm" data-icon="album" style="font-variation-settings: 'FILL' 1;">album</span>
+</div>
+<div class="absolute bottom-10 left-1/2 -translate-x-1/2 glass-panel px-4 py-2 rounded-lg opacity-0 group-hover/poi:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap">
+<p class="text-xs font-bold text-tertiary">SKY DECK DJ</p>
+<p class="text-[10px] text-on-surface-variant">Playing: Solaris Drift</p>
+</div>
+</div>
+<!-- Friend Indicators (Meet Squad) -->
+<div class="absolute top-1/3 right-1/2 w-3 h-3 bg-white/80 rounded-full blur-[2px] shadow-[0_0_10px_white]"></div>
+<div class="absolute bottom-1/3 left-1/2 w-3 h-3 bg-white/80 rounded-full blur-[2px] shadow-[0_0_10px_white]"></div>
+</div>
+</div>
+</div>
+<!-- Floating Legend -->
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 glass-panel rounded-full px-6 py-2 flex items-center gap-6 shadow-2xl">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<span class="text-[10px] uppercase tracking-widest font-label text-on-surface-variant">Service</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<span class="text-[10px] uppercase tracking-widest font-label text-on-surface-variant">Interactive</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<span class="text-[10px] uppercase tracking-widest font-label text-on-surface-variant">Performance</span>
+</div>
+</div>
+</div>
+<!-- Right: Squad & Interaction -->
+<div class="lg:col-span-3 space-y-6 order-3">
+<!-- Meet Squad -->
+<div class="glass-panel rounded-xl overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.3)]">
+<div class="p-4 bg-surface-container-high border-b border-outline-variant/10">
+<h4 class="text-sm font-headline font-bold text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="group">group</span>
+                            MEET SQUAD
+                        </h4>
+</div>
+<div class="p-4 space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-container p-[1px]">
+<img class="w-full h-full object-cover rounded-full" data-alt="Portrait of a young woman with holographic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9Lfdl8fcGUocIkmvIBGOa4L8jNvFvfIysADhp6w9AXy9-UknMYT3FMJRvBiRVf19zKw4361xOEcDAB8ZH8ynY7z5uXaKG5WUZ41Wtj7B3fqrQiyNFlyxi8AZcFQmYmRBNm0xsnNaWqRN9huu_L0v2aYdpY-Uf4NxfSxdGr4fzxgcmiqtU1Z-wwhSQ7lv0uk1M2gV0Rnsu0GTibUv4iB9gMiTDyyP2uftQtPuHN0l0FNBx2v2kAJ3a7yhGvusJ76IP3so2nAkBv7o"/>
+</div>
+<div>
+<p class="text-xs font-bold">Alex Chen</p>
+<p class="text-[10px] text-secondary">Near Bar</p>
+</div>
+</div>
+<button class="material-symbols-outlined text-primary text-lg" data-icon="near_me">near_me</button>
+</div>
+<div class="flex items-center justify-between opacity-60">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container p-[1px]">
+<img class="w-full h-full object-cover rounded-full" data-alt="Portrait of a young man in casual evening wear" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVjQ1i4gRXocQ2zMKTAXFEjAhd8CtIBv2i7Cz36hU8yDYdkyds94Bt8dlIfro-D3kw1x8wAxj0ctYCr8NwgYR2YEMJuZ2wwUft7193Wp2eP2r4QqY2eyxIrMp9S6A4t8ETtK6o4EXO9qT02SuQ3DbUG59f7TOtVpgfGuz_9nTDoAIa8cDSuCcToAhKaqGLkAm0pid9mrvPVWjvAPFWHinKirHd1D30GRf2Syi4UZnOPJR1EMpa5GYBcJRzXZYg4cpin-Nt_M3wV0s"/>
+</div>
+<div>
+<p class="text-xs font-bold">Marcus J.</p>
+<p class="text-[10px] text-on-surface-variant">Off-Grid</p>
+</div>
+</div>
+</div>
+</div>
+<button class="w-full py-3 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] uppercase font-bold tracking-[0.2em] transition-colors">
+                        Ping All Squad
+                    </button>
+</div>
+<!-- Event Details Mini Card -->
+<div class="bg-gradient-to-br from-surface-container-high to-surface-container-low p-5 rounded-xl border border-primary/10">
+<p class="text-[10px] font-label text-tertiary uppercase tracking-widest mb-2">Next Milestone</p>
+<p class="text-sm font-headline font-bold mb-4">Class of 2024 Toast</p>
+<div class="flex items-center justify-between">
+<div class="flex -space-x-2">
+<div class="w-6 h-6 rounded-full border border-surface bg-gray-500"></div>
+<div class="w-6 h-6 rounded-full border border-surface bg-gray-600"></div>
+<div class="w-6 h-6 rounded-full border border-surface bg-gray-700"></div>
+<div class="w-6 h-6 rounded-full border border-surface bg-primary/40 flex items-center justify-center text-[8px]">+45</div>
+</div>
+<span class="text-xs text-secondary font-bold">T-MINUS 12M</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Asymmetric CTA Section -->
+<div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+<div class="space-y-4">
+<h2 class="text-4xl md:text-5xl font-headline font-extrabold tracking-tighter text-on-surface leading-none">
+                    ELEVATE YOUR <br/><span class="text-transparent bg-clip-text bg-gradient-to-r from-primary via-tertiary to-secondary">GRADUATION</span> NIGHT.
+                </h2>
+<p class="text-on-surface-variant max-w-md">Access exclusive lounge amenities, real-time friend tracking, and live digital keepsakes from your final university celebration.</p>
+</div>
+<div class="flex justify-end gap-4">
+<button class="px-8 py-4 bg-gradient-to-br from-primary to-primary-container text-on-primary-container font-bold rounded-md shadow-[0_0_20px_rgba(183,159,255,0.3)] hover:scale-105 transition-transform">
+                    Unlock VIP Deck
+                </button>
+<button class="px-8 py-4 border border-outline-variant/30 text-primary font-bold rounded-md hover:bg-primary/5 transition-colors">
+                    View Gallery
+                </button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-[#150629]/60 backdrop-blur-2xl flex justify-around items-center px-4 pb-6 pt-3 shadow-[0_-10px_40px_rgba(167,139,250,0.1)] border-t border-violet-500/15 md:hidden">
+<a class="flex flex-col items-center justify-center text-violet-500/60 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest mt-1">Hub</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-violet-500/20 text-violet-300 rounded-xl px-4 py-1 shadow-[0_0_15px_rgba(167,139,250,0.3)] active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="map">map</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest mt-1">Lounge</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-500/60 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="Confirmation_Number">confirmation_number</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest mt-1">Pass</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-500/60 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest mt-1">Alerts</span>
+</a>
+</nav>
+<!-- Background Decoration -->
+<div class="fixed top-0 left-0 w-full h-full pointer-events-none -z-10 overflow-hidden">
+<div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 blur-[120px] rounded-full"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-tertiary/10 blur-[150px] rounded-full"></div>
+</div>
+</body></html>

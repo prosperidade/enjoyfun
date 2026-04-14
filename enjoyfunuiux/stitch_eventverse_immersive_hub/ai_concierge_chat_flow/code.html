@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI Concierge - ENJOYFUN</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error-dim": "#d73357",
+                        "surface-container": "#22103a",
+                        "secondary-fixed-dim": "#57edb1",
+                        "on-primary-container": "#290070",
+                        "on-background": "#efdfff",
+                        "on-surface": "#efdfff",
+                        "primary-fixed-dim": "#9d81f0",
+                        "primary-dim": "#a88cfb",
+                        "error-container": "#a70138",
+                        "surface-bright": "#372056",
+                        "background": "#150629",
+                        "outline": "#806e96",
+                        "on-error": "#490013",
+                        "primary": "#b79fff",
+                        "primary-fixed": "#ab8ffe",
+                        "surface": "#150629",
+                        "inverse-primary": "#684cb6",
+                        "error": "#ff6e84",
+                        "on-tertiary-fixed": "#200051",
+                        "on-surface-variant": "#b7a3cf",
+                        "on-error-container": "#ffb2b9",
+                        "secondary-dim": "#57edb1",
+                        "on-tertiary": "#2b0065",
+                        "secondary-container": "#006c4b",
+                        "tertiary-fixed": "#c0a0ff",
+                        "on-secondary-fixed": "#004931",
+                        "surface-container-lowest": "#000000",
+                        "surface-container-low": "#1b0a31",
+                        "surface-dim": "#150629",
+                        "on-secondary": "#005e40",
+                        "surface-container-high": "#291543",
+                        "inverse-surface": "#fff7ff",
+                        "on-primary-fixed-variant": "#330b80",
+                        "outline-variant": "#514166",
+                        "surface-tint": "#b79fff",
+                        "tertiary": "#af88ff",
+                        "on-primary": "#361083",
+                        "tertiary-fixed-dim": "#b48fff",
+                        "secondary-fixed": "#68fcbf",
+                        "on-primary-fixed": "#000000",
+                        "on-secondary-container": "#e0ffec",
+                        "surface-container-highest": "#301a4d",
+                        "on-tertiary-container": "#ffffff",
+                        "tertiary-dim": "#8a4cfc",
+                        "surface-variant": "#301a4d",
+                        "inverse-on-surface": "#5e4e74",
+                        "tertiary-container": "#8342f4",
+                        "secondary": "#68fcbf",
+                        "on-secondary-fixed-variant": "#006948",
+                        "primary-container": "#ab8ffe",
+                        "on-tertiary-fixed-variant": "#4a00a4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Manrope"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .user-bubble {
+            background: linear-gradient(135deg, #b79fff 0%, #ab8ffe 100%);
+        }
+        .system-bubble {
+            background: rgba(27, 10, 49, 0.6);
+            border: 1px solid rgba(167, 139, 250, 0.1);
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #514166;
+            border-radius: 10px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body overflow-hidden">
+<!-- Top Navigation Anchor -->
+<header class="fixed top-0 w-full flex justify-between items-center px-6 py-4 z-50 bg-transparent backdrop-blur-xl shadow-[0_0_40px_rgba(167,139,250,0.12)]">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-violet-400">menu</span>
+<div class="flex flex-col">
+<h1 class="font-headline tracking-tight font-bold text-xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-violet-200">ENJOYFUN</h1>
+<div class="flex items-center gap-1.5">
+<div class="w-1.5 h-1.5 rounded-full bg-secondary shadow-[0_0_8px_#68fcbf]"></div>
+<span class="font-label text-[10px] uppercase tracking-widest text-secondary">Synergy-9 Active</span>
+</div>
+</div>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-primary/30 overflow-hidden shadow-[0_0_15px_rgba(183,159,255,0.2)]">
+<img alt="User Profile" data-alt="Close-up portrait of a stylish young man with neon lighting reflections on his face" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfPdBz0swhj_tEtxdVRYhmPJHgTaxeeIuGQoJL_CBytfE2pXBIWdQ-TTr028AA5dHxCzS9X2AHtafa2CTqu_9_-JeiFudbaoNI_QTmuCoqzQu82bivvbHkvIHS4zqyQG6dHB5OWt7XqDfZra6wvaL4fAugfHAi0baKP0X4IZawbB9SfCganYiUpeNc9DLW3lu9936Wr6XTuDbwSZOF9JVW6RXeWVdkWC-TIuTVMMhSF2vSelNtS-2IjfGLOqWOAwKfKdOejRJlb7M"/>
+</div>
+</header>
+<!-- Main Chat Canvas -->
+<main class="h-screen pt-24 pb-48 overflow-y-auto px-4 space-y-8 scroll-smooth">
+<!-- System Greeting -->
+<div class="flex flex-col items-center justify-center py-10 opacity-60">
+<div class="w-16 h-16 bg-surface-container-high rounded-full flex items-center justify-center mb-4 border border-outline-variant/20">
+<span class="material-symbols-outlined text-primary-dim text-3xl">smart_toy</span>
+</div>
+<p class="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant">System Initialized // Galactic Concierge</p>
+</div>
+<!-- AI Message -->
+<div class="flex items-start gap-3 max-w-[85%]">
+<div class="w-8 h-8 shrink-0 rounded-lg bg-surface-container-highest flex items-center justify-center border border-primary/20">
+<span class="material-symbols-outlined text-primary text-sm">smart_toy</span>
+</div>
+<div class="system-bubble p-4 rounded-tr-2xl rounded-br-2xl rounded-bl-2xl text-on-surface shadow-lg">
+<p class="text-sm leading-relaxed">Greetings! I am Synergy-9. I'm currently tracking the station's frequency. What's on your agenda for this stellar evening?</p>
+</div>
+</div>
+<!-- User Message -->
+<div class="flex items-start gap-3 max-w-[85%] ml-auto flex-row-reverse">
+<div class="user-bubble p-4 rounded-tl-2xl rounded-br-2xl rounded-bl-2xl text-on-primary shadow-[0_10px_25px_rgba(183,159,255,0.3)]">
+<p class="text-sm font-semibold leading-relaxed">What's happening at the Nebula Lounge right now?</p>
+</div>
+</div>
+<!-- AI Rich Response -->
+<div class="flex items-start gap-3 max-w-[90%]">
+<div class="w-8 h-8 shrink-0 rounded-lg bg-surface-container-highest flex items-center justify-center border border-primary/20">
+<span class="material-symbols-outlined text-primary text-sm">smart_toy</span>
+</div>
+<div class="space-y-4">
+<div class="system-bubble p-4 rounded-tr-2xl rounded-br-2xl rounded-bl-2xl text-on-surface shadow-lg">
+<p class="text-sm leading-relaxed">The Nebula Lounge is currently hosting the <span class="text-secondary font-bold">Quasar Beats</span> session. Here is the upcoming schedule and the signature elixir menu:</p>
+</div>
+<!-- Rich Block: Stage Schedule & Drinks -->
+<div class="glass-card rounded-2xl overflow-hidden border border-violet-400/10 shadow-2xl">
+<div class="bg-primary/10 p-3 border-b border-violet-400/10">
+<h3 class="font-headline text-xs font-bold uppercase tracking-wider text-primary">Main Stage // Nebula Lounge</h3>
+</div>
+<!-- Schedule Section -->
+<div class="p-4 space-y-3">
+<div class="flex justify-between items-center bg-surface-container-lowest/40 p-2 rounded-lg">
+<div class="flex items-center gap-3">
+<span class="text-xs font-mono text-primary-dim">22:00</span>
+<span class="text-sm font-bold">Cyber-Jazz Ensemble</span>
+</div>
+<span class="text-[10px] bg-secondary/20 text-secondary px-2 py-0.5 rounded uppercase font-bold tracking-tighter">Live Now</span>
+</div>
+<div class="flex justify-between items-center p-2">
+<div class="flex items-center gap-3">
+<span class="text-xs font-mono text-on-surface-variant">23:30</span>
+<span class="text-sm">Holographic Soloist: V-9</span>
+</div>
+</div>
+</div>
+<!-- Drink Menu Section -->
+<div class="p-4 bg-surface-container-highest/30 border-t border-violet-400/10">
+<p class="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mb-3">Signature Elixirs</p>
+<div class="grid grid-cols-2 gap-3">
+<div class="flex flex-col gap-1">
+<span class="text-xs font-bold">Stardust Gin</span>
+<span class="text-[10px] text-on-surface-variant italic">Bioluminescent botanical blend</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-bold">Void Martini</span>
+<span class="text-[10px] text-on-surface-variant italic">Activated charcoal &amp; silver leaf</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Interaction Chips (Floating Dock Context) -->
+<div class="flex flex-wrap gap-2 justify-center py-4">
+<button class="px-4 py-2 rounded-full glass-card border border-violet-400/20 text-xs font-label uppercase tracking-wider text-primary-fixed-dim hover:bg-primary/20 transition-all active:scale-95">Where is the bar?</button>
+<button class="px-4 py-2 rounded-full glass-card border border-violet-400/20 text-xs font-label uppercase tracking-wider text-primary-fixed-dim hover:bg-primary/20 transition-all active:scale-95">Next show at Main Stage</button>
+<button class="px-4 py-2 rounded-full glass-card border border-violet-400/20 text-xs font-label uppercase tracking-wider text-primary-fixed-dim hover:bg-primary/20 transition-all active:scale-95">Order Drink</button>
+</div>
+</main>
+<!-- Bottom Navigation Shell (Anchor Component) -->
+<div class="fixed bottom-6 w-full flex justify-around items-center px-4 z-50">
+<nav class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md rounded-2xl border border-violet-400/15 bg-slate-900/40 backdrop-blur-2xl flex justify-around items-center px-4 py-2 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+<a class="text-slate-400 p-3 hover:text-violet-300 transition-transform active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="style">style</span>
+</a>
+<a class="text-slate-400 p-3 hover:text-violet-300 transition-transform active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="map">map</span>
+</a>
+<!-- AI Tab is Active -->
+<a class="bg-gradient-to-br from-violet-400 to-violet-600 text-white rounded-xl p-3 shadow-[0_0_15px_rgba(167,139,250,0.4)] active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="smart_toy">smart_toy</span>
+</a>
+<a class="text-slate-400 p-3 hover:text-violet-300 transition-transform active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="event_note">event_note</span>
+</a>
+</nav>
+</div>
+<!-- Floating Reactive Chat Input Dock -->
+<div class="fixed bottom-28 left-0 w-full px-6 z-40">
+<div class="max-w-md mx-auto relative">
+<div class="absolute -top-1 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-violet-400/50 to-transparent"></div>
+<div class="glass-card rounded-2xl p-2 border border-violet-400/20 shadow-[0_10px_40px_rgba(0,0,0,0.4)] flex items-center gap-3">
+<button class="w-10 h-10 shrink-0 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">add_circle</span>
+</button>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-on-surface-variant/40 font-body" placeholder="Command Synergy-9..." type="text"/>
+<button class="w-10 h-10 shrink-0 bg-primary text-on-primary rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(183,159,255,0.4)] animate-pulse active:scale-90 transition-all">
+<span class="material-symbols-outlined font-variation-settings: 'FILL' 1">send</span>
+</button>
+</div>
+<!-- Reactive Waves Decoration -->
+<div class="flex justify-center gap-1 mt-2 px-10">
+<div class="h-1 w-2 bg-primary/20 rounded-full"></div>
+<div class="h-1 w-4 bg-primary/40 rounded-full"></div>
+<div class="h-1 w-8 bg-primary/60 rounded-full"></div>
+<div class="h-1 w-4 bg-primary/40 rounded-full"></div>
+<div class="h-1 w-2 bg-primary/20 rounded-full"></div>
+</div>
+</div>
+</div>
+</body></html>

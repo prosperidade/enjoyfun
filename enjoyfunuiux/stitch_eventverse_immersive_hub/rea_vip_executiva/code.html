@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-secondary-container": "#e0ffec",
+                    "outline-variant": "#514166",
+                    "primary-container": "#ab8ffe",
+                    "on-error-container": "#ffb2b9",
+                    "on-secondary-fixed": "#004931",
+                    "on-primary": "#361083",
+                    "error-dim": "#d73357",
+                    "outline": "#806e96",
+                    "primary": "#b79fff",
+                    "on-background": "#efdfff",
+                    "secondary": "#68fcbf",
+                    "on-primary-container": "#290070",
+                    "primary-dim": "#a88cfb",
+                    "surface": "#150629",
+                    "tertiary-fixed-dim": "#b48fff",
+                    "surface-bright": "#372056",
+                    "primary-fixed-dim": "#9d81f0",
+                    "on-tertiary-fixed": "#200051",
+                    "secondary-container": "#006c4b",
+                    "background": "#150629",
+                    "on-secondary-fixed-variant": "#006948",
+                    "surface-container-lowest": "#000000",
+                    "on-tertiary-fixed-variant": "#4a00a4",
+                    "on-tertiary-container": "#ffffff",
+                    "on-secondary": "#005e40",
+                    "on-primary-fixed-variant": "#330b80",
+                    "tertiary-dim": "#8a4cfc",
+                    "surface-tint": "#b79fff",
+                    "secondary-fixed": "#68fcbf",
+                    "tertiary-fixed": "#c0a0ff",
+                    "error": "#ff6e84",
+                    "surface-container-high": "#291543",
+                    "surface-container-highest": "#301a4d",
+                    "secondary-fixed-dim": "#57edb1",
+                    "surface-container": "#22103a",
+                    "tertiary": "#af88ff",
+                    "inverse-primary": "#684cb6",
+                    "tertiary-container": "#8342f4",
+                    "surface-dim": "#150629",
+                    "secondary-dim": "#57edb1",
+                    "inverse-on-surface": "#5e4e74",
+                    "error-container": "#a70138",
+                    "primary-fixed": "#ab8ffe",
+                    "surface-container-low": "#1b0a31",
+                    "on-error": "#490013",
+                    "on-surface-variant": "#b7a3cf",
+                    "on-surface": "#efdfff",
+                    "surface-variant": "#301a4d",
+                    "on-primary-fixed": "#000000",
+                    "inverse-surface": "#fff7ff",
+                    "on-tertiary": "#2b0065"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Manrope"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .neon-border {
+            box-shadow: 0 0 15px rgba(183, 159, 255, 0.15);
+        }
+        .neon-glow-secondary {
+            filter: drop-shadow(0 0 8px #68fcbf);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary selection:text-on-primary">
+<!-- TopAppBar Navigation Shell -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 w-full bg-violet-950/40 backdrop-blur-xl shadow-[0_0_20px_rgba(167,139,250,0.12)]">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full border border-primary/30 flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="close-up portrait of a high-level executive in a sleek dark suit with subtle violet ambient lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAafXJMYHSlBCGZsKtQf74s5nqiVqWZns7PDSVwIT3t-RQ2KAEihRZDZjf1psC3yVYQhhprxERMaNPcrZ9GZyo9PpTAqmLNIaUYW7JCU6ide4ko66B3n_0g1FfiJIpMsBbilc-tVoLkIj2Z2csFZDwlJVySrekDrxoUsQBLlxjH23Mfn4B7gY0X0EdKNnWQE1VoTfH_GkRi7N805T7I9CDYeCU8Fa7Y1ED0i48fCAPsy4aLABLtGbEHVHfmBFReaXz4D-bXiyj_VG0"/>
+</div>
+<span class="font-['Space_Grotesk'] tracking-tighter text-xl font-bold text-violet-100">Aether Hub</span>
+</div>
+<div class="hidden md:flex items-center gap-8">
+<a class="text-violet-500 hover:text-violet-300 transition-all duration-300 ease-in-out font-['Space_Grotesk'] font-medium" href="#">Hub</a>
+<a class="text-violet-500 hover:text-violet-300 transition-all duration-300 ease-in-out font-['Space_Grotesk'] font-medium" href="#">Networking</a>
+<a class="text-violet-300 transition-all duration-300 ease-in-out font-['Space_Grotesk'] font-medium relative" href="#">
+                VIP Lounge
+                <span class="absolute -bottom-1 left-0 w-full h-0.5 bg-primary rounded-full"></span>
+</a>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-violet-400" data-icon="insights">insights</span>
+<div class="h-6 w-[1px] bg-outline-variant/30 mx-2"></div>
+<div class="bg-primary/10 border border-primary/20 px-3 py-1 rounded-lg">
+<span class="text-[10px] font-bold text-primary tracking-widest uppercase">Platinum Access</span>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-7xl mx-auto">
+<!-- Hero Section: Asymmetric VIP Header -->
+<section class="mb-12 grid grid-cols-1 lg:grid-cols-12 gap-8 items-end">
+<div class="lg:col-span-8">
+<div class="flex items-center gap-2 mb-4">
+<span class="h-[2px] w-12 bg-secondary neon-glow-secondary"></span>
+<span class="text-secondary font-label text-sm tracking-[0.2em] uppercase font-bold">Exclusive Domain</span>
+</div>
+<h1 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tight text-on-surface leading-none mb-6">
+                    VIP LOUNGE <br/>
+<span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary-container">ELEVATED ACCESS</span>
+</h1>
+<p class="text-on-surface-variant text-lg max-w-xl leading-relaxed">
+                    Welcome back, Executive. Your environment is optimized for deep strategy and high-impact networking. Every perk is calibrated for the celestial standard.
+                </p>
+</div>
+<div class="lg:col-span-4 flex flex-col items-start lg:items-end gap-4">
+<button class="w-full lg:w-auto bg-gradient-to-tr from-primary to-primary-container text-on-primary font-bold px-8 py-4 rounded-xl flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(183,159,250,0.3)] hover:scale-105 transition-transform active:scale-95">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">concierge</span>
+                    PRIORITY CONCIERGE
+                </button>
+<div class="flex items-center gap-4 text-secondary">
+<span class="material-symbols-outlined neon-glow-secondary" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="font-label text-sm font-bold tracking-widest uppercase">Restricted Area Verified</span>
+</div>
+</div>
+</section>
+<!-- Main Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+<!-- 3D Floorplan (VIP Restricted View) -->
+<div class="md:col-span-3 lg:col-span-3 row-span-2 glass-panel rounded-xl overflow-hidden border border-white/5 relative group">
+<div class="absolute top-6 left-6 z-10 flex flex-col gap-2">
+<div class="bg-surface/80 backdrop-blur-md px-4 py-2 rounded-lg border border-primary/20">
+<span class="text-xs font-bold text-primary tracking-widest uppercase">VIP Floorplan View</span>
+</div>
+<div class="flex items-center gap-2 bg-black/40 backdrop-blur-sm px-3 py-1 rounded-md">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse shadow-[0_0_8px_#68fcbf]"></span>
+<span class="text-[10px] text-on-surface/80 font-medium">LIVE OCCUPANCY: 12%</span>
+</div>
+</div>
+<div class="absolute bottom-6 right-6 z-10 flex gap-2">
+<button class="bg-surface-container-highest/80 p-2 rounded-lg hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined text-on-surface">zoom_in</span>
+</button>
+<button class="bg-surface-container-highest/80 p-2 rounded-lg hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined text-on-surface">3d_rotation</span>
+</button>
+</div>
+<img class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" data-alt="high-angle 3D architectural rendering of a futuristic luxury lounge with glowing floor circuits and neon violet accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAkIYo9NaZaoIHxAZNqj5GOeb4gMGxWiz5C3bEpo1mZuWB3F2kQCFDxw99_vO-4_6LFXmyeIAdDdOlH1Acaio87RedGIWAasMeFgmI-xyYVQkqsxy0IqgVC39Lxpd137WINjXIWj6Eceam29fssz_0L1zY5-ibGnYfjD6Qqpks-h0Kcy6Gk71_WvYPot3eimTJALLZatdpvQBSeQ2BuihukZ2fHPrHvtmqwJsiaEda9FOnVZFUjyoF0gv206F3Ch7Fcca_-Q_w7EP4"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent"></div>
+</div>
+<!-- Open Bar Status Card -->
+<div class="glass-panel p-6 rounded-xl border border-white/5 flex flex-col justify-between h-full group hover:border-secondary/30 transition-all duration-500">
+<div class="flex justify-between items-start">
+<div class="p-3 bg-secondary/10 rounded-xl text-secondary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">local_bar</span>
+</div>
+<span class="text-[10px] font-bold text-secondary uppercase tracking-[0.2em]">Unlimited</span>
+</div>
+<div>
+<h3 class="font-headline text-2xl font-bold text-on-surface mt-6">Premium Open Bar</h3>
+<p class="text-on-surface-variant text-sm mt-2">Executive vintage selection and molecular lounge menu unlocked.</p>
+</div>
+<div class="mt-6 pt-4 border-t border-outline-variant/20 flex items-center justify-between">
+<span class="text-xs font-bold text-primary">STATUS: ACTIVE</span>
+<span class="material-symbols-outlined text-primary text-sm">arrow_forward_ios</span>
+</div>
+</div>
+<!-- Keynote Insights -->
+<div class="glass-panel p-6 rounded-xl border border-white/5 flex flex-col h-full bg-gradient-to-br from-surface-variant/40 to-transparent">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="insights">insights</span>
+<h3 class="font-headline text-xl font-bold text-violet-100">Keynote Feed</h3>
+</div>
+<div class="space-y-4">
+<div class="bg-surface-container-lowest/50 p-3 rounded-lg border-l-2 border-primary">
+<p class="text-xs text-primary font-bold mb-1 uppercase tracking-tighter">Real-time Insight</p>
+<p class="text-sm text-on-surface leading-snug">"Decentralized Aether networks projected to grow 400% by Q4."</p>
+</div>
+<div class="bg-surface-container-lowest/50 p-3 rounded-lg border-l-2 border-outline-variant">
+<p class="text-xs text-on-surface-variant font-bold mb-1 uppercase tracking-tighter">Live Quote</p>
+<p class="text-sm text-on-surface-variant leading-snug">Dr. Aris: "The quantum shift is no longer a theory."</p>
+</div>
+</div>
+<button class="mt-auto pt-4 text-xs font-bold text-on-surface-variant hover:text-primary transition-colors flex items-center gap-2">
+                    VIEW ALL METRICS <span class="material-symbols-outlined text-sm">trending_up</span>
+</button>
+</div>
+<!-- VIP Networking Card -->
+<div class="md:col-span-2 glass-panel p-6 rounded-xl border border-white/5 flex flex-col md:flex-row gap-6 items-center">
+<div class="w-24 h-24 rounded-full border-2 border-secondary/30 p-1 shrink-0">
+<div class="w-full h-full rounded-full bg-surface-container-highest flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-4xl" data-icon="diversity_3">diversity_3</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-secondary font-bold text-[10px] uppercase tracking-[0.1em]">Network Boost</span>
+</div>
+<h3 class="font-headline text-2xl font-bold text-on-surface">The High Table</h3>
+<p class="text-on-surface-variant text-sm mt-1">Direct access to 4 Fortune 500 CEOs currently in the lounge.</p>
+</div>
+<button class="bg-surface-container-high hover:bg-surface-container-highest px-6 py-3 rounded-xl font-bold text-sm text-primary transition-all">
+                    START MATCHMAKING
+                </button>
+</div>
+<!-- Restricted Perk: Private Pod -->
+<div class="glass-panel p-6 rounded-xl border border-white/5 relative overflow-hidden group">
+<div class="absolute inset-0 opacity-10 group-hover:opacity-20 transition-opacity">
+<img class="w-full h-full object-cover" data-alt="minimalist dark interior of a luxury private soundproof meeting pod with soft purple ambient light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDipmoNhsYEY-sQaFX-M8Yh8PDcbg1eJOJNqJKhB0-JueEPMKaZ6BxCS1TFwdY6bQOjnez5V2_AEJmY0JxpRnluSvd_kihN1htqNS8silBcKzBMwwBnipsS9s908didavVEOQNXpwvveWF0ah8anL0uWe5foU-9HKB5B4dvDTM04FBBruKaWrlejpdETTs1Hlc1c4YOOJnoHkgADBv4-vIGoLfTzQ73Slm3-0_U0BgdrqfFBDMDU5zzZkIe2bFj060ZfcMsmjhVWjY"/>
+</div>
+<div class="relative z-10">
+<span class="material-symbols-outlined text-primary mb-4" style="font-variation-settings: 'FILL' 1;">sensor_occupied</span>
+<h3 class="font-headline text-xl font-bold text-on-surface">Private Pods</h3>
+<p class="text-on-surface-variant text-sm mt-2">Soundproof strategic chambers. 2 Available now.</p>
+<button class="mt-6 w-full py-2 border border-primary/30 rounded-lg text-xs font-bold text-primary hover:bg-primary hover:text-on-primary transition-all">
+                        RESERVE INSTANTLY
+                    </button>
+</div>
+</div>
+<!-- Perk Badge -->
+<div class="glass-panel p-6 rounded-xl border border-white/5 flex flex-col items-center justify-center text-center">
+<div class="relative w-16 h-16 mb-4">
+<div class="absolute inset-0 bg-primary/20 blur-xl animate-pulse"></div>
+<span class="material-symbols-outlined text-5xl text-primary relative z-10" data-icon="diamond">diamond</span>
+</div>
+<h4 class="font-headline text-lg font-bold text-on-surface uppercase tracking-widest">VIP Status</h4>
+<p class="text-[10px] text-secondary font-bold mt-1 tracking-widest">TIER: PLATINUM NEON</p>
+</div>
+</div>
+</main>
+<!-- BottomNavBar Navigation Shell (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-6 bg-violet-950/60 backdrop-blur-2xl shadow-[0_-8px_32px_rgba(0,0,0,0.4)] rounded-t-xl">
+<div class="flex flex-col items-center justify-center text-violet-300/60 transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-bold mt-1">Hub</span>
+</div>
+<div class="flex flex-col items-center justify-center text-violet-300/60 transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="diversity_3">diversity_3</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-bold mt-1">Networking</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-gradient-to-tr from-violet-600 to-violet-400 text-white rounded-xl px-5 py-2 transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="diamond" style="font-variation-settings: 'FILL' 1;">diamond</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-bold mt-1">VIP Lounge</span>
+</div>
+</nav>
+<!-- Hidden visual elements for background depth -->
+<div class="fixed top-[-10%] right-[-5%] w-[40%] h-[60%] bg-primary/5 blur-[120px] rounded-full -z-10"></div>
+<div class="fixed bottom-[-5%] left-[-5%] w-[30%] h-[50%] bg-secondary/5 blur-[120px] rounded-full -z-10"></div>
+</body></html>

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NEBULA LIVE - Quantum Keynote</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#8342f4",
+                        "surface-container": "#22103a",
+                        "surface-container-high": "#291543",
+                        "on-secondary-fixed": "#004931",
+                        "secondary": "#68fcbf",
+                        "secondary-container": "#006c4b",
+                        "primary-fixed-dim": "#9d81f0",
+                        "on-tertiary-container": "#ffffff",
+                        "error-dim": "#d73357",
+                        "background": "#150629",
+                        "on-surface-variant": "#b7a3cf",
+                        "tertiary-fixed-dim": "#b48fff",
+                        "secondary-fixed-dim": "#57edb1",
+                        "outline": "#806e96",
+                        "on-error": "#490013",
+                        "surface-container-lowest": "#000000",
+                        "outline-variant": "#514166",
+                        "surface-tint": "#b79fff",
+                        "tertiary-fixed": "#c0a0ff",
+                        "error-container": "#a70138",
+                        "on-secondary": "#005e40",
+                        "inverse-on-surface": "#5e4e74",
+                        "on-error-container": "#ffb2b9",
+                        "inverse-primary": "#684cb6",
+                        "surface-bright": "#372056",
+                        "on-primary-fixed-variant": "#330b80",
+                        "tertiary-dim": "#8a4cfc",
+                        "primary-fixed": "#ab8ffe",
+                        "on-secondary-fixed-variant": "#006948",
+                        "secondary-fixed": "#68fcbf",
+                        "on-primary": "#361083",
+                        "surface-variant": "#301a4d",
+                        "on-primary-container": "#290070",
+                        "surface-container-highest": "#301a4d",
+                        "surface-dim": "#150629",
+                        "secondary-dim": "#57edb1",
+                        "surface": "#150629",
+                        "on-tertiary-fixed": "#200051",
+                        "on-background": "#efdfff",
+                        "primary-container": "#ab8ffe",
+                        "primary": "#b79fff",
+                        "on-tertiary-fixed-variant": "#4a00a4",
+                        "on-secondary-container": "#e0ffec",
+                        "inverse-surface": "#fff7ff",
+                        "error": "#ff6e84",
+                        "primary-dim": "#a88cfb",
+                        "tertiary": "#af88ff",
+                        "on-surface": "#efdfff",
+                        "on-tertiary": "#2b0065",
+                        "on-primary-fixed": "#000000",
+                        "surface-container-low": "#1b0a31"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Manrope"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .neon-glow-primary {
+            filter: drop-shadow(0 0 8px rgba(183, 159, 255, 0.4));
+        }
+        .neon-glow-secondary {
+            filter: drop-shadow(0 0 8px rgba(104, 252, 191, 0.4));
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body min-h-screen pb-24">
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 w-full z-50 bg-violet-950/40 backdrop-blur-xl shadow-[0_0_20px_rgba(167,139,250,0.12)] flex items-center justify-between px-6 h-16">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-violet-400" data-icon="rocket_launch">rocket_launch</span>
+<h1 class="text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-300 font-['Space_Grotesk']">NEBULA LIVE</h1>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-emerald-400 text-[10px] font-['Space_Grotesk'] uppercase tracking-[0.2em] animate-pulse">Live: Quantum Keynote</span>
+<div class="w-8 h-8 rounded-full border-2 border-violet-400/30 p-0.5">
+<img alt="User Profile Avatar" class="w-full h-full rounded-full object-cover" data-alt="professional portrait of a tech leader in a futuristic studio setting with violet ambient lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiAkd6N7sTe8U4NQwRmpT6s7TJpHBD1D84fDddIl0E_xIuczsiA8HghnkPb5di_VPBraYjR-tnY_4P5JA110qh-kb27_rr7iBLAUu9UwBhwI-LkPixeo485LXeJoGZajRmfPveHoYwP1tFp-1EZow2C4nAABQ_UZ9WajTBne54D_chkh1ml9AV5IMnVEZppqXrLbgWXXljZbTD26W_QlZMS5_e-nez-CMebxM_crw4xl5YPw6ijJnd-SxEgkWGbvOfrNf_8NCkfgI"/>
+</div>
+</div>
+</header>
+<main class="pt-20 px-4 md:px-8 max-w-7xl mx-auto space-y-6">
+<!-- Large Cinematic Video Player -->
+<section class="relative w-full aspect-video rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant/15 shadow-2xl group">
+<img class="w-full h-full object-cover opacity-80" data-alt="Cinematic wide shot of a futuristic digital stage with holographic displays and a speaker silhouetted against glowing neon blue and purple data visualizations" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnCne6A44yt4lNR-HcxnxDtEsGy63HhrWHRzjSXZNbl3DARGGP-NAL-jvuXm1HS_7Ia8LPP7yk13dSNpIOKXPwDDo8j2Nv7RYeu6e7MO3caGek_FDhS5Z0zti41_5HVWPkbT1XkbBSuivY76PorimWHkNlg-ezYXrXfRWPH-vRIY78e5OAEKwsRyT5b0SZVGZv5LZ5OzkRDvnINe69l0MJ5wIOF1q24af4fIzHRPemxknb-X4R299ArEAZMGvqxeAf5Lu4mxMttZI"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent"></div>
+<!-- Player Controls (Static Overlay) -->
+<div class="absolute bottom-0 left-0 right-0 p-6 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 flex items-center justify-center rounded-full bg-primary/20 backdrop-blur-md text-primary hover:bg-primary/30 transition-all">
+<span class="material-symbols-outlined" data-icon="pause" style="font-variation-settings: 'FILL' 1;">pause</span>
+</button>
+<div class="h-1 w-48 md:w-96 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary neon-glow-primary w-[75%]"></div>
+</div>
+<span class="text-xs font-label opacity-70">42:15 / 58:00</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-white/70 hover:text-white cursor-pointer" data-icon="settings">settings</span>
+<span class="material-symbols-outlined text-white/70 hover:text-white cursor-pointer" data-icon="fullscreen">fullscreen</span>
+</div>
+</div>
+<!-- Live Badge -->
+<div class="absolute top-6 left-6 flex items-center gap-2 px-3 py-1 bg-error-container/80 backdrop-blur-md rounded-lg">
+<span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+<span class="text-[10px] font-bold tracking-widest uppercase">Live</span>
+</div>
+<!-- Viewer Count -->
+<div class="absolute top-6 right-6 flex items-center gap-2 px-3 py-1 bg-surface-container-lowest/40 backdrop-blur-md rounded-lg">
+<span class="material-symbols-outlined text-xs" data-icon="visibility">visibility</span>
+<span class="text-[10px] font-bold tracking-widest uppercase">14.2K Viewing</span>
+</div>
+</section>
+<!-- Dynamic Grid Content -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- Interaction Area (Tabs & Chat) -->
+<div class="lg:col-span-8 space-y-6">
+<!-- Glassmorphic Tab System -->
+<div class="glass-panel p-1 rounded-xl flex items-center">
+<button class="flex-1 py-3 px-4 rounded-lg text-secondary neon-glow-secondary font-label text-sm font-semibold flex items-center justify-center gap-2 bg-secondary/10 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="forum">forum</span>
+                        Live Chat
+                    </button>
+<button class="flex-1 py-3 px-4 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/20 transition-all font-label text-sm font-semibold flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="poll">poll</span>
+                        Polls
+                    </button>
+<button class="flex-1 py-3 px-4 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/20 transition-all font-label text-sm font-semibold flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="folder_open">folder_open</span>
+                        Resources
+                    </button>
+</div>
+<!-- Chat Feed -->
+<div class="glass-panel rounded-xl h-[400px] flex flex-col overflow-hidden border border-outline-variant/10">
+<div class="flex-1 overflow-y-auto p-4 space-y-4">
+<!-- Message 1 -->
+<div class="flex gap-3">
+<img class="w-8 h-8 rounded-full border border-primary/30" data-alt="avatar of a person with colorful lighting on their face" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDn9lr7OEpKymJHQ6RBKwv0KhhJWwhCj_WhhacnU4RMVaYB7xgTUSsmNaUElxml7eJFjWE76ZnqWpJ5t25Xe5Q8nkKNgehVZFTcbh971iJMqq5d2qF0V0jer-GzfLlVRz0tmbiGVd9NmY2wHRxc9E9Ri7RqUw4f47KKtfWM0h3QR8fwgp3mMd4fjikl-SS2nGn_sGf6qAKuMkfCR16Sbwd4FQX70e2WAjfTha3dQx9gUm_VVNQk2xd8YV4eSmh_Rg1lRmR9UugKy2c"/>
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="text-xs font-bold text-primary">Alex Mercer</span>
+<span class="text-[10px] opacity-40">14:20</span>
+</div>
+<div class="bg-surface-container p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border-l-2 border-primary/40 text-sm">
+                                    This architecture is literally light years ahead of the competition. 🚀
+                                </div>
+</div>
+</div>
+<!-- Message 2 -->
+<div class="flex gap-3">
+<img class="w-8 h-8 rounded-full border border-secondary/30" data-alt="creative profile picture of a digital artist with neon highlights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuiEYJDUmlzsA-OGf9pnyoUCAfNcmA5npoXdpZR-hzzrRxObp4MEZLh3jB4FgpwUHM_YA4tkr1MQAYUyuayqthYGL40v7Xua2EFQjYHEEswjTO3dFqf8JlvBpYUFk_Hmm3PFZ1n_jT-B3PVFWLzJcAnqrsO48sFYBnnFH8YRvTBtCbgi-w63GV6e1RWuSomVppJsdMfxSO-0qgN48Mr3Q4hfRCd1-jYfisuEVzHbHPzzBlzGbN0ilEmUtcjbqZ8jnN_tw_qHcRDYc"/>
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="text-xs font-bold text-secondary">Sarah K.</span>
+<span class="text-[10px] opacity-40">14:21</span>
+</div>
+<div class="bg-surface-container p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border-l-2 border-secondary/40 text-sm">
+                                    Can we talk more about the latency on the quantum core?
+                                </div>
+</div>
+</div>
+<!-- Message 3 -->
+<div class="flex gap-3">
+<img class="w-8 h-8 rounded-full border border-tertiary/30" data-alt="minimalist avatar of a person in a futuristic space suit" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAoYzHGyrEp5_DWtohP4FVOzP-ocp1fIJhywmNd6YbDBfSXrlYDSLDEJlLd0XYjEObs50wzDvpgVbeGiQcUJ_w_OZNkjvQmV9X400hC1EbZQc6ycoCfw8vQZZ-CuEiT2K9Mz8FH8BszdpGF5RYDE8RGBHgnw2qz_RLR_S9IdTW9HSPhQqTW7NZLhRnMJIPjZCaKv9FAUFnv6YmSTB10Zcae2FR-eUQHMEDbJMsIRLmXPs6DZbtVSpqhxJuinmlF1m-o3-RMxLCErdg"/>
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="text-xs font-bold text-tertiary">Jax Dawn</span>
+<span class="text-[10px] opacity-40">14:23</span>
+</div>
+<div class="bg-surface-container p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border-l-2 border-tertiary/40 text-sm">
+                                    The visualizations are insane! Is that real-time data?
+                                </div>
+</div>
+</div>
+</div>
+<!-- Chat Input -->
+<div class="p-4 bg-surface-container-low/80 border-t border-outline-variant/10">
+<div class="flex gap-3 bg-surface-container-lowest rounded-full px-4 py-2 border border-outline-variant/20 focus-within:border-primary/50 transition-all">
+<input class="bg-transparent border-none focus:ring-0 text-sm flex-1 text-on-surface" placeholder="Say something in the void..." type="text"/>
+<button class="text-primary hover:text-primary-dim transition-colors">
+<span class="material-symbols-outlined" data-icon="send" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Participation & Sidebar -->
+<div class="lg:col-span-4 space-y-6">
+<!-- Participate Poll Section -->
+<div class="glass-panel p-6 rounded-xl border border-secondary/10 relative overflow-hidden">
+<div class="absolute -top-12 -right-12 w-24 h-24 bg-secondary/10 rounded-full blur-3xl"></div>
+<h3 class="text-sm font-headline font-bold uppercase tracking-widest mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="bar_chart">bar_chart</span>
+                        Live Poll
+                    </h3>
+<p class="text-lg font-bold mb-6">How is the session so far?</p>
+<div class="space-y-6">
+<!-- Poll Option 1 -->
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-medium">
+<span class="text-on-surface">Mind-blowing 🤯</span>
+<span class="text-secondary">64%</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary neon-glow-secondary w-[64%]"></div>
+</div>
+</div>
+<!-- Poll Option 2 -->
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-medium">
+<span class="text-on-surface">Very informative 📚</span>
+<span class="text-on-surface-variant">28%</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary/40 w-[28%]"></div>
+</div>
+</div>
+<!-- Poll Option 3 -->
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-medium">
+<span class="text-on-surface">Still processing... 🌀</span>
+<span class="text-on-surface-variant">8%</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-surface-variant w-[8%]"></div>
+</div>
+</div>
+</div>
+<button class="w-full mt-8 py-3 bg-gradient-to-r from-primary to-primary-container text-on-primary font-bold rounded-lg text-sm transition-all active:scale-95 shadow-[0_4px_20px_rgba(183,159,255,0.3)]">
+                        SUBMIT VOTE
+                    </button>
+</div>
+<!-- Session Meta -->
+<div class="glass-panel p-6 rounded-xl border border-outline-variant/10 space-y-4">
+<h4 class="text-xs font-headline text-on-surface-variant uppercase tracking-widest">Next Up</h4>
+<div class="flex items-center gap-4 group cursor-pointer">
+<div class="w-16 h-10 rounded bg-surface-container-high overflow-hidden">
+<img alt="Next session preview" class="w-full h-full object-cover group-hover:scale-110 transition-transform" data-alt="abstract cosmic particle background with violet and pink colors" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDliF47liHikIfLUk8RIWU3du8rGMu8KBL2UWWT1_Dsr7hkS5jBj8nuX76kukbLtu98_7h-j2FacpoQ2UjicujBzcG7XgHiLz3f9kGACH4Zw-gp5g3ep3WvM9omnBLq7FIgwzd_yNQSu023ZEZlkiWD-tWNdmhJT0xJlmMLAvnZSoJIhWnMX4KtQ5H5jcpgxgwwhyb9-Z5pu63eL-4tt02zpQZ8K_9S0qZXu-XeU_tVXJNptYIjHAT1J9jo2hdwX-heDCs29r31-cI"/>
+</div>
+<div>
+<p class="text-sm font-bold group-hover:text-primary transition-colors">Neural Sync 2.0</p>
+<p class="text-[10px] text-on-surface-variant">Starts in 15 mins</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar Shell -->
+<nav class="fixed bottom-0 w-full h-20 bg-violet-950/40 backdrop-blur-xl rounded-t-xl z-50 flex justify-around items-center px-4 shadow-[0_-8px_32px_rgba(0,0,0,0.4)]">
+<a class="flex flex-col items-center justify-center text-emerald-400 drop-shadow-[0_0_8px_rgba(104,252,191,0.6)]" href="#">
+<span class="material-symbols-outlined" data-icon="play_circle" style="font-variation-settings: 'FILL' 1;">play_circle</span>
+<span class="font-['Manrope'] font-medium text-[10px]">Watch</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-300/50 hover:bg-violet-400/5 transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="forum">forum</span>
+<span class="font-['Manrope'] font-medium text-[10px]">Interact</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-300/50 hover:bg-violet-400/5 transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="insights">insights</span>
+<span class="font-['Manrope'] font-medium text-[10px]">Stats</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-300/50 hover:bg-violet-400/5 transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="notifications_active">notifications_active</span>
+<span class="font-['Manrope'] font-medium text-[10px]">Alerts</span>
+</a>
+</nav>
+</body></html>

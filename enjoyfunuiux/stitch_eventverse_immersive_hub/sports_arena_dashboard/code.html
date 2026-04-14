@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EnjoyFun - Sports Arena Immersive Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&amp;family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-surface-variant": "#b7a3cf",
+                      "on-background": "#efdfff",
+                      "on-primary-fixed": "#000000",
+                      "surface": "#150629",
+                      "primary": "#b79fff",
+                      "on-primary": "#361083",
+                      "on-error-container": "#ffb2b9",
+                      "surface-container-highest": "#301a4d",
+                      "primary-container": "#ab8ffe",
+                      "primary-dim": "#a88cfb",
+                      "on-tertiary-container": "#ffffff",
+                      "tertiary-container": "#8342f4",
+                      "surface-container-lowest": "#000000",
+                      "on-surface": "#efdfff",
+                      "secondary-dim": "#57edb1",
+                      "surface-variant": "#301a4d",
+                      "surface-tint": "#b79fff",
+                      "surface-container-high": "#291543",
+                      "tertiary": "#af88ff",
+                      "on-tertiary-fixed-variant": "#4a00a4",
+                      "error": "#ff6e84",
+                      "error-dim": "#d73357",
+                      "inverse-on-surface": "#5e4e74",
+                      "on-secondary-container": "#e0ffec",
+                      "on-primary-fixed-variant": "#330b80",
+                      "tertiary-dim": "#8a4cfc",
+                      "secondary": "#68fcbf",
+                      "on-primary-container": "#290070",
+                      "on-secondary-fixed": "#004931",
+                      "inverse-primary": "#684cb6",
+                      "surface-container-low": "#1b0a31",
+                      "surface-container": "#22103a",
+                      "on-tertiary": "#2b0065",
+                      "on-secondary": "#005e40",
+                      "surface-dim": "#150629",
+                      "surface-bright": "#372056",
+                      "primary-fixed": "#ab8ffe",
+                      "on-error": "#490013",
+                      "tertiary-fixed-dim": "#b48fff",
+                      "secondary-fixed-dim": "#57edb1",
+                      "outline": "#806e96",
+                      "error-container": "#a70138",
+                      "on-tertiary-fixed": "#200051",
+                      "tertiary-fixed": "#c0a0ff",
+                      "secondary-container": "#006c4b",
+                      "background": "#150629",
+                      "inverse-surface": "#fff7ff",
+                      "primary-fixed-dim": "#9d81f0",
+                      "outline-variant": "#514166",
+                      "on-secondary-fixed-variant": "#006948",
+                      "secondary-fixed": "#68fcbf"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "fontFamily": {
+                      "headline": ["Space Grotesk"],
+                      "body": ["Manrope"],
+                      "label": ["Space Grotesk"]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; background-color: #150629; color: #efdfff; }
+        .font-space-grotesk { font-family: 'Space Grotesk', sans-serif; }
+        .glass-panel {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(81, 65, 102, 0.15);
+        }
+        .neon-glow-secondary {
+            box-shadow: 0 0 15px rgba(104, 252, 191, 0.3);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="antialiased overflow-x-hidden selection:bg-secondary selection:text-on-secondary">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-violet-950/40 backdrop-blur-xl flex items-center justify-between px-6 h-16 w-full shadow-[0_0_40px_rgba(167,139,250,0.12)]">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full border-2 border-primary/30 p-0.5 overflow-hidden active:scale-95 duration-200 transition-colors hover:bg-violet-400/10">
+<img class="w-full h-full object-cover" data-alt="futuristic holographic user avatar with glowing violet highlights and digital noise texture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1DfTYBU8rEhCXntXEus6PZCw3QtvaFfX06X9vk5smuste3Hh31ZWVshBVJaje2xsajl-rc1Mj4Ous0nOoF6G0Qp5_1pl4VoGkY7meRaABD21oRvKgLgIZ6UZnAc0t4v80JNL00CIZmWgSDmyWXJx0LZC51pRng8MoJhfTWfpdfO-XNFy-GQo7qBWlttUNFA_VvFlv7I56kbMB1nE4OPyxOlOPj5rLHqykb7p871RBNoWoon-Iw4sjW_x7FHk--yc5FsD8uYyc8mg"/>
+</div>
+<h1 class="text-2xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-violet-300 to-violet-500 font-space-grotesk">ENJOYFUN</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-violet-400 p-2 rounded-full hover:bg-violet-400/10 transition-colors active:scale-95 duration-200">
+                support_agent
+            </button>
+</div>
+</header>
+<main class="pt-16 pb-24 px-4 md:px-8 max-w-7xl mx-auto space-y-8">
+<!-- Hero Section: Isometric Stadium -->
+<section class="relative w-full aspect-[16/10] md:aspect-[21/9] rounded-xl overflow-hidden mt-6">
+<img class="w-full h-full object-cover brightness-50" data-alt="dramatic wide shot of a modern 3D isometric football stadium with glowing neon purple and green architectural lights during a night match" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0DUYzViwGZ37he8P_iLeA_sRV2sizkcE-YP3qELrWQk9BVmcidSxXWCaKL23n7KJw6CiIM5LIjMwxPO6ZUku91SVxuvDQ4lfYAsOWx_iLZnGp0tSVGa81HeGCd9-Le1pIk3kcTQxd9Isze3X-gF-GsTfzNRh8-i83cypJjCXvXlPzYdFFrz0NGr4I_BY7CL6sV3EYBWFIS3PZouO5TdkZC3Vr05rcSEB0FWXRlTSw5GV3UWxGj_Ur46jF0aC4laV3Q-cZX_Br0yI"/>
+<!-- Floating Score Card -->
+<div class="absolute top-6 left-6 glass-panel p-4 rounded-xl flex items-center gap-6 animate-pulse">
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 bg-surface-container-highest rounded-lg flex items-center justify-center mb-1 border border-primary/20">
+<span class="font-bold text-primary font-space-grotesk">T.A</span>
+</div>
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Team Alpha</span>
+</div>
+<div class="text-3xl font-black font-space-grotesk flex flex-col items-center">
+<div class="flex gap-2">
+<span class="text-secondary">2</span>
+<span class="text-outline-variant">-</span>
+<span class="text-primary">1</span>
+</div>
+<span class="text-[10px] font-bold text-secondary tracking-widest uppercase mt-1">65' Live</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 bg-surface-container-highest rounded-lg flex items-center justify-center mb-1 border border-primary/20">
+<span class="font-bold text-primary font-space-grotesk">T.B</span>
+</div>
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Team Beta</span>
+</div>
+</div>
+<!-- Interaction Layer Markers -->
+<!-- Fan Zone -->
+<div class="absolute top-[40%] left-[20%] group">
+<div class="flex flex-col items-center gap-2 cursor-pointer transition-transform hover:scale-110">
+<div class="w-12 h-12 rounded-full glass-panel flex items-center justify-center text-secondary border border-secondary/40 neon-glow-secondary">
+<span class="material-symbols-outlined">diversity_3</span>
+</div>
+<div class="bg-surface p-1 px-3 rounded-full text-[10px] font-bold text-secondary uppercase border border-secondary/20 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Fan Zone</div>
+</div>
+</div>
+<!-- VIP Lounge -->
+<div class="absolute top-[30%] right-[30%] group">
+<div class="flex flex-col items-center gap-2 cursor-pointer transition-transform hover:scale-110">
+<div class="w-12 h-12 rounded-full glass-panel flex items-center justify-center text-primary border border-primary/40 shadow-[0_0_15px_rgba(183,159,255,0.3)]">
+<span class="material-symbols-outlined">diamond</span>
+</div>
+<div class="bg-surface p-1 px-3 rounded-full text-[10px] font-bold text-primary uppercase border border-primary/20 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">VIP Lounge</div>
+</div>
+</div>
+<!-- Official Store -->
+<div class="absolute bottom-[25%] right-[15%] group">
+<div class="flex flex-col items-center gap-2 cursor-pointer transition-transform hover:scale-110">
+<div class="w-12 h-12 rounded-full glass-panel flex items-center justify-center text-on-surface-variant border border-on-surface-variant/40">
+<span class="material-symbols-outlined">shopping_bag</span>
+</div>
+<div class="bg-surface p-1 px-3 rounded-full text-[10px] font-bold text-on-surface-variant uppercase border border-on-surface-variant/20 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Official Store</div>
+</div>
+</div>
+</section>
+<!-- Middle Section: Fan Pulse -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Stats -->
+<div class="lg:col-span-1 space-y-6">
+<h2 class="text-xl font-black font-space-grotesk tracking-tighter text-primary uppercase">Arena Metrics</h2>
+<div class="glass-panel rounded-xl p-6 space-y-8">
+<div>
+<div class="flex justify-between items-end mb-2">
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Possession</span>
+<span class="text-lg font-space-grotesk font-bold text-secondary">58% <span class="text-[10px] text-outline">vs</span> 42%</span>
+</div>
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden flex">
+<div class="h-full bg-secondary" style="width: 58%"></div>
+<div class="h-full bg-primary" style="width: 42%"></div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="p-4 bg-surface-container-low rounded-lg border-l-2 border-secondary">
+<span class="text-[10px] font-bold uppercase text-on-surface-variant block mb-1">Shots on Goal</span>
+<span class="text-2xl font-space-grotesk font-bold">12</span>
+</div>
+<div class="p-4 bg-surface-container-low rounded-lg border-l-2 border-primary">
+<span class="text-[10px] font-bold uppercase text-on-surface-variant block mb-1">Corner Kicks</span>
+<span class="text-2xl font-space-grotesk font-bold">04</span>
+</div>
+</div>
+<div class="pt-4 border-t border-outline-variant/20">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 bg-secondary rounded-full animate-pulse shadow-[0_0_8px_#68fcbf]"></div>
+<span class="text-sm font-bold text-on-surface tracking-tight">Match Intensity: High</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Crowd Reaction Feed -->
+<div class="lg:col-span-2 space-y-6">
+<div class="flex justify-between items-center">
+<h2 class="text-xl font-black font-space-grotesk tracking-tighter text-primary uppercase">Fan Pulse</h2>
+<span class="text-[10px] bg-secondary-container text-on-secondary-container px-2 py-1 rounded font-bold uppercase tracking-widest">84k Live Fans</span>
+</div>
+<div class="space-y-4">
+<!-- Reaction Card 1 -->
+<div class="glass-panel p-5 rounded-xl flex gap-4 hover:bg-violet-400/5 transition-all">
+<img class="w-12 h-12 rounded-full border border-primary/20" data-alt="avatar of a young sports fan with excited expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1kdf6A6iBDx2dlGiOujkZOgIJQyYg_JR9kuQ5JDB1VW66908aVTVfG-TNVKBVCAQiMbbxGyR_lZ7uh1h1iTJDsZen_LQXHapl9mG71XfqhgsWhlVPQazno5WNpvFseu6jy-zFT3pGXm3VPEiHo5VELMtRZq3IgGrtGbmjjkpEJDNc9NRM_M7ufxYM1dIDk21V4Gm_9FjYT7qjEiolPlayISUBS1iNpaKFriNEqsRcTV7Sjv-uXkMubewesYGINrxvUQDCbAhmfEw"/>
+<div class="flex-1">
+<div class="flex justify-between mb-1">
+<span class="font-bold text-primary text-sm">@SkyWalker_88</span>
+<span class="text-[10px] text-on-surface-variant font-medium">2m ago</span>
+</div>
+<p class="text-sm text-on-surface leading-relaxed">That last save was absolutely cosmic! Team Alpha's defense is a literal fortress today. #ENJOYFUNArena</p>
+<div class="flex gap-4 mt-3">
+<button class="flex items-center gap-1 text-[10px] font-bold text-on-surface-variant hover:text-secondary">
+<span class="material-symbols-outlined text-sm">favorite</span> 1.2k
+                                </button>
+<button class="flex items-center gap-1 text-[10px] font-bold text-on-surface-variant hover:text-primary">
+<span class="material-symbols-outlined text-sm">mode_comment</span> 42
+                                </button>
+</div>
+</div>
+</div>
+<!-- Reaction Card 2 -->
+<div class="glass-panel p-5 rounded-xl flex gap-4 border-l-4 border-secondary hover:bg-violet-400/5 transition-all">
+<div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined">electric_bolt</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between mb-1">
+<span class="font-bold text-secondary text-sm">Arena Broadcaster</span>
+<span class="text-[10px] text-on-surface-variant font-medium">Just now</span>
+</div>
+<p class="text-sm font-bold text-on-surface">GOAL REPLAY: Available now in your Pass. Premium angles unlocked for VIP members.</p>
+<div class="mt-3">
+<button class="text-[10px] font-bold bg-secondary/20 text-secondary border border-secondary/30 px-3 py-1 rounded hover:bg-secondary hover:text-on-secondary transition-colors">WATCH REPLAY</button>
+</div>
+</div>
+</div>
+<!-- Reaction Card 3 -->
+<div class="glass-panel p-5 rounded-xl flex gap-4 hover:bg-violet-400/5 transition-all opacity-80">
+<img class="w-12 h-12 rounded-full border border-primary/20" data-alt="avatar of a stadium visitor wearing team colors" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD2UO4Avv3K8G5EsWshMS8Sw93TU0CJC-gLjQrqBztJ1iboh-wPfE3v2hI0bviHN_QeL6WGXWDakOcqfFY4F8MyMfePgMGtb-SIPFejJ1zaHa0G4WfIm-mlY6up2MDVPH3Jn8qZR9iLPkhPMllCBAvem1_2RZdPdgaFBPtH0iaxslfOhC7LONoUdxKsBB4n_7PRaeS2XetNsWE5-LekQVwpZJ7CleqWz5y2ClyGaX-qhGihzhj_bqNd8pmzUSgdeL1nFfx4EcNYglY"/>
+<div class="flex-1">
+<div class="flex justify-between mb-1">
+<span class="font-bold text-primary text-sm">@NovaRunner</span>
+<span class="text-[10px] text-on-surface-variant font-medium">5m ago</span>
+</div>
+<p class="text-sm text-on-surface">The atmosphere in Section 4 is insane. You can feel the roar through the floor! 🏟️🔥</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-4 pb-2 bg-violet-950/50 backdrop-blur-2xl rounded-t-xl z-50 border-t border-violet-400/15 shadow-[0_-8px_32px_rgba(21,6,41,0.8)]">
+<!-- Arena (Active) -->
+<a class="flex flex-col items-center justify-center bg-violet-400/20 text-emerald-300 rounded-lg px-4 py-1 shadow-[0_0_15px_rgba(104,252,191,0.3)] transition-all active:translate-y-0.5 duration-150" href="#">
+<span class="material-symbols-outlined mb-0.5" data-weight="fill">stadium</span>
+<span class="font-manrope uppercase text-[10px] tracking-widest font-bold">Arena</span>
+</a>
+<!-- Pass -->
+<a class="flex flex-col items-center justify-center text-violet-400/60 px-4 py-1 hover:text-violet-200 transition-all active:translate-y-0.5 duration-150" href="#">
+<span class="material-symbols-outlined mb-0.5">qr_code_2</span>
+<span class="font-manrope uppercase text-[10px] tracking-widest font-bold">Pass</span>
+</a>
+<!-- Concierge -->
+<a class="flex flex-col items-center justify-center text-violet-400/60 px-4 py-1 hover:text-violet-200 transition-all active:translate-y-0.5 duration-150" href="#">
+<span class="material-symbols-outlined mb-0.5">smart_toy</span>
+<span class="font-manrope uppercase text-[10px] tracking-widest font-bold">Concierge</span>
+</a>
+<!-- Fans -->
+<a class="flex flex-col items-center justify-center text-violet-400/60 px-4 py-1 hover:text-violet-200 transition-all active:translate-y-0.5 duration-150" href="#">
+<span class="material-symbols-outlined mb-0.5">diversity_3</span>
+<span class="font-manrope uppercase text-[10px] tracking-widest font-bold">Fans</span>
+</a>
+</nav>
+</body></html>

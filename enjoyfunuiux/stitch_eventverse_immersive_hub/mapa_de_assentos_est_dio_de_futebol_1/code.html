@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NEBULA ARENA | Seating Map</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-fixed-dim": "#9d81f0",
+                    "surface-container-high": "#291543",
+                    "on-tertiary-fixed-variant": "#4a00a4",
+                    "secondary-dim": "#57edb1",
+                    "on-primary-container": "#290070",
+                    "tertiary-dim": "#8a4cfc",
+                    "tertiary-container": "#8342f4",
+                    "surface-tint": "#b79fff",
+                    "inverse-primary": "#684cb6",
+                    "on-secondary": "#005e40",
+                    "on-secondary-fixed": "#004931",
+                    "on-surface": "#efdfff",
+                    "error-container": "#a70138",
+                    "outline": "#806e96",
+                    "inverse-on-surface": "#5e4e74",
+                    "primary-dim": "#a88cfb",
+                    "error": "#ff6e84",
+                    "secondary": "#68fcbf",
+                    "on-primary-fixed-variant": "#330b80",
+                    "on-primary": "#361083",
+                    "surface-dim": "#150629",
+                    "primary": "#b79fff",
+                    "outline-variant": "#514166",
+                    "inverse-surface": "#fff7ff",
+                    "on-error": "#490013",
+                    "on-secondary-fixed-variant": "#006948",
+                    "tertiary-fixed": "#c0a0ff",
+                    "on-tertiary-fixed": "#200051",
+                    "secondary-fixed": "#68fcbf",
+                    "on-tertiary-container": "#ffffff",
+                    "error-dim": "#d73357",
+                    "on-secondary-container": "#e0ffec",
+                    "surface-variant": "#301a4d",
+                    "surface-container-lowest": "#000000",
+                    "on-tertiary": "#2b0065",
+                    "surface": "#150629",
+                    "tertiary-fixed-dim": "#b48fff",
+                    "tertiary": "#af88ff",
+                    "secondary-fixed-dim": "#57edb1",
+                    "on-background": "#efdfff",
+                    "surface-bright": "#372056",
+                    "surface-container": "#22103a",
+                    "background": "#150629",
+                    "on-primary-fixed": "#000000",
+                    "on-surface-variant": "#b7a3cf",
+                    "surface-container-highest": "#301a4d",
+                    "surface-container-low": "#1b0a31",
+                    "primary-container": "#ab8ffe",
+                    "primary-fixed": "#ab8ffe",
+                    "on-error-container": "#ffb2b9"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Manrope"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .isometric-arena {
+            transform: rotateX(55deg) rotateZ(-35deg);
+            transform-style: preserve-3d;
+        }
+        .arena-layer {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-panel {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body selection:bg-primary/30 min-h-screen overflow-x-hidden">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-violet-950/40 backdrop-blur-xl shadow-[0_0_40px_rgba(167,139,250,0.12)] flex justify-between items-center px-6 py-4">
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-violet-400/20 transition-colors scale-95 active:duration-150 text-violet-400">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-xl font-bold tracking-tighter text-violet-300 font-['Space_Grotesk'] tracking-tight">NEBULA ARENA</h1>
+</div>
+<div class="flex items-center gap-3">
+<div class="hidden md:flex bg-surface-container-lowest/50 rounded-full px-4 py-1.5 items-center gap-2 border border-outline-variant/20">
+<span class="material-symbols-outlined text-sm text-secondary">flash_on</span>
+<span class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Live Sync Active</span>
+</div>
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-violet-400/20 transition-colors scale-95 active:duration-150 text-violet-400">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<main class="pt-24 pb-48 px-4 md:px-8 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- UI Overlay Left: Search and Categories -->
+<div class="lg:col-span-3 flex flex-col gap-6 order-2 lg:order-1">
+<div class="glass-panel p-6 rounded-xl border border-outline-variant/10 shadow-xl">
+<h2 class="text-headline-lg font-headline font-bold text-primary mb-4 tracking-tight">Locate Seat</h2>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full bg-surface-container-lowest border-none rounded-lg py-3 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary placeholder:text-on-surface-variant/50" placeholder="Search Sector (e.g. N-204)" type="text"/>
+</div>
+</div>
+<div class="glass-panel p-6 rounded-xl border border-outline-variant/10 shadow-xl">
+<h3 class="text-xs font-label uppercase tracking-[0.2em] text-on-surface-variant mb-6">Tier Categories</h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-sm bg-tertiary shadow-[0_0_10px_rgba(175,136,255,0.6)]"></div>
+<span class="text-sm font-medium">VIP Monolith</span>
+</div>
+<span class="text-xs text-on-surface-variant font-label">$850.00</span>
+</div>
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-sm bg-primary shadow-[0_0_10px_rgba(183,159,255,0.4)]"></div>
+<span class="text-sm font-medium">Standard Orbit</span>
+</div>
+<span class="text-xs text-on-surface-variant font-label">$240.00</span>
+</div>
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-sm bg-outline-variant shadow-[0_0_10px_rgba(81,65,102,0.4)]"></div>
+<span class="text-sm font-medium">Economy Void</span>
+</div>
+<span class="text-xs text-on-surface-variant font-label">$95.00</span>
+</div>
+</div>
+<div class="mt-8 pt-6 border-t border-outline-variant/10">
+<h3 class="text-xs font-label uppercase tracking-[0.2em] text-on-surface-variant mb-4">Availability</h3>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_rgba(104,252,191,0.8)]"></div>
+<span class="text-[10px] font-label uppercase text-on-surface-variant">Open</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-error shadow-[0_0_8px_rgba(255,110,132,0.8)]"></div>
+<span class="text-[10px] font-label uppercase text-on-surface-variant">Sold Out</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Center: Isometric Stadium Visualization -->
+<div class="lg:col-span-9 relative flex items-center justify-center min-h-[500px] order-1 lg:order-2 overflow-hidden rounded-3xl bg-surface-container-low/30 border border-outline-variant/5">
+<!-- Background Radial Glow -->
+<div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(183,159,255,0.08)_0%,transparent_70%)]"></div>
+<div class="isometric-arena relative w-[600px] h-[400px]">
+<!-- Pitch -->
+<div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-96 bg-secondary-container/40 border-2 border-secondary/30 rounded-sm shadow-[0_0_50px_rgba(104,252,191,0.1)]">
+<div class="absolute inset-0 border border-secondary/20 flex items-center justify-center">
+<div class="w-24 h-24 border border-secondary/20 rounded-full"></div>
+<div class="absolute top-0 w-full h-[1px] bg-secondary/20"></div>
+<div class="absolute bottom-0 w-full h-[1px] bg-secondary/20"></div>
+</div>
+</div>
+<!-- West Stands (Standard) -->
+<div class="arena-layer absolute left-0 top-1/2 -translate-y-1/2 w-32 h-96 bg-primary/20 border border-primary/40 rounded-l-xl hover:bg-primary/40 cursor-pointer flex items-center justify-center transform translate-z-10 transition-all hover:translate-x-[-10px]">
+<span class="text-xs font-headline font-bold text-primary-fixed uppercase -rotate-90">West Orbit</span>
+<div class="absolute -right-1 top-4 bottom-4 w-[2px] bg-secondary/50 shadow-[0_0_8px_#68fcbf]"></div>
+</div>
+<!-- East Stands (VIP) -->
+<div class="arena-layer absolute right-0 top-1/2 -translate-y-1/2 w-32 h-96 bg-tertiary/20 border border-tertiary/40 rounded-r-xl hover:bg-tertiary/40 cursor-pointer flex items-center justify-center transform translate-z-10 transition-all hover:translate-x-[10px]">
+<span class="text-xs font-headline font-bold text-tertiary uppercase rotate-90">East Monolith</span>
+<div class="absolute -left-1 top-4 bottom-4 w-[2px] bg-error shadow-[0_0_8px_#ff6e84]"></div>
+</div>
+<!-- North Stands (Economy) -->
+<div class="arena-layer absolute top-0 left-1/2 -translate-x-1/2 w-96 h-24 bg-surface-container-highest/60 border border-outline-variant/40 rounded-t-xl hover:bg-surface-container-highest cursor-pointer flex items-center justify-center transform translate-z-10 transition-all hover:translate-y-[-10px]">
+<span class="text-xs font-headline font-bold text-on-surface-variant uppercase">North Void</span>
+<div class="absolute -bottom-1 left-4 right-4 h-[2px] bg-secondary/50 shadow-[0_0_8px_#68fcbf]"></div>
+</div>
+<!-- South Stands (Standard) -->
+<div class="arena-layer absolute bottom-0 left-1/2 -translate-x-1/2 w-96 h-24 bg-primary/20 border border-primary/40 rounded-b-xl hover:bg-primary/40 cursor-pointer flex items-center justify-center transform translate-z-10 transition-all hover:translate-y-[10px]">
+<span class="text-xs font-headline font-bold text-primary-fixed uppercase">South Orbit</span>
+<div class="absolute -top-1 left-4 right-4 h-[2px] bg-secondary/50 shadow-[0_0_8px_#68fcbf]"></div>
+</div>
+</div>
+<!-- Compass Overlay -->
+<div class="absolute bottom-6 left-6 flex flex-col items-center opacity-40">
+<div class="w-10 h-10 border border-outline-variant rounded-full flex items-center justify-center text-[10px] font-label font-bold">N</div>
+<div class="h-8 w-[1px] bg-gradient-to-b from-outline-variant to-transparent"></div>
+</div>
+</div>
+</main>
+<!-- Contextual Bottom Drawer: Field Preview -->
+<div class="fixed bottom-0 left-0 w-full z-[60] bg-violet-950/40 backdrop-blur-xl rounded-t-full md:rounded-t-3xl border-t border-primary/20 shadow-[0_-12px_48px_rgba(0,0,0,0.6)] transform translate-y-0 transition-transform duration-500">
+<div class="max-w-7xl mx-auto px-6 py-6 md:py-8 grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+<!-- Handle for mobile drag (aesthetic only) -->
+<div class="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full bg-outline-variant/30 md:hidden"></div>
+<!-- Preview Info -->
+<div class="md:col-span-4">
+<div class="flex items-center gap-3 mb-2">
+<span class="px-2 py-1 bg-secondary/20 text-secondary text-[10px] font-bold rounded uppercase tracking-wider">Selected</span>
+<span class="text-on-surface-variant text-xs font-label">SEC: W-204 | ROW: 12</span>
+</div>
+<h4 class="text-2xl font-headline font-bold text-white mb-1">West Orbit Stand</h4>
+<p class="text-on-surface-variant text-sm">Experience the game from the central midfield perspective with optimal vertical viewing angle.</p>
+<div class="mt-6 flex gap-4">
+<button class="flex-1 bg-gradient-to-r from-primary to-primary-container text-on-primary-container font-bold py-3 px-6 rounded-xl hover:scale-[1.02] transition-transform active:scale-95 shadow-[0_0_20px_rgba(183,159,255,0.4)]">
+                        Confirm Seat - $240
+                    </button>
+<button class="p-3 border border-outline-variant/30 rounded-xl hover:bg-surface-variant/40 transition-colors">
+<span class="material-symbols-outlined text-primary">bookmark</span>
+</button>
+</div>
+</div>
+<!-- Visual Field Preview -->
+<div class="md:col-span-8 h-48 md:h-64 relative rounded-2xl overflow-hidden border border-outline-variant/20 shadow-2xl">
+<img class="w-full h-full object-cover grayscale-[0.2] brightness-[0.7] hover:scale-105 transition-transform duration-1000" data-alt="cinematic wide-angle view from high stadium seats looking down onto a vibrant green football pitch at night under bright stadium floodlights with dramatic atmospheric haze" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAs9KJfwFxHW0_WraBfmrNOdsZNlkTueQ9t6zKahuZ1KXpoFGXZ1qmYCqS522eJnXMzTOFTcH0AagZJTRLn5zNwKNfoW1gRvT5476f5ub2KXyZzEgRiRyg1mnI1FRs8-zySBbxMnSALyY_oyt46AEMCskUC-1spHeX9O9ITULpTNhh3cUK8RGT9ldEpqPqLLwmEVktkePBSchOSbZ5P8kf98O1_-XR8OstepsXdM5LNFhcfHxZXsP1mDFsCP6_vmKUB3q5t1w3dgu8"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent"></div>
+<!-- Lens Flare Effect -->
+<div class="absolute top-4 right-4 w-32 h-32 bg-primary/10 blur-3xl rounded-full"></div>
+<!-- HUD Overlay -->
+<div class="absolute top-4 left-4 flex gap-2">
+<div class="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2">
+<span class="material-symbols-outlined text-xs text-secondary" style="font-variation-settings: 'FILL' 1;">visibility</span>
+<span class="text-[10px] font-label font-bold text-white">FIELD VIEW PREVIEW</span>
+</div>
+</div>
+<!-- Coordinate Lines -->
+<div class="absolute inset-0 border-[0.5px] border-white/5 pointer-events-none"></div>
+<div class="absolute top-1/2 left-0 w-full h-[0.5px] bg-white/5"></div>
+<div class="absolute left-1/2 top-0 w-[0.5px] h-full bg-white/5"></div>
+</div>
+</div>
+</div>
+<!-- Bottom Navigation Bar (Shared Component) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-violet-950/40 backdrop-blur-xl shadow-[0_-8px_32px_rgba(0,0,0,0.5)] md:hidden">
+<a class="flex flex-col items-center justify-center text-violet-300/50 p-2 hover:text-emerald-300 transition-all scale-110 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em]">Hub</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-300/50 p-2 hover:text-emerald-300 transition-all scale-110 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">stadium</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em]">Events</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-violet-500/20 text-emerald-400 rounded-xl p-2 drop-shadow-[0_0_8px_rgba(104,252,191,0.5)] scale-110 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">confirmation_number</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em]">Tickets</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-300/50 p-2 hover:text-emerald-300 transition-all scale-110 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em]">Profile</span>
+</a>
+</nav>
+<!-- Floating UI Decoration -->
+<div class="fixed top-1/3 -right-24 w-96 h-96 bg-primary/5 blur-[120px] rounded-full pointer-events-none"></div>
+<div class="fixed bottom-0 -left-24 w-64 h-64 bg-secondary/5 blur-[100px] rounded-full pointer-events-none"></div>
+</body></html>

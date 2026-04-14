@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-container": "#8342f4",
+                    "primary-container": "#ab8ffe",
+                    "on-primary-container": "#290070",
+                    "surface-container-lowest": "#000000",
+                    "surface-container-highest": "#301a4d",
+                    "on-secondary": "#005e40",
+                    "surface-tint": "#b79fff",
+                    "surface-variant": "#301a4d",
+                    "on-secondary-fixed": "#004931",
+                    "inverse-surface": "#fff7ff",
+                    "secondary-dim": "#57edb1",
+                    "outline-variant": "#514166",
+                    "error-dim": "#d73357",
+                    "on-primary-fixed": "#000000",
+                    "on-tertiary": "#2b0065",
+                    "surface-container": "#22103a",
+                    "secondary-fixed": "#68fcbf",
+                    "surface-container-high": "#291543",
+                    "surface": "#150629",
+                    "tertiary-fixed": "#c0a0ff",
+                    "on-secondary-fixed-variant": "#006948",
+                    "primary-fixed": "#ab8ffe",
+                    "tertiary-fixed-dim": "#b48fff",
+                    "primary-dim": "#a88cfb",
+                    "on-surface": "#efdfff",
+                    "on-error-container": "#ffb2b9",
+                    "on-surface-variant": "#b7a3cf",
+                    "error": "#ff6e84",
+                    "inverse-primary": "#684cb6",
+                    "secondary-container": "#006c4b",
+                    "on-error": "#490013",
+                    "primary": "#b79fff",
+                    "on-tertiary-container": "#ffffff",
+                    "primary-fixed-dim": "#9d81f0",
+                    "outline": "#806e96",
+                    "tertiary-dim": "#8a4cfc",
+                    "inverse-on-surface": "#5e4e74",
+                    "surface-container-low": "#1b0a31",
+                    "surface-bright": "#372056",
+                    "on-secondary-container": "#e0ffec",
+                    "secondary-fixed-dim": "#57edb1",
+                    "on-primary": "#361083",
+                    "tertiary": "#af88ff",
+                    "on-tertiary-fixed-variant": "#4a00a4",
+                    "background": "#150629",
+                    "on-primary-fixed-variant": "#330b80",
+                    "surface-dim": "#150629",
+                    "secondary": "#68fcbf",
+                    "on-tertiary-fixed": "#200051",
+                    "on-background": "#efdfff",
+                    "error-container": "#a70138"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Manrope"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .neon-glow-primary {
+            box-shadow: 0 0 20px rgba(183, 159, 255, 0.15);
+        }
+        .neon-glow-secondary {
+            filter: drop-shadow(0 0 8px rgba(104, 252, 191, 0.5));
+        }
+        .isometric-map {
+            transform: rotateX(45deg) rotateZ(-30deg);
+            transform-style: preserve-3d;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body overflow-hidden h-screen w-screen selection:bg-secondary selection:text-on-secondary">
+<!-- Header / TopAppBar -->
+<header class="fixed top-0 w-full z-[100] flex items-center justify-between px-6 h-16 bg-[#150629]/40 backdrop-blur-xl no-border bg-gradient-to-b from-[#150629] to-transparent shadow-[0_0_20px_rgba(167,139,250,0.1)]">
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform text-violet-400">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="text-violet-300 font-['Space_Grotesk'] tracking-tighter font-bold uppercase">TELEPORTING...</h1>
+</div>
+<div class="flex items-center gap-6">
+<div class="text-xl font-bold tracking-widest text-violet-300 uppercase">MAP</div>
+<button class="hover:text-emerald-400 transition-colors duration-300 text-violet-500">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+</div>
+</header>
+<!-- Main Canvas: Isometric Map View -->
+<main class="relative w-full h-full flex items-center justify-center bg-surface overflow-hidden">
+<!-- Deep Space Background Gradients -->
+<div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_#22103a_0%,_#150629_100%)]"></div>
+<div class="absolute -top-1/4 -right-1/4 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px]"></div>
+<div class="absolute -bottom-1/4 -left-1/4 w-[600px] h-[600px] bg-secondary/10 rounded-full blur-[120px]"></div>
+<!-- 3D Map Container -->
+<div class="relative w-full max-w-5xl aspect-video isometric-map">
+<!-- Floorplan Image -->
+<div class="absolute inset-0 bg-surface-container-high rounded-xl outline outline-primary/20 p-1">
+<img alt="festival map" class="w-full h-full object-cover rounded-lg opacity-40 grayscale sepia brightness-50" data-alt="Top-down isometric view of a futuristic 3D cyberpunk festival floorplan with neon pathways, stage structures, and glowing holographic area markers" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpiv7BnF9W3hpAqycehPhQ0gRbsXSn3ddHymdVT3qx6IeE-B5cOZ8xai2T96kDd_peLGJ3beWVgP4yBleq_wiuKVvF_Cl49KouTZzeLUGIa7FQ36ReRbJ1Hy3ylhaQgnUknjGIknziVuGErzeRfPheqngK2SoMrtFjcwnEqO004WiMbzTqvzrnhdjCnNTKEO-4IkDNyfXfHpPhyA5sX9S7az8gl8h9bO3XAbd7bHxQuat6CRzzu_hqHb2Bj0NPtrmLp56D_G8L4Nk"/>
+<!-- Map Grid Overlay -->
+<div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 mix-blend-overlay"></div>
+</div>
+<!-- Friend Markers (Floaters) -->
+<!-- Marker 1 -->
+<div class="absolute top-[20%] left-[30%] transform translate-z-12 flex flex-col items-center">
+<div class="relative group">
+<div class="absolute -inset-1 bg-secondary rounded-full blur-sm animate-pulse opacity-50"></div>
+<img class="w-10 h-10 rounded-full border-2 border-secondary relative z-10" data-alt="Avatar of a young man with neon lighting reflections on his face, looking into camera" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlmdJrUYE1VvVb--HU5H1APcTULzBqvJzYnulkIxq1d0P8v_WSVIt_Y-DSD-ZjJW6GikNgX82Wl1a0WPfvnIqq54KYC9C-APBwd6InNsGiSGubmF6n-U6Gyu_LXrE9sv79cC7Zf5n6qzxatB_TeqgEFWf0yaZBtVG69phCktG_83gI_F44rHxys8SzvZZx4LZCJCdkYvbu5cF4PV2e_4LqtD4GXrVNPZry-osgY6Ph2KIsQh6D3Xle3cjK3-xBZjHAZGG1LYKJ14M"/>
+<div class="absolute -bottom-1 -right-1 w-3 h-3 bg-secondary rounded-full border-2 border-surface z-20"></div>
+</div>
+<span class="mt-2 text-[10px] font-headline bg-surface/80 backdrop-blur-md px-2 py-0.5 rounded-full text-secondary-fixed border border-secondary/30">MAX @ MAIN_STAGE</span>
+</div>
+<!-- Marker 2 -->
+<div class="absolute top-[60%] left-[70%] transform translate-z-12 flex flex-col items-center">
+<div class="relative group">
+<div class="absolute -inset-1 bg-primary rounded-full blur-sm animate-pulse opacity-50"></div>
+<img class="w-10 h-10 rounded-full border-2 border-primary relative z-10" data-alt="Avatar of a smiling woman with futuristic makeup and blue ambient lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCcXj-6yCM5rkn7VV9lKxyWDqq6KNmHciIASmAHY_Mi3roOP4bn_nUFkvU5U7GC9lMZTh7_sVO6lLwJshdc5pHYwfMHO_WSG-plajQc9hCrHQ9s9sk8Jj8JqM62s1OuJp2hEIheP1nQyrJHSeJi36RwH0gnG5_zDNh2Gt4eV1bdWK27yxHeklIaKhJ5w-pTLhhE2a_1HR5yk06OmkJm0LzVlwi7USY9DONfZ2sna78ewCzpz7bphTLBkPzQuKrbMwxyceyD7TZVvzA"/>
+<div class="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-surface z-20"></div>
+</div>
+<span class="mt-2 text-[10px] font-headline bg-surface/80 backdrop-blur-md px-2 py-0.5 rounded-full text-primary border border-primary/30">ELARA @ NEBULA_LOUNGE</span>
+</div>
+<!-- Marker 3 -->
+<div class="absolute top-[40%] left-[50%] transform translate-z-12 flex flex-col items-center">
+<div class="relative group">
+<div class="absolute -inset-2 bg-secondary rounded-full blur-md opacity-20"></div>
+<div class="w-12 h-12 bg-surface-container-highest rounded-full border-2 border-secondary flex items-center justify-center relative z-10">
+<span class="material-symbols-outlined text-secondary" data-icon="location_on">location_on</span>
+</div>
+</div>
+<span class="mt-2 text-[10px] font-headline bg-secondary/20 backdrop-blur-md px-2 py-0.5 rounded-full text-secondary-fixed border border-secondary/50">VIP RECEPTION</span>
+</div>
+</div>
+<!-- Floating UI Overlays -->
+<!-- Passe Digital Card (Holographic) -->
+<div class="fixed top-20 left-1/2 -translate-x-1/2 w-[85%] max-w-sm glass-panel rounded-xl border border-primary/20 p-4 shadow-2xl z-50">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 bg-secondary rounded-full animate-pulse"></div>
+<span class="font-headline text-[10px] tracking-widest text-on-surface-variant uppercase">Passe Digital Interativo</span>
+</div>
+<span class="font-headline text-primary font-bold">X-9982</span>
+</div>
+<div class="flex items-end justify-between">
+<div>
+<h2 class="font-headline text-xl font-extrabold text-on-surface tracking-tight uppercase leading-tight">NEBULA<br/>FESTIVAL '24</h2>
+<p class="text-[10px] font-label text-secondary mt-1 tracking-widest uppercase">ACCESS GRANTED: ALL ZONES</p>
+</div>
+<div class="w-12 h-12 bg-white rounded-lg p-1">
+<img alt="qr code" class="w-full h-full grayscale" data-alt="Futuristic glowing QR code on a glass surface with microchip patterns" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDT79kdVdg31vXyOJ-lZ9ETVCA9EQobGlLziFgwgqQnvpLE6WG9EHaNLEUfA6__8-ptrCmQf8yR6fL-tK99oDHHFxdgkVnrlj0M86xFBBj7ptCPskBFcOLGXK4juAAkRo1_4ye131_jcqJ8yPveFMtYw_-Lx2SEbEhs0EqnCOp5ScAhI-IwncJw_nyUjODG8ab6ySYQeYBl3lp4Sz6jO4_ekfKzHk8aB3aYaQzXEeZ8hzyHhPggpTfLmq8ywi-bgKz2cUTTymwRJ5k"/>
+</div>
+</div>
+</div>
+<!-- Right Side HUD Controls -->
+<div class="fixed right-6 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-50">
+<button class="w-12 h-12 glass-panel rounded-full border border-primary/20 flex items-center justify-center hover:bg-primary/20 transition-all text-primary">
+<span class="material-symbols-outlined" data-icon="layers">layers</span>
+</button>
+<button class="w-12 h-12 glass-panel rounded-full border border-primary/20 flex items-center justify-center hover:bg-primary/20 transition-all text-primary">
+<span class="material-symbols-outlined" data-icon="my_location">my_location</span>
+</button>
+<div class="h-12 glass-panel rounded-full border border-primary/20 flex flex-col items-center justify-center p-1 gap-1">
+<button class="text-primary/60 hover:text-primary"><span class="material-symbols-outlined" data-icon="add">add</span></button>
+<div class="w-full h-[1px] bg-primary/20"></div>
+<button class="text-primary/60 hover:text-primary"><span class="material-symbols-outlined" data-icon="remove">remove</span></button>
+</div>
+</div>
+<!-- AI Concierge Dock (Floating at bottom, above nav) -->
+<div class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[90%] max-w-xl z-50">
+<div class="glass-panel border border-secondary/30 rounded-2xl p-4 flex items-center gap-4 shadow-[0_0_40px_rgba(104,252,191,0.15)] group">
+<div class="relative">
+<div class="absolute -inset-1 bg-secondary rounded-full blur-md opacity-20 group-hover:opacity-40 transition-opacity"></div>
+<div class="w-12 h-12 bg-surface-container rounded-full flex items-center justify-center border border-secondary/50">
+<span class="material-symbols-outlined text-secondary" data-icon="smart_toy" data-weight="fill" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+</div>
+<div class="flex-1">
+<p class="text-[10px] font-headline text-secondary-fixed uppercase tracking-wider mb-0.5">Concierge Ativo</p>
+<p class="text-sm font-body text-on-surface-variant italic">"A apresentação do DJ Kinesis começa em 15min no Palco Nebula. Deseja a rota mais rápida?"</p>
+</div>
+<button class="bg-secondary/10 hover:bg-secondary/20 p-2 rounded-xl border border-secondary/20 text-secondary transition-colors">
+<span class="material-symbols-outlined" data-icon="send">send</span>
+</button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-[#150629]/60 backdrop-blur-lg rounded-t-xl no-border border-t-[1px] border-violet-500/15 shadow-[0_-10px_40px_rgba(167,139,250,0.12)]">
+<!-- NEXUS -->
+<a class="flex flex-col items-center justify-center text-violet-400/50 p-2 hover:bg-violet-500/10 hover:text-violet-200 active:scale-90 transition-all duration-200 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="explore">explore</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-bold mt-1">NEXUS</span>
+</a>
+<!-- MAP (Active) -->
+<a class="flex flex-col items-center justify-center bg-violet-500/20 text-emerald-400 rounded-xl p-2 drop-shadow-[0_0_8px_rgba(104,252,191,0.5)] active:scale-90 transition-all duration-200 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="travel_explore">travel_explore</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-bold mt-1">MAP</span>
+</a>
+<!-- SQUAD -->
+<a class="flex flex-col items-center justify-center text-violet-400/50 p-2 hover:bg-violet-500/10 hover:text-violet-200 active:scale-90 transition-all duration-200 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-bold mt-1">SQUAD</span>
+</a>
+<!-- INTEL -->
+<a class="flex flex-col items-center justify-center text-violet-400/50 p-2 hover:bg-violet-500/10 hover:text-violet-200 active:scale-90 transition-all duration-200 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="sensors">sensors</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-bold mt-1">INTEL</span>
+</a>
+</nav>
+<!-- Map Legend / Stats (Asymmetric Layout Element) -->
+<div class="fixed left-6 bottom-32 z-40 hidden md:block">
+<div class="glass-panel border-l-4 border-secondary p-4 flex flex-col gap-3 max-w-[200px]">
+<div>
+<p class="text-[10px] font-headline text-secondary uppercase tracking-widest">Active Peers</p>
+<p class="text-2xl font-headline font-bold text-on-surface">1.2k</p>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between text-[10px] font-label text-on-surface-variant">
+<span>STAGE LOAD</span>
+<span>88%</span>
+</div>
+<div class="w-full h-1 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[88%]"></div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

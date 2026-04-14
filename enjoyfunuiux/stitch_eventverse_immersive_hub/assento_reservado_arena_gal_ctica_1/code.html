@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-fixed-dim": "#9d81f0",
+                    "surface-container-high": "#291543",
+                    "on-tertiary-fixed-variant": "#4a00a4",
+                    "secondary-dim": "#57edb1",
+                    "on-primary-container": "#290070",
+                    "tertiary-dim": "#8a4cfc",
+                    "tertiary-container": "#8342f4",
+                    "surface-tint": "#b79fff",
+                    "inverse-primary": "#684cb6",
+                    "on-secondary": "#005e40",
+                    "on-secondary-fixed": "#004931",
+                    "on-surface": "#efdfff",
+                    "error-container": "#a70138",
+                    "outline": "#806e96",
+                    "inverse-on-surface": "#5e4e74",
+                    "primary-dim": "#a88cfb",
+                    "error": "#ff6e84",
+                    "secondary": "#68fcbf",
+                    "on-primary-fixed-variant": "#330b80",
+                    "on-primary": "#361083",
+                    "surface-dim": "#150629",
+                    "primary": "#b79fff",
+                    "outline-variant": "#514166",
+                    "inverse-surface": "#fff7ff",
+                    "on-error": "#490013",
+                    "on-secondary-fixed-variant": "#006948",
+                    "tertiary-fixed": "#c0a0ff",
+                    "on-tertiary-fixed": "#200051",
+                    "secondary-fixed": "#68fcbf",
+                    "on-tertiary-container": "#ffffff",
+                    "error-dim": "#d73357",
+                    "on-secondary-container": "#e0ffec",
+                    "surface-variant": "#301a4d",
+                    "surface-container-lowest": "#000000",
+                    "on-tertiary": "#2b0065",
+                    "surface": "#150629",
+                    "tertiary-fixed-dim": "#b48fff",
+                    "tertiary": "#af88ff",
+                    "secondary-fixed-dim": "#57edb1",
+                    "on-background": "#efdfff",
+                    "surface-bright": "#372056",
+                    "surface-container": "#22103a",
+                    "background": "#150629",
+                    "on-primary-fixed": "#000000",
+                    "on-surface-variant": "#b7a3cf",
+                    "surface-container-highest": "#301a4d",
+                    "secondary-container": "#006c4b",
+                    "surface-container-low": "#1b0a31",
+                    "primary-container": "#ab8ffe",
+                    "primary-fixed": "#ab8ffe",
+                    "on-error-container": "#ffb2b9"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Manrope"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .neon-glow-secondary {
+            filter: drop-shadow(0 0 8px rgba(104, 252, 191, 0.5));
+        }
+        .holographic-sheen {
+            background: linear-gradient(135deg, rgba(183, 159, 255, 0.1) 0%, rgba(104, 252, 191, 0.1) 50%, rgba(183, 159, 255, 0.1) 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body selection:bg-secondary/30">
+<!-- Top AppBar (from JSON) -->
+<header class="bg-violet-950/40 backdrop-blur-xl fixed top-0 w-full z-50 flex justify-between items-center px-6 py-4 w-full shadow-[0_0_40px_rgba(167,139,250,0.12)]">
+<div class="flex items-center gap-4">
+<button class="text-violet-400 hover:bg-violet-400/20 transition-colors p-2 rounded-lg active:scale-95 duration-150">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="text-xl font-bold tracking-tighter text-violet-300 font-['Space_Grotesk'] tracking-tight">NEBULA ARENA</h1>
+</div>
+<button class="text-violet-400 hover:bg-violet-400/20 transition-colors p-2 rounded-lg active:scale-95 duration-150">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</header>
+<main class="min-h-screen pt-24 pb-32 px-6 flex flex-col items-center">
+<!-- Success Messaging -->
+<div class="text-center mb-8 relative">
+<div class="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-48 bg-secondary/10 blur-[60px] rounded-full"></div>
+<div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-secondary-container/30 border border-secondary/20 mb-6 neon-glow-secondary">
+<span class="material-symbols-outlined text-secondary text-4xl" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<h2 class="text-4xl md:text-5xl font-headline font-bold text-on-surface tracking-tight mb-2">Seat Secured!</h2>
+<p class="text-on-surface-variant font-medium tracking-wide">Your mission is confirmed for the Grand Terminal.</p>
+</div>
+<!-- The Digital Pass (Holographic Card) -->
+<div class="w-full max-w-md relative group">
+<!-- Decorative Background Glows -->
+<div class="absolute -inset-1 bg-gradient-to-r from-primary to-secondary opacity-20 blur-xl group-hover:opacity-30 transition duration-1000"></div>
+<div class="relative glass-panel rounded-xl border border-outline-variant/15 overflow-hidden shadow-2xl">
+<!-- Header of Pass -->
+<div class="h-32 relative">
+<img alt="Cinematic arena stage" class="w-full h-full object-cover opacity-60" data-alt="Cinematic wide shot of a futuristic neon-lit arena stage with beams of purple and green light cutting through atmospheric smoke" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxVFjFgcOI3uAMBcRq5gLwmDf-55nPg6KUvlGtkfKMTfg9SMaa__M0Fe21WvQFHsRP1oYyj-u0Yc6iQZaz3qzsKNfI8mqezPJ2293hITq3MI-4mro1GDnn0CV3acBpIpNsKyJN_GJVz2GJO0I6cAB5-qMlnE3pM_EEXQ3W6GlmcRzoXaQEMRCW9pEBGEdCBhGTIESgZYMmbmSnZMDmdWM8BTGt5yzwQdNamHLpWGKMp1Hzjm5z_m0z9Dgbo2Ku-mfLi5xGVKLZFhg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-variant to-transparent"></div>
+<div class="absolute bottom-4 left-6">
+<span class="label-sm bg-primary/20 text-primary-fixed-dim px-2 py-1 rounded text-[10px] uppercase tracking-[0.2em] font-headline font-bold">Premium Tier</span>
+<h3 class="text-2xl font-headline font-bold text-on-surface mt-1">Interstellar Gala</h3>
+</div>
+</div>
+<!-- Pass Content -->
+<div class="p-6 space-y-6 holographic-sheen">
+<!-- Seat Details Bento -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-low p-4 rounded-lg border border-outline-variant/10">
+<span class="text-[10px] uppercase tracking-widest text-on-surface-variant block mb-1">Row</span>
+<span class="text-3xl font-headline font-bold text-primary">J</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-lg border border-outline-variant/10">
+<span class="text-[10px] uppercase tracking-widest text-on-surface-variant block mb-1">Seat</span>
+<span class="text-3xl font-headline font-bold text-primary">12</span>
+</div>
+</div>
+<!-- Details List -->
+<div class="space-y-4">
+<div class="flex justify-between items-center px-2">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="calendar_today">calendar_today</span>
+<span class="text-on-surface font-medium">October 24, 2024</span>
+</div>
+<span class="text-on-surface-variant">20:00 GST</span>
+</div>
+<div class="flex justify-between items-center px-2">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="location_on">location_on</span>
+<span class="text-on-surface font-medium">Nebula Arena</span>
+</div>
+<span class="text-on-surface-variant">Sector 7</span>
+</div>
+</div>
+<!-- Divider -->
+<div class="flex items-center gap-4">
+<div class="h-[1px] flex-1 bg-outline-variant/20"></div>
+<div class="w-4 h-4 rounded-full border border-outline-variant/20"></div>
+<div class="h-[1px] flex-1 bg-outline-variant/20"></div>
+</div>
+<!-- QR Section -->
+<div class="flex flex-col items-center gap-4">
+<div class="p-4 bg-white rounded-lg relative">
+<div class="absolute inset-0 bg-secondary/10 animate-pulse rounded-lg"></div>
+<img alt="Entry QR Code" class="w-32 h-32 relative z-10 mix-blend-multiply opacity-90" data-alt="A clean, high-contrast QR code generated on a white background with rounded corners" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_VwBMweGetmpznfmKvisVXLDnvckxkek1XUCio-CmuO6CVjRxs3KeVp2gl7m-JEYMkB9X_uao_uestUov5lyW3-LE7glGyn2p9rLqDFCw61mW3o5DqbDNWGeV4764wU_a_-JdsLQnHKGYG44t-BI2ve9MeVmmjUPDkpAMYQpuEr-tqfaP5n2hNLWHgWqTT-bJa4pzwO2xd9rcNBhSALuginOSlzKrDRog2uBnC9Vcy9LzafxyO_ENNnu2uszEj0siCw6dLwZg7oQ"/>
+</div>
+<p class="text-[10px] font-label text-on-surface-variant uppercase tracking-[0.3em]">Scan at Terminal Gate 4</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Primary Action -->
+<div class="mt-12 w-full max-w-md">
+<button class="w-full py-4 bg-gradient-to-r from-primary to-primary-container text-on-primary-container font-headline font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20">
+                Return to Hub
+            </button>
+<button class="w-full mt-4 py-3 bg-transparent border border-outline-variant/30 text-primary font-headline font-semibold rounded-xl hover:bg-primary/5 transition-all">
+                Add to Galactic Wallet
+            </button>
+</div>
+</main>
+<!-- Bottom Navigation (from JSON) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-violet-950/40 backdrop-blur-xl rounded-t-xl shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-violet-300/50 p-2 hover:text-emerald-300 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] mt-1">Hub</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-300/50 p-2 hover:text-emerald-300 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="stadium">stadium</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] mt-1">Events</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-violet-500/20 text-emerald-400 rounded-xl p-2 drop-shadow-[0_0_8px_rgba(104,252,191,0.5)] scale-110 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="confirmation_number">confirmation_number</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] mt-1">Tickets</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-300/50 p-2 hover:text-emerald-300 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] mt-1">Profile</span>
+</a>
+</nav>
+<!-- Asymmetrical Decorative Glows -->
+<div class="fixed top-1/4 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[100px] pointer-events-none"></div>
+<div class="fixed bottom-1/4 -left-24 w-80 h-80 bg-secondary/5 rounded-full blur-[120px] pointer-events-none"></div>
+</body></html>

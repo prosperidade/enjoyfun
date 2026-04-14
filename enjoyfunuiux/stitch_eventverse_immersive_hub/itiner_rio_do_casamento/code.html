@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Full Itinerary - ELARA &amp; VALERIUS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-on-surface": "#5e4e74",
+                    "secondary": "#68fcbf",
+                    "on-primary-fixed": "#000000",
+                    "secondary-fixed": "#68fcbf",
+                    "on-secondary": "#005e40",
+                    "on-primary": "#361083",
+                    "tertiary": "#af88ff",
+                    "primary-dim": "#a88cfb",
+                    "tertiary-dim": "#8a4cfc",
+                    "primary-container": "#ab8ffe",
+                    "on-tertiary-container": "#ffffff",
+                    "surface-bright": "#372056",
+                    "primary-fixed": "#ab8ffe",
+                    "on-surface-variant": "#b7a3cf",
+                    "primary": "#b79fff",
+                    "surface-dim": "#150629",
+                    "secondary-fixed-dim": "#57edb1",
+                    "on-tertiary-fixed": "#200051",
+                    "error-dim": "#d73357",
+                    "primary-fixed-dim": "#9d81f0",
+                    "secondary-container": "#006c4b",
+                    "on-background": "#efdfff",
+                    "on-surface": "#efdfff",
+                    "surface-container-highest": "#301a4d",
+                    "surface": "#150629",
+                    "on-primary-fixed-variant": "#330b80",
+                    "secondary-dim": "#57edb1",
+                    "surface-container-lowest": "#000000",
+                    "surface-container-high": "#291543",
+                    "surface-container-low": "#1b0a31",
+                    "surface-container": "#22103a",
+                    "outline-variant": "#514166",
+                    "on-tertiary-fixed-variant": "#4a00a4",
+                    "inverse-primary": "#684cb6",
+                    "on-tertiary": "#2b0065",
+                    "on-secondary-fixed": "#004931",
+                    "tertiary-container": "#8342f4",
+                    "surface-variant": "#301a4d",
+                    "surface-tint": "#b79fff",
+                    "inverse-surface": "#fff7ff",
+                    "on-error": "#490013",
+                    "tertiary-fixed": "#c0a0ff",
+                    "on-primary-container": "#290070",
+                    "on-error-container": "#ffb2b9",
+                    "on-secondary-fixed-variant": "#006948",
+                    "background": "#150629",
+                    "error": "#ff6e84",
+                    "outline": "#806e96",
+                    "on-secondary-container": "#e0ffec",
+                    "error-container": "#a70138",
+                    "tertiary-fixed-dim": "#b48fff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Manrope"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .text-glow-primary {
+            text-shadow: 0 0 15px rgba(183, 159, 255, 0.4);
+        }
+        .text-glow-secondary {
+            text-shadow: 0 0 15px rgba(104, 252, 191, 0.4);
+        }
+        .timeline-line {
+            background: linear-gradient(to bottom, transparent, #b79fff 20%, #b79fff 80%, transparent);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary/30 selection:text-primary min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-violet-950/40 backdrop-blur-xl flex items-center justify-between px-6 h-16 w-full max-w-none shadow-[0_0_40px_rgba(167,139,250,0.12)]">
+<button class="text-violet-300 hover:bg-violet-400/10 transition-colors p-2 rounded-full flex items-center justify-center scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="font-['Space_Grotesk'] tracking-tighter uppercase text-xl font-bold tracking-[0.2em] text-violet-200">ELARA &amp; VALERIUS</h1>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-outline-variant/30">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="portrait of a sophisticated wedding guest in a dark velvet suit with soft atmospheric violet lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWgya77DcleABO_yeyBfyZd4ukBF3tiM5ceSS66q4uIXu0y2Bu9oNLF0NA0J7ad7YMVnIk3TxxyHnarPZJRmysUnsiW2h0h8wc0raw5YKOIjqwLCz2M-ewI5ZRzcesqKanI87utyhGXRoi3Aghi6II5Wl44az51g9uEW7AYaO0RW7GZnzYozf9v4cRSWT7_pCMKYgorR3JP78H81Zw4fN9qa23I5YKYadvZTUeqW72-A24z5wMjhG9B94cEBKkRUhtlkCg1uGlXt0"/>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-24 pb-32 px-6 max-w-2xl mx-auto relative overflow-hidden">
+<!-- Abstract Decorative Background -->
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[100px] rounded-full -z-10"></div>
+<div class="absolute bottom-40 left-0 w-72 h-72 bg-secondary/10 blur-[120px] rounded-full -z-10"></div>
+<!-- Page Header -->
+<div class="mb-12">
+<h2 class="font-headline text-5xl font-extrabold tracking-tighter text-glow-primary mb-2">Full Itinerary</h2>
+<div class="flex items-center gap-3">
+<span class="h-[2px] w-12 bg-secondary shadow-[0_0_8px_#68fcbf]"></span>
+<p class="font-label text-sm uppercase tracking-[0.2em] text-on-surface-variant">Celestial Frontier Estate • Dec 2024</p>
+</div>
+</div>
+<!-- Vertical Timeline Journey -->
+<div class="relative">
+<!-- Central Line -->
+<div class="absolute left-4 top-4 bottom-4 w-[2px] timeline-line opacity-30"></div>
+<!-- Timeline Events -->
+<div class="space-y-12">
+<!-- Event 1 -->
+<div class="relative pl-12">
+<div class="absolute left-0 top-0 w-8 h-8 rounded-full glass-panel border border-primary/30 flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="church">church</span>
+</div>
+<div class="glass-panel border border-outline-variant/15 p-6 rounded-xl hover:bg-surface-container-highest transition-all duration-300">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label text-xs font-bold text-secondary tracking-widest">17:00</span>
+<span class="text-[10px] text-on-surface-variant uppercase tracking-widest bg-surface-container-low px-2 py-1 rounded">Confirmed</span>
+</div>
+<h3 class="font-headline text-xl font-bold text-on-surface mb-1">Ceremony</h3>
+<p class="text-secondary-fixed-dim text-sm font-medium mb-3">Main Altar</p>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                            Join us as we exchange vows under the celestial dome. Please arrive 15 minutes early for seating.
+                        </p>
+</div>
+</div>
+<!-- Event 2 -->
+<div class="relative pl-12">
+<div class="absolute left-0 top-0 w-8 h-8 rounded-full glass-panel border border-primary/30 flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="local_bar">local_bar</span>
+</div>
+<div class="glass-panel border border-outline-variant/15 p-6 rounded-xl hover:bg-surface-container-highest transition-all duration-300">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label text-xs font-bold text-secondary tracking-widest">18:30</span>
+</div>
+<h3 class="font-headline text-xl font-bold text-on-surface mb-1">Cocktail</h3>
+<p class="text-secondary-fixed-dim text-sm font-medium mb-3">Lounge</p>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                            Artisanal spirits and hors d'oeuvres served amidst holographic botanical displays.
+                        </p>
+<div class="mt-4 flex gap-2">
+<img alt="Lounge Area" class="w-16 h-16 rounded-lg object-cover opacity-80 hover:opacity-100 transition-opacity" data-alt="ultra-modern glass lounge with glowing turquoise lights and floating holographic plant life decorations" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgvSY7uQ1lWT6PQx5lvB5eTjQwJ28RktzTBU7LTq5jRBFfXf_sg6GEVyf9ScJ5lPqxweNY9k69nJD7BKnJVkNOHG25vF-3S5kjTgk9jkueHQCSFm_IQy6CZ57h39DVBue9J543OlefEVC0_ZkqiE-ecoGVTTq8RLoE4vY----ApW9LSUZMS2XYzBHKz0l2fZv_sIXpS38ZrHsAap7oxEsUbXazpKFTFD0G941jMTy80FKNEOx_TOOmwPJaY5HfdxCjcGmHWwtaPeI"/>
+<img alt="Cocktails" class="w-16 h-16 rounded-lg object-cover opacity-80 hover:opacity-100 transition-opacity" data-alt="vibrant neon cocktails in crystal glasses on a dark reflective surface with purple backlighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDe80b6Nzw86q7iqE7qt7cEP74EfSQPPHuu1eKHtCgoNY7Ienojz1Bk68IBMTZMFKZEL2cyCYAOfjvRN2rsf2pvYkRaDFWfEudHGRdO1xCJ-nsHYzaaoa7RTKOBlJ0rj7D6aUkPrLxt0Vve6GgGfbcNwyUkyRsJa8J4lpX74WJLhX5P2khFjYNIYShUBSIFXPzlOW05cM3xHNgLxV7j-Fai7AxOHPPF1HnACh4KwfNF0ztawkBdEt8GEXHQqay6ked6lS5FFNJ0XG4"/>
+</div>
+</div>
+</div>
+<!-- Event 3 -->
+<div class="relative pl-12">
+<div class="absolute left-0 top-0 w-8 h-8 rounded-full glass-panel border border-primary/30 flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="restaurant">restaurant</span>
+</div>
+<div class="glass-panel border border-outline-variant/15 p-6 rounded-xl hover:bg-surface-container-highest transition-all duration-300">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label text-xs font-bold text-secondary tracking-widest">20:00</span>
+</div>
+<h3 class="font-headline text-xl font-bold text-on-surface mb-1">Dinner</h3>
+<p class="text-secondary-fixed-dim text-sm font-medium mb-3">Banquete Hall</p>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                            A four-course culinary journey inspired by the zodiac. Formal seating arrangements apply.
+                        </p>
+<button class="mt-4 text-xs font-bold uppercase tracking-widest text-primary hover:text-secondary transition-colors flex items-center gap-1">
+                            View Menu <span class="material-symbols-outlined text-xs" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Event 4 -->
+<div class="relative pl-12">
+<div class="absolute left-0 top-0 w-8 h-8 rounded-full glass-panel border border-primary/30 flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="celebration">celebration</span>
+</div>
+<div class="glass-panel border border-outline-variant/15 p-6 rounded-xl hover:bg-surface-container-highest transition-all duration-300">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label text-xs font-bold text-secondary tracking-widest">22:00</span>
+<span class="flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-secondary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
+</span>
+</div>
+<h3 class="font-headline text-xl font-bold text-on-surface mb-1">Party</h3>
+<p class="text-secondary-fixed-dim text-sm font-medium mb-3">Main Stage</p>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                            Interstellar beats and light shows. The celebration continues into the early solar hours.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Secondary CTA Section -->
+<div class="mt-16 bg-gradient-to-br from-primary-container/20 to-surface-container-highest p-8 rounded-2xl border border-primary/10 text-center">
+<h4 class="font-headline text-2xl font-bold text-on-primary-container mb-2">Need Assistance?</h4>
+<p class="text-on-surface-variant text-sm mb-6">Our concierge is standing by to assist with transport and scheduling.</p>
+<button class="bg-gradient-to-br from-primary to-primary-container text-on-primary-container px-8 py-3 rounded-md font-bold uppercase tracking-widest text-xs shadow-[0_0_30px_rgba(183,159,255,0.3)] hover:scale-105 transition-transform active:scale-95">
+                Contact Concierge
+            </button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full h-20 bg-violet-950/60 backdrop-blur-2xl flex justify-around items-center px-4 pb-safe z-50 rounded-t-xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-violet-300/50 hover:text-violet-200 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="explore">explore</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest mt-1">Map</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-violet-400/20 text-emerald-400 rounded-xl px-4 py-1 shadow-[0_0_15px_rgba(104,252,191,0.3)] Active: scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="event" style="font-variation-settings: 'FILL' 1;">event</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest mt-1">Schedule</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-300/50 hover:text-violet-200 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="card_giftcard">card_giftcard</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest mt-1">Registry</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-300/50 hover:text-violet-200 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="photo_library">photo_library</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest mt-1">Gallery</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-300/50 hover:text-violet-200 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="support_agent">support_agent</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-widest mt-1">Concierge</span>
+</a>
+</nav>
+<!-- FAB Suppression: Per instructions, suppress FAB on Detailed screens -->
+</body></html>

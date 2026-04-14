@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NEXUS HUB - MAIN STAGE DETAIL</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&amp;family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "on-primary": "#361083",
+                "secondary-container": "#006c4b",
+                "on-surface": "#efdfff",
+                "secondary-fixed": "#68fcbf",
+                "on-surface-variant": "#b7a3cf",
+                "on-primary-fixed": "#000000",
+                "inverse-surface": "#fff7ff",
+                "on-secondary-fixed-variant": "#006948",
+                "on-primary-fixed-variant": "#330b80",
+                "on-background": "#efdfff",
+                "on-tertiary-container": "#ffffff",
+                "secondary-dim": "#57edb1",
+                "on-tertiary-fixed-variant": "#4a00a4",
+                "primary-fixed": "#ab8ffe",
+                "outline-variant": "#514166",
+                "tertiary-container": "#8342f4",
+                "tertiary-fixed": "#c0a0ff",
+                "inverse-primary": "#684cb6",
+                "background": "#150629",
+                "primary-container": "#ab8ffe",
+                "outline": "#806e96",
+                "on-secondary": "#005e40",
+                "surface-bright": "#372056",
+                "secondary": "#68fcbf",
+                "on-secondary-container": "#e0ffec",
+                "secondary-fixed-dim": "#57edb1",
+                "surface-tint": "#b79fff",
+                "surface-container-lowest": "#000000",
+                "tertiary": "#af88ff",
+                "on-tertiary-fixed": "#200051",
+                "error": "#ff6e84",
+                "surface-container-highest": "#301a4d",
+                "primary": "#b79fff",
+                "on-secondary-fixed": "#004931",
+                "primary-fixed-dim": "#9d81f0",
+                "surface": "#150629",
+                "surface-container-low": "#1b0a31",
+                "primary-dim": "#a88cfb",
+                "surface-dim": "#150629",
+                "error-dim": "#d73357",
+                "tertiary-dim": "#8a4cfc",
+                "on-error": "#490013",
+                "on-tertiary": "#2b0065",
+                "surface-variant": "#301a4d",
+                "on-primary-container": "#290070",
+                "tertiary-fixed-dim": "#b48fff",
+                "inverse-on-surface": "#5e4e74",
+                "error-container": "#a70138",
+                "on-error-container": "#ffb2b9",
+                "surface-container": "#22103a",
+                "surface-container-high": "#291543"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+            },
+            "fontFamily": {
+                "headline": ["Space Grotesk"],
+                "body": ["Manrope"],
+                "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .perspective-lg { perspective: 2000px; }
+        .rotate-x-15 { transform: rotateX(15deg); }
+        .glass-panel {
+            background: rgba(48, 26, 77, 0.5);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(167, 139, 250, 0.15);
+        }
+        .radial-blur-overlay {
+            background: radial-gradient(circle at center, transparent 30%, rgba(21, 6, 41, 0.95) 100%);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body selection:bg-secondary selection:text-on-secondary">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#150629]/60 backdrop-blur-xl shadow-[0_0_40px_rgba(167,139,250,0.12)]">
+<div class="flex justify-between items-center px-6 h-16">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#A78BFA] cursor-pointer" data-icon="menu">menu</span>
+<h1 class="font-['Space_Grotesk'] tracking-tight font-bold uppercase text-xl font-black text-[#A78BFA] tracking-tighter">NEXUS HUB</h1>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden md:flex items-center gap-4">
+<span class="font-label text-sm tracking-widest text-[#68fcbf]">TELEPORTING...</span>
+<div class="h-1 w-24 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-2/3 shadow-[0_0_10px_#68fcbf]"></div>
+</div>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-primary/30 overflow-hidden">
+<img alt="User Profile Avatar" data-alt="Cyberpunk style character portrait with neon lighting and high-tech eyewear" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDo4lCH8n-wtxqZX7s9Douzvp53Mzohta_4Cy_hHEAdSjw8S21XqOxXhO0T_SH5BQEDkJdAjn2LO61hV07SfqA-0Jq5_bNmcbW0_3laNMNbQhwVT8lOrDyeyddgdI3sucuwTHlDqm-cbSqHXm-FDvOmcd4otZMMJ5Gr8lNrkHrU7ldRfHcMnPyZ8JMRgkvILKlKsYTHml_FRGfLPLIRqg-3VtK4DEMUdgl0hD5jiihB-lgWwC98jwnwkGmuIxzjnuQ4HFepIA18kIo"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Canvas: 3D Map Detailed Zoom -->
+<main class="relative h-screen w-full overflow-hidden flex flex-col pt-16 pb-24">
+<!-- The Background Map View -->
+<div class="absolute inset-0 z-0 bg-surface">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="High-angle isometric 3D architectural render of a futuristic music stage with glowing neon structures and holographic displays" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCUw7oGEJZGF_s2Pq8c4Q28bcNBRbcd-T6w0YUlD00OXlFS8iG7CSl4DzWyn7sDgs1zA9ZGSX4CzikIe6SMeYOHpelxVwvEL8ps7b6VKy9nvaMwzYRXS0RRDhisr8BDPO0j3hFd3JO8v_BsusFH5gBlQ6EzombGCr50DcroQTgt3KsvdvAl2D59zpCCfRB2-ibNVeMbvKDfZoykdYL20hfs3o5sK9GpVmJJHJieB-BRRUTrbWWbDCSfWj_B3X2XiCf35121yy6BByA');"></div>
+<!-- Radial Blur Overlay for focus -->
+<div class="absolute inset-0 radial-blur-overlay"></div>
+</div>
+<!-- The Floating UI Layers -->
+<div class="relative z-10 flex-1 grid grid-cols-12 gap-6 p-6 max-w-7xl mx-auto w-full content-start">
+<!-- Stage Info Monolith -->
+<div class="col-span-12 lg:col-span-4 flex flex-col gap-4">
+<div class="glass-panel p-6 rounded-xl border-l-4 border-l-secondary">
+<div class="flex items-center justify-between mb-4">
+<span class="font-label text-[10px] tracking-[0.2em] uppercase text-secondary">Aether Main Stage</span>
+<span class="flex items-center gap-1 text-secondary">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="text-xs font-bold uppercase">LIVE</span>
+</span>
+</div>
+<h2 class="font-headline text-4xl font-black text-on-surface uppercase mb-2 tracking-tighter">Hyperion Gate</h2>
+<p class="text-on-surface-variant font-light text-sm leading-relaxed">
+                        The sonic heart of Sector 7. Advanced haptic flooring and neuro-link audio active.
+                    </p>
+</div>
+<!-- Current Artist Card -->
+<div class="glass-panel p-5 rounded-xl flex items-center gap-4 transition-transform hover:scale-[1.02] cursor-pointer">
+<div class="w-16 h-16 rounded-lg bg-surface-container-highest overflow-hidden border border-primary/20 shadow-[0_0_15px_rgba(183,159,255,0.2)]">
+<img alt="DJ NOVA" data-alt="Close-up of a futuristic DJ with glowing headwear performing in a dark club environment with magenta lasers" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDmjS075hZJlKxcWXMObv4MsYnrI5sbZFiZrFzAmENFtbSF8tZk5cWMasSaOgAiBXoC7b2vXFxThmghZ5Pc2TssJMb2prRiIwYsxvaa3lRsREDXLL3op-T8rxR4vuOYG9JngbZzd52f2iAbJJ_gSfPEYUjyyhT4xQwP94sjNXz57FZ6vCsX_bnD_Fd3GDC3bB3Alt9eiCYJzgPGl8RZYKkfcYYhnnx6IpfeY_GjDugTbxfoFSepMljXwvJXutoRSl4tLISknYdkN_k"/>
+</div>
+<div>
+<h3 class="font-headline text-lg font-bold text-primary">DJ NOVA</h3>
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant">Set: Synthetic Dawn</p>
+</div>
+<div class="ml-auto">
+<span class="material-symbols-outlined text-secondary" data-icon="graphic_eq">graphic_eq</span>
+</div>
+</div>
+</div>
+<!-- Central Visual Pivot (Empty for 3D focus) -->
+<div class="col-span-12 lg:col-span-4 h-full pointer-events-none"></div>
+<!-- Secondary Actions & Squad -->
+<div class="col-span-12 lg:col-span-4 flex flex-col gap-6">
+<!-- Live Stream Preview Card -->
+<div class="glass-panel overflow-hidden rounded-xl">
+<div class="relative aspect-video">
+<img alt="Live Stream Preview" class="w-full h-full object-cover grayscale-[30%] contrast-125" data-alt="First person perspective of a massive electronic dance festival stage with thousands of glowing screens and laser lights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKhwiL5Qby2N8EaWOSHcDUv4cyBkq5CbhpPpXCMZHP7ZdXjqp6zVcB7jFJQ8k7s7mhReRrqyrWn_5gGarx6HZ-PPE_oOFhvjngcvoX9YlKobKIL2Ta0cGMxhN1bBku8wCjL1so1Sv4O0pWturs2VlJmqvyvNPVzyEla77yUTmpm18Q5MCrwSVejIoiUuSP7yXAG7gJkLXw0EfsT0hU5tK414AfAtrOjcKuLSVyg3PnjF3jxjjS79vC8-TInSTx3qClIzmU5NArc7A"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface to-transparent opacity-60"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<button class="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-2xl text-on-primary">
+<span class="material-symbols-outlined" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+</div>
+<div class="absolute bottom-3 left-3 flex gap-2">
+<span class="bg-surface-container-highest/80 backdrop-blur-md px-2 py-1 rounded text-[9px] uppercase tracking-tighter text-on-surface border border-white/10">PREVIEW</span>
+</div>
+</div>
+<div class="p-3 bg-surface-container-high/40">
+<p class="text-[11px] font-medium text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="visibility">visibility</span>
+                            24.8k VIEWERS WORLDWIDE
+                        </p>
+</div>
+</div>
+<!-- Squad Activity List -->
+<div class="glass-panel p-5 rounded-xl">
+<h4 class="font-headline text-sm font-bold tracking-widest uppercase text-on-surface mb-4">SQUAD NEARBY</h4>
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<div class="relative">
+<img alt="Friend" class="w-8 h-8 rounded-full border border-secondary" data-alt="Avatar of a friend in digital style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBl5eDE_12AeIjZJzRwXv4ELzligiBpKjci_qeOhIcKEkksnkgUajf5O_CPZ8aoseZ1OMdniaFvFtAr6kf8bTgZFgh5YYvq7P2RrKAKhO-H1_-CsDRaoyg0vXXq0OhHoHE0Tujv3AkGHnf97tB2-n_LNCFsz-vUtCalASzs_J4b97cU8gZt_mhxQHfh0w2JFmZiQG2qZ1N4Q65b0w81_rpky5dhTdB4e76gXRbeq6A_OBT7NvUrlG3RGhFljI88WguUFrL78x6GhM8"/>
+<span class="absolute -bottom-1 -right-1 w-3 h-3 bg-secondary rounded-full border-2 border-[#150629]"></span>
+</div>
+<div class="flex-1">
+<p class="text-xs font-bold text-on-surface">Vector_Prime</p>
+<p class="text-[9px] text-secondary uppercase font-bold tracking-tighter">IN THE PIT (15m)</p>
+</div>
+<button class="material-symbols-outlined text-primary text-lg" data-icon="location_on">location_on</button>
+</div>
+<div class="flex items-center gap-3">
+<div class="relative">
+<img alt="Friend" class="w-8 h-8 rounded-full border border-primary/30" data-alt="Avatar of a friend in digital style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJfR3IXGCFUD6yTOa0yxld7FepZlz6Flt77pzjkZw-LMSqYJtzlLM3gwW9molVxp0kFl5VaZHsGtWnG1dzaXJsVFe4AV_1EzJZLAaEibtr891rhZgZN9u0MUXYNuhdcm0r_eFmIlJYJIiRzDpdp_diTpetUfvgTAdyaZ3V6IjkbzhsClGOhNYldSeuM6oYATv0m2RbmtGau62F_afSdeEVOMMKxjMffafRd0EJhPbqH245C8ayQyxlmOrrWGTfbhQkQyxO-UmfuVk"/>
+<span class="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-[#150629]"></span>
+</div>
+<div class="flex-1">
+<p class="text-xs font-bold text-on-surface">Luminari_X</p>
+<p class="text-[9px] text-on-surface-variant uppercase font-bold tracking-tighter">VIP TERRACE (120m)</p>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant text-lg" data-icon="chat">chat</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- AI Concierge Dock (Sticky at bottom, but above NavBar) -->
+<div class="fixed bottom-24 left-1/2 -translate-x-1/2 w-full max-w-lg px-6 z-40">
+<div class="glass-panel rounded-full px-6 py-3 flex items-center gap-4 shadow-[0_0_30px_rgba(104,252,191,0.15)] border-t border-white/20">
+<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-secondary to-[#ab8ffe] flex items-center justify-center animate-pulse">
+<span class="material-symbols-outlined text-on-primary text-lg" data-icon="auto_awesome" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<div class="flex-1">
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">AI Concierge</p>
+<p class="text-sm text-on-surface line-clamp-1">Need a fast pass to the VIP Lounge?</p>
+</div>
+<button class="bg-secondary/20 hover:bg-secondary/40 text-secondary px-4 py-1.5 rounded-full text-xs font-bold transition-all">ASK</button>
+</div>
+</div>
+</main>
+<!-- NavigationDrawer (Hidden by default, used for structure) -->
+<nav class="hidden lg:flex fixed inset-y-0 left-0 z-[60] flex-col w-20 bg-[#150629] border-r border-white/10 shadow-2xl shadow-purple-900/20">
+<div class="flex flex-col items-center py-8 gap-10 h-full">
+<span class="material-symbols-outlined text-secondary text-3xl" data-icon="stars">stars</span>
+<div class="flex flex-col gap-8">
+<span class="material-symbols-outlined text-secondary border-l-4 border-secondary pl-2" data-icon="map" style="font-variation-settings: 'FILL' 1;">map</span>
+<span class="material-symbols-outlined text-slate-500 hover:text-secondary transition-colors" data-icon="podcasts">podcasts</span>
+<span class="material-symbols-outlined text-slate-500 hover:text-secondary transition-colors" data-icon="event_note">event_note</span>
+<span class="material-symbols-outlined text-slate-500 hover:text-secondary transition-colors" data-icon="settings">settings</span>
+</div>
+</div>
+</nav>
+<!-- BottomNavBar (Active for Nexus) -->
+<footer class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-2 bg-[#150629]/40 backdrop-blur-2xl z-50 rounded-t-xl border-t border-white/15 shadow-[0_-10px_30px_rgba(167,139,250,0.1)]">
+<div class="flex flex-col items-center justify-center bg-gradient-to-br from-[#b79fff] to-[#ab8ffe] text-[#150629] rounded-xl px-4 py-1.5 shadow-[0_0_15px_rgba(104,252,191,0.4)] active:scale-90 duration-300">
+<span class="material-symbols-outlined" data-icon="explore" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="font-['Manrope'] text-[10px] font-bold tracking-[0.1em] uppercase">Nexus</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 opacity-70 hover:opacity-100 transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-['Manrope'] text-[10px] font-bold tracking-[0.1em] uppercase">Squad</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 opacity-70 hover:opacity-100 transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+<span class="font-['Manrope'] text-[10px] font-bold tracking-[0.1em] uppercase">Intel</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 opacity-70 hover:opacity-100 transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span class="font-['Manrope'] text-[10px] font-bold tracking-[0.1em] uppercase">Profile</span>
+</div>
+</footer>
+</body></html>

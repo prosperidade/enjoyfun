@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error-container": "#a70138",
+                        "surface-tint": "#b79fff",
+                        "primary": "#b79fff",
+                        "on-error": "#490013",
+                        "tertiary-dim": "#8a4cfc",
+                        "on-background": "#efdfff",
+                        "inverse-on-surface": "#5e4e74",
+                        "on-error-container": "#ffb2b9",
+                        "secondary-fixed": "#68fcbf",
+                        "tertiary-fixed": "#c0a0ff",
+                        "background": "#150629",
+                        "primary-fixed-dim": "#9d81f0",
+                        "primary-container": "#ab8ffe",
+                        "secondary": "#68fcbf",
+                        "on-surface": "#efdfff",
+                        "surface-container-high": "#291543",
+                        "on-tertiary-fixed-variant": "#4a00a4",
+                        "primary-fixed": "#ab8ffe",
+                        "secondary-fixed-dim": "#57edb1",
+                        "on-primary-fixed-variant": "#330b80",
+                        "on-secondary-fixed-variant": "#006948",
+                        "surface-bright": "#372056",
+                        "inverse-primary": "#684cb6",
+                        "surface-container-lowest": "#000000",
+                        "tertiary-container": "#8342f4",
+                        "secondary-container": "#006c4b",
+                        "on-primary-fixed": "#000000",
+                        "surface-container-low": "#1b0a31",
+                        "surface-container": "#22103a",
+                        "on-surface-variant": "#b7a3cf",
+                        "on-tertiary": "#2b0065",
+                        "secondary-dim": "#57edb1",
+                        "error": "#ff6e84",
+                        "on-secondary-fixed": "#004931",
+                        "inverse-surface": "#fff7ff",
+                        "on-secondary-container": "#e0ffec",
+                        "surface-dim": "#150629",
+                        "on-primary-container": "#290070",
+                        "tertiary-fixed-dim": "#b48fff",
+                        "surface": "#150629",
+                        "on-primary": "#361083",
+                        "surface-container-highest": "#301a4d",
+                        "outline": "#806e96",
+                        "outline-variant": "#514166",
+                        "tertiary": "#af88ff",
+                        "on-tertiary-fixed": "#200051",
+                        "primary-dim": "#a88cfb",
+                        "on-tertiary-container": "#ffffff",
+                        "on-secondary": "#005e40",
+                        "error-dim": "#d73357",
+                        "surface-variant": "#301a4d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Manrope"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .text-glow-emerald {
+            text-shadow: 0 0 10px rgba(104, 252, 191, 0.4);
+        }
+        .booth-preview-shadow {
+            box-shadow: 0 20px 50px rgba(167, 139, 250, 0.15);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body selection:bg-secondary selection:text-on-secondary">
+<!-- Top Navigation Anchor -->
+<header class="bg-[#150629]/60 backdrop-blur-xl flex justify-between items-center w-full px-6 h-16 docked full-width top-0 z-50 bg-gradient-to-b from-[#150629] to-transparent shadow-[0_8px_32px_0_rgba(167,139,250,0.1)] fixed">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest border border-outline-variant/30 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="professional male executive portrait in dark attire with subtle violet studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9FAGfRRVeYbo8mYQM1I-3tqVjy1Bn7RdCnNNfB3TlAlQCv-XXFc8wCDBNTkqf0Pm7laezF_QnBFSyxZFkrDNQoGbENrws5PWCCMyd4c81ZPFE2aYrIKkgspgQxM4AQY4vlHLzhuhE51NZ0ceUsow3r3eJVMOnfcT67iSonPSoXIwiKE8ndQgNC3rZCXlU2UQKp8qAX5Jl27L0zzfo6ChZc85sJk0Eg4hiFX7hvObqOHfv0nAEpZv7Oh_177-LGTJUtTcJSlMFC9o"/>
+</div>
+<span class="font-['Space_Grotesk'] tracking-tighter font-bold text-lg font-black tracking-widest text-[#A78BFA] uppercase">AETHER EVENT</span>
+</div>
+<div class="hidden md:flex gap-8 items-center">
+<nav class="flex gap-6">
+<a class="text-slate-400 hover:bg-white/5 transition-all px-3 py-1 rounded" href="#">Hub</a>
+<a class="text-[#68fcbf] bg-white/5 transition-all px-3 py-1 rounded" href="#">Exhibitors</a>
+<a class="text-slate-400 hover:bg-white/5 transition-all px-3 py-1 rounded" href="#">Agenda</a>
+</nav>
+<span class="material-symbols-outlined text-[#A78BFA]">sensors</span>
+</div>
+<div class="md:hidden">
+<span class="material-symbols-outlined text-[#A78BFA]">menu</span>
+</div>
+</header>
+<main class="pt-24 pb-32 px-4 md:px-8 max-w-7xl mx-auto">
+<!-- Hero Section: Asymmetric Layout -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-20">
+<div class="lg:col-span-7">
+<div class="mb-4 inline-flex items-center gap-2 px-3 py-1 bg-secondary/10 border border-secondary/20 rounded-full">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="text-secondary font-label text-[10px] uppercase tracking-[0.2em] font-bold">Booth active • Hall C-04</span>
+</div>
+<h1 class="font-headline text-5xl md:text-7xl font-bold tracking-tight text-on-surface mb-6 leading-none">
+                    QUANTUM<br/><span class="text-primary italic">DYNAMICS</span> INC.
+                </h1>
+<p class="text-on-surface-variant text-lg max-w-xl mb-10 leading-relaxed">
+                    Pioneering the next frontier of sub-atomic logistics. We provide full-stack quantum infrastructure for the deep-space corporate sector, from entanglement encryption to zero-point energy harvesting.
+                </p>
+<div class="flex flex-wrap gap-4">
+<button class="bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed px-8 py-4 rounded-xl font-headline font-bold flex items-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">event_available</span>
+                        Schedule 1:1
+                    </button>
+<button class="border border-outline-variant/30 hover:bg-white/5 text-primary px-8 py-4 rounded-xl font-headline font-bold transition-all">
+                        Request Deck
+                    </button>
+</div>
+</div>
+<!-- 3D Glassmorphic Booth Preview -->
+<div class="lg:col-span-5 relative group">
+<div class="absolute -inset-4 bg-gradient-to-tr from-primary/20 to-secondary/20 blur-3xl opacity-30 group-hover:opacity-50 transition-opacity"></div>
+<div class="glass-panel relative aspect-square rounded-2xl border border-white/10 overflow-hidden booth-preview-shadow">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-surface-container-lowest/80 z-10"></div>
+<img class="w-full h-full object-cover scale-110 group-hover:scale-100 transition-transform duration-700" data-alt="futuristic architectural rendering of a trade show booth with neon glowing pillars and holographic displays in a dark environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyFSicQQXb__djcLQ-vRzZfrr8c2zwKN5WeYFK7xMAwYpXlLOzUzRLA9aodKHHxCSoQJNK2dGAkOOXEXubiCGT6snmDt-cH9UmuKVJgRtC1uytXeltBoIUYX7ZGVPTdeczyBo1kl3DcS8TjZ-1heorHBmUpvqKmKipa_W2G0QUtPd7BsD6IP_binnuwJvjzFEZ2mDSwM7YZybvBsdy4OhEfJKuLy1OTZVbXmNEB1KPDxPwRdPV-PXqdumReKxcMy8PM9zzF1KEH7Q"/>
+<div class="absolute top-6 right-6 z-20">
+<div class="glass-panel px-4 py-2 rounded-lg border border-white/10 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-sm" style="font-variation-settings: 'FILL' 1;">view_in_ar</span>
+<span class="font-label text-xs font-bold text-secondary tracking-widest uppercase">3D EXPLORER</span>
+</div>
+</div>
+<div class="absolute bottom-6 left-6 z-20">
+<p class="font-headline font-bold text-xl text-white">Quantum Vista™ VR Booth</p>
+<p class="text-white/60 text-sm">Experience our hardware in 1:1 scale</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Quantum Products Catalog: Bento Grid -->
+<section class="mb-20">
+<div class="flex justify-between items-end mb-12">
+<div>
+<h2 class="font-headline text-3xl font-bold mb-2">QUANTUM PRODUCTS</h2>
+<p class="text-on-surface-variant font-label text-sm tracking-wider uppercase">Next-Gen Hardware Catalog 2024</p>
+</div>
+<div class="hidden md:block h-px flex-1 mx-12 bg-outline-variant/20"></div>
+<button class="text-secondary font-label text-sm font-bold uppercase tracking-widest flex items-center gap-2 group">
+                    View Catalog <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+<!-- Large Featured Product -->
+<div class="md:col-span-2 md:row-span-2 glass-panel p-8 rounded-xl border border-white/5 flex flex-col justify-between group hover:border-primary/30 transition-colors">
+<div>
+<div class="flex justify-between items-start mb-6">
+<span class="bg-primary/20 text-primary font-label text-[10px] font-black px-2 py-1 rounded">FEATURED SYSTEM</span>
+<span class="material-symbols-outlined text-outline-variant">bolt</span>
+</div>
+<h3 class="font-headline text-4xl font-bold mb-4">AETHER-7<br/>PROCESSOR</h3>
+<p class="text-on-surface-variant leading-relaxed max-w-sm">The world's first room-temperature superconducting chipset, optimized for low-orbit server clusters.</p>
+</div>
+<div class="mt-8 relative h-48 overflow-hidden rounded-lg">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="extreme close up of a high tech computer chip with neon glowing circuits and purple light flares" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpeHSq3Cuh5J8GQBOvPDX-qON55ISlRQy_G_K1Ue4OazcomCaeuh_tuA2Mx_wu_2k2gsbEtttXQpbs_lxq0bXj-x-lf5PGg2nnH5k4djVQqKuh6esIyyRLwsCUlz_0gJaNxcpcdTLFCo_lZ5i3qkeOL-DWn2_t-aEwY16IjpRUVBsMpCJZYXHb3fU7IxCDb3KW6WmK_72nRUwfIbOZBuBLH3l9O6xhDSz56znf0VKAGLH0m023ZFgZwL77efdAJsQFud6-kmza-3Q"/>
+</div>
+</div>
+<!-- Product 2 -->
+<div class="bg-surface-container-low p-6 rounded-xl border border-white/5 hover:bg-surface-container-high transition-colors group">
+<div class="h-32 mb-6 rounded-lg overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="industrial quantum cooling pipes with metallic textures and glowing cyan light strips" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCye0UyiUOFgP5XQSydKL24xMmB_pvwQmBBikoaoPeDx8B0aa3vAIKb7Ur30RHUSKnLojNbYtB5JyclRPU5hcdqPIGqrcGCgtVLgjzUsGFOx2L0V08FVZ0pz1xapxnS0EjMq7yg65Z2I1upFk266s1ZyuetqvPcsgLKG_D-7XfzC1p999o60WULivrvyk88BCvB2JJxbjNMlDJTPpy73x6d1F1LpWryXVf8z49Hqor730SE4lpqv8mLbQu5ZKh9PSyXnRA2j-sKihI"/>
+</div>
+<h4 class="font-headline font-bold text-lg mb-2">CRYO-SHIFT G3</h4>
+<p class="text-on-surface-variant text-sm mb-4">Precision thermal regulation for sensitive data storage.</p>
+<div class="flex justify-between items-center mt-auto">
+<span class="text-secondary font-headline font-bold">$14,200</span>
+<span class="material-symbols-outlined text-primary/40 group-hover:text-primary transition-colors">add_circle</span>
+</div>
+</div>
+<!-- Product 3 -->
+<div class="bg-surface-container-low p-6 rounded-xl border border-white/5 hover:bg-surface-container-high transition-colors group">
+<div class="h-32 mb-6 rounded-lg overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="digital nebula of data points representing satellite entanglement communication" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_hMmEOw14e7OGFy-my_WWrhCRuCNaokubXbbFStg5GS3kebzt_j7-_sWVumGuQCI9Djuy4VWx-dZ1-_Jhe6iXj-GEiCccUDIV5cHhwp7JknnXiXOl-EX5cparN97iKJbs3X-wT03m3RcpK4JEnOTcL6z3rR-ltqhZMZgbfnukBbxHDRPzRblm-B7GWb_tM43jyk1sQjm9LnPYlnmCIgmCGpaC-QfaImju-DbJWvb5btetgmuodbVK6gVrAbrCMSCmmwvyqLm7Ei0"/>
+</div>
+<h4 class="font-headline font-bold text-lg mb-2">NEBULA LINK</h4>
+<p class="text-on-surface-variant text-sm mb-4">Satellite-to-ground quantum entanglement bridge.</p>
+<div class="flex justify-between items-center mt-auto">
+<span class="text-secondary font-headline font-bold">$28,500</span>
+<span class="material-symbols-outlined text-primary/40 group-hover:text-primary transition-colors">add_circle</span>
+</div>
+</div>
+<!-- Product 4 -->
+<div class="bg-surface-container-low p-6 rounded-xl border border-white/5 hover:bg-surface-container-high transition-colors group">
+<div class="h-32 mb-6 rounded-lg overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="sleek modern hardware chassis with matte black finish and emerald glowing accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDfSSPN_j1SfDvvTrN9PUYsyg-c_JSAfboGeuty6HW769oR0V1MLOnO3DEN_TcnxfQJHXs1s3H4a64hIGv3cEXNaXMqMdIK0ID8o4Ydt2T69lbj8SG8ncl--0TrjkpvS8u6YAd1GF5gJgFjCFtQAc3JX7EktWdFtXx-E-hlTUuhmkvw1QzUOMT2ZRLbyLFXtJ06wnXivfq5OmYhm0Yf5EI2Grd2b4keeDDoGEONYWMS7EJ5uEjzPIj6Or8wl0KgvgvYRTfUlkrKU4"/>
+</div>
+<h4 class="font-headline font-bold text-lg mb-2">VOID NODE</h4>
+<p class="text-on-surface-variant text-sm mb-4">Decentralized cold storage for enterprise-grade security.</p>
+<div class="flex justify-between items-center mt-auto">
+<span class="text-secondary font-headline font-bold">$9,800</span>
+<span class="material-symbols-outlined text-primary/40 group-hover:text-primary transition-colors">add_circle</span>
+</div>
+</div>
+<!-- Product 5 -->
+<div class="bg-surface-container-low p-6 rounded-xl border border-white/5 hover:bg-surface-container-high transition-colors group">
+<div class="h-32 mb-6 rounded-lg overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="abstract cosmic light representing dark energy harvesting modules" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWQTGArnmi_JWTY1txH3P8EMy2GLTuLXLTUowqum0RgFa4hvCWOBWO23z3ePO44scgHgAXOEFZX6U3BfhH_GnTGddOYSIaLzJIagxZTep_Tw0Uwzz_M0vgLUVEEaC68ClgYS8u3mF9GGM75iQNaShRbu0PSn-xrpl_xvBjM55wO3FmF_wy1fPUBzhpORngfP_tlSZ39T26ey4x5UxXsW7R1YUcIupZONYdwkYXWFpwQGgoke--ejOrTcGUnezmytXZThLwjdUk8qg"/>
+</div>
+<h4 class="font-headline font-bold text-lg mb-2">ZERO POINT V4</h4>
+<p class="text-on-surface-variant text-sm mb-4">Micro-energy generator for remote planetary outposts.</p>
+<div class="flex justify-between items-center mt-auto">
+<span class="text-secondary font-headline font-bold">$42,000</span>
+<span class="material-symbols-outlined text-primary/40 group-hover:text-primary transition-colors">add_circle</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Stats Section -->
+<section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-20">
+<div class="bg-surface-container-lowest p-8 rounded-xl border-l-2 border-primary">
+<p class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant mb-2">Global Installs</p>
+<h5 class="font-headline text-4xl font-bold text-primary italic">1,240+</h5>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded-xl border-l-2 border-secondary">
+<p class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant mb-2">Market Cap</p>
+<h5 class="font-headline text-4xl font-bold text-secondary italic">$4.2B</h5>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded-xl border-l-2 border-primary-container">
+<p class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant mb-2">R&amp;D Patents</p>
+<h5 class="font-headline text-4xl font-bold text-primary-container italic">856</h5>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded-xl border-l-2 border-outline-variant">
+<p class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant mb-2">Years active</p>
+<h5 class="font-headline text-4xl font-bold text-on-surface italic">12</h5>
+</div>
+</section>
+<!-- Team / Contact Section -->
+<section class="mb-20 glass-panel rounded-2xl p-8 md:p-12 border border-white/5 flex flex-col md:flex-row gap-12 items-center">
+<div class="flex-1">
+<h2 class="font-headline text-4xl font-bold mb-6">MEET THE<br/><span class="text-secondary text-glow-emerald">ARCHITECTS</span></h2>
+<p class="text-on-surface-variant mb-8 max-w-md">Our team of physicists and engineers are on-site and ready for technical consultations. Book a slot to discuss custom infrastructure builds.</p>
+<div class="flex -space-x-4 mb-8">
+<img class="w-14 h-14 rounded-full border-4 border-background object-cover" data-alt="professional male physicist portrait with warm studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjc-_b9LG59TKITRmFdiS-60XIWTbAPupovMrcgVL5CiPwbz223-IMal7aNNQl-hgksTyOSfHWNmpH9yKqX3he7gZBdvIj4yn5p0SfZT7nzL34J6PnThSy2ZTfni0AHFjmngHcEYwOQfXublEVYvCQRgYmtix7xxiWuoldsr8YYUYfwBrIhRNacKdmWJ4y7GC8Jj6hOBNmbRr4HfhWJEosbRgRl2qArVZNtffmNY8Qr9zylAeRfgwzRCR57djKmM0JEiscBDGaGs0"/>
+<img class="w-14 h-14 rounded-full border-4 border-background object-cover" data-alt="professional female engineer portrait in professional setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCts0hMzi90m92O1BnU2_zyn18SWctBki_HXBMytH6g5wfcn4reULUthlm2d5bx3qIwwO2BHzr9OwiLF0c5IFLa1rmccrP3LhFz96OH8H2z7MUtyUBeNuhftVfCbRQoty0h38tGHpIPGL-iVAl28-bTV3v_H-VwgK4gkJRaTtDv7I8_p9G0-m9rVlgM3kAgBKNmO-kYnBn5jsry-8WaKo5giccRuL5JYZGJfFSl2WNpZ9dIQKoNP-XKXSNTVdHEIvadVXLHXshAKxc"/>
+<img class="w-14 h-14 rounded-full border-4 border-background object-cover" data-alt="professional male tech lead portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtnWzJ4W6yp6EWyTnbh2KQUZSbc2Be059MvAaCB8vt0zAzZWbQXgEgWh42kUjpx6jwmJoqCerZzOGDjGNpetGjnfDE7kKCCy8PWv3CzCQSAku1HDdAxsS92-1TvF_16gtuSZMFOauN-0MuDHlTgbsyGsC2tk5t1U4yGqO3vbXhvGXDghB0J_-D6J-eHkLXA8-3MnsOjxwBJvB2fzxOsY0mqfZpcqUB8b3T6SrarwkVRxjCvEV74tuYtk6_y0cJoLtw4cgd4-Zkkfc"/>
+<div class="w-14 h-14 rounded-full border-4 border-background bg-surface-container-highest flex items-center justify-center text-xs font-bold text-primary">
+                        +12
+                    </div>
+</div>
+</div>
+<div class="w-full md:w-96 bg-surface-container-lowest p-6 rounded-xl border border-white/10">
+<div class="flex items-center gap-4 mb-6">
+<span class="material-symbols-outlined text-secondary">forum</span>
+<span class="font-headline font-bold">LIVE CHAT</span>
+</div>
+<div class="space-y-4 mb-6">
+<div class="bg-white/5 p-3 rounded-lg text-sm text-on-surface-variant">Hello! How can we assist with your quantum needs today?</div>
+<div class="bg-primary/20 p-3 rounded-lg text-sm text-on-surface ml-8 text-right">Inquiry about AETHER-7 throughput.</div>
+</div>
+<div class="relative">
+<input class="w-full bg-background border-outline-variant/30 rounded-lg py-3 px-4 text-sm focus:ring-primary focus:border-primary" placeholder="Type a message..." type="text"/>
+<button class="absolute right-2 top-1/2 -translate-y-1/2 text-primary">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Shell -->
+<nav class="bg-[#150629]/40 backdrop-blur-2xl fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 md:hidden rounded-t-xl z-50 border-t border-white/5 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-[#A78BFA] transition-all duration-300 active:translate-y-1" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">Hub</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#68fcbf] drop-shadow-[0_0_8px_rgba(104,252,191,0.6)] bg-white/5 rounded-lg px-3 py-1 transition-all duration-300 active:translate-y-1" href="#">
+<span class="material-symbols-outlined">map</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">Floorplan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-[#A78BFA] transition-all duration-300 active:translate-y-1" href="#">
+<span class="material-symbols-outlined">rss_feed</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">Feed</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-[#A78BFA] transition-all duration-300 active:translate-y-1" href="#">
+<span class="material-symbols-outlined">contact_page</span>
+<span class="font-['Manrope'] text-[10px] font-bold uppercase tracking-widest mt-1">Badge</span>
+</a>
+</nav>
+</body></html>

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary": "#361083",
+                    "surface": "#150629",
+                    "background": "#150629",
+                    "on-surface-variant": "#b7a3cf",
+                    "inverse-on-surface": "#5e4e74",
+                    "surface-container-highest": "#301a4d",
+                    "tertiary-container": "#8342f4",
+                    "on-tertiary-fixed": "#200051",
+                    "on-secondary": "#005e40",
+                    "surface-variant": "#301a4d",
+                    "surface-container-high": "#291543",
+                    "on-error": "#490013",
+                    "surface-tint": "#b79fff",
+                    "secondary-dim": "#57edb1",
+                    "on-primary-fixed": "#000000",
+                    "secondary-container": "#006c4b",
+                    "on-secondary-fixed-variant": "#006948",
+                    "error-dim": "#d73357",
+                    "tertiary-fixed-dim": "#b48fff",
+                    "on-surface": "#efdfff",
+                    "on-tertiary": "#2b0065",
+                    "surface-dim": "#150629",
+                    "primary-fixed-dim": "#9d81f0",
+                    "on-secondary-fixed": "#004931",
+                    "tertiary": "#af88ff",
+                    "tertiary-dim": "#8a4cfc",
+                    "on-tertiary-fixed-variant": "#4a00a4",
+                    "surface-container-lowest": "#000000",
+                    "secondary": "#68fcbf",
+                    "inverse-surface": "#fff7ff",
+                    "tertiary-fixed": "#c0a0ff",
+                    "primary-dim": "#a88cfb",
+                    "inverse-primary": "#684cb6",
+                    "on-primary-container": "#290070",
+                    "primary": "#b79fff",
+                    "primary-container": "#ab8ffe",
+                    "on-tertiary-container": "#ffffff",
+                    "surface-container": "#22103a",
+                    "outline": "#806e96",
+                    "outline-variant": "#514166",
+                    "on-background": "#efdfff",
+                    "surface-container-low": "#1b0a31",
+                    "error-container": "#a70138",
+                    "error": "#ff6e84",
+                    "surface-bright": "#372056",
+                    "on-error-container": "#ffb2b9",
+                    "primary-fixed": "#ab8ffe",
+                    "secondary-fixed-dim": "#57edb1",
+                    "secondary-fixed": "#68fcbf",
+                    "on-secondary-container": "#e0ffec",
+                    "on-primary-fixed-variant": "#330b80"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Manrope"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .isometric-grid {
+            transform: rotateX(55deg) rotateZ(-35deg);
+            transform-style: preserve-3d;
+        }
+        .slot-cube {
+            transform-style: preserve-3d;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .slot-cube:hover {
+            transform: translateZ(12px);
+        }
+        .selected-slot {
+            box-shadow: 0 0 20px 2px #b79fff;
+            transform: translateZ(16px);
+        }
+        .neon-glow-emerald {
+            filter: drop-shadow(0 0 8px rgba(104, 252, 191, 0.6));
+        }
+        .glass-panel {
+            backdrop-filter: blur(20px);
+            background: linear-gradient(135deg, rgba(48, 26, 77, 0.4), rgba(21, 6, 41, 0.6));
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body overflow-hidden">
+<!-- Top App Bar -->
+<header class="bg-[#150629]/40 backdrop-blur-md shadow-[0_0_40px_rgba(167,139,250,0.12)] docked full-width top-0 z-50 flex justify-between items-center w-full px-6 h-20 bg-gradient-to-b from-violet-500/10 to-transparent">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-violet-400 text-2xl cursor-pointer hover:backdrop-blur-2xl hover:bg-white/5 transition-all duration-300 active:scale-95">menu</span>
+<h1 class="font-['Space_Grotesk'] tracking-tight font-bold uppercase text-xl font-black text-violet-400 tracking-tighter">Sector Parking</h1>
+</div>
+<div class="h-10 w-10 rounded-full border border-primary/30 overflow-hidden cursor-pointer active:scale-95 transition-transform">
+<img class="w-full h-full object-cover" data-alt="high-tech stylized avatar of a user in a futuristic space suit, glowing violet accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5FIIztJ9aS8INEKlHIwMPMnw22WdIR3fCZ1ALty6dAZn2t-nFdcs3mOXvYxoBOjhd2BkbXQ5bShEVrI1-5TyfDOcFIzVtVFqpR5L_ymAMGCf4QMcJOgyI4QeglL-1GDSBVK89HR83a-8Bfcy3OmIIQWYDrgWYHnf_IgU0CWr1rr_I7zLJUqyuKxFYzWTXMYHJvuPLB2m77sB3oNPVi7L45ycK5hRColbkaVkkpz9sK6Xj3cyft_T0_HpHRDHdag1wR26V0m5kAeA"/>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="relative h-screen pt-20 pb-20 overflow-hidden flex flex-col">
+<!-- Interactive 3D Parking Grid Container -->
+<div class="flex-1 relative flex items-center justify-center overflow-visible">
+<!-- Background Atmosphere -->
+<div class="absolute inset-0 bg-gradient-to-br from-surface via-surface-container-low to-surface-container-highest opacity-50"></div>
+<!-- Isometric Grid -->
+<div class="isometric-grid grid grid-cols-5 gap-4 p-8">
+<!-- Row 1 -->
+<div class="slot-cube w-14 h-14 rounded-lg bg-surface-container-highest border border-outline-variant/30 opacity-60"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-secondary/20 border border-secondary neon-glow-emerald"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-surface-container-highest border border-outline-variant/30 opacity-60"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-secondary/20 border border-secondary neon-glow-emerald"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-surface-container-highest border border-outline-variant/30 opacity-60"></div>
+<!-- Row 2 -->
+<div class="slot-cube w-14 h-14 rounded-lg bg-secondary/20 border border-secondary neon-glow-emerald"></div>
+<!-- SELECTED SLOT -->
+<div class="slot-cube selected-slot w-14 h-14 rounded-lg bg-primary/40 border-2 border-primary shadow-[0_0_25px_rgba(183,159,255,0.8)] flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface text-xl" style="font-variation-settings: 'FILL' 1;">local_parking</span>
+</div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-surface-container-highest border border-outline-variant/30 opacity-60"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-surface-container-highest border border-outline-variant/30 opacity-60"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-secondary/20 border border-secondary neon-glow-emerald"></div>
+<!-- Row 3 -->
+<div class="slot-cube w-14 h-14 rounded-lg bg-surface-container-highest border border-outline-variant/30 opacity-60"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-surface-container-highest border border-outline-variant/30 opacity-60"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-secondary/20 border border-secondary neon-glow-emerald"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-surface-container-highest border border-outline-variant/30 opacity-60"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-surface-container-highest border border-outline-variant/30 opacity-60"></div>
+<!-- Row 4 -->
+<div class="slot-cube w-14 h-14 rounded-lg bg-secondary/20 border border-secondary neon-glow-emerald"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-surface-container-highest border border-outline-variant/30 opacity-60"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-surface-container-highest border border-outline-variant/30 opacity-60"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-secondary/20 border border-secondary neon-glow-emerald"></div>
+<div class="slot-cube w-14 h-14 rounded-lg bg-surface-container-highest border border-outline-variant/30 opacity-60"></div>
+</div>
+</div>
+<!-- Glassmorphic Info Panel -->
+<section class="relative z-10 px-6 -mt-12 pb-10">
+<div class="glass-panel p-8 rounded-xl border border-white/5 shadow-2xl space-y-6">
+<div class="flex justify-between items-start">
+<div class="space-y-1">
+<p class="font-headline text-secondary text-[10px] uppercase tracking-[0.2em] font-bold">Currently Selected</p>
+<h2 class="font-headline text-3xl font-black text-on-surface">Sector C, Slot 42</h2>
+</div>
+<div class="bg-surface-container-lowest px-3 py-1 rounded-full border border-primary/20 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">directions_walk</span>
+<span class="text-primary text-xs font-bold tracking-wider uppercase font-headline">120M</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="p-4 rounded-lg bg-surface-container-low border border-white/5">
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Tariff Rate</p>
+<p class="text-xl font-headline font-bold text-on-surface">4.50 CR<span class="text-sm font-normal text-on-surface-variant">/hr</span></p>
+</div>
+<div class="p-4 rounded-lg bg-surface-container-low border border-white/5">
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Safety Level</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="w-2 h-2 rounded-full bg-secondary/30"></span>
+<p class="ml-2 text-xs font-headline font-bold text-secondary">A1</p>
+</div>
+</div>
+</div>
+<button class="w-full bg-gradient-to-r from-primary to-primary-container h-16 rounded-lg flex items-center justify-center gap-3 active:scale-95 transition-transform group overflow-hidden relative shadow-[0_0_20px_rgba(183,159,255,0.4)]">
+<div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="material-symbols-outlined text-on-primary-container" style="font-variation-settings: 'FILL' 1;">security</span>
+<span class="font-headline text-on-primary-container font-black uppercase tracking-widest text-lg">Secure Spot</span>
+</button>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 pb-4 px-2 bg-[#150629]/60 backdrop-blur-xl rounded-t-xl border-t border-white/10 shadow-[0_-10px_30px_rgba(167,139,250,0.05)]">
+<a class="flex flex-col items-center justify-center text-slate-500 opacity-60 hover:text-violet-300 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-semibold">Nexus</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 opacity-60 hover:text-violet-300 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="explore">explore</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-semibold">Grid</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-400 drop-shadow-[0_0_8px_rgba(167,139,250,0.8)] active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="local_parking" style="font-variation-settings: 'FILL' 1;">local_parking</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-semibold">Parking</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 opacity-60 hover:text-violet-300 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-semibold">Vault</span>
+</a>
+</nav>
+<!-- Spatial Background Details -->
+<div class="fixed top-1/4 left-1/4 w-96 h-96 bg-primary/10 blur-[120px] rounded-full pointer-events-none -z-10"></div>
+<div class="fixed bottom-1/4 right-1/4 w-64 h-64 bg-secondary/5 blur-[100px] rounded-full pointer-events-none -z-10"></div>
+</body></html>

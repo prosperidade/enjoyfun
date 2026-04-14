@@ -1,0 +1,232 @@
+<html class="dark"><head>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  
+    @keyframes qr-pulsate {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 10px rgba(167, 139, 250, 0.2);
+      }
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 25px rgba(167, 139, 250, 0.6);
+      }
+    }
+    .animate-qr-pulsate {
+      animation: qr-pulsate 2.5s ease-in-out infinite;
+    }
+  </style>
+</head><body class="bg-surface font-body text-on-surface selection:bg-primary selection:text-on-primary overflow-x-hidden min-h-screen">```html
+
+
+<meta charset="utf-8"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&amp;family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+                  "primary-container": "#ab8ffe",
+                  "on-secondary-container": "#e0ffec",
+                  "on-tertiary-fixed": "#200051",
+                  "tertiary-dim": "#8a4cfc",
+                  "primary-dim": "#a88cfb",
+                  "tertiary-container": "#8342f4",
+                  "on-surface": "#efdfff",
+                  "background": "#150629",
+                  "inverse-primary": "#684cb6",
+                  "on-primary-fixed": "#000000",
+                  "surface-variant": "#301a4d",
+                  "primary-fixed": "#ab8ffe",
+                  "inverse-on-surface": "#5e4e74",
+                  "on-error-container": "#ffb2b9",
+                  "secondary-container": "#006c4b",
+                  "primary-fixed-dim": "#9d81f0",
+                  "error": "#ff6e84",
+                  "outline-variant": "#514166",
+                  "tertiary-fixed": "#c0a0ff",
+                  "on-tertiary": "#2b0065",
+                  "on-secondary-fixed": "#004931",
+                  "inverse-surface": "#fff7ff",
+                  "error-container": "#a70138",
+                  "on-primary": "#361083",
+                  "error-dim": "#d73357",
+                  "surface-dim": "#150629",
+                  "surface-container": "#22103a",
+                  "secondary-dim": "#57edb1",
+                  "on-background": "#efdfff",
+                  "on-primary-container": "#290070",
+                  "surface": "#150629",
+                  "on-surface-variant": "#b7a3cf",
+                  "on-secondary": "#005e40",
+                  "on-secondary-fixed-variant": "#006948",
+                  "secondary": "#68fcbf",
+                  "on-tertiary-fixed-variant": "#4a00a4",
+                  "tertiary-fixed-dim": "#b48fff",
+                  "secondary-fixed-dim": "#57edb1",
+                  "surface-bright": "#372056",
+                  "tertiary": "#af88ff",
+                  "on-tertiary-container": "#ffffff",
+                  "surface-tint": "#b79fff",
+                  "on-primary-fixed-variant": "#330b80",
+                  "surface-container-low": "#1b0a31",
+                  "surface-container-high": "#291543",
+                  "on-error": "#490013",
+                  "secondary-fixed": "#68fcbf",
+                  "surface-container-lowest": "#000000",
+                  "surface-container-highest": "#301a4d",
+                  "primary": "#b79fff",
+                  "outline": "#806e96"
+          },
+          "borderRadius": {
+                  "DEFAULT": "0.125rem",
+                  "lg": "0.25rem",
+                  "xl": "0.5rem",
+                  "full": "0.75rem"
+          },
+          "fontFamily": {
+                  "headline": ["Space Grotesk"],
+                  "body": ["Manrope"],
+                  "label": ["Space Grotesk"]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .neon-sparkle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: #68fcbf;
+      box-shadow: 0 0 10px #68fcbf, 0 0 20px #68fcbf;
+    }
+  
+    @keyframes qr-pulsate {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 10px rgba(167, 139, 250, 0.2);
+      }
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 25px rgba(167, 139, 250, 0.6);
+      }
+    }
+    .animate-qr-pulsate {
+      animation: qr-pulsate 2.5s ease-in-out infinite;
+    }
+  </style>
+<nav class="fixed top-0 w-full flex justify-between items-center px-6 py-4 z-50 bg-transparent backdrop-blur-xl shadow-[0_0_40px_rgba(167,139,250,0.12)]">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-violet-400 cursor-pointer p-2 hover:bg-violet-400/20 transition-all scale-95 duration-300">menu</span>
+</div>
+<div class="font-['Space_Grotesk'] tracking-tight font-bold text-xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-violet-200">
+      ENJOYFUN
+    </div>
+<div class="flex items-center">
+<div class="w-10 h-10 rounded-full border-2 border-violet-400/30 overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="close-up of a modern tech-savvy person's avatar with neon lighting highlights and purple background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDGQ2JNf3UvlkNDVGU1eqkY6rmBg0Ynj4lioIQw0fS5Kv256xEC-WNQOovez3Lk834XNj3NlsbmKFsxz4CaQSKvdxgbNl2nCk1yAhqeFNsUwngP-IcNucFaUlUBsyTnypl9fC0M4QaDKx3qfrlptTrPUIwrvWZ00Rsa0YCUbzpfxYGon5wTLGn9qeuPaNRwcWhT9RU0IGNyFVhRcP1Sb7Zvwg4dNlZOmd170x0yNlOZojtAUe1rlmI2PxYDRcI_BMnDuTZHtGnurHM"/>
+</div>
+</div>
+</nav>
+<main class="relative flex flex-col items-center justify-center pt-32 pb-40 px-6 min-h-screen">
+<div class="absolute inset-0 pointer-events-none">
+<div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/10 rounded-full blur-[120px]"></div>
+<div class="neon-sparkle top-[20%] left-[15%]"></div>
+<div class="neon-sparkle top-[15%] right-[25%] opacity-60"></div>
+<div class="neon-sparkle bottom-[30%] left-[30%] bg-violet-400 shadow-violet-400"></div>
+<div class="neon-sparkle bottom-[45%] right-[10%]"></div>
+<div class="neon-sparkle top-[40%] left-[80%] opacity-40"></div>
+</div>
+<div class="relative z-10 flex flex-col items-center text-center max-w-2xl w-full">
+<div class="relative mb-8 group">
+<div class="absolute inset-0 bg-secondary/20 rounded-full blur-2xl group-hover:blur-3xl transition-all duration-700"></div>
+<div class="relative w-32 h-32 flex items-center justify-center bg-surface-container-highest/60 backdrop-blur-xl border border-secondary/30 rounded-full shadow-[0_0_50px_rgba(104,252,191,0.3)]">
+<span class="material-symbols-outlined text-6xl text-secondary" style="font-variation-settings: 'FILL' 1;">confirmation_number</span>
+</div>
+<div class="absolute -bottom-2 -right-2 w-10 h-10 flex items-center justify-center bg-secondary text-on-secondary rounded-full shadow-[0_0_15px_rgba(104,252,191,0.6)]">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+</div>
+<h1 class="font-headline font-black text-5xl md:text-7xl mb-2 tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-on-surface-variant">
+        Access Granted
+      </h1>
+<p class="font-body text-xl text-secondary font-medium tracking-wide mb-12">
+        You're In! Welcome to the Frontier.
+      </p>
+<div class="w-full max-w-sm relative">
+<div class="absolute inset-0 bg-gradient-to-tr from-primary/20 to-secondary/20 rounded-3xl blur-xl"></div>
+<div class="relative bg-surface-container-low/40 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl overflow-hidden shadow-2xl">
+<div class="px-8 pt-8 pb-6 border-b border-dashed border-outline-variant/50">
+<div class="flex justify-between items-start mb-6">
+<div class="text-left">
+<p class="font-label text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-1">Explorer Name</p>
+<p class="font-headline font-bold text-lg text-on-surface">Alex Rivera</p>
+</div>
+<div class="text-right">
+<p class="font-label text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-1">Access Level</p>
+<p class="font-headline font-bold text-lg text-secondary">VIP PASS</p>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<div class="text-left">
+<p class="font-label text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-1">Sector</p>
+<p class="font-body font-semibold text-on-surface">Neo-Cyberpunk Hub</p>
+</div>
+<div class="text-right">
+<p class="font-label text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-1">Valid Until</p>
+<p class="font-body font-semibold text-on-surface">24 OCT 2077</p>
+</div>
+</div>
+</div>
+<div class="px-8 py-8 flex flex-col items-center justify-center bg-surface-container-highest/30">
+<div class="relative group">
+<div class="absolute inset-0 bg-gradient-to-tr from-primary via-secondary to-primary rounded-xl opacity-20 blur-lg group-hover:opacity-40 transition-opacity"></div>
+<div class="relative p-4 bg-white rounded-xl animate-qr-pulsate">
+<img alt="Digital Access QR" class="w-32 h-32 grayscale brightness-0" data-alt="a crisp black and white digital QR code centered on a white background with clean edges" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMMNwbWJw2n78JkKPwHw8wLhNCLIJqMHxA2NhH6ltYf7QCXpwWxqVSaw6QVJTaz58hfywpKBdoZHzDUjjtCREQskqbHOd1Xb54bbNojebFSyk7WtrtDY5TnXEYyAVRe1kwDe02DDmlFrOj4G2IUD9arrhgoZMGIBMtY6ZUjhwHA-LPjNZTSZC-rrhs4OMBs7fS7jsxQhXVhv3dVJyJkn4OuhomksIZt0uEPetrv13Ux0cdWkyo8RneQqPlOFwBtmNmN-qOBRlVVGg"/>
+</div>
+</div>
+<p class="mt-6 font-label text-[10px] uppercase tracking-[0.4em] text-outline">SCAN AT ENTRY TERMINAL</p>
+</div>
+<div class="absolute -left-3 top-[43%] w-6 h-6 bg-surface rounded-full"></div>
+<div class="absolute -right-3 top-[43%] w-6 h-6 bg-surface rounded-full"></div>
+</div>
+</div>
+<div class="mt-16 flex flex-col sm:flex-row gap-4 w-full justify-center px-4">
+<button class="px-10 py-4 bg-gradient-to-br from-primary to-primary-container text-on-primary font-headline font-bold rounded-xl shadow-[0_0_20px_rgba(183,159,255,0.4)] hover:scale-105 active:scale-95 transition-all">
+          View Ticket
+        </button>
+<button class="px-10 py-4 bg-transparent border border-outline-variant/30 text-primary font-headline font-bold rounded-xl hover:bg-primary/10 transition-all">
+          Return to Map
+        </button>
+</div>
+</div>
+</main>
+<footer class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md rounded-2xl border border-violet-400/15 bg-slate-900/40 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-50 px-4 py-3">
+<div class="flex justify-around items-center">
+<div class="text-slate-400 p-3 hover:text-violet-300 active:scale-90 transition-transform cursor-pointer">
+<span class="material-symbols-outlined">style</span>
+</div>
+<div class="text-slate-400 p-3 hover:text-violet-300 active:scale-90 transition-transform cursor-pointer">
+<span class="material-symbols-outlined">map</span>
+</div>
+<div class="bg-gradient-to-br from-violet-400 to-violet-600 text-white rounded-xl p-3 shadow-[0_0_15px_rgba(167,139,250,0.4)] active:scale-90 transition-transform cursor-pointer">
+<span class="material-symbols-outlined">smart_toy</span>
+</div>
+<div class="text-slate-400 p-3 hover:text-violet-300 active:scale-90 transition-transform cursor-pointer">
+<span class="material-symbols-outlined">event_note</span>
+</div>
+</div>
+</footer>
+
+```</body></html>

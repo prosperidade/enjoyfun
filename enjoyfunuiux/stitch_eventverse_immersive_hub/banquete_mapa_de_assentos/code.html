@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-error-container": "#ffb2b9",
+                    "primary-fixed-dim": "#9d81f0",
+                    "primary-dim": "#a88cfb",
+                    "secondary": "#68fcbf",
+                    "on-tertiary": "#2b0065",
+                    "on-secondary-container": "#e0ffec",
+                    "on-primary": "#361083",
+                    "secondary-fixed-dim": "#57edb1",
+                    "primary-container": "#ab8ffe",
+                    "outline-variant": "#514166",
+                    "on-primary-container": "#290070",
+                    "inverse-primary": "#684cb6",
+                    "on-surface": "#efdfff",
+                    "on-background": "#efdfff",
+                    "surface-container": "#22103a",
+                    "on-tertiary-fixed": "#200051",
+                    "secondary-container": "#006c4b",
+                    "surface-container-high": "#291543",
+                    "primary": "#b79fff",
+                    "on-primary-fixed": "#000000",
+                    "surface-bright": "#372056",
+                    "outline": "#806e96",
+                    "surface-container-highest": "#301a4d",
+                    "tertiary": "#af88ff",
+                    "tertiary-fixed-dim": "#b48fff",
+                    "secondary-fixed": "#68fcbf",
+                    "on-tertiary-container": "#ffffff",
+                    "background": "#150629",
+                    "on-error": "#490013",
+                    "on-surface-variant": "#b7a3cf",
+                    "surface-container-lowest": "#000000",
+                    "surface": "#150629",
+                    "tertiary-dim": "#8a4cfc",
+                    "inverse-surface": "#fff7ff",
+                    "surface-variant": "#301a4d",
+                    "on-secondary-fixed-variant": "#006948",
+                    "tertiary-fixed": "#c0a0ff",
+                    "on-secondary-fixed": "#004931",
+                    "on-tertiary-fixed-variant": "#4a00a4",
+                    "error-container": "#a70138",
+                    "on-secondary": "#005e40",
+                    "tertiary-container": "#8342f4",
+                    "secondary-dim": "#57edb1",
+                    "error-dim": "#d73357",
+                    "surface-container-low": "#1b0a31",
+                    "surface-dim": "#150629",
+                    "on-primary-fixed-variant": "#330b80",
+                    "surface-tint": "#b79fff",
+                    "primary-fixed": "#ab8ffe",
+                    "error": "#ff6e84",
+                    "inverse-on-surface": "#5e4e74"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Manrope"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+        }
+        .glass-panel {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(167, 139, 250, 0.15);
+        }
+        .neon-glow-primary {
+            box-shadow: 0 0 20px rgba(183, 159, 255, 0.15);
+        }
+        .neon-glow-secondary {
+            box-shadow: 0 0 20px rgba(104, 252, 191, 0.2);
+        }
+        .isometric-grid {
+            background-image: 
+                linear-gradient(rgba(167, 139, 250, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(167, 139, 250, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            transform: perspective(1000px) rotateX(45deg);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body min-h-screen overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="bg-[#150629]/60 backdrop-blur-xl fixed top-0 w-full z-50 shadow-[0_0_20px_rgba(167,139,250,0.1)] flex justify-between items-center px-6 h-16 w-full">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-violet-400" data-icon="auto_awesome">auto_awesome</span>
+<h1 class="text-xl font-bold tracking-tighter text-violet-100 font-['Space_Grotesk']">The Celestial Union</h1>
+</div>
+<nav class="hidden md:flex gap-8">
+<a class="text-violet-300 font-medium tracking-tight font-['Space_Grotesk'] transition-opacity hover:opacity-80" href="#">Map</a>
+<a class="text-violet-500 font-medium tracking-tight font-['Space_Grotesk'] transition-opacity hover:opacity-80" href="#">Registry</a>
+<a class="text-violet-500 font-medium tracking-tight font-['Space_Grotesk'] transition-opacity hover:opacity-80" href="#">Gallery</a>
+<a class="text-violet-500 font-medium tracking-tight font-['Space_Grotesk'] transition-opacity hover:opacity-80" href="#">Concierge</a>
+</nav>
+<button class="md:hidden text-violet-400">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-7xl mx-auto relative z-10">
+<!-- Header Section -->
+<div class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="space-y-2">
+<p class="text-secondary font-label text-sm tracking-[0.2em] uppercase font-bold">Dinner Hall Selection</p>
+<h2 class="text-5xl md:text-7xl font-headline font-bold text-on-surface tracking-tighter leading-none">Wedding Gala<br/><span class="text-primary-container">Astra &amp; Bastien</span></h2>
+</div>
+<!-- Search & Filter Area -->
+<div class="w-full md:w-96">
+<div class="relative group">
+<div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline" data-icon="search">search</span>
+</div>
+<input class="w-full bg-surface-container-lowest border-none rounded-xl py-4 pl-12 pr-4 text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary/50 transition-all shadow-xl" placeholder="Find My Table..." type="text"/>
+</div>
+</div>
+</div>
+<!-- Seating Map Canvas -->
+<div class="relative w-full aspect-[16/10] bg-surface-container-low rounded-3xl overflow-hidden border border-outline-variant/10 shadow-2xl">
+<!-- Decorative Background Element -->
+<div class="absolute inset-0 isometric-grid opacity-20"></div>
+<div class="absolute -top-24 -right-24 w-96 h-96 bg-primary/10 blur-[120px] rounded-full"></div>
+<div class="absolute -bottom-24 -left-24 w-96 h-96 bg-secondary/5 blur-[120px] rounded-full"></div>
+<!-- Floor Map Labels -->
+<div class="absolute top-8 left-8 p-4 glass-panel rounded-xl">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-secondary neon-glow-secondary"></div>
+<span class="text-xs font-label uppercase tracking-widest text-secondary font-bold">Your Table: 07</span>
+</div>
+</div>
+<!-- Interactive Map Container -->
+<div class="absolute inset-0 flex items-center justify-center p-12 overflow-visible">
+<!-- Isometric Table Grid -->
+<div class="grid grid-cols-4 md:grid-cols-5 gap-12 md:gap-24">
+<!-- Table 01 -->
+<div class="relative group cursor-pointer transform hover:-translate-y-2 transition-transform duration-300">
+<div class="w-20 h-20 md:w-28 md:h-28 rounded-full glass-panel flex items-center justify-center border-2 border-primary/20 group-hover:border-primary transition-colors">
+<span class="text-xl md:text-2xl font-headline font-bold text-primary">01</span>
+</div>
+</div>
+<!-- Table 02 -->
+<div class="relative group cursor-pointer transform hover:-translate-y-2 transition-transform duration-300">
+<div class="w-20 h-20 md:w-28 md:h-28 rounded-full glass-panel flex items-center justify-center border-2 border-primary/20 group-hover:border-primary transition-colors">
+<span class="text-xl md:text-2xl font-headline font-bold text-primary">02</span>
+</div>
+</div>
+<!-- Table 03 -->
+<div class="relative group cursor-pointer transform hover:-translate-y-2 transition-transform duration-300">
+<div class="w-20 h-20 md:w-28 md:h-28 rounded-full glass-panel flex items-center justify-center border-2 border-primary/20 group-hover:border-primary transition-colors">
+<span class="text-xl md:text-2xl font-headline font-bold text-primary">03</span>
+</div>
+</div>
+<!-- Table 04 -->
+<div class="relative group cursor-pointer transform hover:-translate-y-2 transition-transform duration-300">
+<div class="w-20 h-20 md:w-28 md:h-28 rounded-full glass-panel flex items-center justify-center border-2 border-primary/20 group-hover:border-primary transition-colors">
+<span class="text-xl md:text-2xl font-headline font-bold text-primary">04</span>
+</div>
+</div>
+<!-- Table 05 -->
+<div class="relative group cursor-pointer transform hover:-translate-y-2 transition-transform duration-300">
+<div class="w-20 h-20 md:w-28 md:h-28 rounded-full glass-panel flex items-center justify-center border-2 border-primary/20 group-hover:border-primary transition-colors">
+<span class="text-xl md:text-2xl font-headline font-bold text-primary">05</span>
+</div>
+</div>
+<!-- Table 06 -->
+<div class="relative group cursor-pointer transform hover:-translate-y-2 transition-transform duration-300">
+<div class="w-20 h-20 md:w-28 md:h-28 rounded-full glass-panel flex items-center justify-center border-2 border-primary/20 group-hover:border-primary transition-colors">
+<span class="text-xl md:text-2xl font-headline font-bold text-primary">06</span>
+</div>
+</div>
+<!-- Table 07 (Active/Selected) -->
+<div class="relative group cursor-pointer transform -translate-y-4 scale-110">
+<!-- Guest Info Floating Card -->
+<div class="absolute -top-48 left-1/2 -translate-x-1/2 w-56 p-4 glass-panel rounded-2xl border-secondary/40 shadow-[0_0_30px_rgba(104,252,191,0.2)] z-20">
+<h4 class="text-xs font-label uppercase tracking-widest text-secondary font-bold mb-3">Table Mates</h4>
+<ul class="space-y-2 text-sm">
+<li class="flex justify-between items-center text-on-surface">
+<span>Julian Thorne</span>
+<span class="material-symbols-outlined text-[12px] text-secondary" data-icon="stars" data-weight="fill">stars</span>
+</li>
+<li class="text-on-surface/70">Elena Vance</li>
+<li class="text-on-surface/70">Marcus Aurel</li>
+<li class="text-on-surface/70">Serafina Moon</li>
+<li class="text-on-surface/70">Bastien (Groom)</li>
+</ul>
+<div class="mt-4 pt-3 border-t border-white/5">
+<button class="w-full py-2 bg-secondary/10 hover:bg-secondary/20 text-secondary text-[10px] font-bold uppercase tracking-widest rounded-lg transition-colors">View Table-mates</button>
+</div>
+</div>
+<!-- The Table -->
+<div class="w-20 h-20 md:w-28 md:h-28 rounded-full glass-panel flex items-center justify-center border-4 border-secondary neon-glow-secondary transition-all">
+<span class="text-xl md:text-2xl font-headline font-bold text-secondary">07</span>
+</div>
+<!-- Glowing Pulse -->
+<div class="absolute inset-0 rounded-full border-4 border-secondary/30 animate-ping opacity-20"></div>
+</div>
+<!-- More Tables -->
+<div class="relative group cursor-pointer transform hover:-translate-y-2 transition-transform duration-300">
+<div class="w-20 h-20 md:w-28 md:h-28 rounded-full glass-panel flex items-center justify-center border-2 border-primary/20 group-hover:border-primary transition-colors">
+<span class="text-xl md:text-2xl font-headline font-bold text-primary">08</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Interaction Legend -->
+<div class="absolute bottom-8 right-8 flex gap-6 px-6 py-3 glass-panel rounded-full">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<span class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Available</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<span class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Your Spot</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-outline"></div>
+<span class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Reserved</span>
+</div>
+</div>
+</div>
+<!-- Details Grid -->
+<div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="glass-panel p-8 rounded-3xl border-outline-variant/10 flex flex-col gap-4">
+<div class="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="restaurant">restaurant</span>
+</div>
+<h3 class="text-2xl font-headline font-bold">The Menu</h3>
+<p class="text-on-surface-variant leading-relaxed">Celestial pairings featuring stardust-infused appetizers and nebula nectar reductions. Curated by Chef Orion.</p>
+<a class="text-primary text-sm font-bold uppercase tracking-wider mt-2 flex items-center gap-2" href="#">View Full Menu <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span></a>
+</div>
+<div class="glass-panel p-8 rounded-3xl border-outline-variant/10 flex flex-col gap-4">
+<div class="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" data-icon="schedule">schedule</span>
+</div>
+<h3 class="text-2xl font-headline font-bold">The Timeline</h3>
+<p class="text-on-surface-variant leading-relaxed">Dinner service commences at 20:00. Followed by the orbital dance and cake supernova at midnight.</p>
+<a class="text-secondary text-sm font-bold uppercase tracking-wider mt-2 flex items-center gap-2" href="#">Add to Calendar <span class="material-symbols-outlined text-sm" data-icon="event">event</span></a>
+</div>
+<div class="glass-panel p-8 rounded-3xl border-outline-variant/10 flex flex-col gap-4">
+<div class="w-12 h-12 bg-tertiary-container/30 rounded-xl flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined" data-icon="celebration">celebration</span>
+</div>
+<h3 class="text-2xl font-headline font-bold">Our Story</h3>
+<p class="text-on-surface-variant leading-relaxed">From the lunar docks of Titan to the rings of Saturn, Astra and Bastien invite you to share their journey.</p>
+<a class="text-tertiary text-sm font-bold uppercase tracking-wider mt-2 flex items-center gap-2" href="#">View Gallery <span class="material-symbols-outlined text-sm" data-icon="auto_videocam">auto_videocam</span></a>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full h-20 bg-violet-900/40 backdrop-blur-2xl flex justify-around items-center px-4 pb-4 z-50 rounded-t-xl shadow-[0_-10px_40px_rgba(104,252,191,0.12)] bg-gradient-to-b from-transparent to-[#150629] md:hidden">
+<a class="flex flex-col items-center justify-center bg-violet-500/20 text-[#68fcbf] rounded-xl px-3 py-1 drop-shadow-[0_0_8px_rgba(104,252,191,0.5)] transition-transform duration-300 ease-out active:scale-110" href="#">
+<span class="material-symbols-outlined" data-icon="map">map</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-semibold">Map</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-300/60 hover:bg-violet-500/10 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="card_giftcard">card_giftcard</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-semibold">Registry</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-300/60 hover:bg-violet-500/10 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="photo_library">photo_library</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-semibold">Gallery</span>
+</a>
+<a class="flex flex-col items-center justify-center text-violet-300/60 hover:bg-violet-500/10 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="support_agent">support_agent</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-semibold">Concierge</span>
+</a>
+</nav>
+<!-- FAB -->
+<button class="fixed bottom-24 right-8 w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary-container text-on-primary shadow-[0_10px_40px_rgba(183,159,255,0.3)] flex items-center justify-center z-40 md:bottom-8 hover:scale-105 transition-transform active:scale-95">
+<span class="material-symbols-outlined text-3xl" data-icon="qr_code_scanner" data-weight="fill">qr_code_scanner</span>
+</button>
+</body></html>

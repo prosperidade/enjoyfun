@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Graduation 2024 Nexus Hub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-dim": "#a88cfb",
+                        "primary": "#b79fff",
+                        "secondary-fixed-dim": "#57edb1",
+                        "background": "#150629",
+                        "tertiary-dim": "#8a4cfc",
+                        "on-surface": "#efdfff",
+                        "on-tertiary": "#2b0065",
+                        "error-dim": "#d73357",
+                        "on-secondary": "#005e40",
+                        "outline-variant": "#514166",
+                        "on-error-container": "#ffb2b9",
+                        "on-secondary-fixed": "#004931",
+                        "surface-container-lowest": "#000000",
+                        "inverse-surface": "#fff7ff",
+                        "secondary": "#68fcbf",
+                        "tertiary-fixed-dim": "#b48fff",
+                        "secondary-container": "#006c4b",
+                        "primary-container": "#ab8ffe",
+                        "inverse-on-surface": "#5e4e74",
+                        "surface-container": "#22103a",
+                        "surface-tint": "#b79fff",
+                        "primary-fixed-dim": "#9d81f0",
+                        "on-surface-variant": "#b7a3cf",
+                        "on-tertiary-container": "#ffffff",
+                        "tertiary": "#af88ff",
+                        "secondary-fixed": "#68fcbf",
+                        "surface-dim": "#150629",
+                        "primary-fixed": "#ab8ffe",
+                        "surface-variant": "#301a4d",
+                        "on-primary-container": "#290070",
+                        "inverse-primary": "#684cb6",
+                        "surface": "#150629",
+                        "error": "#ff6e84",
+                        "outline": "#806e96",
+                        "on-tertiary-fixed-variant": "#4a00a4",
+                        "tertiary-fixed": "#c0a0ff",
+                        "on-secondary-fixed-variant": "#006948",
+                        "surface-bright": "#372056",
+                        "on-primary": "#361083",
+                        "on-primary-fixed-variant": "#330b80",
+                        "on-error": "#490013",
+                        "on-background": "#efdfff",
+                        "surface-container-low": "#1b0a31",
+                        "on-tertiary-fixed": "#200051",
+                        "on-secondary-container": "#e0ffec",
+                        "tertiary-container": "#8342f4",
+                        "surface-container-high": "#291543",
+                        "secondary-dim": "#57edb1",
+                        "error-container": "#a70138",
+                        "on-primary-fixed": "#000000",
+                        "surface-container-highest": "#301a4d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Manrope"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .glass-morphism {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .neon-glow-primary {
+            box-shadow: 0 0 20px rgba(167, 139, 250, 0.15);
+        }
+        .neon-glow-secondary {
+            box-shadow: 0 0 15px rgba(104, 252, 191, 0.4);
+        }
+        .holographic-sheen {
+            background: linear-gradient(135deg, rgba(183, 159, 255, 0.2) 0%, rgba(104, 252, 191, 0.1) 50%, rgba(183, 159, 255, 0.2) 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body selection:bg-secondary selection:text-on-secondary min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#150629]/60 backdrop-blur-xl shadow-[0_0_20px_rgba(167,139,250,0.15)] bg-gradient-to-b from-[#A78BFA]/10 to-transparent">
+<div class="flex items-center justify-between px-6 py-4 w-full">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#A78BFA]" data-icon="school">school</span>
+<h1 class="text-xl font-bold tracking-widest text-[#A78BFA] font-headline uppercase">GRADUATION 2024</h1>
+</div>
+<div class="flex items-center gap-6">
+<nav class="hidden md:flex gap-8">
+<a class="text-[#68fcbf] font-label text-sm font-bold tracking-wider uppercase transition-colors duration-300" href="#">Nexus</a>
+<a class="text-slate-400 hover:text-[#68fcbf] font-label text-sm font-bold tracking-wider uppercase transition-colors duration-300" href="#">Ceremony</a>
+<a class="text-slate-400 hover:text-[#68fcbf] font-label text-sm font-bold tracking-wider uppercase transition-colors duration-300" href="#">Gallery</a>
+<a class="text-slate-400 hover:text-[#68fcbf] font-label text-sm font-bold tracking-wider uppercase transition-colors duration-300" href="#">Squad</a>
+</nav>
+<span class="material-symbols-outlined text-[#A78BFA] cursor-pointer active:scale-95 duration-200" data-icon="account_circle">account_circle</span>
+</div>
+</div>
+</header>
+<main class="pt-24 px-4 md:px-8 max-w-7xl mx-auto space-y-12">
+<!-- Hero: Holographic Diploma Card -->
+<section class="relative group">
+<div class="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+<div class="relative glass-morphism holographic-sheen rounded-xl border border-white/10 p-8 overflow-hidden">
+<div class="absolute top-0 right-0 p-6 opacity-20">
+<span class="material-symbols-outlined text-9xl" data-icon="verified_user">verified_user</span>
+</div>
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-8 relative z-10">
+<div class="space-y-4">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/10 border border-secondary/20 text-secondary font-headline text-xs font-bold tracking-tighter uppercase neon-glow-secondary">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
+</span>
+                            Achievement Unlocked
+                        </div>
+<h2 class="text-5xl md:text-7xl font-headline font-bold text-on-surface tracking-tighter uppercase leading-none">
+                            ALEXANDER <br/><span class="text-primary-dim">VANGUARD</span>
+</h2>
+<p class="text-xl md:text-2xl font-body font-light text-on-surface-variant max-w-md">
+                            Bachelor of Science in Interstellar Systems Engineering
+                        </p>
+</div>
+<div class="flex flex-col items-start md:items-end gap-2">
+<div class="text-label-sm font-headline text-on-surface-variant uppercase tracking-[0.2em] opacity-60">Credential ID</div>
+<div class="font-headline font-bold text-xl text-primary tracking-widest">NXS-2024-G-8821</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Bento Grid: Map & Feed & Timeline -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Ceremony Floorplan (Left/Main) -->
+<div class="lg:col-span-8 flex flex-col gap-6">
+<section class="bg-surface-container-low rounded-xl p-6 border border-white/5 h-full">
+<div class="flex justify-between items-center mb-8">
+<div class="space-y-1">
+<h3 class="text-2xl font-headline font-bold uppercase tracking-tight">Ceremony Floorplan</h3>
+<p class="text-on-surface-variant text-sm font-body">Interactive 3D Grid: Great Hall Complex</p>
+</div>
+<div class="flex gap-2">
+<button class="p-2 rounded-lg bg-surface-container-highest border border-white/10 text-primary">
+<span class="material-symbols-outlined" data-icon="layers">layers</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-highest border border-white/10 text-primary">
+<span class="material-symbols-outlined" data-icon="3d_rotation">3d_rotation</span>
+</button>
+</div>
+</div>
+<div class="aspect-video relative rounded-lg overflow-hidden bg-surface-container-lowest border border-white/5 flex items-center justify-center">
+<img class="w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 transition duration-700" data-alt="Futuristic isometric architectural rendering of a grand ceremony hall with neon pathways, glowing stage area, and structural purple lighting" data-location="The Great Hall" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvZsU-_yluPrtqIUbl7keM5atw3IgD6j5QhFodCjv3TS3mqksOkVZj9DiHaG8JSU7-LOYVXsC1vmkxJr1e7MumZL9zDVq2jSIQYKP_A91Ziz73epCXeaK_K999wIxjvAJvN5YFd9v8VuV1BAe8N4QF28EtDfKs8RV2dq70EZeXcn8TmOyesC05U5tHWQCjoaDUlKp8RX9negdUjIat_h8EROA0NemycVAfiNVzadiOzcHBgtKX44sQWO-spVzcEQ0lVzV7StmonZk"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent"></div>
+<!-- Map Hotspots -->
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="relative w-full h-full">
+<div class="absolute top-1/4 left-1/2 -translate-x-1/2 p-4 rounded-xl glass-morphism border border-secondary/40 text-secondary flex items-center gap-3 animate-pulse">
+<span class="material-symbols-outlined" data-icon="stars">stars</span>
+<span class="font-headline font-bold uppercase text-xs tracking-widest">Main Stage</span>
+</div>
+<div class="absolute bottom-1/4 left-1/3 p-4 rounded-xl glass-morphism border border-primary/40 text-primary flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="event_seat">event_seat</span>
+<span class="font-headline font-bold uppercase text-xs tracking-widest">Sector Alpha</span>
+</div>
+<div class="absolute bottom-1/3 right-1/4 p-4 rounded-xl glass-morphism border border-on-surface-variant/20 text-on-surface-variant flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="restaurant">restaurant</span>
+<span class="font-headline font-bold uppercase text-xs tracking-widest">Dining Lounge</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Next Step Timeline (Right/Sidebar) -->
+<div class="lg:col-span-4 space-y-6">
+<section class="bg-surface-container-low rounded-xl p-6 border border-white/5">
+<h3 class="text-xl font-headline font-bold uppercase tracking-tight mb-6">Next Step</h3>
+<div class="space-y-8 relative">
+<div class="absolute left-4 top-0 bottom-0 w-[1px] bg-outline-variant/30"></div>
+<div class="relative pl-12">
+<div class="absolute left-[0.65rem] top-1 w-3 h-3 rounded-full bg-secondary neon-glow-secondary"></div>
+<div class="space-y-1">
+<div class="text-secondary font-headline text-xs font-bold uppercase tracking-widest">In 2 Hours</div>
+<div class="text-on-surface font-headline font-bold">Commencement Ceremony</div>
+<div class="text-on-surface-variant text-xs">Sector Alpha • 10:00 AM</div>
+</div>
+</div>
+<div class="relative pl-12 opacity-50">
+<div class="absolute left-[0.65rem] top-1 w-3 h-3 rounded-full bg-outline"></div>
+<div class="space-y-1">
+<div class="text-on-surface-variant font-headline text-xs font-bold uppercase tracking-widest">In 8 Hours</div>
+<div class="text-on-surface font-headline font-bold">The Afterparty</div>
+<div class="text-on-surface-variant text-xs">Starlight Rooftop • 06:00 PM</div>
+</div>
+</div>
+<div class="relative pl-12 opacity-30">
+<div class="absolute left-[0.65rem] top-1 w-3 h-3 rounded-full bg-outline"></div>
+<div class="space-y-1">
+<div class="text-on-surface-variant font-headline text-xs font-bold uppercase tracking-widest">Next Day</div>
+<div class="text-on-surface font-headline font-bold">Diplomatic Departure</div>
+<div class="text-on-surface-variant text-xs">Bay 7 • 09:00 AM</div>
+</div>
+</div>
+</div>
+<button class="w-full mt-8 py-4 rounded-xl bg-gradient-to-br from-primary to-primary-container text-on-primary font-headline font-bold uppercase tracking-widest transition-transform active:scale-95 shadow-lg shadow-primary/20">
+                        View Full Itinerary
+                    </button>
+</section>
+<section class="bg-surface-container-high rounded-xl p-6 border border-white/10 group cursor-pointer overflow-hidden relative">
+<div class="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex items-center justify-between relative z-10">
+<div class="space-y-1">
+<div class="text-on-surface font-headline font-bold uppercase tracking-tight">Your Squad</div>
+<div class="flex -space-x-3">
+<div class="w-10 h-10 rounded-full border-2 border-surface bg-surface-container-highest overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a smiling young male graduate in futuristic dark purple academic attire" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDV7VeM-F-j2WzlAdj3mT82MTeOUrIjWn8mCgy8T7CvZ-S_poZwl6Z_YngwUF6CH23WKpZOC8Gjg1-DNDu1GKhfm2xaZkNu9p-NYIaebnMrlJp6ZbRmaOb1lV2S7vPnVqXhanFCKs0XBrG_RZVthLfu0QXVAhbVi7YyGkjo1JRa2Ti_z7OpROzSirTiICHYVWSbh015XEEqc_hLnrlYuYI3pDB65H0kTzpPG8AhgY1M_MEQ86FDhqGIwe-reP4xu01nUXx_Q7UZHlo"/>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-surface bg-surface-container-highest overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a cheerful young female graduate with short dark hair in high-tech graduation robes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDEGLpIiR2fbes1h8_8OYPdQnEcHy_swRX-Q09pgk1rRG4VbDf5FplsIYv48ysedtAwwcSAT5-tFS2krzAVs8_gW2o43X3IwipEdEAC6hUSVPh5zDTsNxuMC7_m_2TVWJcTtYvXgy_GL9c2xO3E_iDyEVlm7Eq1SwBdiHHWl_XLO3wBeQKJItrFWmjMxBpZhm7jitF8bE8KjujdxlRQXbHz3TaU1iFR3LkNgf-nfMiKr0MxDDdTdPkHkwqxB4_SOensRzChXfXTTOs"/>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-surface bg-surface-container-highest overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close up portrait of a young man with glasses smiling brightly during a cosmic celebration" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYqSeMoNICsVaj_SmtHmTa4JaXWwy6xz6mk7dyG_3gUWy3CClgIgOO4zsib8DWWU9Is9hj7NJ02WXYnmtzSD7m8tw9kRi0UhrpXTRrqHZqHwYw-lb9fDFrCMUtp-6IGTjSog7Tn2TQVKwd-FrcI4yTHa11b6QlJIBTWonvlw1VxczaZpLvVmmf1c6T-ihCR1sxQZSQWEzR5XkwlQn6ilbAqtFam82rur5V9up7evX98SBHIiuUVa-9wBbXepcceKktj34uNvtCHOg"/>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-surface bg-secondary-container flex items-center justify-center text-on-secondary-container text-xs font-bold">+12</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-secondary" data-icon="chevron_right">chevron_right</span>
+</div>
+</section>
+</div>
+</div>
+<!-- Social Feed: Class of 2024 -->
+<section class="space-y-6">
+<div class="flex items-end justify-between">
+<div class="space-y-2">
+<h3 class="text-3xl font-headline font-bold uppercase tracking-tighter">Class of 2024 Feed</h3>
+<p class="text-on-surface-variant font-body">Moments from the final frontier</p>
+</div>
+<button class="font-label text-sm font-bold uppercase text-secondary tracking-widest border-b-2 border-secondary pb-1">Post Shoutout</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Feed Card 1 -->
+<div class="bg-surface-container-low rounded-xl overflow-hidden border border-white/5 group hover:border-primary/30 transition-all duration-300">
+<div class="aspect-square relative overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition duration-700" data-alt="Group of diverse graduates tossing their hats in the air against a moody twilight sky with purple and cyan lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMDZiOmU245dASnb6lRbn4yrRBEaG7YliQflDYJyGohvn97nZwJwHtMyvxe62uIy0MtJYF3-u_0vn6D3S5C1DavUNxJMe_4ASIJ0boU2KhBDxXzVq7atqUxcs4hGeTbhiT5_UlY8AU_XQMKY3DYFzdaZJsPJe3IE7StixBoNpMWrnEAhCWmmd0x_1r3tVekpctT9Rgy6ha-taB5BGaQgSsaYKrXwVrh-K0sEPoS41E7BTwSQI2SPKeBEarJaijpHWUSgDtN4BXnHE"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-transparent to-transparent"></div>
+</div>
+<div class="p-6 space-y-3">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-dim"></div>
+<span class="text-sm font-headline font-bold text-on-surface">Elena S.</span>
+</div>
+<p class="text-on-surface-variant text-sm font-body">"We finally made it! To the moon and back, quite literally. See you guys at the ceremony!"</p>
+<div class="flex items-center gap-4 pt-2 text-on-surface-variant/60">
+<span class="flex items-center gap-1 text-xs"><span class="material-symbols-outlined text-sm" data-icon="favorite">favorite</span> 128</span>
+<span class="flex items-center gap-1 text-xs"><span class="material-symbols-outlined text-sm" data-icon="chat_bubble">chat_bubble</span> 12</span>
+</div>
+</div>
+</div>
+<!-- Feed Card 2 -->
+<div class="bg-surface-container-low rounded-xl overflow-hidden border border-white/5 group hover:border-primary/30 transition-all duration-300">
+<div class="aspect-square relative overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition duration-700" data-alt="Close up of a futuristic diploma with glowing digital interfaces and holographic university seal" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGsAtZuKuN7z2O68V13eq918mUzxR0jaCGCTfYU_5XkE5-Ed34COaiOMWl70xYVtbVZFNCStn08srxDdFwBUTGbnYApTt6-oRNu_j_HQhZAReNvJojIJwHzYru9cpQb3qIbxgwjp4jfuwwgnz71bObNamy4QYFrDcQ8k-xMFyE9PV7CodY4_KnwQRBOt66IT67pXvAJ2sJMSsZ9FlABeSMkhHoblS8cRfOKZ71YljCnIJw8_vDCYnwhqcd-rlXruA3g0qG1iz5-1w"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-transparent to-transparent"></div>
+</div>
+<div class="p-6 space-y-3">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary"></div>
+<span class="text-sm font-headline font-bold text-on-surface">Marcus T.</span>
+</div>
+<p class="text-on-surface-variant text-sm font-body">"Just received my holographic credential. It's official. Systems Engineering, Class of 2024!"</p>
+<div class="flex items-center gap-4 pt-2 text-on-surface-variant/60">
+<span class="flex items-center gap-1 text-xs"><span class="material-symbols-outlined text-sm" data-icon="favorite">favorite</span> 243</span>
+<span class="flex items-center gap-1 text-xs"><span class="material-symbols-outlined text-sm" data-icon="chat_bubble">chat_bubble</span> 45</span>
+</div>
+</div>
+</div>
+<!-- Feed Card 3 -->
+<div class="bg-surface-container-low rounded-xl overflow-hidden border border-white/5 group hover:border-primary/30 transition-all duration-300">
+<div class="aspect-square relative overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition duration-700" data-alt="Modern tech event space with neon violet lighting and geometric silhouettes of people celebrating" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCt60IIgcQAkJ9jU1YC__6iUXdUuUtgaRX8IJYPxL1IWq5xm6jUQ7ttTwr6OtbHiexQjQxxOB5kv1ZD7IRYmMV_8kw8jj-9NiFfTefS7-PpiA9q-ZliF-jv9FXykxIRdK1jA72nBFKtiDGilulDtnl8VPMbdNYXI6XZTo_cQTeGax8I81cuZtK855iH2zOKVoi_XRrLQ4pRg6dvNGfW9haC9r2PMyodbp2q1u9r4XpCp-BMkbvKNtY7vkoCqCawmN3rir3tRJfMoQc"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-transparent to-transparent"></div>
+</div>
+<div class="p-6 space-y-3">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-tertiary-dim"></div>
+<span class="text-sm font-headline font-bold text-on-surface">Jana V.</span>
+</div>
+<p class="text-on-surface-variant text-sm font-body">"Setup at the Great Hall looks incredible. Can't wait for tonight's reception!"</p>
+<div class="flex items-center gap-4 pt-2 text-on-surface-variant/60">
+<span class="flex items-center gap-1 text-xs"><span class="material-symbols-outlined text-sm" data-icon="favorite">favorite</span> 89</span>
+<span class="flex items-center gap-1 text-xs"><span class="material-symbols-outlined text-sm" data-icon="chat_bubble">chat_bubble</span> 8</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 bg-[#150629]/40 backdrop-blur-2xl rounded-t-xl border-t border-white/5 shadow-[0_-10px_40px_rgba(167,139,250,0.1)]">
+<a class="flex flex-col items-center justify-center text-[#68fcbf] drop-shadow-[0_0_8px_rgba(104,252,191,0.6)] active:scale-110 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="hub">hub</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-bold mt-1">Nexus</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 opacity-60 hover:opacity-100 transition-opacity active:scale-110 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="map">map</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-bold mt-1">Ceremony</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 opacity-60 hover:opacity-100 transition-opacity active:scale-110 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="photo_library">photo_library</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-bold mt-1">Gallery</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 opacity-60 hover:opacity-100 transition-opacity active:scale-110 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] font-bold mt-1">Squad</span>
+</a>
+</nav>
+</body></html>

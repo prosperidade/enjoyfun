@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EnjoyFun - Map Zoom</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-highest": "#301a4d",
+                        "secondary-dim": "#57edb1",
+                        "tertiary": "#af88ff",
+                        "on-secondary-fixed": "#004931",
+                        "primary-dim": "#a88cfb",
+                        "on-primary-fixed-variant": "#330b80",
+                        "on-primary-fixed": "#000000",
+                        "tertiary-dim": "#8a4cfc",
+                        "secondary-fixed": "#68fcbf",
+                        "tertiary-fixed-dim": "#b48fff",
+                        "on-surface": "#efdfff",
+                        "background": "#150629",
+                        "error": "#ff6e84",
+                        "outline": "#806e96",
+                        "surface-container-high": "#291543",
+                        "outline-variant": "#514166",
+                        "on-tertiary-fixed": "#200051",
+                        "on-tertiary-container": "#ffffff",
+                        "on-error-container": "#ffb2b9",
+                        "secondary-fixed-dim": "#57edb1",
+                        "surface-variant": "#301a4d",
+                        "secondary": "#68fcbf",
+                        "on-tertiary": "#2b0065",
+                        "primary": "#b79fff",
+                        "inverse-on-surface": "#5e4e74",
+                        "on-primary-container": "#290070",
+                        "on-secondary-container": "#e0ffec",
+                        "tertiary-container": "#8342f4",
+                        "inverse-primary": "#684cb6",
+                        "surface": "#150629",
+                        "on-secondary": "#005e40",
+                        "surface-container-low": "#1b0a31",
+                        "primary-fixed": "#ab8ffe",
+                        "surface-container": "#22103a",
+                        "error-container": "#a70138",
+                        "primary-container": "#ab8ffe",
+                        "tertiary-fixed": "#c0a0ff",
+                        "on-background": "#efdfff",
+                        "surface-bright": "#372056",
+                        "primary-fixed-dim": "#9d81f0",
+                        "surface-tint": "#b79fff",
+                        "on-surface-variant": "#b7a3cf",
+                        "secondary-container": "#006c4b",
+                        "on-primary": "#361083",
+                        "inverse-surface": "#fff7ff",
+                        "on-tertiary-fixed-variant": "#4a00a4",
+                        "error-dim": "#d73357",
+                        "on-error": "#490013",
+                        "surface-container-lowest": "#000000",
+                        "surface-dim": "#150629",
+                        "on-secondary-fixed-variant": "#006948"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Manrope"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(48, 26, 77, 0.4);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(168, 140, 251, 0.15);
+        }
+        .isometric-view {
+            transform: perspective(1000px) rotateX(45deg) rotateZ(-15deg);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary selection:text-on-primary-container overflow-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full flex justify-between items-center px-6 py-4 z-50 bg-transparent backdrop-blur-xl shadow-[0_0_40px_rgba(167,139,250,0.12)]">
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-violet-400 p-2 hover:bg-violet-400/20 transition-all active:scale-95 duration-300">menu</button>
+<h1 class="text-xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-violet-200 font-['Space_Grotesk']">ENJOYFUN</h1>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-primary/30 overflow-hidden shadow-[0_0_15px_rgba(167,139,250,0.3)]">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="Stylized 3D avatar of a trendy person with neon purple lighting and modern streetwear" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDGK1VqhI6Y9afZnm26RgatjDrxs3Ubm5sdeP40zTOEXZrDr7TKByC6gPZHLT-Ye2maWcQJddTlr58KKnSgMAgeeqTPPB1jJOtQIjVzN8RVygYHsw5KUr5dHYeewxslVy8mEC_DZgKAzReHKVMQzwo_lZg8AsFaMzF4em77QtGuaMZ-JTXq2YfioBbglQd0WZ6pjEBCkjVhO54cJVFZQ742-npJ61iaGuDO34mzSM68W-Qxx9zAT6Me83utit2Lp1ySOrkuYKCKdhE"/>
+</div>
+</header>
+<!-- Map Zoom Canvas -->
+<main class="relative w-screen h-screen overflow-hidden flex items-center justify-center">
+<!-- Cinematic Bokeh Background -->
+<div class="absolute inset-0 z-0">
+<img class="w-full h-full object-cover scale-110" data-alt="Heavily blurred cinematic background of a music festival at night with glowing purple and green light orbs and bokeh effects" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDclallf9G9J-tBzgvGJIboC8Xne-AQqpE9x5V-0y7mu4m7CpWwxtyFCngbRflauAo20BCXLy-7JDoII_kCe82I6AQtIEKB8XMz2iBJddZovXnydoX-H_36fGBQ4Ta1KEGZEd3Ay72rdz04UzyOtrQkS4gXmVB6SOvlIWSn7U90oc16TCLPWPpaar9TFg6T_aaFrhwvU6dxe2PhXkJV_SSBhF5MDs28yz9p1R3fQyzSVvy8WvnRa39ptGOFjtiNvqPF6Tei1kiqqgY"/>
+<div class="absolute inset-0 bg-background/40 backdrop-blur-sm"></div>
+</div>
+<!-- 3D Rendered Stage Structure (Isometric Zoom) -->
+<div class="relative z-10 flex items-center justify-center w-full h-full">
+<div class="isometric-view relative w-[80vw] max-w-4xl aspect-video rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(183,159,255,0.2)]">
+<img class="w-full h-full object-cover" data-alt="Dramatic close-up 3D isometric view of a massive futuristic festival main stage with glowing neon violet and green laser beams and architectural light structures" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAi3ZzVzX7hxyH8uXFmTGiOs5ENxhzfnTwDTH-bXkE_Qwp5yz3RpvyYx3E0jHereLFnPjhB20VmkIP5vhgycNBEVXUmg8Qz1MNYyVsTNzsF7klounpWKphdH-3eFKQS42i4iqcSWJsvHp1QMny7-LdDs196UInlZTJdr9IDEP1nDx-wSzaMhCDHzOUiS5lnVPcXXf3kzMH6c7L63BPh3j1OH0GxXAxwmuhNh-ybNCGNs-yaElM3UPUR1Guw06Mblz8keg6JwwEYPwc"/>
+<!-- Pulse Overlays -->
+<div class="absolute inset-0 bg-gradient-to-t from-primary/20 via-transparent to-secondary/10"></div>
+<!-- Glowing POI Anchor -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+<div class="w-8 h-8 bg-secondary rounded-full shadow-[0_0_30px_#68fcbf] animate-pulse"></div>
+</div>
+</div>
+<!-- Back to Overview FAB -->
+<button class="absolute top-24 left-8 z-20 flex items-center gap-2 glass-card px-6 py-3 rounded-full text-primary font-headline font-bold text-sm hover:scale-105 active:scale-95 transition-all shadow-xl group">
+<span class="material-symbols-outlined text-lg">arrow_back_ios</span>
+<span class="tracking-widest uppercase">Back to Overview</span>
+</button>
+<!-- Floating Active Stats Cards (Bento style placement) -->
+<div class="absolute inset-0 pointer-events-none z-30">
+<!-- BPM Card -->
+<div class="pointer-events-auto absolute top-[15%] right-[10%] glass-card p-5 rounded-2xl w-48 shadow-[0_20px_50px_rgba(0,0,0,0.4)] hover:shadow-primary/20 transition-all border-l-4 border-l-secondary">
+<p class="text-[10px] uppercase tracking-[0.2em] font-headline text-on-surface-variant mb-1">Current BPM</p>
+<div class="flex items-end gap-2">
+<span class="text-3xl font-black font-headline text-secondary">128</span>
+<span class="text-xs text-secondary-dim font-medium pb-1">steady</span>
+</div>
+<div class="mt-3 flex gap-1 h-4 items-end">
+<div class="w-1 bg-secondary h-2 rounded-full"></div>
+<div class="w-1 bg-secondary h-4 rounded-full"></div>
+<div class="w-1 bg-secondary h-3 rounded-full"></div>
+<div class="w-1 bg-secondary h-5 rounded-full"></div>
+</div>
+</div>
+<!-- Crowd Capacity Card -->
+<div class="pointer-events-auto absolute bottom-[25%] left-[5%] glass-card p-5 rounded-2xl w-56 shadow-[0_20px_50px_rgba(0,0,0,0.4)] hover:shadow-primary/20 transition-all border-l-4 border-l-primary">
+<p class="text-[10px] uppercase tracking-[0.2em] font-headline text-on-surface-variant mb-1">Crowd Status</p>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">groups</span>
+<div>
+<span class="block text-lg font-bold font-headline leading-tight">High Capacity</span>
+<span class="text-[10px] text-primary-dim uppercase tracking-wider">92% Filled</span>
+</div>
+</div>
+</div>
+<!-- Live Now Card -->
+<div class="pointer-events-auto absolute top-[45%] left-[8%] glass-card p-1 pr-6 rounded-full flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.4)] border border-white/10">
+<div class="w-12 h-12 rounded-full overflow-hidden border-2 border-secondary/50 p-1">
+<img class="w-full h-full object-cover rounded-full" data-alt="Portrait of a cybernetic DJ with glowing visor and futuristic headphones in a purple neon studio" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBeCFi4Pnk0ZYBDQWVnFgpqoV2uo0c4DPaCFoy2Ayjy_8yOQHZCi7mQciCA5zuIPXqRcNyxt_rmDg4PfA5gapCdRzH3mxEbR2PLmJZp0ohJWTN8Xph7yba6POLJCup11yacEJMxBO2yjNJ-2rEtZs0KpTKQjZgw_d6mG6YhmB1vlTT8wpWwbmcfZRQqoL1gBuyuk2eNa2p7IMuhzhFIl4vm31yx5FaRAWSpjqODsL7W17J5m6-_MIwwvvfG7-jUnwNCfl6cTdCcTn4"/>
+</div>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary shadow-[0_0_8px_#68fcbf]"></span>
+<p class="text-[9px] uppercase tracking-[0.15em] font-headline text-secondary">Live Now</p>
+</div>
+<p class="font-headline font-bold text-lg leading-none">Quasar Beats</p>
+</div>
+</div><button class="pointer-events-auto absolute top-[55%] left-[8.5%] flex items-center gap-2 glass-card px-4 py-2.5 rounded-full text-white font-headline font-bold text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(167,139,250,0.5)] border border-primary/30 group z-40">
+<span class="material-symbols-outlined text-base fill-1" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+<span class="tracking-widest uppercase">Live Stream</span>
+</button>
+</div>
+</div>
+</main>
+<!-- Map Context Footer Info -->
+<div class="fixed bottom-28 left-1/2 -translate-x-1/2 z-40 text-center">
+<h2 class="font-headline text-4xl md:text-6xl font-black uppercase tracking-tighter text-on-surface/90 drop-shadow-2xl">Main Stage</h2>
+<div class="flex items-center justify-center gap-4 mt-2">
+<span class="px-3 py-1 bg-surface-container-highest/80 backdrop-blur-md rounded-full text-[10px] font-headline font-bold tracking-widest uppercase border border-white/5">Sector 7-G</span>
+<span class="px-3 py-1 bg-surface-container-highest/80 backdrop-blur-md rounded-full text-[10px] font-headline font-bold tracking-widest uppercase border border-white/5">Open Air</span>
+</div>
+</div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md rounded-2xl border border-violet-400/15 bg-slate-900/40 backdrop-blur-2xl flex justify-around items-center px-4 py-2 z-50 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+<button class="text-slate-400 p-3 hover:text-violet-300 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">style</span>
+</button>
+<button class="bg-gradient-to-br from-violet-400 to-violet-600 text-white rounded-xl p-3 shadow-[0_0_15px_rgba(167,139,250,0.4)] active:scale-90 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">map</span>
+</button>
+<button class="text-slate-400 p-3 hover:text-violet-300 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">smart_toy</span>
+</button>
+<button class="text-slate-400 p-3 hover:text-violet-300 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">event_note</span>
+</button>
+</nav>
+<!-- Hidden Map Generation Marker -->
+<div class="hidden" data-location="Digital Music Festival Plaza" style=""></div>
+</body></html>

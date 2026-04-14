@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+                  "tertiary-dim": "#8a4cfc",
+                  "error": "#ff6e84",
+                  "error-dim": "#d73357",
+                  "inverse-on-surface": "#5e4e74",
+                  "secondary-fixed": "#68fcbf",
+                  "primary-fixed": "#ab8ffe",
+                  "on-primary-fixed-variant": "#330b80",
+                  "surface-bright": "#372056",
+                  "secondary": "#68fcbf",
+                  "on-surface": "#efdfff",
+                  "on-background": "#efdfff",
+                  "inverse-primary": "#684cb6",
+                  "on-secondary-fixed-variant": "#006948",
+                  "tertiary": "#af88ff",
+                  "outline-variant": "#514166",
+                  "on-tertiary": "#2b0065",
+                  "on-error": "#490013",
+                  "primary-fixed-dim": "#9d81f0",
+                  "on-primary-container": "#290070",
+                  "on-tertiary-fixed": "#200051",
+                  "primary": "#b79fff",
+                  "inverse-surface": "#fff7ff",
+                  "background": "#150629",
+                  "tertiary-fixed": "#c0a0ff",
+                  "surface-container-highest": "#301a4d",
+                  "on-primary-fixed": "#000000",
+                  "on-primary": "#361083",
+                  "on-tertiary-fixed-variant": "#4a00a4",
+                  "surface": "#150629",
+                  "surface-container": "#22103a",
+                  "tertiary-container": "#8342f4",
+                  "on-error-container": "#ffb2b9",
+                  "primary-dim": "#a88cfb",
+                  "outline": "#806e96",
+                  "on-secondary-fixed": "#004931",
+                  "surface-variant": "#301a4d",
+                  "secondary-fixed-dim": "#57edb1",
+                  "error-container": "#a70138",
+                  "surface-dim": "#150629",
+                  "on-tertiary-container": "#ffffff",
+                  "secondary-container": "#006c4b",
+                  "surface-container-low": "#1b0a31",
+                  "surface-container-high": "#291543",
+                  "on-secondary-container": "#e0ffec",
+                  "tertiary-fixed-dim": "#b48fff",
+                  "on-surface-variant": "#b7a3cf",
+                  "on-secondary": "#005e40",
+                  "surface-tint": "#b79fff"
+          },
+          "borderRadius": {
+                  "DEFAULT": "0.125rem",
+                  "lg": "0.25rem",
+                  "xl": "0.5rem",
+                  "full": "0.75rem"
+          },
+          "fontFamily": {
+                  "headline": ["Space Grotesk"],
+                  "body": ["Manrope"],
+                  "label": ["Space Grotesk"]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .glass-panel {
+      background: rgba(48, 26, 77, 0.4);
+      backdrop-filter: blur(20px);
+    }
+    .neon-grid {
+      background-size: 40px 40px;
+      background-image: linear-gradient(to right, rgba(167, 139, 250, 0.05) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(167, 139, 250, 0.05) 1px, transparent 1px);
+    }
+    .hologram-flicker {
+      box-shadow: 0 0 15px rgba(104, 252, 191, 0.2);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body min-h-screen flex flex-col overflow-x-hidden selection:bg-secondary selection:text-on-secondary">
+<!-- Top Navigation Shell -->
+<header class="fixed top-0 w-full z-50 flex items-center justify-between px-6 h-16 bg-[#150629]/60 backdrop-blur-xl bg-gradient-to-b from-violet-500/10 to-transparent shadow-[0_0_20px_rgba(167,139,250,0.15)]">
+<div class="flex items-center gap-4">
+<button class="p-2 text-violet-400 active:scale-95 duration-200 hover:text-[#68fcbf] transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-xl font-headline font-bold tracking-widest text-violet-300 uppercase">ACCESS GRANTED</h1>
+</div>
+<button class="p-2 text-violet-400 active:scale-95 duration-200 hover:text-[#68fcbf] transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</header>
+<!-- Main Canvas -->
+<main class="flex-grow flex flex-col items-center justify-center pt-24 pb-32 px-6 neon-grid relative">
+<!-- Background Light Orbs -->
+<div class="absolute top-1/4 -left-20 w-64 h-64 bg-primary/10 rounded-full blur-[100px] pointer-events-none"></div>
+<div class="absolute bottom-1/4 -right-20 w-80 h-80 bg-secondary/10 rounded-full blur-[120px] pointer-events-none"></div>
+<!-- Holographic Confirmation Card -->
+<div class="w-full max-w-md relative group">
+<!-- Glow effect -->
+<div class="absolute -inset-0.5 bg-gradient-to-r from-primary to-secondary opacity-20 group-hover:opacity-30 rounded-xl blur transition duration-1000 group-hover:duration-200"></div>
+<div class="relative glass-panel rounded-xl border border-outline-variant/15 p-8 flex flex-col items-center space-y-6">
+<!-- Status Header -->
+<div class="flex items-center gap-2 px-4 py-1 rounded-full bg-secondary-container/30 border border-secondary/20 hologram-flicker">
+<span class="material-symbols-outlined text-secondary text-sm" style="font-variation-settings: 'FILL' 1;">circle</span>
+<span class="font-label text-xs font-bold tracking-widest text-secondary uppercase">RESERVED</span>
+</div>
+<!-- Slot Designation -->
+<div class="text-center space-y-1">
+<p class="text-on-surface-variant font-label text-[10px] uppercase tracking-[0.2em]">Designated Zone</p>
+<div class="font-headline font-bold text-4xl md:text-5xl tracking-tighter text-on-surface">
+            SECTOR C, <span class="text-primary-fixed">SLOT 42</span>
+</div>
+</div>
+<!-- QR Code Module -->
+<div class="relative p-3 bg-white/5 rounded-xl border border-white/10">
+<div class="absolute inset-0 bg-secondary/5 blur-xl"></div>
+<div class="relative w-48 h-48 bg-white p-2 rounded-lg">
+<img alt="QR Code for parking entry" class="w-full h-full opacity-90" data-alt="minimalist clean black and white QR code on a white background with sharp edges for digital scanner entry" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQIxgIy6QSaONdcfYUpsm-qs5wuWvBtaN8_MqHoKbaOoxu3o1vDJCxtIujsqx4h8J3fQHG_k3UjxhKSWdVdBDgRQq7hUuas--Kbb-hCVSXksGYdWs7yk0LhiebZJ3FEU_JajtgK2tq_fPvIZHYTkecuNQGUKSB6i2SPyah3pROphRjbBfbVYCrmbECDFrzftkMptN9xC7r5pOZdViAsy1_8F-zaRmWzEyuzSgRU7gmTgZ71faZq74Zs7DKvXh19opcILSMDKeVA5A"/>
+</div>
+<!-- Corner Accents -->
+<div class="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-secondary rounded-tl-sm"></div>
+<div class="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-secondary rounded-tr-sm"></div>
+<div class="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-secondary rounded-bl-sm"></div>
+<div class="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-secondary rounded-br-sm"></div>
+</div>
+<p class="text-on-surface-variant font-body text-xs text-center max-w-[200px]">Align this code with the scanner at the <span class="text-on-surface font-bold">North Dock</span> entry point.</p>
+</div>
+</div>
+<!-- Details Section (Bento Style) -->
+<div class="w-full max-w-md mt-6 grid grid-cols-2 gap-4">
+<div class="glass-panel p-4 rounded-xl border border-outline-variant/10">
+<p class="text-on-surface-variant font-label text-[9px] uppercase tracking-widest mb-1">Tariff Rate</p>
+<p class="font-body font-bold text-on-surface">4.50 CR/hr</p>
+<div class="mt-2 flex items-center gap-1.5 text-[10px] text-secondary/80">
+<span class="material-symbols-outlined text-xs">verified</span>
+<span>Paid</span>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-xl border border-outline-variant/10">
+<p class="text-on-surface-variant font-label text-[9px] uppercase tracking-widest mb-1">Location</p>
+<p class="font-body font-bold text-on-surface">North Dock</p>
+<div class="mt-2 flex items-center gap-1.5 text-[10px] text-primary/80">
+<span class="material-symbols-outlined text-xs">location_on</span>
+<span>Station Alpha</span>
+</div>
+</div>
+</div>
+<!-- Primary Action -->
+<div class="w-full max-w-md mt-8">
+<button class="w-full py-4 rounded-xl bg-gradient-to-r from-primary to-primary-container text-on-primary font-headline font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 shadow-[0_0_25px_rgba(183,159,255,0.3)] hover:shadow-[0_0_40px_rgba(183,159,255,0.5)] transition-all duration-300 active:scale-95 group">
+        VIEW IN MAP
+        <span class="material-symbols-outlined text-xl transition-transform group-hover:translate-x-1">map</span>
+</button>
+</div>
+</main>
+<!-- Bottom Navigation Shell -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-[#150629]/40 backdrop-blur-2xl border-t border-violet-500/15 shadow-[0_-10px_30px_rgba(21,6,41,0.8)] rounded-t-xl">
+<!-- MAP -->
+<a class="flex flex-col items-center justify-center text-violet-400/60 hover:bg-violet-500/10 px-4 py-1 rounded-xl duration-300" href="#">
+<span class="material-symbols-outlined">map</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] mt-1">MAP</span>
+</a>
+<!-- PASS (ACTIVE) -->
+<a class="flex flex-col items-center justify-center bg-violet-500/20 text-[#68fcbf] rounded-xl px-4 py-1 shadow-[0_0_15px_rgba(104,252,191,0.3)] active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">confirmation_number</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] mt-1">PASS</span>
+</a>
+<!-- HUB -->
+<a class="flex flex-col items-center justify-center text-violet-400/60 hover:bg-violet-500/10 px-4 py-1 rounded-xl duration-300" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] mt-1">HUB</span>
+</a>
+<!-- INTEL -->
+<a class="flex flex-col items-center justify-center text-violet-400/60 hover:bg-violet-500/10 px-4 py-1 rounded-xl duration-300" href="#">
+<span class="material-symbols-outlined">info</span>
+<span class="font-['Manrope'] text-[10px] uppercase tracking-[0.1em] mt-1">INTEL</span>
+</a>
+</nav>
+</body></html>
