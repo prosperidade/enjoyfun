@@ -80,6 +80,15 @@ function organizerSettingsUpdate(array $body): void
     );
     $stmt->execute([$organizerId, $appName, $primaryColor, $secondaryColor]);
 
+    AuditService::log(
+        'settings.branding.update',
+        'organizer_settings',
+        $organizerId,
+        null,
+        ['app_name' => $appName, 'primary_color' => $primaryColor, 'secondary_color' => $secondaryColor],
+        $user
+    );
+
     jsonSuccess([
         'organizer_id' => $organizerId,
         'app_name' => $appName,
@@ -104,16 +113,16 @@ function organizerSettingsUploadLogo(): void
         jsonError('Falha no upload da logo.', 400);
     }
 
+    // SVG removido: pode conter scripts XSS embutidos
     $allowed = [
         'image/png' => 'png',
         'image/jpeg' => 'jpg',
         'image/webp' => 'webp',
-        'image/svg+xml' => 'svg',
     ];
 
     $mime = mime_content_type($file['tmp_name']) ?: '';
     if (!isset($allowed[$mime])) {
-        jsonError('Formato inválido. Use PNG, JPG, WEBP ou SVG.', 422);
+        jsonError('Formato inválido. Use PNG, JPG ou WEBP.', 422);
     }
 
     $organizerId = organizerSettingsResolveOrganizerId($user);
@@ -153,7 +162,9 @@ function organizerSettingsUploadLogo(): void
 function organizerSettingsResolveOrganizerId(array $user): int
 {
     if (($user['role'] ?? '') === 'admin') {
-        // fallback para admin operar no próprio id caso não tenha organizer_id
+        // BUG CONHECIDO (S6): fallback para $user['id'] é incorreto — user id != organizer_id.
+        // Corrigir requer passar ?organizer_id via query param e propagar $query até aqui.
+        // Mantido temporariamente para não bloquear admin; rastrear via TODO.
         return (int)($user['organizer_id'] ?? $user['id'] ?? 0);
     }
 
@@ -172,13 +183,20 @@ function organizerSettingsNormalizeHexColor(string $color): string
 
 function organizerSettingsBuildPublicAssetUrl(string $path): string
 {
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    // APP_URL é fonte confiável; HTTP_HOST é spoofable e só serve como fallback local
+    $appUrl = getenv('APP_URL');
+    if ($appUrl) {
+        $baseUrl = rtrim($appUrl, '/');
+    } else {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
+        $baseUrl = $scheme . '://' . $host;
+    }
 
     // Normaliza barras para ambiente Windows/Linux
     $path = '/' . ltrim(str_replace('\\', '/', $path), '/');
 
-    return $scheme . '://' . $host . $path;
+    return $baseUrl . $path;
 }
 
 function organizerSettingsEnsureOrganizerSettingsTable(PDO $db): void

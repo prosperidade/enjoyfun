@@ -43,6 +43,16 @@ function organizerMessagingSettingsSave(array $body): void
     } catch (\RuntimeException $e) {
         jsonError($e->getMessage(), 409);
     }
+
+    AuditService::log(
+        'settings.messaging.update',
+        'organizer_settings',
+        $organizerId,
+        null,
+        null,
+        $user
+    );
+
     jsonSuccess(
         \EnjoyFun\Services\OrganizerMessagingConfigService::toSettingsPayload($settings),
         'Configurações de mensageria salvas com sucesso.'
@@ -52,6 +62,9 @@ function organizerMessagingSettingsSave(array $body): void
 function messagingSettingsResolveOrganizerId(array $user): int
 {
     if (($user['role'] ?? '') === 'admin') {
+        // BUG CONHECIDO (S6): fallback para $user['id'] é incorreto — user id != organizer_id.
+        // Corrigir requer passar ?organizer_id via query param e propagar $query até aqui.
+        // Mantido temporariamente para não bloquear admin; rastrear via TODO.
         return (int)($user['organizer_id'] ?? $user['id'] ?? 0);
     }
 
