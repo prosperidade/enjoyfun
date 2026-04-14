@@ -71,6 +71,29 @@ class EventService
             self::columnExists($db, 'events', 'event_timezone') ? 'event_timezone' : "NULL::varchar AS event_timezone",
         ];
 
+        // ── Multi-event fields (migration 089) ──
+        $multiEventCols = [
+            'event_type'      => 'varchar',
+            'modules_enabled' => 'jsonb',
+            'latitude'        => 'numeric',
+            'longitude'       => 'numeric',
+            'city'            => 'varchar',
+            'state'           => 'varchar',
+            'country'         => 'varchar',
+            'zip_code'        => 'varchar',
+            'venue_type'      => 'varchar',
+            'age_rating'      => 'varchar',
+            'map_3d_url'      => 'varchar',
+            'map_image_url'   => 'varchar',
+            'map_seating_url' => 'varchar',
+            'map_parking_url' => 'varchar',
+        ];
+        foreach ($multiEventCols as $col => $pgType) {
+            $cols[] = self::columnExists($db, 'events', $col)
+                ? $col
+                : "NULL::{$pgType} AS {$col}";
+        }
+
         if ($includeOrganizerId) {
             $cols[] = 'organizer_id';
         }
@@ -180,6 +203,36 @@ class EventService
             $values[] = $payload['event_timezone'];
         }
 
+        // ── Multi-event fields (migration 089) — graceful column checks ──
+        $multiEventStringFields = [
+            'event_type', 'city', 'state', 'country', 'zip_code',
+            'venue_type', 'age_rating',
+            'map_3d_url', 'map_image_url', 'map_seating_url', 'map_parking_url',
+        ];
+        foreach ($multiEventStringFields as $field) {
+            if (self::eventsHasColumn($db, $field)) {
+                $columns[] = $field;
+                $placeholders[] = '?';
+                $val = $payload[$field] ?? '';
+                $values[] = $val !== '' ? $val : null;
+            }
+        }
+        if (self::eventsHasColumn($db, 'modules_enabled')) {
+            $columns[] = 'modules_enabled';
+            $placeholders[] = '?::jsonb';
+            $values[] = json_encode($payload['modules_enabled'] ?? []);
+        }
+        if (self::eventsHasColumn($db, 'latitude')) {
+            $columns[] = 'latitude';
+            $placeholders[] = '?';
+            $values[] = $payload['latitude'] ?? null;
+        }
+        if (self::eventsHasColumn($db, 'longitude')) {
+            $columns[] = 'longitude';
+            $placeholders[] = '?';
+            $values[] = $payload['longitude'] ?? null;
+        }
+
         $db->beginTransaction();
         try {
             $stmt = $db->prepare("
@@ -275,6 +328,32 @@ class EventService
         if ($hasEventTimezone) {
             $setParts[] = 'event_timezone = ?';
             $values[] = $payload['event_timezone'];
+        }
+
+        // ── Multi-event fields (migration 089) — graceful column checks ──
+        $multiEventStringFields = [
+            'event_type', 'city', 'state', 'country', 'zip_code',
+            'venue_type', 'age_rating',
+            'map_3d_url', 'map_image_url', 'map_seating_url', 'map_parking_url',
+        ];
+        foreach ($multiEventStringFields as $field) {
+            if (self::eventsHasColumn($db, $field)) {
+                $setParts[] = "{$field} = ?";
+                $val = $payload[$field] ?? '';
+                $values[] = $val !== '' ? $val : null;
+            }
+        }
+        if (self::eventsHasColumn($db, 'modules_enabled')) {
+            $setParts[] = 'modules_enabled = ?::jsonb';
+            $values[] = json_encode($payload['modules_enabled'] ?? []);
+        }
+        if (self::eventsHasColumn($db, 'latitude')) {
+            $setParts[] = 'latitude = ?';
+            $values[] = $payload['latitude'] ?? null;
+        }
+        if (self::eventsHasColumn($db, 'longitude')) {
+            $setParts[] = 'longitude = ?';
+            $values[] = $payload['longitude'] ?? null;
         }
 
         $values[] = $eventId;
@@ -399,6 +478,22 @@ class EventService
 
         $eventTimezone = self::normalizeTimezoneValue($body['event_timezone'] ?? null);
 
+        // ── venue_type validation ──
+        $venueType = strtolower(trim((string)($body['venue_type'] ?? '')));
+        if ($venueType !== '' && !in_array($venueType, ['indoor', 'outdoor', 'hybrid'], true)) {
+            $venueType = 'outdoor';
+        }
+
+        // ── modules_enabled — accept array or JSON string, store as array ──
+        $modulesEnabled = $body['modules_enabled'] ?? [];
+        if (is_string($modulesEnabled)) {
+            $decoded = json_decode($modulesEnabled, true);
+            $modulesEnabled = is_array($decoded) ? $decoded : [];
+        }
+        if (!is_array($modulesEnabled)) {
+            $modulesEnabled = [];
+        }
+
         return [
             'name' => trim((string)($body['name'] ?? '')),
             'description' => trim((string)($body['description'] ?? '')),
@@ -409,6 +504,21 @@ class EventService
             'status' => $status,
             'capacity' => array_key_exists('capacity', $body) && $body['capacity'] !== '' ? (int)$body['capacity'] : 0,
             'event_timezone' => $eventTimezone,
+            // ── Multi-event fields (migration 089) ──
+            'event_type' => trim((string)($body['event_type'] ?? '')),
+            'modules_enabled' => $modulesEnabled,
+            'latitude' => array_key_exists('latitude', $body) && $body['latitude'] !== null && $body['latitude'] !== '' ? (float)$body['latitude'] : null,
+            'longitude' => array_key_exists('longitude', $body) && $body['longitude'] !== null && $body['longitude'] !== '' ? (float)$body['longitude'] : null,
+            'city' => trim((string)($body['city'] ?? '')),
+            'state' => trim((string)($body['state'] ?? '')),
+            'country' => trim((string)($body['country'] ?? '')),
+            'zip_code' => trim((string)($body['zip_code'] ?? '')),
+            'venue_type' => $venueType !== '' ? $venueType : null,
+            'age_rating' => trim((string)($body['age_rating'] ?? '')),
+            'map_3d_url' => trim((string)($body['map_3d_url'] ?? '')),
+            'map_image_url' => trim((string)($body['map_image_url'] ?? '')),
+            'map_seating_url' => trim((string)($body['map_seating_url'] ?? '')),
+            'map_parking_url' => trim((string)($body['map_parking_url'] ?? '')),
         ];
     }
 
@@ -510,6 +620,11 @@ class EventService
             'price' => array_key_exists('price', $item) && $item['price'] !== '' && $item['price'] !== null ? (float)$item['price'] : 0.0,
             'sector' => $sector,
         ];
+    }
+
+    private static function eventsHasColumn(PDO $db, string $column): bool
+    {
+        return self::columnExists($db, 'events', $column);
     }
 
     private static function ticketTypesHasSector(PDO $db): bool
