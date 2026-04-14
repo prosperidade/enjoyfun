@@ -3403,18 +3403,18 @@ final class AIToolRuntimeService
         $tickets->execute([':org' => $organizerId, ':evt' => $eventId]);
         $ticketData = $tickets->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        // workforce_assignments has no direct event_id; join via event_shifts → event_days → event_id
+        // workforce: join via event_role → event_id (not event_shifts, which may be null)
         $workforce = $db->prepare("
-            SELECT COUNT(DISTINCT wa.id) AS total
+            SELECT COUNT(DISTINCT wa.id) AS total,
+                   COALESCE(SUM(wer.payment_amount), 0) AS workforce_cost
             FROM public.workforce_assignments wa
-            JOIN public.event_shifts es ON es.id = wa.event_shift_id
-            JOIN public.event_days ed ON ed.id = es.event_day_id
-            WHERE wa.organizer_id = :org AND ed.event_id = :evt
+            JOIN public.workforce_event_roles wer ON wer.id = wa.event_role_id
+            WHERE wa.organizer_id = :org AND wer.event_id = :evt
         ");
         $workforce->execute([':org' => $organizerId, ':evt' => $eventId]);
         $wfData = $workforce->fetch(\PDO::FETCH_ASSOC) ?: [];
 
-        // BE-S2-B8: cost breakdown + margin
+        // BE-S2-B8: cost breakdown + margin (including workforce costs)
         $artistCosts = $db->prepare("SELECT COALESCE(SUM(cache_amount), 0) AS total FROM public.event_artists WHERE organizer_id = :org AND event_id = :evt AND booking_status <> 'cancelled'");
         $artistCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
         $artistCostTotal = (float)$artistCosts->fetchColumn();
@@ -3423,8 +3423,9 @@ final class AIToolRuntimeService
         $logisticsCosts->execute([':org' => $organizerId, ':evt' => $eventId]);
         $logisticsCostTotal = (float)$logisticsCosts->fetchColumn();
 
+        $workforceCost = (float)($wfData['workforce_cost'] ?? 0);
         $revenue = (float)($salesData['revenue'] ?? 0);
-        $totalCosts = $artistCostTotal + $logisticsCostTotal;
+        $totalCosts = $artistCostTotal + $logisticsCostTotal + $workforceCost;
         $margin = $revenue - $totalCosts;
 
         return [
@@ -3437,6 +3438,7 @@ final class AIToolRuntimeService
             'costs' => [
                 'artist_cache' => $artistCostTotal,
                 'logistics' => $logisticsCostTotal,
+                'workforce' => $workforceCost,
                 'total' => $totalCosts,
             ],
             'margin' => $margin,
