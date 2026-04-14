@@ -37,10 +37,10 @@ export default function AnalyticalDashboard() {
       <div className="space-y-3">
         <h1 className="page-title">
           <BarChart3 size={22} className="text-brand" />
-          Dashboard Analitico v1
+          Dashboard Analitico
         </h1>
         <p className="max-w-3xl text-sm text-gray-400">
-          Leitura pos-evento focada em performance comercial e aprendizado para proximas operacoes. Esta pagina usa apenas a trilha dedicada de `GET /api/analytics/dashboard`.
+          Leitura pos-evento focada em performance comercial e aprendizado para proximas operacoes.
         </p>
       </div>
 
@@ -76,7 +76,7 @@ export default function AnalyticalDashboard() {
           badge="Leitura Confiavel"
           iconClassName="text-brand"
           badgeClassName="bg-brand/20 text-brand"
-          description="Bloco inicial renderizado apenas com metricas ja confiaveis no contrato minimo do Analitico v1."
+          description="Metricas confiaveis do contrato analitico atual."
         />
 
         <AnalyticsSummaryCards loading={loading} summary={analytics?.summary} />
