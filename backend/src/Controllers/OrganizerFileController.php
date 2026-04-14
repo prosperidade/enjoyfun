@@ -97,6 +97,12 @@ function orgFileSearch(PDO $db, array $query): void
         $params[':cat'] = $category;
     }
 
+    $eventId = (int)($query['event_id'] ?? 0);
+    if ($eventId > 0) {
+        $where[] = '(f.event_id = :evt OR f.event_id IS NULL)';
+        $params[':evt'] = $eventId;
+    }
+
     // Search in name, notes, AND parsed_data content (cast jsonb to text)
     $kw = '%' . strtolower($q) . '%';
     $where[] = '(LOWER(f.original_name) LIKE :kw OR LOWER(COALESCE(f.notes, \'\')) LIKE :kw OR LOWER(COALESCE(f.parsed_data::text, \'\')) LIKE :kw)';

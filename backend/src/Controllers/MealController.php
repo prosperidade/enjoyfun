@@ -651,6 +651,25 @@ function registerMeal(array $body): void
         jsonError('participant_id ou qr_token é obrigatório.', 400);
     }
 
+    // W4: Detect consumed_at vs event_day_id date mismatch (non-blocking)
+    $dateMismatch = false;
+    if ($consumedAt !== '' && $eventDayId > 0) {
+        try {
+            $dayStmt = $db->prepare("SELECT day_date FROM event_days WHERE id = :id AND organizer_id = :org LIMIT 1");
+            $dayStmt->execute([':id' => $eventDayId, ':org' => $organizerId]);
+            $eventDayDate = $dayStmt->fetchColumn();
+            if ($eventDayDate) {
+                $consumedDate = substr($consumedAt, 0, 10); // YYYY-MM-DD
+                if ($consumedDate !== $eventDayDate) {
+                    $dateMismatch = true;
+                    error_log("[MealController] Date mismatch: consumed_at={$consumedDate} vs event_day={$eventDayDate} (event_day_id={$eventDayId}, organizer={$organizerId})");
+                }
+            }
+        } catch (Throwable $dmEx) {
+            error_log("[MealController] Date mismatch check failed: " . $dmEx->getMessage());
+        }
+    }
+
     try {
         $db->beginTransaction();
         $result = MealsDomainService::registerOperationalMealByReference(
@@ -674,6 +693,7 @@ function registerMeal(array $body): void
         mealAuditRegisterSuccess($user, $result, [
             'source' => $offlineRequestId !== '' ? 'offline_replay' : 'online',
             'requested_sector' => $sector !== '' ? $sector : null,
+            'date_mismatch' => $dateMismatch,
         ]);
     } catch (Throwable $e) {
         if ($db->inTransaction()) {
@@ -695,11 +715,16 @@ function registerMeal(array $body): void
         jsonError($e->getMessage(), ($code >= 400 && $code < 600) ? $code : 500);
     }
 
-    jsonSuccess([
+    $responseData = [
         'id' => $mealId,
         'already_processed' => $alreadyProcessed,
         'meal_service' => $mealService,
-    ], $alreadyProcessed ? 'Refeição offline já havia sido sincronizada anteriormente.' : 'Refeição registrada e baixada com sucesso.', $alreadyProcessed ? 200 : 201);
+    ];
+    if ($dateMismatch) {
+        $responseData['date_mismatch'] = true;
+    }
+
+    jsonSuccess($responseData, $alreadyProcessed ? 'Refeição offline já havia sido sincronizada anteriormente.' : 'Refeição registrada e baixada com sucesso.', $alreadyProcessed ? 200 : 201);
 }
 
 function generateStandaloneMealQr(array $body): void
