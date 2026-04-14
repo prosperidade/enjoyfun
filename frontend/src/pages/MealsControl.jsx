@@ -224,6 +224,26 @@ function normalizeSectorKey(value = "") {
   return String(value || "").trim().toLowerCase();
 }
 
+function capitalizeSectorLabel(value = "") {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function resolveMealUnitCost(balanceData, financialSettingsCost) {
+  // Single authoritative priority chain for meal unit cost.
+  // 1) selected service unit_cost, 2) projection summary, 3) balance summary, 4) financial settings, 5) 0
+  return Number(
+    balanceData?.selected_meal_service?.unit_cost ??
+    balanceData?.projection_summary?.selected_meal_service_unit_cost ??
+    balanceData?.projection_summary?.meal_unit_cost ??
+    balanceData?.summary?.selected_meal_service_unit_cost ??
+    balanceData?.summary?.meal_unit_cost ??
+    financialSettingsCost ??
+    0
+  );
+}
+
 function isExternalMealEntry(entry = {}) {
   const sector = normalizeSectorKey(entry.sector);
   const roleName = String(entry.roleName || entry.role_name || "").trim().toLowerCase();
@@ -1071,13 +1091,7 @@ export default function MealsControl() {
         setMealServices(data.meal_services);
         setMealServiceDraftTemplates(data.meal_services);
       }
-      const unit = Number(
-        data.projection_summary?.selected_meal_service_unit_cost ??
-        data.projection_summary?.meal_unit_cost ??
-        data.summary?.selected_meal_service_unit_cost ??
-        data.summary?.meal_unit_cost ??
-        0
-      );
+      const unit = resolveMealUnitCost(data, null);
       setMealUnitCost(unit);
       await saveCachedMealsContext(buildMealsContextKey(targetEventId), {
         mealServices: Array.isArray(data.meal_services) ? data.meal_services : mealServices,
@@ -1499,14 +1513,14 @@ export default function MealsControl() {
   }, [workforceBaseSummary.bySector]);
 
   useEffect(() => {
-    if (sector && !availableSectors.includes(String(sector).trim().toLowerCase())) {
+    if (sector && !availableSectors.includes(normalizeSectorKey(sector))) {
       setSector("");
     }
   }, [availableSectors, sector]);
 
   const filteredWorkforceItems = useMemo(() => {
     return eventScopedWorkforceBaseItems.filter((item) => {
-      if (sector && String(item.sector || "").trim().toLowerCase() !== String(sector).trim().toLowerCase()) {
+      if (sector && normalizeSectorKey(item.sector) !== normalizeSectorKey(sector)) {
         return false;
       }
       return true;
@@ -1546,7 +1560,7 @@ export default function MealsControl() {
 
     internalWorkforceItems.forEach((item) => {
       uniqueParticipants.add(String(item.participant_id || `assignment:${item.id}`));
-      const normalizedSector = String(item.sector || "").trim().toLowerCase();
+      const normalizedSector = normalizeSectorKey(item.sector);
       if (normalizedSector) {
         sectors.add(normalizedSector);
       }
@@ -1630,7 +1644,7 @@ export default function MealsControl() {
   const scopedPendingOfflineMeals = useMemo(() => {
     const filtered = pendingOfflineMealsForCurrentDay.filter((record) => {
       if (!sector) return true;
-      return String(record?.payload?.sector || record?.sector || "").trim().toLowerCase() === String(sector).trim().toLowerCase();
+      return normalizeSectorKey(record?.payload?.sector || record?.sector) === normalizeSectorKey(sector);
     });
 
     return [...filtered].sort((a, b) => {
@@ -1642,7 +1656,7 @@ export default function MealsControl() {
   const scopedFailedOfflineMeals = useMemo(() => {
     const filtered = failedOfflineMealsForCurrentDay.filter((record) => {
       if (!sector) return true;
-      return String(record?.payload?.sector || record?.sector || "").trim().toLowerCase() === String(sector).trim().toLowerCase();
+      return normalizeSectorKey(record?.payload?.sector || record?.sector) === normalizeSectorKey(sector);
     });
 
     return [...filtered].sort((a, b) => {
@@ -1854,14 +1868,13 @@ export default function MealsControl() {
   const pricedMealServiceData = mealServiceId
     ? selectedMealServiceData
     : (automaticMealServiceData || selectedMealServiceData);
-  const currentMealUnitCost = Number(
-    pricedMealServiceData?.unit_cost ??
-    projectionSummary.selected_meal_service_unit_cost ??
-    projectionSummary.meal_unit_cost ??
-    summary.selected_meal_service_unit_cost ??
-    summary.meal_unit_cost ??
-    mealUnitCost ??
-    0
+  const currentMealUnitCost = resolveMealUnitCost(
+    {
+      selected_meal_service: pricedMealServiceData,
+      projection_summary: projectionSummary,
+      summary,
+    },
+    mealUnitCost
   );
   const projectionEnabled = Boolean(projectionSummary.enabled);
   const hasSelectedShift = Boolean(eventShiftId);
@@ -1931,7 +1944,7 @@ export default function MealsControl() {
       String(eventId || ""),
       String(eventDayId || ""),
       String(eventShiftId || ""),
-      String(sector || "").trim().toLowerCase(),
+      normalizeSectorKey(sector),
       String(automaticMealServiceData?.id || ""),
       String(registrationEventDayId || ""),
       String(registrationEventShiftId || ""),
@@ -2127,7 +2140,7 @@ export default function MealsControl() {
           existing.roleNames.add(String(item.role_name));
         }
         if (String(item.sector || "").trim()) {
-          existing.sectors.add(String(item.sector).trim());
+          existing.sectors.add(normalizeSectorKey(item.sector));
         }
         if (item.shift_id) {
           existing.shiftIds.add(Number(item.shift_id));
@@ -2167,7 +2180,7 @@ export default function MealsControl() {
           : (roleNames[0] || "Cargo não informado");
         const sectorLabel = hasMultipleSectors
           ? "Setores múltiplos"
-          : (sectorValues[0] || "geral");
+          : (capitalizeSectorLabel(sectorValues[0]) || "Geral");
         const shiftId = shiftIds.length === 1 ? shiftIds[0] : null;
         const shiftName = shiftNames.length === 1 ? shiftNames[0] : "";
         const mealsPerDay = mealsPerDayValues.length === 0
@@ -2217,7 +2230,7 @@ export default function MealsControl() {
       const shiftId = item.shift_id ? Number(item.shift_id) : null;
       const roleName = item.role_name || (hasMultipleRoles ? "Cargos múltiplos" : "Cargo não unívoco");
       const costBucket = String(item.cost_bucket || "operational").trim().toLowerCase() || "operational";
-      const sectorLabel = item.sector || (hasMultipleSectors ? "Setores múltiplos" : "Setor não unívoco");
+      const sectorLabel = capitalizeSectorLabel(item.sector) || (hasMultipleSectors ? "Setores múltiplos" : "Setor não unívoco");
 
       return {
         key: `meal-${item.participant_id}`,
@@ -2430,7 +2443,7 @@ export default function MealsControl() {
   const breakdownEntries = useMemo(() => {
     const sectorEntries = Object.entries(
       staffTableRows.reduce((acc, row) => {
-        const sectorName = row.sector || "Sem setor";
+        const sectorName = capitalizeSectorLabel(row.sector) || "Sem setor";
         acc[sectorName] = (acc[sectorName] || 0) + 1;
         return acc;
       }, {})
@@ -2895,7 +2908,7 @@ export default function MealsControl() {
           <option value="">Todos os setores</option>
           {availableSectors.map((sectorOption) => (
             <option key={sectorOption} value={sectorOption}>
-              {sectorOption}
+              {capitalizeSectorLabel(sectorOption)}
             </option>
           ))}
         </select>
@@ -3027,7 +3040,7 @@ export default function MealsControl() {
                   const shiftName = filteredShifts.find(
                     (shift) => String(shift?.id || "") === String(payloadItem?.event_shift_id || "")
                   )?.name;
-                  const sectorLabel = String(payloadItem?.sector || record?.sector || "").trim();
+                  const sectorLabel = capitalizeSectorLabel(payloadItem?.sector || record?.sector);
                   const isFailedRecord = String(record?.status || "").trim() === "failed";
 
                   return (
@@ -3469,7 +3482,7 @@ export default function MealsControl() {
                       <div>
                         <p className="font-medium text-white">{row.name}</p>
                         <p className="text-xs text-gray-500">
-                          {row.roleName} · {row.sector || "geral"}
+                          {row.roleName} · {capitalizeSectorLabel(row.sector) || "Geral"}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
