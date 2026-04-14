@@ -3,6 +3,7 @@ export function createProductForm(sector) {
     id: null,
     name: "",
     price: "",
+    cost_price: "",
     stock_qty: "",
     low_stock_threshold: 5,
     sector,

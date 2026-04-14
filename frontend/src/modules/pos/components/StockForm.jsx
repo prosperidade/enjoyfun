@@ -20,6 +20,11 @@ export default function StockForm({
       toast.error("Preco deve ser maior que zero");
       return;
     }
+    const costPrice = parseFloat(prodForm.cost_price) || 0;
+    const salePrice = parseFloat(prodForm.price) || 0;
+    if (costPrice > 0 && salePrice > 0 && costPrice >= salePrice) {
+      toast("Custo do produto esta igual ou acima do preco de venda", { icon: "⚠️" });
+    }
     if (parseInt(prodForm.low_stock_threshold, 10) < 0) {
       setProdForm({ ...prodForm, low_stock_threshold: 0 });
     }
@@ -33,7 +38,7 @@ export default function StockForm({
       </h3>
       <form
         onSubmit={handleSubmit}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4"
       >
         <div className="lg:col-span-1">
           <label className="text-xs text-gray-500 block mb-1">Setor</label>
@@ -64,6 +69,18 @@ export default function StockForm({
             required
             value={prodForm.price}
             onChange={(e) => setProdForm({ ...prodForm, price: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Custo do Produto (R$)</label>
+          <input
+            className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+            value={prodForm.cost_price}
+            onChange={(e) => setProdForm({ ...prodForm, cost_price: e.target.value })}
           />
         </div>
         <div>
@@ -98,7 +115,7 @@ export default function StockForm({
             }
           />
         </div>
-        <div className="lg:col-span-5 flex justify-end gap-2 mt-2">
+        <div className="lg:col-span-6 flex justify-end gap-2 mt-2">
           <button
             type="button"
             onClick={onCancel}

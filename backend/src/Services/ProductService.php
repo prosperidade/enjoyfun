@@ -14,7 +14,7 @@ class ProductService
         $sectorScopeSql = self::buildSectorScopeSql($sector, 'sector');
 
         $stmt = $db->prepare("
-            SELECT id, event_id, name, CAST(price AS FLOAT) as price, stock_qty, sector, low_stock_threshold
+            SELECT id, event_id, name, CAST(price AS FLOAT) as price, CAST(cost_price AS FLOAT) as cost_price, stock_qty, sector, low_stock_threshold
             FROM public.products
             WHERE event_id = ? AND organizer_id = ? AND {$sectorScopeSql}
             ORDER BY name ASC
@@ -54,8 +54,8 @@ class ProductService
         }
 
         $stmt = $db->prepare("
-            INSERT INTO public.products (event_id, organizer_id, name, price, stock_qty, sector, low_stock_threshold)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO public.products (event_id, organizer_id, name, price, cost_price, stock_qty, sector, low_stock_threshold)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id
         ");
         $stmt->execute([
@@ -63,6 +63,7 @@ class ProductService
             $organizerId,
             $name,
             (float)($payload['price'] ?? 0),
+            (float)($payload['cost_price'] ?? 0),
             (int)($payload['stock_qty'] ?? 0),
             $sector,
             self::resolveLowStockThreshold($sector, $payload),
@@ -83,12 +84,13 @@ class ProductService
 
         $stmt = $db->prepare("
             UPDATE public.products
-            SET name = ?, price = ?, stock_qty = ?, low_stock_threshold = ?, updated_at = NOW()
+            SET name = ?, price = ?, cost_price = ?, stock_qty = ?, low_stock_threshold = ?, updated_at = NOW()
             WHERE id = ? AND organizer_id = ? AND " . self::buildSectorScopeSql($sector, 'sector')
         );
         $stmt->execute([
             trim((string)($payload['name'] ?? '')),
             (float)($payload['price'] ?? 0),
+            (float)($payload['cost_price'] ?? 0),
             (int)($payload['stock_qty'] ?? 0),
             self::resolveLowStockThreshold($sector, $payload),
             $id,

@@ -361,6 +361,7 @@ export default function POS({ fixedSector = "bar" }) {
       id: p.id,
       name: p.name,
       price: p.price,
+      cost_price: p.cost_price || "",
       stock_qty: p.stock_qty,
       low_stock_threshold: p.low_stock_threshold || 5,
       sector: p.sector || currentSector,
