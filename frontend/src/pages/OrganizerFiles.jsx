@@ -231,9 +231,7 @@ export default function OrganizerFiles() {
   const chatDescription = `${filesMeta.total} arquivo(s), ${parsedCount} processado(s)`;
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row">
-      {/* Main content */}
-      <div className="flex-1 min-w-0 space-y-6">
+    <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-bold text-white">
@@ -330,6 +328,18 @@ export default function OrganizerFiles() {
         </div>
 
         {searchLoading && <p className="text-sm text-gray-500">Buscando...</p>}
+
+        <EmbeddedAIChat
+          surface="documents"
+          title="Assistente de Documentos"
+          description={chatDescription}
+          accentColor="amber"
+          suggestions={[
+            'Quais arquivos tenho neste evento?',
+            'Busque nos documentos por "orcamento"',
+            'Resuma os dados da planilha financeira',
+          ]}
+        />
 
         {/* Files list */}
         <div className="rounded-2xl border border-gray-800 bg-gray-950/70">
@@ -519,24 +529,7 @@ export default function OrganizerFiles() {
             )}
           </div>
         )}
-      </div>
 
-      {/* AI Chat sidebar */}
-      <aside className="w-full lg:w-96 flex-shrink-0">
-        <div className="lg:sticky lg:top-4">
-          <EmbeddedAIChat
-            surface="documents"
-            title="Assistente de Documentos"
-            description={chatDescription}
-            accentColor="amber"
-            suggestions={[
-              'Quais arquivos tenho neste evento?',
-              'Busque nos documentos por "orcamento"',
-              'Resuma os dados da planilha financeira',
-            ]}
-          />
-        </div>
-      </aside>
     </div>
   );
 }

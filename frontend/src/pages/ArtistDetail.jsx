@@ -2394,6 +2394,24 @@ export default function ArtistDetail() {
         </div>
       </div>
 
+      {scopedEventId && artist && (
+        <EmbeddedAIChat
+          surface="artists"
+          title={`Assistente de ${artist.stage_name}`}
+          description="Logistica, timeline, alertas, custos e equipe deste artista"
+          accentColor="emerald"
+          context={{
+            event_artist_id: currentBooking?.id || artist.id,
+            focus_artist_name: artist.stage_name,
+          }}
+          suggestions={[
+            `Como esta a logistica de ${artist.stage_name}?`,
+            'Tem algum alerta critico?',
+            'Qual o custo total deste artista?',
+          ]}
+        />
+      )}
+
       {activeTab === "bookings" && (
         <div className="card border-white/5">
           <div className="flex items-center justify-between gap-3">
@@ -3058,23 +3076,6 @@ export default function ArtistDetail() {
         </>
       )}
 
-      {scopedEventId && artist && (
-        <EmbeddedAIChat
-          surface="artists"
-          title={`Assistente de ${artist.stage_name}`}
-          description="Logistica, timeline, alertas, custos e equipe deste artista"
-          accentColor="emerald"
-          context={{
-            event_artist_id: currentBooking?.id || artist.id,
-            focus_artist_name: artist.stage_name,
-          }}
-          suggestions={[
-            `Como esta a logistica de ${artist.stage_name}?`,
-            'Tem algum alerta critico?',
-            'Qual o custo total deste artista?',
-          ]}
-        />
-      )}
     </div>
   );
 }

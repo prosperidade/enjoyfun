@@ -219,6 +219,18 @@ export default function Dashboard() {
         </div>
       </section>
 
+      <EmbeddedAIChat
+        surface="dashboard"
+        title="Assistente do Painel"
+        description="Visao geral do evento e operacao"
+        accentColor="purple"
+        suggestions={[
+          'Como esta a operacao do evento agora?',
+          'Quais setores vendem mais?',
+          'Tem algo critico que preciso resolver?',
+        ]}
+      />
+
       <section className="space-y-6 pt-2">
         <SectionHeader
           icon={Activity}
@@ -300,17 +312,6 @@ export default function Dashboard() {
         <ArtistAlertBadge eventId={eventId} />
       </section>
 
-      <EmbeddedAIChat
-        surface="dashboard"
-        title="Assistente do Painel"
-        description="Visao geral do evento e operacao"
-        accentColor="purple"
-        suggestions={[
-          'Como esta a operacao do evento agora?',
-          'Quais setores vendem mais?',
-          'Tem algo critico que preciso resolver?',
-        ]}
-      />
     </div>
   );
 }

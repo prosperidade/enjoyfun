@@ -363,6 +363,18 @@ export default function Tickets() {
         </div>
       </div>
 
+      <EmbeddedAIChat
+        surface="tickets"
+        title="Assistente de Ingressos"
+        description={`${ticketMeta.total} ingressos comerciais`}
+        accentColor="cyan"
+        suggestions={[
+          'Quantos ingressos foram vendidos hoje?',
+          'Quais lotes ainda tem disponibilidade?',
+          'Resumo de vendas por comissario',
+        ]}
+      />
+
       {loading ? (
         <div className="flex justify-center py-20"><div className="spinner w-10 h-10" /></div>
       ) : (
@@ -418,18 +430,6 @@ export default function Tickets() {
           onNext={() => setPage((current) => Math.min(ticketMeta.total_pages, current + 1))}
         />
       ) : null}
-
-      <EmbeddedAIChat
-        surface="tickets"
-        title="Assistente de Ingressos"
-        description={`${ticketMeta.total} ingressos comerciais`}
-        accentColor="cyan"
-        suggestions={[
-          'Quantos ingressos foram vendidos hoje?',
-          'Quais lotes ainda tem disponibilidade?',
-          'Resumo de vendas por comissario',
-        ]}
-      />
 
       {selectedTicket ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">

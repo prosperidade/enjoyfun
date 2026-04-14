@@ -1594,6 +1594,24 @@ export default function WorkforceOpsTab({ eventId }) {
           </div>
         </div>
 
+        <Suspense fallback={null}>
+          <EmbeddedAIChat
+            surface="workforce"
+            title="Assistente da Equipe"
+            description={`${Number(treeStatus?.assignments_total || assignments.length || 0)} pessoas, ${Number(treeStatus?.manager_roots_count || managerRows.length || 0)} liderancas`}
+            accentColor="emerald"
+            context={{
+              selected_manager_event_role_id: selectedManager?.event_role_id || null,
+              selected_manager_sector: selectedManagerSector,
+            }}
+            suggestions={[
+              'Onde estao as maiores lacunas de cobertura?',
+              'Ha risco estrutural neste setor?',
+              'Quantas pessoas ainda faltam vincular?',
+            ]}
+          />
+        </Suspense>
+
         {canAccessAdvancedTab ? (
           <div className="grid gap-8 xl:grid-cols-2 xl:items-stretch">
             <button
@@ -1627,24 +1645,6 @@ export default function WorkforceOpsTab({ eventId }) {
             </button>
           </div>
         ) : null}
-
-        <Suspense fallback={null}>
-          <EmbeddedAIChat
-            surface="workforce"
-            title="Assistente da Equipe"
-            description={`${Number(treeStatus?.assignments_total || assignments.length || 0)} pessoas, ${Number(treeStatus?.manager_roots_count || managerRows.length || 0)} liderancas`}
-            accentColor="emerald"
-            context={{
-              selected_manager_event_role_id: selectedManager?.event_role_id || null,
-              selected_manager_sector: selectedManagerSector,
-            }}
-            suggestions={[
-              'Onde estao as maiores lacunas de cobertura?',
-              'Ha risco estrutural neste setor?',
-              'Quantas pessoas ainda faltam vincular?',
-            ]}
-          />
-        </Suspense>
 
         {activeOverviewTab === "operation" && (
           <div className="card p-4 border border-gray-800 bg-gray-900/40">

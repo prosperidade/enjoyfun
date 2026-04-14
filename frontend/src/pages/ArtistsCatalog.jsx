@@ -984,6 +984,20 @@ export default function ArtistsCatalog() {
         />
       </div>
 
+      {eventId && (
+        <EmbeddedAIChat
+          surface="artists"
+          title="Assistente de Artistas"
+          description={`${visibleArtists.length} artistas no evento`}
+          accentColor="emerald"
+          suggestions={[
+            'Tem algum artista com logistica pendente?',
+            'Qual o custo total do lineup?',
+            'Quais alertas criticos preciso resolver?',
+          ]}
+        />
+      )}
+
       {loadError && (
         <div className="card border-red-500/20 bg-red-500/5 text-sm text-red-300">
           {loadError}
@@ -1160,19 +1174,6 @@ export default function ArtistsCatalog() {
         </table>
       </div>
 
-      {eventId && (
-        <EmbeddedAIChat
-          surface="artists"
-          title="Assistente de Artistas"
-          description={`${visibleArtists.length} artistas no evento`}
-          accentColor="emerald"
-          suggestions={[
-            'Tem algum artista com logistica pendente?',
-            'Qual o custo total do lineup?',
-            'Quais alertas criticos preciso resolver?',
-          ]}
-        />
-      )}
     </div>
   );
 }

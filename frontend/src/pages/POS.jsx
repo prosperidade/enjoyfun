@@ -393,6 +393,18 @@ export default function POS({ fixedSector = "bar" }) {
             tab={tab}
           />
 
+          <EmbeddedAIChat
+            surface="bar"
+            title={`Assistente ${sectorInfo.title}`}
+            description={`PDV ${sectorInfo.title} — ${products.length} produtos cadastrados`}
+            accentColor="purple"
+            suggestions={[
+              'Qual produto mais vendido hoje?',
+              'Tem algum item com estoque critico?',
+              'Resumo de vendas do turno atual',
+            ]}
+          />
+
           {/* ABA POS */}
           {tab === "pos" && (
             <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
@@ -509,17 +521,6 @@ export default function POS({ fixedSector = "bar" }) {
             </ReportsPanel>
           )}
 
-          <EmbeddedAIChat
-            surface="bar"
-            title={`Assistente ${sectorInfo.title}`}
-            description={`PDV ${sectorInfo.title} — ${products.length} produtos cadastrados`}
-            accentColor="purple"
-            suggestions={[
-              'Qual produto mais vendido hoje?',
-              'Tem algum item com estoque critico?',
-              'Resumo de vendas do turno atual',
-            ]}
-          />
         </div>
       </main>
     </div>
