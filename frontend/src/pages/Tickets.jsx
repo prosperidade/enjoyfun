@@ -44,6 +44,7 @@ export default function Tickets() {
   const [searchParams] = useSearchParams();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [transferModal, setTransferModal] = useState(null);
   const [events, setEvents] = useState([]);
   const [ticketTypes, setTicketTypes] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -289,11 +290,17 @@ export default function Tickets() {
     }
   };
 
-  const handleTransfer = async (ticketId) => {
-    const email = prompt("E-mail do novo titular (precisa ter conta):");
-    if (!email) return;
-    const name = prompt("Nome completo do novo titular:");
-    if (!name) return;
+  const handleTransfer = (ticketId) => {
+    setTransferModal({ ticketId, email: '', name: '' });
+  };
+
+  const submitTransfer = async () => {
+    if (!transferModal) return;
+    const { ticketId, email, name } = transferModal;
+    if (!email || !name) {
+      toast.error("Preencha todos os campos.");
+      return;
+    }
 
     const loadId = toast.loading("Transferindo...");
     try {
@@ -302,6 +309,7 @@ export default function Tickets() {
         new_holder_name: name,
       });
       toast.success("Transferência concluída!", { id: loadId });
+      setTransferModal(null);
       fetchTickets();
     } catch (err) {
       toast.error(err.response?.data?.message || "Erro na transferência.", { id: loadId });
@@ -462,6 +470,42 @@ export default function Tickets() {
           </div>
         </div>
       ) : null}
+
+      {transferModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md mx-4 space-y-4">
+            <h2 className="text-lg font-bold text-white">Transferir Ingresso</h2>
+            <input
+              type="email"
+              placeholder="E-mail do novo titular"
+              value={transferModal.email}
+              onChange={(e) => setTransferModal({ ...transferModal, email: e.target.value })}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand"
+            />
+            <input
+              type="text"
+              placeholder="Nome completo do novo titular"
+              value={transferModal.name}
+              onChange={(e) => setTransferModal({ ...transferModal, name: e.target.value })}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand"
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setTransferModal(null)}
+                className="px-4 py-2 rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={submitTransfer}
+                className="btn-primary px-4 py-2"
+              >
+                Transferir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
