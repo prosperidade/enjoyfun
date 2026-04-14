@@ -501,11 +501,14 @@ class EventService
             $clientKey = trim((string)$item['id']);
         }
 
+        $sector = isset($item['sector']) && trim((string)$item['sector']) !== '' ? trim((string)$item['sector']) : null;
+
         return [
             'id' => isset($item['id']) && is_numeric($item['id']) ? (int)$item['id'] : null,
             'client_key' => $clientKey !== '' ? $clientKey : null,
             'name' => trim((string)($item['name'] ?? '')),
             'price' => array_key_exists('price', $item) && $item['price'] !== '' && $item['price'] !== null ? (float)$item['price'] : 0.0,
+            'sector' => $sector,
         ];
     }
 
@@ -832,10 +835,10 @@ class EventService
 
                 $stmtUpdate = $db->prepare("
                     UPDATE ticket_types
-                    SET name = ?, price = ?, updated_at = NOW()
+                    SET name = ?, price = ?, sector = ?, updated_at = NOW()
                     WHERE id = ? AND event_id = ? AND organizer_id = ?
                 ");
-                $stmtUpdate->execute([$name, $item['price'], $item['id'], $eventId, $organizerId]);
+                $stmtUpdate->execute([$name, $item['price'], $item['sector'] ?? null, $item['id'], $eventId, $organizerId]);
 
                 $keptIds[] = $item['id'];
                 if ($item['client_key']) {
@@ -845,11 +848,11 @@ class EventService
             }
 
             $stmtInsert = $db->prepare("
-                INSERT INTO ticket_types (event_id, name, price, created_at, updated_at, organizer_id)
-                VALUES (?, ?, ?, NOW(), NOW(), ?)
+                INSERT INTO ticket_types (event_id, name, price, sector, created_at, updated_at, organizer_id)
+                VALUES (?, ?, ?, ?, NOW(), NOW(), ?)
                 RETURNING id
             ");
-            $stmtInsert->execute([$eventId, $name, $item['price'], $organizerId]);
+            $stmtInsert->execute([$eventId, $name, $item['price'], $item['sector'] ?? null, $organizerId]);
             $newId = (int)$stmtInsert->fetchColumn();
             $keptIds[] = $newId;
             if ($item['client_key']) {

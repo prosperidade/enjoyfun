@@ -51,6 +51,7 @@ export default function Tickets() {
   const [commissaries, setCommissaries] = useState([]);
   const [batchFilter, setBatchFilter] = useState("");
   const [commissaryFilter, setCommissaryFilter] = useState("");
+  const [sectorFilter, setSectorFilter] = useState("");
   const [page, setPage] = useState(1);
   const [ticketMeta, setTicketMeta] = useState({ ...DEFAULT_PAGINATION_META, per_page: PAGE_SIZE });
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -96,6 +97,11 @@ export default function Tickets() {
     );
     return selectedCommissary ? String(selectedCommissary.id) : "";
   }, [commissaries, commissaryFilter]);
+
+  const sectors = useMemo(
+    () => [...new Set(ticketTypes.filter((t) => t.sector).map((t) => t.sector))],
+    [ticketTypes]
+  );
 
   const dynamicToken = useMemo(() => {
     if (!selectedTicket) return "";
@@ -209,6 +215,7 @@ export default function Tickets() {
     if (effectiveEventId) params.event_id = effectiveEventId;
     if (effectiveBatchFilter) params.ticket_batch_id = effectiveBatchFilter;
     if (effectiveCommissaryFilter) params.commissary_id = effectiveCommissaryFilter;
+    if (sectorFilter) params.sector = sectorFilter;
 
     api.get("/tickets", { params })
       .then((r) => {
@@ -239,7 +246,7 @@ export default function Tickets() {
         }
       })
       .finally(() => setLoading(false));
-  }, [effectiveBatchFilter, effectiveCommissaryFilter, effectiveEventId, page]);
+  }, [effectiveBatchFilter, effectiveCommissaryFilter, effectiveEventId, sectorFilter, page]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -253,6 +260,7 @@ export default function Tickets() {
     setEventId(nextEventId);
     setBatchFilter("");
     setCommissaryFilter("");
+    setSectorFilter("");
   };
 
   const handleQuickSale = async () => {
@@ -341,7 +349,7 @@ export default function Tickets() {
 
       <div className="card p-4 space-y-3">
         <p className="text-xs text-gray-500 uppercase tracking-wide">Operação Comercial de Ingressos</p>
-        <div className="grid md:grid-cols-3 gap-3">
+        <div className="grid md:grid-cols-4 gap-3">
           <select className="select" name="ticket_event_filter" value={effectiveEventId} onChange={(e) => handleEventChange(e.target.value)}>
             <option value="">Selecione o evento</option>
             {events.map((event) => (
@@ -358,6 +366,12 @@ export default function Tickets() {
             <option value="">Todos os comissários</option>
             {commissaries.map((commissary) => (
               <option key={commissary.id} value={commissary.id}>{commissary.name}</option>
+            ))}
+          </select>
+          <select className="select" name="ticket_sector_filter" value={sectorFilter} onChange={(e) => { setPage(1); setSectorFilter(e.target.value); }} disabled={!effectiveEventId || sectors.length === 0}>
+            <option value="">Todos os setores</option>
+            {sectors.map((sector) => (
+              <option key={sector} value={sector}>{sector}</option>
             ))}
           </select>
         </div>

@@ -38,6 +38,7 @@ function listTickets(array $query): void
     $eventId = isset($query['event_id']) && is_numeric($query['event_id']) ? (int)$query['event_id'] : null;
     $ticketBatchId = isset($query['ticket_batch_id']) && is_numeric($query['ticket_batch_id']) ? (int)$query['ticket_batch_id'] : null;
     $commissaryId = isset($query['commissary_id']) && is_numeric($query['commissary_id']) ? (int)$query['commissary_id'] : null;
+    $sector = isset($query['sector']) && trim((string)$query['sector']) !== '' ? trim((string)$query['sector']) : null;
     $search = trim((string)($query['search'] ?? ''));
 
     try {
@@ -75,6 +76,7 @@ function listTickets(array $query): void
                 t.purchased_at,
                 t.used_at,
                 tt.name AS type_name,
+                tt.sector AS type_sector,
                 e.name AS event_name,
                 e.id AS event_id,
                 {$selectBatch},
@@ -99,6 +101,9 @@ function listTickets(array $query): void
         if ($commissaryId) {
             if (!$hasCommissarySupport) jsonError('Filtro de comissário indisponível: aplique migration 008.', 409);
             $fromSql .= ' AND t.commissary_id = :commissary_id';
+        }
+        if ($sector) {
+            $fromSql .= ' AND tt.sector = :sector';
         }
         if ($search !== '') {
             $fromSql .= " AND (
@@ -125,6 +130,9 @@ function listTickets(array $query): void
             }
             if ($commissaryId) {
                 $stmt->bindValue(':commissary_id', $commissaryId, PDO::PARAM_INT);
+            }
+            if ($sector) {
+                $stmt->bindValue(':sector', $sector, PDO::PARAM_STR);
             }
             if ($search !== '') {
                 $stmt->bindValue(':search', '%' . $search . '%', PDO::PARAM_STR);
@@ -683,6 +691,7 @@ function listTicketTypes(array $query): void
                 tt.event_id,
                 tt.name,
                 COALESCE(tt.price, 0)::float AS price,
+                tt.sector,
                 'organizer' AS scope_origin
             FROM ticket_types tt
             INNER JOIN events e ON e.id = tt.event_id
