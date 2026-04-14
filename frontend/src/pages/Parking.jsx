@@ -429,6 +429,28 @@ export default function Parking() {
           <p className="text-gray-500 text-sm">
             {parkedCount} veículo(s) no local
           </p>
+          {selectedEvent?.capacity > 0 && (
+            <span className={`inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              parkedCount >= selectedEvent.capacity
+                ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                : parkedCount >= selectedEvent.capacity * 0.9
+                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                  : "bg-green-500/20 text-green-400 border border-green-500/30"
+            }`}>
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                parkedCount >= selectedEvent.capacity
+                  ? "bg-red-400"
+                  : parkedCount >= selectedEvent.capacity * 0.9
+                    ? "bg-amber-400"
+                    : "bg-green-400"
+              }`} />
+              {parkedCount >= selectedEvent.capacity
+                ? "Estacionamento lotado!"
+                : parkedCount >= selectedEvent.capacity * 0.9
+                  ? `Quase lotado (${parkedCount} / ${selectedEvent.capacity} vagas ocupadas)`
+                  : `${parkedCount} / ${selectedEvent.capacity} vagas ocupadas`}
+            </span>
+          )}
         </div>
         {tab === "parking" && (
           <button
