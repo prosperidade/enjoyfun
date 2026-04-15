@@ -38,6 +38,9 @@ const OrganizerFiles = lazy(() => import("./pages/OrganizerFiles"));
 const CustomerLogin = lazy(() => import("./pages/CustomerApp/CustomerLogin"));
 const CustomerDashboard = lazy(() => import("./pages/CustomerApp/CustomerDashboard"));
 const CustomerRecharge = lazy(() => import("./pages/CustomerApp/CustomerRecharge"));
+const CustomerTickets = lazy(() => import("./pages/CustomerApp/CustomerTickets"));
+const CustomerCard = lazy(() => import("./pages/CustomerApp/CustomerCard"));
+const CustomerMenu = lazy(() => import("./pages/CustomerApp/CustomerMenu"));
 const EventFinanceDashboard = lazy(() => import("./pages/EventFinanceDashboard"));
 const EventFinancePayables = lazy(() => import("./pages/EventFinancePayables"));
 const EventFinancePayableDetail = lazy(() => import("./pages/EventFinancePayableDetail"));
@@ -109,6 +112,9 @@ export default function App() {
             <Route path="/app/:slug" element={<CustomerPrivateRoute />}>
               <Route path="home"     element={<CustomerDashboard />} />
               <Route path="recharge" element={<CustomerRecharge />} />
+              <Route path="tickets"  element={<CustomerTickets />} />
+              <Route path="card"     element={<CustomerCard />} />
+              <Route path="menu"     element={<CustomerMenu />} />
             </Route>
             <Route path="/invite" element={<GuestTicket />} />
             <Route path="/convite/:eventSlug/:guestToken" element={<PublicInvitation />} />
