@@ -58,6 +58,8 @@ function validateParkingTicket(array $body): void
             $message = '';
             $type = '';
 
+            $feePaid = null;
+
             if ($status !== 'parked') {
                 $stmtUpdate = $db->prepare("
                     UPDATE parking_records
@@ -69,12 +71,15 @@ function validateParkingTicket(array $body): void
                 $type = 'entry';
                 $status = 'parked'; // update local para o JSON de retorno
             } else {
+                // Busca taxa configurada para este tipo de veículo no evento
+                $feePaid = lookupParkingFee($db, (int)$record['event_id'], $organizerId, $record['vehicle_type'] ?? 'car');
+
                 $stmtUpdate = $db->prepare("
                     UPDATE parking_records
-                    SET status = 'exited', exit_at = NOW(), updated_at = NOW()
+                    SET status = 'exited', exit_at = NOW(), fee_paid = ?, updated_at = NOW()
                     WHERE id = ?
                 ");
-                $stmtUpdate->execute([$id]);
+                $stmtUpdate->execute([$feePaid, $id]);
                 $message = "✅ SAÍDA: Veículo {$plate} registrado com sucesso.";
                 $type = 'exit';
                 $status = 'exited'; // update local
@@ -92,7 +97,8 @@ function validateParkingTicket(array $body): void
             'license_plate'  => $plate,
             'event_name'     => $record['event_name'],
             'vehicle_type'   => $record['vehicle_type'],
-            'current_status' => $status
+            'current_status' => $status,
+            'fee_paid'       => $feePaid,
         ], $message);
 
     } catch (Exception $e) {
@@ -137,7 +143,7 @@ function listParking(array $query): void
         ");
         $dataStmt = $db->prepare("
             SELECT p.id, p.license_plate, p.vehicle_type, p.entry_at, p.exit_at, p.status, p.qr_token,
-                   e.name as event_name
+                   p.fee_paid, e.name as event_name
             FROM parking_records p
             JOIN events e ON p.event_id = e.id
             $whereClause
@@ -211,27 +217,31 @@ function registerExit(int $recordId): void
 
     try {
         $db = Database::getInstance();
-        
+
         // CADEADO: Só permite sair se o registro pertencer a um evento deste organizador
         $stmtCheck = $db->prepare("
-            SELECT p.id 
+            SELECT p.id, p.event_id, p.vehicle_type
             FROM parking_records p
             JOIN events e ON p.event_id = e.id
             WHERE p.id = ? AND e.organizer_id = ?
         ");
         $stmtCheck->execute([$recordId, $organizerId]);
-        
-        if (!$stmtCheck->fetch()) {
+        $record = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+        if (!$record) {
             jsonError("Registro não encontrado ou acesso negado.", 404);
         }
 
+        // Busca taxa configurada para este tipo de veículo no evento
+        $fee = lookupParkingFee($db, (int)$record['event_id'], $organizerId, $record['vehicle_type'] ?? 'car');
+
         $stmt = $db->prepare("
-            UPDATE parking_records 
-            SET exit_at = NOW(), status = 'exited', updated_at = NOW() 
+            UPDATE parking_records
+            SET exit_at = NOW(), status = 'exited', fee_paid = ?, updated_at = NOW()
             WHERE id = ?
-            RETURNING id, license_plate, status
+            RETURNING id, license_plate, status, fee_paid
         ");
-        $stmt->execute([$recordId]);
+        $stmt->execute([$fee, $recordId]);
         $updated = $stmt->fetch(PDO::FETCH_ASSOC);
 
         jsonSuccess($updated, "Saída manual registrada.");
@@ -259,4 +269,35 @@ function parkingRecordHasOrganizerColumn(PDO $db): bool
     $cache = (bool)$stmt->fetchColumn();
 
     return $cache;
+}
+
+/**
+ * Busca o preço configurado em event_parking_config para um tipo de veículo.
+ * Retorna 0 se a tabela não existir ou não houver config para o par (event_id, vehicle_type).
+ */
+function lookupParkingFee(PDO $db, int $eventId, int $organizerId, string $vehicleType): float
+{
+    static $tableExists = null;
+    if ($tableExists === null) {
+        $chk = $db->prepare("
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name = 'event_parking_config'
+            LIMIT 1
+        ");
+        $chk->execute();
+        $tableExists = (bool)$chk->fetchColumn();
+    }
+    if (!$tableExists) {
+        return 0.0;
+    }
+
+    $stmt = $db->prepare("
+        SELECT price FROM event_parking_config
+        WHERE event_id = ? AND organizer_id = ? AND vehicle_type = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$eventId, $organizerId, $vehicleType]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ? (float)$row['price'] : 0.0;
 }

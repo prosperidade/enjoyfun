@@ -351,6 +351,9 @@ export default function Parking() {
 
   const parkedCount = records.filter((r) => r.status === "parked").length;
   const pendingCount = records.filter((r) => r.status === "pending").length;
+  const totalRevenue = records
+    .filter((r) => r.status === "exited" && Number(r.fee_paid) > 0)
+    .reduce((sum, r) => sum + Number(r.fee_paid), 0);
   const selectedEvent = events.find((event) => String(event.id) === String(eventId)) || null;
 
   return (
@@ -428,6 +431,11 @@ export default function Parking() {
           </h1>
           <p className="text-gray-500 text-sm">
             {parkedCount} veículo(s) no local
+            {totalRevenue > 0 && (
+              <span className="ml-3 text-green-400 font-semibold">
+                Receita: R$ {totalRevenue.toFixed(2)}
+              </span>
+            )}
           </p>
           {selectedEvent?.capacity > 0 && (
             <span className={`inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
@@ -612,6 +620,7 @@ export default function Parking() {
                     <th>Tipo</th>
                     <th>Entrada</th>
                     <th>Saída</th>
+                    <th>Taxa</th>
                     <th>Status</th>
                     <th>Ação</th>
                   </tr>
@@ -619,7 +628,7 @@ export default function Parking() {
                 <tbody>
                   {records.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center text-gray-500 py-10">
+                      <td colSpan={7} className="text-center text-gray-500 py-10">
                         Nenhum registro
                       </td>
                     </tr>
@@ -635,6 +644,11 @@ export default function Parking() {
                         </td>
                         <td className="text-xs text-gray-400">
                           {r.exit_at ? new Date(r.exit_at).toLocaleString("pt-BR") : "—"}
+                        </td>
+                        <td className="text-sm">
+                          {r.status === "exited" && Number(r.fee_paid) > 0
+                            ? <span className="text-green-400 font-semibold">R$ {Number(r.fee_paid).toFixed(2)}</span>
+                            : <span className="text-gray-600">—</span>}
                         </td>
                         <td>
                           <span className={
