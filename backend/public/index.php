@@ -440,6 +440,7 @@ initializeCurrentRequestContext($method, $uri, $resource, $id, $sub, $subId, $_G
         'organizer-ai-providers' => BASE_PATH . '/src/Controllers/OrganizerAIProviderController.php',
         'organizer-ai-agents' => BASE_PATH . '/src/Controllers/OrganizerAIAgentController.php',
         'organizer-finance' => BASE_PATH . '/src/Controllers/OrganizerFinanceController.php',
+        'billing'           => BASE_PATH . '/src/Controllers/BillingController.php',
         'event-finance'     => BASE_PATH . '/src/Controllers/EventFinanceDispatcher.php',
         'ai'       => BASE_PATH . '/src/Controllers/AIController.php',
         'payments' => BASE_PATH . '/src/Controllers/PaymentWebhookController.php',

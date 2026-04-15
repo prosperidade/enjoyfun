@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Palette, MessageCircle, CreditCard, Bot } from 'lucide-react';
+import { Palette, MessageCircle, CreditCard, Bot, Crown } from 'lucide-react';
 import BrandingTab from './SettingsTabs/BrandingTab';
 import ChannelsTab from './SettingsTabs/ChannelsTab';
 import FinanceTab from './SettingsTabs/FinanceTab';
 import AIConfigTab from './SettingsTabs/AIConfigTab';
+import PlanTab from './SettingsTabs/PlanTab';
 
 export default function Settings() {
     const [activeTab, setActiveTab] = useState('branding');
@@ -13,6 +14,7 @@ export default function Settings() {
         { id: 'channels', label: 'Canais de Contato', icon: <MessageCircle size={18} /> },
         { id: 'finance', label: 'Camada Financeira', icon: <CreditCard size={18} /> },
         { id: 'ai', label: 'Inteligência Artificial', icon: <Bot size={18} /> },
+        { id: 'plan', label: 'Meu Plano', icon: <Crown size={18} /> },
     ];
 
     const renderTabContent = () => {
@@ -21,6 +23,7 @@ export default function Settings() {
             case 'channels': return <ChannelsTab />;
             case 'finance': return <FinanceTab />;
             case 'ai': return <AIConfigTab />;
+            case 'plan': return <PlanTab />;
             default: return <BrandingTab />;
         }
     };

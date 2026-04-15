@@ -27,6 +27,7 @@ const TAB_ITEMS = [
     { key: 'system-health', label: 'Saude do Sistema', icon: Activity },
     { key: 'finance', label: 'Financeiro', icon: TrendingUp },
     { key: 'audit', label: 'Auditoria', icon: AlertTriangle },
+    { key: 'plans', label: 'Planos', icon: CreditCard },
 ];
 
 export default function SuperAdminPanel() {
@@ -58,6 +59,12 @@ export default function SuperAdminPanel() {
     // Audit state
     const [auditScan, setAuditScan] = useState(null);
     const [auditLoading, setAuditLoading] = useState(false);
+
+    // Plan metrics state
+    const [planMetrics, setPlanMetrics] = useState(null);
+    const [planMetricsLoading, setPlanMetricsLoading] = useState(false);
+    const [billingInvoices, setBillingInvoices] = useState([]);
+    const [invoicesLoading, setInvoicesLoading] = useState(false);
 
     const fetchOrganizers = useCallback(async () => {
         try {
@@ -142,6 +149,31 @@ export default function SuperAdminPanel() {
         }
     }, []);
 
+    const fetchPlanMetrics = useCallback(async () => {
+        setPlanMetricsLoading(true);
+        try {
+            const [metricsRes, invoicesRes] = await Promise.all([
+                api.get('/superadmin/plan-metrics'),
+                api.get('/superadmin/billing-invoices').catch(() => ({ data: { data: [] } })),
+            ]);
+            if (metricsRes.data.success) setPlanMetrics(metricsRes.data.data);
+            setBillingInvoices(invoicesRes.data?.data || []);
+        } catch (error) {
+            console.error('Erro ao buscar metricas de planos:', error);
+        } finally {
+            setPlanMetricsLoading(false);
+        }
+    }, []);
+
+    const handleConfirmInvoice = async (id) => {
+        try {
+            await api.put(`/superadmin/billing-invoices/${id}/confirm`);
+            setBillingInvoices(prev => prev.map(i => i.id === id ? { ...i, status: 'paid', paid_at: new Date().toISOString() } : i));
+        } catch (error) {
+            console.error('Erro ao confirmar pagamento:', error);
+        }
+    };
+
     const handleApprove = async (id) => {
         try {
             await api.put(`/superadmin/organizers/${id}/approve`);
@@ -171,7 +203,8 @@ export default function SuperAdminPanel() {
         if (activeTab === 'system-health' && !systemHealth) fetchSystemHealth();
         if (activeTab === 'finance' && !finance) fetchFinance();
         if (activeTab === 'audit' && !auditScan) fetchAuditScan();
-    }, [activeTab, aiUsage, systemHealth, finance, auditScan, fetchAIUsage, fetchSystemHealth, fetchFinance]);
+        if (activeTab === 'plans' && !planMetrics) fetchPlanMetrics();
+    }, [activeTab, aiUsage, systemHealth, finance, auditScan, planMetrics, fetchAIUsage, fetchSystemHealth, fetchFinance]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -488,6 +521,91 @@ export default function SuperAdminPanel() {
         );
     };
 
+    const renderPlansTab = () => {
+        if (planMetricsLoading) return <p className="text-gray-400">Carregando metricas de planos...</p>;
+        if (!planMetrics) return <p className="text-gray-400">Nenhum dado disponivel.</p>;
+
+        const planColors = { starter: 'bg-gray-600', pro: 'bg-purple-600', enterprise: 'bg-blue-600' };
+        const totalMRR = planMetrics.reduce((s, p) => s + p.mrr, 0);
+        const totalOrgs = planMetrics.reduce((s, p) => s + p.organizer_count, 0);
+        const totalCommission = planMetrics.reduce((s, p) => s + p.commission_month, 0);
+
+        return (
+            <>
+                {/* Summary */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                    <StatCard icon={DollarSign} label="MRR (Receita Recorrente)" value={formatCurrency(totalMRR)} color="bg-purple-600" />
+                    <StatCard icon={Users} label="Total Organizadores" value={totalOrgs} color="bg-blue-600" />
+                    <StatCard icon={Percent} label="Comissao do Mes" value={formatCurrency(totalCommission)} color="bg-emerald-600" />
+                </div>
+
+                {/* Plan cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                    {planMetrics.map(p => (
+                        <div key={p.plan_id} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                            <div className="flex items-center gap-2 mb-3">
+                                <span className={`w-3 h-3 rounded-full ${planColors[p.plan_slug] || 'bg-gray-500'}`} />
+                                <span className="text-white font-semibold text-sm">{p.plan_name}</span>
+                                <span className="ml-auto text-xs text-gray-500">{formatCurrency(p.price)}/mes</span>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between"><span className="text-gray-400">Organizadores</span><span className="text-white font-medium">{p.organizer_count}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-400">Eventos</span><span className="text-white font-medium">{p.total_events}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-400">Vendas (mes)</span><span className="text-white font-medium">{formatCurrency(p.sales_month)}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-400">Comissao ({p.commission_pct}%)</span><span className="text-emerald-400 font-medium">{formatCurrency(p.commission_month)}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-400">MRR</span><span className="text-purple-400 font-bold">{formatCurrency(p.mrr)}</span></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Billing invoices */}
+                {billingInvoices.length > 0 && (
+                    <div>
+                        <h3 className="text-sm font-semibold text-gray-300 mb-3">Faturas Recentes</h3>
+                        <div className="overflow-x-auto rounded-xl border border-gray-800">
+                            <table className="min-w-full">
+                                <thead className="bg-gray-800/50">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left text-xs text-gray-400">Organizador</th>
+                                        <th className="px-3 py-2 text-left text-xs text-gray-400">Plano</th>
+                                        <th className="px-3 py-2 text-left text-xs text-gray-400">Valor</th>
+                                        <th className="px-3 py-2 text-left text-xs text-gray-400">Mes</th>
+                                        <th className="px-3 py-2 text-left text-xs text-gray-400">Status</th>
+                                        <th className="px-3 py-2 text-left text-xs text-gray-400">Acao</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-800">
+                                    {billingInvoices.map(inv => {
+                                        const invStatusStyles = { pending: 'bg-amber-500/20 text-amber-400', paid: 'bg-green-500/20 text-green-400', overdue: 'bg-red-500/20 text-red-400', cancelled: 'bg-gray-700 text-gray-400' };
+                                        return (
+                                            <tr key={inv.id} className="hover:bg-gray-800/30">
+                                                <td className="px-3 py-2 text-sm text-white">{inv.organizer_name}</td>
+                                                <td className="px-3 py-2 text-xs text-purple-300">{inv.plan_name}</td>
+                                                <td className="px-3 py-2 text-sm text-gray-300">{formatCurrency(inv.amount)}</td>
+                                                <td className="px-3 py-2 text-xs text-gray-400">{inv.reference_month}</td>
+                                                <td className="px-3 py-2">
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${invStatusStyles[inv.status] || invStatusStyles.pending}`}>
+                                                        {inv.status === 'pending' ? 'Pendente' : inv.status === 'paid' ? 'Pago' : inv.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    {inv.status === 'pending' && (
+                                                        <button onClick={() => handleConfirmInvoice(inv.id)} className="text-xs bg-green-600/20 text-green-400 px-2 py-1 rounded hover:bg-green-600/30">Confirmar</button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </>
+        );
+    };
+
     const renderActiveTab = () => {
         switch (activeTab) {
             case 'organizers': return renderOrganizersTab();
@@ -495,6 +613,7 @@ export default function SuperAdminPanel() {
             case 'system-health': return renderSystemHealthTab();
             case 'finance': return renderFinanceTab();
             case 'audit': return renderAuditTab();
+            case 'plans': return renderPlansTab();
             default: return null;
         }
     };

@@ -23,6 +23,9 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'GET'  && $id === 'plans' => listPlans(),
         $method === 'PUT'  && $id === 'organizers' && $sub !== null && $subId === 'plan' => updateOrganizerPlan((int)$sub, $body),
         $method === 'GET'  && $id === 'audit-scan' => runAuditScan(),
+        $method === 'GET'  && $id === 'plan-metrics' => getPlanMetrics(),
+        $method === 'GET'  && $id === 'billing-invoices' => listAllInvoices($query),
+        $method === 'PUT'  && $id === 'billing-invoices' && $sub !== null && $subId === 'confirm' => confirmInvoicePayment((int)$sub),
         default => jsonError("Super Admin: Endpoint não encontrado", 404)
     };
 }
@@ -602,4 +605,142 @@ function columnExistsCheck(PDO $db, string $table, string $column): bool
     $stmt = $db->prepare("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name=? AND column_name=?)");
     $stmt->execute([$table, $column]);
     return (bool)$stmt->fetchColumn();
+}
+
+// ---------------------------------------------------------------------------
+// Plan metrics dashboard
+// ---------------------------------------------------------------------------
+
+function getPlanMetrics(): void
+{
+    $db = Database::getInstance();
+
+    $stmt = $db->query("
+        SELECT
+            p.id, p.name, p.slug, p.price_monthly_brl, p.commission_pct,
+            COUNT(u.id) AS organizer_count,
+            COALESCE(SUM(sub.event_count), 0) AS total_events,
+            COALESCE(SUM(sub.sales_month), 0) AS total_sales_month
+        FROM plans p
+        LEFT JOIN users u ON u.plan_id = p.id AND u.role = 'organizer' AND u.organizer_id = u.id
+        LEFT JOIN LATERAL (
+            SELECT
+                COUNT(e.id) AS event_count,
+                COALESCE((SELECT SUM(s.total) FROM sales s WHERE s.organizer_id = u.id AND s.created_at > date_trunc('month', NOW())), 0) AS sales_month
+            FROM events e WHERE e.organizer_id = u.id
+        ) sub ON true
+        GROUP BY p.id, p.name, p.slug, p.price_monthly_brl, p.commission_pct
+        ORDER BY p.price_monthly_brl ASC
+    ");
+    $plans = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Revenue from plan subscriptions (paid invoices)
+    $invoiceRevenue = [];
+    try {
+        $stmtInv = $db->query("
+            SELECT plan_id, COUNT(*) AS paid_count, COALESCE(SUM(amount), 0) AS revenue
+            FROM billing_invoices WHERE status = 'paid'
+            GROUP BY plan_id
+        ");
+        foreach ($stmtInv->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $invoiceRevenue[(int)$row['plan_id']] = $row;
+        }
+    } catch (Exception $e) {}
+
+    $result = [];
+    foreach ($plans as $p) {
+        $pid = (int)$p['id'];
+        $orgCount = (int)$p['organizer_count'];
+        $commPct = (float)$p['commission_pct'];
+        $salesMonth = (float)$p['total_sales_month'];
+        $commMonth = round($salesMonth * $commPct / 100, 2);
+        $mrr = $orgCount * (float)$p['price_monthly_brl'];
+        $invoiceData = $invoiceRevenue[$pid] ?? ['paid_count' => 0, 'revenue' => 0];
+
+        $result[] = [
+            'plan_id' => $pid,
+            'plan_name' => $p['name'],
+            'plan_slug' => $p['slug'],
+            'price' => (float)$p['price_monthly_brl'],
+            'commission_pct' => $commPct,
+            'organizer_count' => $orgCount,
+            'total_events' => (int)$p['total_events'],
+            'sales_month' => round($salesMonth, 2),
+            'commission_month' => $commMonth,
+            'mrr' => round($mrr, 2),
+            'invoices_paid' => (int)$invoiceData['paid_count'],
+            'invoice_revenue' => round((float)$invoiceData['revenue'], 2),
+        ];
+    }
+
+    jsonSuccess($result);
+}
+
+// ---------------------------------------------------------------------------
+// Billing invoices management
+// ---------------------------------------------------------------------------
+
+function listAllInvoices(array $query): void
+{
+    $db = Database::getInstance();
+    try {
+        $db->query("SELECT 1 FROM billing_invoices LIMIT 1");
+    } catch (Exception $e) {
+        jsonSuccess([]);
+        return;
+    }
+
+    $status = $query['status'] ?? null;
+    $where = $status ? "AND bi.status = :status" : "";
+
+    $sql = "
+        SELECT bi.id, bi.organizer_id, bi.amount, bi.status, bi.reference_month,
+               bi.due_date, bi.paid_at, bi.created_at,
+               p.name AS plan_name,
+               u.name AS organizer_name, u.email AS organizer_email
+        FROM billing_invoices bi
+        LEFT JOIN plans p ON p.id = bi.plan_id
+        LEFT JOIN users u ON u.id = bi.organizer_id
+        {$where}
+        ORDER BY bi.created_at DESC
+        LIMIT 50
+    ";
+    $stmt = $db->prepare($sql);
+    if ($status) $stmt->bindValue(':status', $status);
+    $stmt->execute();
+
+    jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function confirmInvoicePayment(int $invoiceId): void
+{
+    $db = Database::getInstance();
+    try {
+        $db->query("SELECT 1 FROM billing_invoices LIMIT 1");
+    } catch (Exception $e) {
+        jsonError('Tabela de faturas nao encontrada', 500);
+        return;
+    }
+
+    $stmt = $db->prepare("SELECT * FROM billing_invoices WHERE id = ? AND status = 'pending'");
+    $stmt->execute([$invoiceId]);
+    $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$invoice) jsonError('Fatura nao encontrada ou ja paga', 404);
+
+    $db->beginTransaction();
+    try {
+        // Mark invoice as paid
+        $db->prepare("UPDATE billing_invoices SET status = 'paid', paid_at = NOW(), updated_at = NOW() WHERE id = ?")
+           ->execute([$invoiceId]);
+
+        // Upgrade organizer's plan
+        $db->prepare("UPDATE users SET plan_id = ? WHERE id = ? AND organizer_id = ?")
+           ->execute([(int)$invoice['plan_id'], (int)$invoice['organizer_id'], (int)$invoice['organizer_id']]);
+
+        $db->commit();
+        jsonSuccess(null, 'Pagamento confirmado e plano ativado.');
+    } catch (Exception $e) {
+        $db->rollBack();
+        jsonError('Erro ao confirmar pagamento', 500);
+    }
 }
