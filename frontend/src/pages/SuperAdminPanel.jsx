@@ -2,28 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Users, UserCheck, UserX, DollarSign, Percent, Cpu, Activity, Database, AlertTriangle, Clock, Calendar, Hash, Server, Zap, TrendingUp, CreditCard, Bot } from 'lucide-react';
 import api from '../lib/api';
 
-function StatCard({ icon: Icon, label, value, sublabel, color = 'blue' }) {
-    const colorMap = {
-        blue: 'from-blue-600 to-blue-800',
-        green: 'from-green-600 to-green-800',
-        orange: 'from-orange-500 to-orange-700',
-        purple: 'from-purple-600 to-purple-800',
-        emerald: 'from-emerald-600 to-emerald-800',
-        red: 'from-red-600 to-red-800',
-        amber: 'from-amber-500 to-amber-700',
-        cyan: 'from-cyan-600 to-cyan-800',
-        indigo: 'from-indigo-600 to-indigo-800',
-    };
+function StatCard({ icon: Icon, label, value, sublabel, color = 'bg-blue-600' }) {
     return (
-        <div className={`bg-gradient-to-br ${colorMap[color] || colorMap.blue} rounded-xl p-5 text-white shadow-lg`}>
-            <div className="flex items-center justify-between mb-3">
-                <div className="bg-white/20 rounded-lg p-2">
-                    <Icon className="w-5 h-5" />
-                </div>
+        <div className="stat-card group relative overflow-hidden">
+            <div className={`absolute top-0 right-0 h-24 w-24 rounded-full mix-blend-overlay opacity-10 blur-2xl ${color} -mr-8 -mt-8`} />
+            <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
+                <Icon size={20} className="text-white" />
             </div>
-            <p className="text-2xl font-bold">{value}</p>
-            <p className="text-sm text-white/80 mt-1">{label}</p>
-            {sublabel && <p className="text-xs text-white/60 mt-1">{sublabel}</p>}
+            <div className="stat-value">{value ?? "—"}</div>
+            <div className="stat-label">{label}</div>
+            {sublabel && <div className="mt-1 text-[10px] text-gray-500">{sublabel}</div>}
         </div>
     );
 }
@@ -184,11 +172,11 @@ export default function SuperAdminPanel() {
         <>
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-                <StatCard icon={Users} label="Organizadores Cadastrados" value={stats ? stats.total_organizers : '...'} color="blue" />
-                <StatCard icon={UserCheck} label="Organizadores Ativos" value={stats ? stats.active_organizers : '...'} sublabel="Com pelo menos 1 evento" color="green" />
-                <StatCard icon={UserX} label="Organizadores Inativos" value={stats ? stats.inactive_organizers : '...'} sublabel="Sem eventos criados" color="orange" />
-                <StatCard icon={DollarSign} label="Vendas Brutas Totais" value={grossSalesFormatted || '--'} sublabel={grossSalesFormatted ? null : 'Disponivel em breve'} color="purple" />
-                <StatCard icon={Percent} label="Comissao da Plataforma (1%)" value={commissionFormatted || '--'} sublabel={commissionFormatted ? null : 'Disponivel em breve'} color="emerald" />
+                <StatCard icon={Users} label="Organizadores Cadastrados" value={stats ? stats.total_organizers : '...'} color="bg-blue-600" />
+                <StatCard icon={UserCheck} label="Organizadores Ativos" value={stats ? stats.active_organizers : '...'} sublabel="Com pelo menos 1 evento" color="bg-green-600" />
+                <StatCard icon={UserX} label="Organizadores Inativos" value={stats ? stats.inactive_organizers : '...'} sublabel="Sem eventos criados" color="bg-amber-600" />
+                <StatCard icon={DollarSign} label="Vendas Brutas Totais" value={grossSalesFormatted || '--'} sublabel={grossSalesFormatted ? null : 'Disponivel em breve'} color="bg-purple-600" />
+                <StatCard icon={Percent} label="Comissao da Plataforma (1%)" value={commissionFormatted || '--'} sublabel={commissionFormatted ? null : 'Disponivel em breve'} color="bg-emerald-600" />
             </div>
 
             {message.text && (
@@ -198,20 +186,20 @@ export default function SuperAdminPanel() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-lg shadow-md md:col-span-1 h-fit">
+                <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl md:col-span-1 h-fit">
                     <h2 className="text-xl font-semibold mb-4 text-gray-800">Novo Organizador</h2>
                     <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Nome da Empresa</label>
-                            <input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} required autoComplete="new-name" className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white" style={{ color: '#111827' }} />
+                            <input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} required autoComplete="new-name" className="mt-1 w-full p-2 border border-gray-700 rounded-lg bg-gray-800 text-white focus:ring-purple-500 focus:border-purple-500 placeholder-gray-500" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">E-mail de Acesso</label>
-                            <input type="email" name="email" value={formData.email || ''} onChange={handleInputChange} required autoComplete="new-email" className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white" style={{ color: '#111827' }} />
+                            <input type="email" name="email" value={formData.email || ''} onChange={handleInputChange} required autoComplete="new-email" className="mt-1 w-full p-2 border border-gray-700 rounded-lg bg-gray-800 text-white focus:ring-purple-500 focus:border-purple-500 placeholder-gray-500" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Senha Inicial</label>
-                            <input type="password" name="password" value={formData.password || ''} onChange={handleInputChange} required minLength="6" autoComplete="new-password" className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white" style={{ color: '#111827' }} />
+                            <input type="password" name="password" value={formData.password || ''} onChange={handleInputChange} required minLength="6" autoComplete="new-password" className="mt-1 w-full p-2 border border-gray-700 rounded-lg bg-gray-800 text-white focus:ring-purple-500 focus:border-purple-500 placeholder-gray-500" />
                         </div>
                         <button type="submit" disabled={isSubmitting} className={`w-full text-white p-2 rounded font-semibold ${isSubmitting ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
                             {isSubmitting ? 'Criando...' : 'Criar Organizador'}
@@ -219,7 +207,7 @@ export default function SuperAdminPanel() {
                     </form>
                 </div>
 
-                <div className="bg-white p-6 rounded-lg shadow-md md:col-span-2">
+                <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl md:col-span-2">
                     <h2 className="text-xl font-semibold mb-4 text-gray-800">Organizadores</h2>
                     {loading ? (
                         <p className="text-gray-500">Carregando dados...</p>
@@ -238,7 +226,7 @@ export default function SuperAdminPanel() {
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-gray-900 divide-y divide-gray-800">
                                     {organizers.length > 0 ? (
                                         organizers.map((org) => {
                                             const eventsCount = parseInt(org.events_count, 10) || 0;
@@ -246,13 +234,13 @@ export default function SuperAdminPanel() {
                                             return (
                                                 <tr key={org.id} className="hover:bg-gray-50">
                                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">#{org.id}</td>
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{org.name}</td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{org.name}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{org.email}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{org.phone || '--'}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{org.document || '--'}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">{eventsCount}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap">
-                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-700/40 text-gray-400'}`}>
                                                             {isActive ? 'Ativo' : 'Inativo'}
                                                         </span>
                                                     </td>
@@ -286,12 +274,12 @@ export default function SuperAdminPanel() {
         return (
             <>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                    <StatCard icon={Zap} label="Total Requisicoes (30d)" value={g.total_requests.toLocaleString('pt-BR')} color="blue" />
-                    <StatCard icon={Hash} label="Total Tokens (30d)" value={g.total_tokens.toLocaleString('pt-BR')} color="purple" />
-                    <StatCard icon={DollarSign} label="Custo Total (30d)" value={formatCurrency(g.total_cost)} color="emerald" />
+                    <StatCard icon={Zap} label="Total Requisicoes (30d)" value={g.total_requests.toLocaleString('pt-BR')} color="bg-blue-600" />
+                    <StatCard icon={Hash} label="Total Tokens (30d)" value={g.total_tokens.toLocaleString('pt-BR')} color="bg-purple-600" />
+                    <StatCard icon={DollarSign} label="Custo Total (30d)" value={formatCurrency(g.total_cost)} color="bg-emerald-600" />
                 </div>
 
-                <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl">
                     <h2 className="text-xl font-semibold mb-4 text-gray-800">Uso por Organizador</h2>
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
@@ -303,7 +291,7 @@ export default function SuperAdminPanel() {
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Custo</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className="bg-gray-900 divide-y divide-gray-800">
                                 {aiUsage.by_organizer.length > 0 ? (
                                     aiUsage.by_organizer.map((row) => {
                                         const isHighCost = row.total_cost > 50;
@@ -403,12 +391,12 @@ export default function SuperAdminPanel() {
         const f = finance;
         return (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <StatCard icon={DollarSign} label="Vendas Brutas (Total)" value={formatCurrency(f.gross_sales_total)} color="purple" />
-                <StatCard icon={Calendar} label="Vendas Brutas (Mes)" value={formatCurrency(f.gross_sales_month)} color="blue" />
-                <StatCard icon={Percent} label="Comissao Total (1%)" value={formatCurrency(f.commission_total)} color="emerald" />
-                <StatCard icon={CreditCard} label="Comissao Mes" value={formatCurrency(f.commission_month)} color="green" />
-                <StatCard icon={Cpu} label="Custo IA Total" value={formatCurrency(f.ai_costs_total)} color="red" />
-                <StatCard icon={Bot} label="Custo IA Mes" value={formatCurrency(f.ai_costs_month)} color="amber" />
+                <StatCard icon={DollarSign} label="Vendas Brutas (Total)" value={formatCurrency(f.gross_sales_total)} color="bg-purple-600" />
+                <StatCard icon={Calendar} label="Vendas Brutas (Mes)" value={formatCurrency(f.gross_sales_month)} color="bg-blue-600" />
+                <StatCard icon={Percent} label="Comissao Total (1%)" value={formatCurrency(f.commission_total)} color="bg-emerald-600" />
+                <StatCard icon={CreditCard} label="Comissao Mes" value={formatCurrency(f.commission_month)} color="bg-green-600" />
+                <StatCard icon={Cpu} label="Custo IA Total" value={formatCurrency(f.ai_costs_total)} color="bg-red-600" />
+                <StatCard icon={Bot} label="Custo IA Mes" value={formatCurrency(f.ai_costs_month)} color="bg-amber-500" />
             </div>
         );
     };
@@ -431,7 +419,7 @@ export default function SuperAdminPanel() {
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex gap-1 mb-8 bg-gray-100 rounded-lg p-1 overflow-x-auto">
+            <div className="flex gap-1 mb-8 bg-gray-900 border border-gray-800 rounded-xl p-1 overflow-x-auto">
                 {TAB_ITEMS.map((tab) => {
                     const TabIcon = tab.icon;
                     const isActive = activeTab === tab.key;
@@ -441,7 +429,7 @@ export default function SuperAdminPanel() {
                             onClick={() => setActiveTab(tab.key)}
                             className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                                 isActive
-                                    ? 'bg-white text-blue-700 shadow-sm'
+                                    ? 'bg-purple-600 text-white shadow-sm'
                                     : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
                             }`}
                         >
