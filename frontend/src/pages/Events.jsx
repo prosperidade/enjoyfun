@@ -2,7 +2,10 @@ import { useEffect, useState, useCallback } from "react";
 import api from "../lib/api";
 import EventTemplateSelector from "../components/EventTemplateSelector";
 import EventModulesSelector, { MODULE_PRESETS } from "../components/EventModulesSelector";
-import { StagesSection, SectorsSection, ParkingConfigSection, PdvPointsSection, LocationSection, SeatingSection, SessionsSection, ExhibitorsSection, InvitationsSection, CeremonySection, SubEventsSection, MapsSection, CertificatesSection } from "../components/EventModuleSections";
+import { StagesSection, SectorsSection, ParkingConfigSection, PdvPointsSection, LocationSection, ExhibitorsSection, InvitationsSection, CeremonySection, SubEventsSection, MapsSection, CertificatesSection } from "../components/EventModuleSections";
+import MapBuilder from "../components/MapBuilder";
+import SeatingChart from "../components/SeatingChart";
+import AgendaBuilder from "../components/AgendaBuilder";
 import {
   CalendarDays,
   Plus,
@@ -1158,10 +1161,10 @@ export default function Events() {
                 <PdvPointsSection eventId={editingEventId} />
               )}
               {form.modules_enabled.includes("seating") && (
-                <SeatingSection eventId={editingEventId} />
+                <SeatingChart eventId={editingEventId} />
               )}
               {form.modules_enabled.includes("sessions") && (
-                <SessionsSection eventId={editingEventId} />
+                <AgendaBuilder eventId={editingEventId} />
               )}
               {form.modules_enabled.includes("exhibitors") && (
                 <ExhibitorsSection eventId={editingEventId} />
@@ -1177,6 +1180,9 @@ export default function Events() {
               )}
               {form.modules_enabled.includes("maps") && (
                 <MapsSection eventId={editingEventId} form={form} setForm={setForm} />
+              )}
+              {form.modules_enabled.includes("maps") && (
+                <MapBuilder eventId={editingEventId} />
               )}
               {form.modules_enabled.includes("certificates") && (
                 <CertificatesSection eventId={editingEventId} />
