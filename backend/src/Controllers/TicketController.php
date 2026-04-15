@@ -716,7 +716,38 @@ function listTicketTypes(array $query): void
         if ($eventId) $stmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
         $stmt->execute();
 
-        jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC));
+        $ticketTypes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Query available sectors from event_sectors (resilient — returns [] if table missing)
+        $availableSectors = [];
+        if ($eventId) {
+            try {
+                $tableCheck = $db->query(
+                    "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'event_sectors' LIMIT 1"
+                );
+                if ($tableCheck->fetchColumn()) {
+                    $sectorSql = "
+                        SELECT id, name, sector_type, capacity, price_modifier
+                        FROM event_sectors
+                        WHERE event_id = :event_id AND organizer_id = :org_id
+                        ORDER BY sort_order ASC
+                    ";
+                    $sectorStmt = $db->prepare($sectorSql);
+                    $sectorStmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+                    $sectorStmt->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
+                    $sectorStmt->execute();
+                    $availableSectors = $sectorStmt->fetchAll(PDO::FETCH_ASSOC);
+                }
+            } catch (Throwable) {
+                // Table doesn't exist or query failed — degrade gracefully
+                $availableSectors = [];
+            }
+        }
+
+        jsonSuccess([
+            'ticket_types' => $ticketTypes,
+            'available_sectors' => $availableSectors,
+        ]);
     } catch (Throwable $e) {
         jsonError('Erro ao listar tipos de ingresso: ' . $e->getMessage(), 500);
     }

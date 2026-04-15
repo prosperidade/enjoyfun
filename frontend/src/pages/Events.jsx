@@ -93,6 +93,7 @@ const EMPTY_TICKET_TYPE_FORM = {
   client_key: null,
   name: "",
   price: "",
+  sector: "",
 };
 
 const EMPTY_COMMISSARY_FORM = {
@@ -164,6 +165,7 @@ function mapTicketTypeToDraft(ticketType) {
     client_key: null,
     name: ticketType.name || "",
     price: ticketType.price ?? "",
+    sector: ticketType.sector || "",
   };
 }
 
@@ -206,6 +208,7 @@ function serializeTicketType(ticketType) {
     client_key: clientKey || null,
     name: ticketType.name.trim(),
     price: ticketType.price === "" ? 0 : Number(ticketType.price),
+    sector: ticketType.sector || null,
   };
 }
 
@@ -242,6 +245,7 @@ export default function Events() {
   const [editingEventId, setEditingEventId] = useState(null);
   const [ticketTypeForm, setTicketTypeForm] = useState(EMPTY_TICKET_TYPE_FORM);
   const [ticketTypes, setTicketTypes] = useState([]);
+  const [availableSectors, setAvailableSectors] = useState([]);
   const [form, setForm] = useState(() => createEmptyEventForm());
   const [batchForm, setBatchForm] = useState(EMPTY_BATCH_FORM);
   const [commissaryForm, setCommissaryForm] = useState(EMPTY_COMMISSARY_FORM);
@@ -275,6 +279,7 @@ export default function Events() {
     setEditingEventId(null);
     setTicketTypeForm(EMPTY_TICKET_TYPE_FORM);
     setTicketTypes([]);
+    setAvailableSectors([]);
     setForm(createEmptyEventForm());
     setBatchForm(EMPTY_BATCH_FORM);
     setCommissaryForm(EMPTY_COMMISSARY_FORM);
@@ -317,7 +322,12 @@ export default function Events() {
 
       setEditingEventId(Number(eventId));
       setForm(mapEventToForm(eventRes.data?.data));
-      setTicketTypes((typesRes.data?.data || []).map(mapTicketTypeToDraft));
+      const rawTypes = typesRes.data?.data;
+      // Handle new format { ticket_types, available_sectors } or legacy flat array
+      const typesArray = Array.isArray(rawTypes) ? rawTypes : (rawTypes?.ticket_types || []);
+      const sectorsArray = Array.isArray(rawTypes) ? [] : (rawTypes?.available_sectors || []);
+      setTicketTypes(typesArray.map(mapTicketTypeToDraft));
+      setAvailableSectors(sectorsArray);
       setTicketTypeForm(EMPTY_TICKET_TYPE_FORM);
       setDraftBatches((batchesRes.data?.data || []).map(mapBatchToDraft));
       setDraftCommissaries((commissariesRes.data?.data || []).map(mapCommissaryToDraft));
@@ -840,6 +850,19 @@ export default function Events() {
                     value={ticketTypeForm.price}
                     onChange={(e) => setTicketTypeForm((current) => ({ ...current, price: e.target.value }))}
                   />
+                  {availableSectors.length > 0 ? (
+                    <select
+                      name="ticket_type_sector"
+                      className="select sm:col-span-3"
+                      value={ticketTypeForm.sector}
+                      onChange={(e) => setTicketTypeForm((current) => ({ ...current, sector: e.target.value }))}
+                    >
+                      <option value="">(Sem setor)</option>
+                      {availableSectors.map((s) => (
+                        <option key={s.id} value={s.name}>{s.name}</option>
+                      ))}
+                    </select>
+                  ) : null}
                   <div className="sm:col-span-3 flex gap-3">
                     <button type="button" className="btn-secondary flex-1" onClick={upsertTicketTypeDraft}>
                       <Plus size={16} /> {ticketTypeForm.id || ticketTypeForm.client_key ? "Atualizar Tipo" : "Adicionar Tipo"}
@@ -861,6 +884,7 @@ export default function Events() {
                         <p className="font-medium text-white">{ticketType.name}</p>
                         <p className="text-xs text-gray-500">
                           Preço base: R$ {Number(ticketType.price || 0).toFixed(2)}
+                          {ticketType.sector ? ` • Setor: ${ticketType.sector}` : ""}
                         </p>
                       </div>
                       <div className="flex gap-2">

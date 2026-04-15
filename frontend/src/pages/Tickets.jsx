@@ -75,6 +75,7 @@ export default function Tickets() {
   const [transferModal, setTransferModal] = useState(null);
   const [events, setEvents] = useState([]);
   const [ticketTypes, setTicketTypes] = useState([]);
+  const [availableSectors, setAvailableSectors] = useState([]);
   const [batches, setBatches] = useState([]);
   const [commissaries, setCommissaries] = useState([]);
   const [batchFilter, setBatchFilter] = useState("");
@@ -126,10 +127,12 @@ export default function Tickets() {
     return selectedCommissary ? String(selectedCommissary.id) : "";
   }, [commissaries, commissaryFilter]);
 
-  const sectors = useMemo(
-    () => [...new Set(ticketTypes.filter((t) => t.sector).map((t) => t.sector))],
-    [ticketTypes]
-  );
+  const sectors = useMemo(() => {
+    if (availableSectors.length > 0) {
+      return availableSectors.map((s) => s.name);
+    }
+    return [...new Set(ticketTypes.filter((t) => t.sector).map((t) => t.sector))];
+  }, [ticketTypes, availableSectors]);
 
   const dynamicToken = useMemo(() => {
     if (!selectedTicket) return "";
@@ -176,6 +179,7 @@ export default function Tickets() {
   const loadCommercialConfig = useCallback(async () => {
     if (!effectiveEventId) {
       setTicketTypes([]);
+      setAvailableSectors([]);
       setBatches([]);
       setCommissaries([]);
       return;
@@ -188,15 +192,29 @@ export default function Tickets() {
     ]);
 
     if (typesRes.status === "fulfilled") {
-      const data = typesRes.value.data?.data || [];
+      const raw = typesRes.value.data?.data;
+      // Handle new format { ticket_types, available_sectors } or legacy flat array
+      const data = Array.isArray(raw) ? raw : (raw?.ticket_types || []);
+      const sectors = Array.isArray(raw) ? [] : (raw?.available_sectors || []);
       setTicketTypes(data);
-      setCacheItem(`tickets_types_${effectiveEventId}`, data);
+      setAvailableSectors(sectors);
+      setCacheItem(`tickets_types_${effectiveEventId}`, { ticket_types: data, available_sectors: sectors });
     } else {
       const cached = getCacheItem(`tickets_types_${effectiveEventId}`);
       if (cached) {
-        try { setTicketTypes(cached); } catch { setTicketTypes([]); }
+        try {
+          // Handle both cached formats
+          if (Array.isArray(cached)) {
+            setTicketTypes(cached);
+            setAvailableSectors([]);
+          } else {
+            setTicketTypes(cached.ticket_types || []);
+            setAvailableSectors(cached.available_sectors || []);
+          }
+        } catch { setTicketTypes([]); setAvailableSectors([]); }
       } else {
         setTicketTypes([]);
+        setAvailableSectors([]);
         toast.error("Erro ao carregar tipos de ingresso (offline).");
       }
     }
