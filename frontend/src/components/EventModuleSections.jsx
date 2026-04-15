@@ -12,8 +12,10 @@ import {
   Store,
   MapPin,
   Calendar,
+  CalendarRange,
   Building2,
   Mail,
+  Heart,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -645,6 +647,94 @@ export function InvitationsSection({ eventId }) {
           </p>
         )}
       </div>
+    </SectionShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 10. CeremonySection (Cerimonial / Timeline de Momentos) — local state only
+// ---------------------------------------------------------------------------
+
+export function CeremonySection() {
+  const [items, setItems] = useState([]);
+  const [form, setForm] = useState({ name: "", time: "", responsible: "", notes: "" });
+  const [expanded, setExpanded] = useState(true);
+
+  const handleAdd = () => {
+    if (!form.name.trim()) return toast.error("Nome do momento obrigatorio");
+    setItems((prev) => [...prev, { ...form, _id: Date.now() }]);
+    setForm({ name: "", time: "", responsible: "", notes: "" });
+  };
+
+  const handleRemove = (id) => setItems((prev) => prev.filter((i) => i._id !== id));
+
+  return (
+    <SectionShell icon={Heart} title="Cerimonial / Timeline de Momentos" count={items.length} expanded={expanded} toggle={() => setExpanded(!expanded)}>
+      <div className="grid grid-cols-4 gap-2">
+        <input className={inputCls} placeholder="Ex: Entrada dos noivos" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <input className={inputCls} type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />
+        <input className={inputCls} placeholder="Responsavel" value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })} />
+        <input className={inputCls} placeholder="Observacoes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+      </div>
+      <button type="button" className={btnAdd} onClick={handleAdd}>
+        <Plus className="w-3 h-3" /> Adicionar momento
+      </button>
+      {items.map((item) => (
+        <div key={item._id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
+          <span>{item.time && <span className="text-purple-400 mr-2">{item.time}</span>}{item.name}{item.responsible ? ` — ${item.responsible}` : ""}{item.notes ? <span className="text-gray-500 ml-2">({item.notes})</span> : ""}</span>
+          <button type="button" className={btnDel} onClick={() => handleRemove(item._id)}><Trash2 className="w-4 h-4" /></button>
+        </div>
+      ))}
+      <p className="text-[10px] text-gray-600 italic">Estes momentos serao salvos apos aplicar a configuracao de cerimonial.</p>
+    </SectionShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 11. SubEventsSection (Sub-Eventos) — local state only
+// ---------------------------------------------------------------------------
+
+const SUB_EVENT_SUGGESTIONS = ["Colacao de Grau", "Pre-Festa", "Despedida de Solteiro(a)", "After Party", "Ensaio"];
+
+export function SubEventsSection() {
+  const [items, setItems] = useState([]);
+  const [form, setForm] = useState({ name: "", date: "", venue: "", description: "" });
+  const [expanded, setExpanded] = useState(true);
+
+  const handleAdd = (name) => {
+    const entry = name ? { name, date: "", venue: "", description: "" } : form;
+    if (!entry.name.trim()) return toast.error("Nome do sub-evento obrigatorio");
+    setItems((prev) => [...prev, { ...entry, _id: Date.now() }]);
+    if (!name) setForm({ name: "", date: "", venue: "", description: "" });
+  };
+
+  const handleRemove = (id) => setItems((prev) => prev.filter((i) => i._id !== id));
+
+  return (
+    <SectionShell icon={CalendarRange} title="Sub-Eventos" count={items.length} expanded={expanded} toggle={() => setExpanded(!expanded)}>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {SUB_EVENT_SUGGESTIONS.map((s) => (
+          <button key={s} type="button" onClick={() => handleAdd(s)} className="text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded-lg border border-gray-700 transition-colors">
+            + {s}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-4 gap-2">
+        <input className={inputCls} placeholder="Nome do sub-evento" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <input className={inputCls} type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+        <input className={inputCls} placeholder="Local / Venue" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} />
+        <input className={inputCls} placeholder="Descricao" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+      </div>
+      <button type="button" className={btnAdd} onClick={() => handleAdd(null)}>
+        <Plus className="w-3 h-3" /> Adicionar sub-evento
+      </button>
+      {items.map((item) => (
+        <div key={item._id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
+          <span>{item.name}{item.date ? <span className="text-gray-500 ml-2">{item.date}</span> : ""}{item.venue ? ` @ ${item.venue}` : ""}{item.description ? <span className="text-gray-500 ml-2">({item.description})</span> : ""}</span>
+          <button type="button" className={btnDel} onClick={() => handleRemove(item._id)}><Trash2 className="w-4 h-4" /></button>
+        </div>
+      ))}
+      <p className="text-[10px] text-gray-600 italic">Sub-eventos serao persistidos em uma futura migracao de banco.</p>
     </SectionShell>
   );
 }
