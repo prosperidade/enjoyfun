@@ -275,6 +275,7 @@ export default function Dashboard() {
           <CriticalStockPanel
             loading={loading}
             products={stats?.operations?.critical_stock_products}
+            stockByPdvPoint={stats?.operations?.critical_stock_by_pdv_point}
           />
         </div>
       </section>

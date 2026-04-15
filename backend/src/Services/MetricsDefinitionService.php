@@ -99,6 +99,12 @@ class MetricsDefinitionService
                     'block' => 'operational_core',
                     'intent' => 'Lista operacional dos produtos em estoque crítico.',
                 ],
+                'critical_stock_by_pdv_point' => [
+                    'source_path' => 'breakdowns.critical_stock_by_pdv_point',
+                    'official_metric' => 'critical_stock_by_pdv_point',
+                    'block' => 'operational_core',
+                    'intent' => 'Contagem de produtos em estoque crítico agrupada por ponto de venda (PDV).',
+                ],
             ],
             'participants' => [
                 'participants_present' => [

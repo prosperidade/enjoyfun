@@ -147,6 +147,37 @@ class DashboardDomainService
             }, $stmtCriticalProducts->fetchAll(PDO::FETCH_ASSOC) ?: []);
         }
 
+        $criticalStockByPdvPoint = [];
+        if ($eventId && self::tableExists($db, 'event_pdv_points')) {
+            $stmtPdvStock = $db->prepare("
+                SELECT
+                    pp.name AS pdv_point_name,
+                    pp.pdv_type,
+                    COUNT(p.id) AS critical_count
+                FROM event_pdv_points pp
+                LEFT JOIN products p
+                    ON p.event_id = pp.event_id
+                    AND LOWER(p.sector) = LOWER(pp.pdv_type)
+                    AND COALESCE(p.stock_qty, 0) <= COALESCE(p.low_stock_threshold, 0)
+                    AND p.organizer_id = :org_id
+                WHERE pp.event_id = :event_id
+                    AND pp.organizer_id = :org_id2
+                GROUP BY pp.id, pp.name, pp.pdv_type
+                ORDER BY critical_count DESC
+            ");
+            $stmtPdvStock->bindValue(':org_id', $organizerId, PDO::PARAM_INT);
+            $stmtPdvStock->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+            $stmtPdvStock->bindValue(':org_id2', $organizerId, PDO::PARAM_INT);
+            $stmtPdvStock->execute();
+            $criticalStockByPdvPoint = array_map(static function (array $row): array {
+                return [
+                    'pdv_point_name' => (string)($row['pdv_point_name'] ?? ''),
+                    'pdv_type' => (string)($row['pdv_type'] ?? ''),
+                    'critical_count' => (int)($row['critical_count'] ?? 0),
+                ];
+            }, $stmtPdvStock->fetchAll(PDO::FETCH_ASSOC) ?: []);
+        }
+
         $sqlChart = "
             WITH hours AS (
                 SELECT generate_series(
@@ -594,6 +625,7 @@ class DashboardDomainService
                 'sales_sector_totals_24h' => $salesSectorTotals24h,
                 'top_products_by_revenue' => $topProductsByRevenue,
                 'critical_stock_products' => $criticalStockProducts,
+                'critical_stock_by_pdv_point' => $criticalStockByPdvPoint,
                 'participants_by_category' => $participantsByCategory,
                 'tickets_by_batch' => $ticketsByBatch,
                 'tickets_by_commissary' => $ticketsByCommissary,
