@@ -456,6 +456,7 @@ initializeCurrentRequestContext($method, $uri, $resource, $id, $sub, $subId, $_G
         'event-certificates'   => BASE_PATH . '/src/Controllers/EventCertificateController.php',
         'event-ceremony-moments' => BASE_PATH . '/src/Controllers/EventCeremonyMomentController.php',
         'event-sub-events'     => BASE_PATH . '/src/Controllers/EventSubEventController.php',
+        'invitations'          => BASE_PATH . '/src/Controllers/PublicInvitationController.php',
     ];
 
 if ($resource === '' || $resource === 'ping') {
