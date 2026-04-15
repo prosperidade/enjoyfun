@@ -634,9 +634,10 @@ export function ExhibitorsSection({ eventId }) {
 // 9. InvitationsSection (Convites / RSVP)
 // ---------------------------------------------------------------------------
 
-export function InvitationsSection({ eventId }) {
+export function InvitationsSection({ eventId, form, setForm }) {
   const [totalParticipants, setTotalParticipants] = useState(null);
   const [expanded, setExpanded] = useState(true);
+  const [uploadingTemplate, setUploadingTemplate] = useState(false);
 
   useEffect(() => {
     if (!eventId) return;
@@ -646,14 +647,66 @@ export function InvitationsSection({ eventId }) {
     }).catch(() => {});
   }, [eventId]);
 
+  const handleTemplateUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingTemplate(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("category", "invitation_template");
+      if (eventId) fd.append("event_id", eventId);
+      const res = await api.post("/organizer-files", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const fileData = res.data?.data || {};
+      const fileId = fileData.id;
+      const fileName = fileData.original_name || file.name;
+      const ref = fileId ? `file:${fileId}:${fileName}` : fileName;
+      if (setForm) setForm((prev) => ({ ...prev, banner_url: ref }));
+      toast.success(`Template "${fileName}" enviado!`);
+    } catch { toast.error("Erro ao enviar template"); }
+    setUploadingTemplate(false);
+  };
+
+  const currentTemplate = form?.banner_url || "";
+  const templateName = currentTemplate.startsWith("file:") ? currentTemplate.split(":").slice(2).join(":") : currentTemplate.split("/").pop() || "";
+
   return (
     <SectionShell icon={Mail} title="Convites / RSVP" count={totalParticipants} expanded={expanded} toggle={() => setExpanded(!expanded)}>
       {!eventId && <NoEventNotice />}
+
+      {/* Template do convite */}
+      <div className="border border-gray-700 rounded-lg p-3 bg-gray-800/60 space-y-2">
+        <p className="text-sm font-medium text-gray-200">Arte do Convite</p>
+        <p className="text-[10px] text-gray-500">Suba a imagem/arte do convite. Ela aparece como fundo na pagina do convidado.</p>
+        {currentTemplate ? (
+          <div className="flex items-center gap-2 bg-gray-900 rounded-lg px-3 py-2">
+            <span className="text-xs text-green-400 truncate flex-1">{templateName}</span>
+            <button type="button" onClick={() => setForm && setForm((prev) => ({ ...prev, banner_url: "" }))} className="text-red-400 hover:text-red-300">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <input type="file" accept="image/*,.pdf" id="invitation-template-upload" className="sr-only" onChange={handleTemplateUpload} />
+            <label htmlFor="invitation-template-upload" className="flex items-center gap-1.5 cursor-pointer bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs px-3 py-2 rounded-lg transition-colors">
+              <Upload className="w-3.5 h-3.5" />
+              {uploadingTemplate ? "Enviando..." : "Escolher imagem"}
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* Info e link */}
       <div className="bg-gray-800 rounded-lg p-4 text-sm text-gray-300 space-y-2">
         <p>
           Gerencie os convites na aba <span className="text-purple-400 font-medium">Publico e Participantes</span>.
           Campos de RSVP, escolha de menu e mesa ficam disponiveis apos ativar este modulo.
         </p>
+        {eventId && (
+          <p className="text-xs text-gray-400">
+            Link do convite: <span className="text-purple-400 font-mono text-[10px]">/convite/{'{'}<span className="text-white">slug</span>{'}'}/{'{'}<span className="text-white">token do convidado</span>{'}'}</span>
+          </p>
+        )}
         {totalParticipants != null && (
           <p className="text-xs text-gray-400">
             Total de participantes cadastrados: <span className="text-white font-medium">{totalParticipants}</span>
