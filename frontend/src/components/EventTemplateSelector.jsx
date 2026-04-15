@@ -2,12 +2,18 @@ import { useState, useEffect } from "react";
 import { listEventTemplates } from "../api/eventTemplates";
 import {
   Music,
+  Mic,
   Building2,
   Heart,
   GraduationCap,
   Store,
   Trophy,
   Calendar,
+  BookOpen,
+  Drama,
+  Dumbbell,
+  Flame,
+  Puzzle,
   Sparkles,
   ChevronDown,
   ChevronUp,
@@ -18,12 +24,18 @@ import {
  */
 const TEMPLATE_ICONS = {
   music: Music,
+  mic: Mic,
   building: Building2,
   heart: Heart,
   "graduation-cap": GraduationCap,
   store: Store,
   trophy: Trophy,
   calendar: Calendar,
+  "book-open": BookOpen,
+  drama: Drama,
+  dumbbell: Dumbbell,
+  flame: Flame,
+  puzzle: Puzzle,
 };
 
 /**
@@ -31,11 +43,17 @@ const TEMPLATE_ICONS = {
  */
 const TEMPLATE_HIGHLIGHTS = {
   festival: ["Lineup de Artistas", "Cashless / Bar", "Estoque", "Equipe"],
-  corporate: ["Agenda de Sessões", "Certificados", "Networking", "Pesquisa"],
+  show: ["Palco Unico", "Artistas", "Cashless", "Ingressos"],
+  corporate: ["Agenda de Sessoes", "Certificados", "Networking", "Credenciamento"],
   wedding: ["Convites RSVP", "Mapa de Mesas", "Cerimonial", "Fornecedores"],
   graduation: ["Convites", "Mapa de Mesas", "Cerimonial", "Certificados"],
+  sports_stadium: ["Setores", "Tabela de Jogos", "Credenciais", "Ingressos"],
   expo: ["Estandes", "Expositores", "Captura de Leads", "Palestras"],
-  sports: ["Setores", "Tabela de Jogos", "Credenciais", "Ingressos"],
+  congress: ["Trilhas Tematicas", "Certificados", "Sessoes", "Posters"],
+  theater: ["Mapa de Assentos", "Sessoes", "Meia-Entrada", "Ingressos"],
+  sports_gym: ["Layout Flexivel", "Setores", "Cashless", "Ingressos"],
+  rodeo: ["Arena", "Shows Noturnos", "Praca Alimentacao", "Leilao"],
+  custom: ["Monte do zero", "Modulos a la carte"],
 };
 
 /**
@@ -69,60 +87,18 @@ export default function EventTemplateSelector({
         // Fallback: show static list if API not available
         if (mounted)
           setTemplates([
-            {
-              template_key: "festival",
-              label: "Festival / Show",
-              description: "Para festivais de música, shows e raves.",
-              icon_key: "music",
-              color: "#8b5cf6",
-              is_system: true,
-              skills_count: 33,
-            },
-            {
-              template_key: "corporate",
-              label: "Corporativo / Conferência",
-              description: "Para conferências, workshops e treinamentos.",
-              icon_key: "building",
-              color: "#3b82f6",
-              is_system: true,
-              skills_count: 18,
-            },
-            {
-              template_key: "wedding",
-              label: "Casamento",
-              description: "Para casamentos e festas de união civil.",
-              icon_key: "heart",
-              color: "#ec4899",
-              is_system: true,
-              skills_count: 11,
-            },
-            {
-              template_key: "graduation",
-              label: "Formatura",
-              description: "Para formaturas e colações de grau.",
-              icon_key: "graduation-cap",
-              color: "#f59e0b",
-              is_system: true,
-              skills_count: 15,
-            },
-            {
-              template_key: "expo",
-              label: "Feira / Exposição",
-              description: "Para feiras comerciais e exposições.",
-              icon_key: "store",
-              color: "#10b981",
-              is_system: true,
-              skills_count: 20,
-            },
-            {
-              template_key: "sports",
-              label: "Esportivo",
-              description: "Para eventos esportivos e torneios.",
-              icon_key: "trophy",
-              color: "#ef4444",
-              is_system: true,
-              skills_count: 15,
-            },
+            { template_key: "festival", label: "Festival de Musica", description: "Festivais, raves e eventos multi-palco.", icon_key: "music", color: "#8b5cf6", is_system: true, skills_count: 33 },
+            { template_key: "show", label: "Show Avulso", description: "Shows, casas de show e apresentacoes.", icon_key: "mic", color: "#a855f7", is_system: true, skills_count: 20 },
+            { template_key: "corporate", label: "Corporativo", description: "Conferencias, workshops e treinamentos.", icon_key: "building", color: "#3b82f6", is_system: true, skills_count: 18 },
+            { template_key: "wedding", label: "Casamento", description: "Casamentos e festas de uniao civil.", icon_key: "heart", color: "#ec4899", is_system: true, skills_count: 11 },
+            { template_key: "graduation", label: "Formatura", description: "Formaturas e colacoes de grau.", icon_key: "graduation-cap", color: "#f59e0b", is_system: true, skills_count: 15 },
+            { template_key: "sports_stadium", label: "Esportivo / Estadio", description: "Estadios, arenas e competicoes.", icon_key: "trophy", color: "#ef4444", is_system: true, skills_count: 15 },
+            { template_key: "expo", label: "Feira / Exposicao", description: "Feiras comerciais e exposicoes.", icon_key: "store", color: "#10b981", is_system: true, skills_count: 20 },
+            { template_key: "congress", label: "Congresso / Palestra", description: "Congressos academicos e conferencias.", icon_key: "book-open", color: "#6366f1", is_system: true, skills_count: 18 },
+            { template_key: "theater", label: "Teatro / Auditorio", description: "Pecas, espetaculos e sessoes.", icon_key: "drama", color: "#f97316", is_system: true, skills_count: 10 },
+            { template_key: "sports_gym", label: "Ginasio / Indoor", description: "Esportes indoor, lutas e shows.", icon_key: "dumbbell", color: "#22c55e", is_system: true, skills_count: 12 },
+            { template_key: "rodeo", label: "Rodeio / Agro", description: "Rodeios, exposicoes agropecuarias.", icon_key: "flame", color: "#d97706", is_system: true, skills_count: 25 },
+            { template_key: "custom", label: "Evento Customizado", description: "Monte do zero com modulos a la carte.", icon_key: "puzzle", color: "#64748b", is_system: true, skills_count: 0 },
           ]);
       })
       .finally(() => {
@@ -166,7 +142,7 @@ export default function EventTemplateSelector({
 
       {expanded && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {systemTemplates.map((template) => {
               const IconComponent =
                 TEMPLATE_ICONS[template.icon_key] || Calendar;
