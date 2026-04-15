@@ -142,6 +142,37 @@ function BlockRouter({ block, onAction }) {
       return <ImageBlock block={block} />;
     case 'evidence':
       return <EvidenceBlock block={block} onAction={onAction} />;
+    case 'event_stages':
+      return <TableBlock block={{
+        ...block, type: 'table',
+        columns: [
+          { key: 'name', label: 'Nome', type: 'text' },
+          { key: 'stage_type', label: 'Tipo', type: 'text' },
+          { key: 'capacity', label: 'Capacidade', type: 'number' },
+        ],
+        rows: block.stages || [],
+      }} />;
+    case 'event_sectors':
+      return <TableBlock block={{
+        ...block, type: 'table',
+        columns: [
+          { key: 'name', label: 'Setor', type: 'text' },
+          { key: 'sector_type', label: 'Tipo', type: 'text' },
+          { key: 'capacity', label: 'Capacidade', type: 'number' },
+          { key: 'price_modifier', label: 'Ajuste Preco', type: 'currency' },
+        ],
+        rows: block.sectors || [],
+      }} />;
+    case 'event_sessions':
+      return <TimelineBlock block={{
+        ...block, type: 'timeline',
+        events: (block.sessions || []).map(s => ({
+          at: s.starts_at || '',
+          label: s.title || s.name || '',
+          description: [s.speaker_name, s.session_type].filter(Boolean).join(' — ') || null,
+          status: 'upcoming',
+        })),
+      }} />;
     default:
       return null;
   }
