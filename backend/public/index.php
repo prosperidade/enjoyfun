@@ -450,6 +450,10 @@ initializeCurrentRequestContext($method, $uri, $resource, $id, $sub, $subId, $_G
         'event-sectors'        => BASE_PATH . '/src/Controllers/EventSectorController.php',
         'event-parking-config' => BASE_PATH . '/src/Controllers/EventParkingConfigController.php',
         'event-pdv-points'     => BASE_PATH . '/src/Controllers/EventPdvPointController.php',
+        'event-tables'         => BASE_PATH . '/src/Controllers/EventTableController.php',
+        'event-sessions'       => BASE_PATH . '/src/Controllers/EventSessionController.php',
+        'event-exhibitors'     => BASE_PATH . '/src/Controllers/EventExhibitorController.php',
+        'event-certificates'   => BASE_PATH . '/src/Controllers/EventCertificateController.php',
     ];
 
 if ($resource === '' || $resource === 'ping') {
