@@ -11,6 +11,9 @@ import {
   Car,
   Store,
   MapPin,
+  Calendar,
+  Building2,
+  Mail,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -365,6 +368,282 @@ export function LocationSection({ form, setForm }) {
         <input className={inputCls} placeholder="URL Imagem do mapa" value={form.map_image_url || ""} onChange={set("map_image_url")} />
         <input className={inputCls} placeholder="URL Mapa de assentos" value={form.map_seating_url || ""} onChange={set("map_seating_url")} />
         <input className={inputCls} placeholder="URL Mapa de estacionamento" value={form.map_parking_url || ""} onChange={set("map_parking_url")} />
+      </div>
+    </SectionShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 6. SeatingSection (Mapa de Mesas)
+// ---------------------------------------------------------------------------
+
+const TABLE_TYPES = ["round", "rectangular", "imperial", "cocktail"];
+const TABLE_LABELS = { round: "Redonda", rectangular: "Retangular", imperial: "Imperial", cocktail: "Cocktail" };
+
+export function SeatingSection({ eventId }) {
+  const [items, setItems] = useState([]);
+  const [form, setForm] = useState({ table_number: "", table_name: "", table_type: "round", capacity: "8", section: "" });
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+
+  useEffect(() => {
+    if (!eventId) return;
+    api.get(`/event-tables?event_id=${eventId}`).then((r) => setItems(r.data?.data || []));
+  }, [eventId]);
+
+  const handleAdd = async () => {
+    if (!form.table_number) return toast.error("Numero da mesa obrigatorio");
+    if (!eventId) return;
+    setLoading(true);
+    try {
+      const res = await api.post("/event-tables", {
+        event_id: eventId,
+        table_number: Number(form.table_number),
+        table_name: form.table_name || null,
+        table_type: form.table_type,
+        capacity: form.capacity ? Number(form.capacity) : 8,
+        section: form.section || null,
+      });
+      setItems((prev) => [...prev, res.data?.data || res.data]);
+      setForm({ table_number: "", table_name: "", table_type: "round", capacity: "8", section: "" });
+      toast.success("Mesa adicionada");
+    } catch { toast.error("Erro ao adicionar mesa"); }
+    setLoading(false);
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/event-tables/${id}`);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      toast.success("Mesa removida");
+    } catch { toast.error("Erro ao remover"); }
+  };
+
+  return (
+    <SectionShell icon={LayoutGrid} title="Mapa de Mesas" count={items.length} expanded={expanded} toggle={() => setExpanded(!expanded)}>
+      {!eventId && <NoEventNotice />}
+      <div className="grid grid-cols-5 gap-2">
+        <input className={inputCls} type="number" placeholder="Numero" value={form.table_number} onChange={(e) => setForm({ ...form, table_number: e.target.value })} />
+        <input className={inputCls} placeholder="Nome da mesa" value={form.table_name} onChange={(e) => setForm({ ...form, table_name: e.target.value })} />
+        <select className={inputCls} value={form.table_type} onChange={(e) => setForm({ ...form, table_type: e.target.value })}>
+          {TABLE_TYPES.map((t) => <option key={t} value={t}>{TABLE_LABELS[t]}</option>)}
+        </select>
+        <input className={inputCls} type="number" placeholder="Capacidade" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} />
+        <input className={inputCls} placeholder="Secao" value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} />
+      </div>
+      <button type="button" className={btnAdd} disabled={loading || !eventId} onClick={handleAdd}>
+        <Plus className="w-3 h-3" /> Adicionar mesa
+      </button>
+      {items.map((item) => (
+        <div key={item.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
+          <span>Mesa {item.table_number}{item.table_name ? ` — ${item.table_name}` : ""} <span className="text-gray-500">({TABLE_LABELS[item.table_type] || item.table_type})</span> - {item.capacity || 8} lug.</span>
+          <button type="button" className={btnDel} onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
+        </div>
+      ))}
+    </SectionShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 7. SessionsSection (Agenda / Sessoes)
+// ---------------------------------------------------------------------------
+
+const SESSION_TYPES = ["keynote", "panel", "workshop", "poster", "roundtable", "break"];
+const SESSION_LABELS = { keynote: "Keynote", panel: "Painel", workshop: "Workshop", poster: "Poster", roundtable: "Mesa Redonda", break: "Intervalo" };
+
+export function SessionsSection({ eventId }) {
+  const [items, setItems] = useState([]);
+  const [stages, setStages] = useState([]);
+  const [form, setForm] = useState({ title: "", session_type: "keynote", speaker_name: "", starts_at: "", ends_at: "", max_capacity: "", stage_id: "" });
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+
+  useEffect(() => {
+    if (!eventId) return;
+    api.get(`/event-sessions?event_id=${eventId}`).then((r) => setItems(r.data?.data || []));
+    api.get(`/event-stages?event_id=${eventId}`).then((r) => setStages(r.data?.data || []));
+  }, [eventId]);
+
+  const handleAdd = async () => {
+    if (!form.title.trim()) return toast.error("Titulo obrigatorio");
+    if (!form.starts_at || !form.ends_at) return toast.error("Horario de inicio e fim obrigatorios");
+    if (!eventId) return;
+    setLoading(true);
+    try {
+      const res = await api.post("/event-sessions", {
+        event_id: eventId,
+        title: form.title,
+        session_type: form.session_type,
+        speaker_name: form.speaker_name || null,
+        starts_at: form.starts_at,
+        ends_at: form.ends_at,
+        max_capacity: form.max_capacity ? Number(form.max_capacity) : null,
+        stage_id: form.stage_id || null,
+      });
+      setItems((prev) => [...prev, res.data?.data || res.data]);
+      setForm({ title: "", session_type: "keynote", speaker_name: "", starts_at: "", ends_at: "", max_capacity: "", stage_id: "" });
+      toast.success("Sessao adicionada");
+    } catch { toast.error("Erro ao adicionar sessao"); }
+    setLoading(false);
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/event-sessions/${id}`);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      toast.success("Sessao removida");
+    } catch { toast.error("Erro ao remover"); }
+  };
+
+  const fmtTime = (dt) => dt ? new Date(dt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+
+  return (
+    <SectionShell icon={Calendar} title="Agenda / Sessoes" count={items.length} expanded={expanded} toggle={() => setExpanded(!expanded)}>
+      {!eventId && <NoEventNotice />}
+      <div className="grid grid-cols-3 gap-2">
+        <input className={inputCls} placeholder="Titulo da sessao" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+        <select className={inputCls} value={form.session_type} onChange={(e) => setForm({ ...form, session_type: e.target.value })}>
+          {SESSION_TYPES.map((t) => <option key={t} value={t}>{SESSION_LABELS[t]}</option>)}
+        </select>
+        <input className={inputCls} placeholder="Nome do palestrante" value={form.speaker_name} onChange={(e) => setForm({ ...form, speaker_name: e.target.value })} />
+      </div>
+      <div className="grid grid-cols-4 gap-2">
+        <input className={inputCls} type="datetime-local" value={form.starts_at} onChange={(e) => setForm({ ...form, starts_at: e.target.value })} />
+        <input className={inputCls} type="datetime-local" value={form.ends_at} onChange={(e) => setForm({ ...form, ends_at: e.target.value })} />
+        <input className={inputCls} type="number" placeholder="Capacidade max" value={form.max_capacity} onChange={(e) => setForm({ ...form, max_capacity: e.target.value })} />
+        <select className={inputCls} value={form.stage_id} onChange={(e) => setForm({ ...form, stage_id: e.target.value })}>
+          <option value="">{eventId ? "Sem palco vinculado" : "Salve o evento primeiro"}</option>
+          {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
+      <button type="button" className={btnAdd} disabled={loading || !eventId} onClick={handleAdd}>
+        <Plus className="w-3 h-3" /> Adicionar sessao
+      </button>
+      {items.map((item) => (
+        <div key={item.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
+          <span>{item.title}{item.speaker_name ? ` — ${item.speaker_name}` : ""} <span className="text-gray-500">({SESSION_LABELS[item.session_type] || item.session_type})</span> {fmtTime(item.starts_at)}–{fmtTime(item.ends_at)}</span>
+          <button type="button" className={btnDel} onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
+        </div>
+      ))}
+    </SectionShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 8. ExhibitorsSection (Expositores)
+// ---------------------------------------------------------------------------
+
+const STAND_TYPES = ["standard", "premium", "corner", "island"];
+const STAND_LABELS = { standard: "Padrao", premium: "Premium", corner: "Esquina", island: "Ilha" };
+const EXHIBITOR_STATUSES = ["pending", "confirmed", "paid", "mounted", "cancelled"];
+const STATUS_LABELS = { pending: "Pendente", confirmed: "Confirmado", paid: "Pago", mounted: "Montado", cancelled: "Cancelado" };
+const STATUS_COLORS = { pending: "bg-yellow-700", confirmed: "bg-blue-700", paid: "bg-green-700", mounted: "bg-purple-700", cancelled: "bg-red-700" };
+
+export function ExhibitorsSection({ eventId }) {
+  const [items, setItems] = useState([]);
+  const [form, setForm] = useState({ company_name: "", cnpj: "", contact_name: "", contact_email: "", contact_phone: "", stand_number: "", stand_type: "standard", status: "pending" });
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+
+  useEffect(() => {
+    if (!eventId) return;
+    api.get(`/event-exhibitors?event_id=${eventId}`).then((r) => setItems(r.data?.data || []));
+  }, [eventId]);
+
+  const handleAdd = async () => {
+    if (!form.company_name.trim()) return toast.error("Nome da empresa obrigatorio");
+    if (!eventId) return;
+    setLoading(true);
+    try {
+      const res = await api.post("/event-exhibitors", {
+        event_id: eventId,
+        company_name: form.company_name,
+        cnpj: form.cnpj || null,
+        contact_name: form.contact_name || null,
+        contact_email: form.contact_email || null,
+        contact_phone: form.contact_phone || null,
+        stand_number: form.stand_number || null,
+        stand_type: form.stand_type,
+        status: form.status,
+      });
+      setItems((prev) => [...prev, res.data?.data || res.data]);
+      setForm({ company_name: "", cnpj: "", contact_name: "", contact_email: "", contact_phone: "", stand_number: "", stand_type: "standard", status: "pending" });
+      toast.success("Expositor adicionado");
+    } catch { toast.error("Erro ao adicionar expositor"); }
+    setLoading(false);
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/event-exhibitors/${id}`);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      toast.success("Expositor removido");
+    } catch { toast.error("Erro ao remover"); }
+  };
+
+  return (
+    <SectionShell icon={Building2} title="Expositores" count={items.length} expanded={expanded} toggle={() => setExpanded(!expanded)}>
+      {!eventId && <NoEventNotice />}
+      <div className="grid grid-cols-3 gap-2">
+        <input className={inputCls} placeholder="Nome da empresa" value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} />
+        <input className={inputCls} placeholder="CNPJ" value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} />
+        <input className={inputCls} placeholder="Contato (nome)" value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <input className={inputCls} type="email" placeholder="Email do contato" value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} />
+        <input className={inputCls} placeholder="Telefone" value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
+        <input className={inputCls} placeholder="Numero do stand" value={form.stand_number} onChange={(e) => setForm({ ...form, stand_number: e.target.value })} />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <select className={inputCls} value={form.stand_type} onChange={(e) => setForm({ ...form, stand_type: e.target.value })}>
+          {STAND_TYPES.map((t) => <option key={t} value={t}>{STAND_LABELS[t]}</option>)}
+        </select>
+        <select className={inputCls} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+          {EXHIBITOR_STATUSES.map((t) => <option key={t} value={t}>{STATUS_LABELS[t]}</option>)}
+        </select>
+      </div>
+      <button type="button" className={btnAdd} disabled={loading || !eventId} onClick={handleAdd}>
+        <Plus className="w-3 h-3" /> Adicionar expositor
+      </button>
+      {items.map((item) => (
+        <div key={item.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
+          <span>{item.company_name}{item.stand_number ? ` — Stand ${item.stand_number}` : ""} <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_COLORS[item.status] || "bg-gray-700"} text-white`}>{STATUS_LABELS[item.status] || item.status}</span></span>
+          <button type="button" className={btnDel} onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
+        </div>
+      ))}
+    </SectionShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 9. InvitationsSection (Convites / RSVP)
+// ---------------------------------------------------------------------------
+
+export function InvitationsSection({ eventId }) {
+  const [totalParticipants, setTotalParticipants] = useState(null);
+  const [expanded, setExpanded] = useState(true);
+
+  useEffect(() => {
+    if (!eventId) return;
+    api.get(`/participants?event_id=${eventId}&per_page=1`).then((r) => {
+      const meta = r.data?.meta || r.data?.pagination;
+      setTotalParticipants(meta?.total ?? null);
+    }).catch(() => {});
+  }, [eventId]);
+
+  return (
+    <SectionShell icon={Mail} title="Convites / RSVP" count={totalParticipants} expanded={expanded} toggle={() => setExpanded(!expanded)}>
+      {!eventId && <NoEventNotice />}
+      <div className="bg-gray-800 rounded-lg p-4 text-sm text-gray-300 space-y-2">
+        <p>
+          Gerencie os convites na aba <span className="text-purple-400 font-medium">Publico e Participantes</span>.
+          Campos de RSVP, escolha de menu e mesa ficam disponiveis apos ativar este modulo.
+        </p>
+        {totalParticipants != null && (
+          <p className="text-xs text-gray-400">
+            Total de participantes cadastrados: <span className="text-white font-medium">{totalParticipants}</span>
+          </p>
+        )}
       </div>
     </SectionShell>
   );
