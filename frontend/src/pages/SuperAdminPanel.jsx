@@ -26,6 +26,7 @@ const TAB_ITEMS = [
     { key: 'ai-usage', label: 'APIs e Tokens', icon: Bot },
     { key: 'system-health', label: 'Saude do Sistema', icon: Activity },
     { key: 'finance', label: 'Financeiro', icon: TrendingUp },
+    { key: 'audit', label: 'Auditoria', icon: AlertTriangle },
 ];
 
 export default function SuperAdminPanel() {
@@ -53,6 +54,10 @@ export default function SuperAdminPanel() {
     // Finance state
     const [finance, setFinance] = useState(null);
     const [financeLoading, setFinanceLoading] = useState(false);
+
+    // Audit state
+    const [auditScan, setAuditScan] = useState(null);
+    const [auditLoading, setAuditLoading] = useState(false);
 
     const fetchOrganizers = useCallback(async () => {
         try {
@@ -123,6 +128,38 @@ export default function SuperAdminPanel() {
         }
     }, []);
 
+    const fetchAuditScan = useCallback(async () => {
+        setAuditLoading(true);
+        try {
+            const response = await api.get('/superadmin/audit-scan');
+            if (response.data.success) {
+                setAuditScan(response.data.data);
+            }
+        } catch (error) {
+            console.error('Erro ao executar auditoria:', error);
+        } finally {
+            setAuditLoading(false);
+        }
+    }, []);
+
+    const handleApprove = async (id) => {
+        try {
+            await api.put(`/superadmin/organizers/${id}/approve`);
+            setOrganizers(prev => prev.map(o => o.id === id ? { ...o, status: 'approved', is_active: true } : o));
+        } catch (error) {
+            console.error('Erro ao aprovar:', error);
+        }
+    };
+
+    const handleReject = async (id) => {
+        try {
+            await api.put(`/superadmin/organizers/${id}/reject`);
+            setOrganizers(prev => prev.map(o => o.id === id ? { ...o, status: 'rejected', is_active: false } : o));
+        } catch (error) {
+            console.error('Erro ao rejeitar:', error);
+        }
+    };
+
     useEffect(() => {
         fetchOrganizers();
         fetchStats();
@@ -133,7 +170,8 @@ export default function SuperAdminPanel() {
         if (activeTab === 'ai-usage' && !aiUsage) fetchAIUsage();
         if (activeTab === 'system-health' && !systemHealth) fetchSystemHealth();
         if (activeTab === 'finance' && !finance) fetchFinance();
-    }, [activeTab, aiUsage, systemHealth, finance, fetchAIUsage, fetchSystemHealth, fetchFinance]);
+        if (activeTab === 'audit' && !auditScan) fetchAuditScan();
+    }, [activeTab, aiUsage, systemHealth, finance, auditScan, fetchAIUsage, fetchSystemHealth, fetchFinance]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -220,32 +258,48 @@ export default function SuperAdminPanel() {
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Nome</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">E-mail</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Telefone</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Documento</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Eventos</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Plano</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Data</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Acoes</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-gray-900 divide-y divide-gray-800">
                                     {organizers.length > 0 ? (
                                         organizers.map((org) => {
                                             const eventsCount = parseInt(org.events_count, 10) || 0;
-                                            const isActive = eventsCount > 0;
+                                            const status = org.status || 'approved';
+                                            const statusStyles = {
+                                                approved: 'bg-green-500/20 text-green-400',
+                                                pending: 'bg-amber-500/20 text-amber-400',
+                                                rejected: 'bg-red-500/20 text-red-400',
+                                            };
+                                            const statusLabels = { approved: 'Aprovado', pending: 'Pendente', rejected: 'Rejeitado' };
                                             return (
                                                 <tr key={org.id} className="hover:bg-gray-800/50">
                                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">#{org.id}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{org.name}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{org.email}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{org.phone || '--'}</td>
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{org.document || '--'}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">{eventsCount}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap">
-                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-700/40 text-gray-400'}`}>
-                                                            {isActive ? 'Ativo' : 'Inativo'}
+                                                        <span className="text-xs text-purple-300 bg-purple-900/30 px-2 py-0.5 rounded-full">{org.plan_name || 'Starter'}</span>
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap">
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[status] || statusStyles.approved}`}>
+                                                            {statusLabels[status] || status}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">
-                                                        {org.created_at ? new Date(org.created_at).toLocaleDateString('pt-BR') : '-'}
+                                                    <td className="px-4 py-4 whitespace-nowrap">
+                                                        {status === 'pending' && (
+                                                            <div className="flex gap-1">
+                                                                <button onClick={() => handleApprove(org.id)} className="px-2 py-1 text-xs bg-green-600/20 text-green-400 rounded hover:bg-green-600/30">Aprovar</button>
+                                                                <button onClick={() => handleReject(org.id)} className="px-2 py-1 text-xs bg-red-600/20 text-red-400 rounded hover:bg-red-600/30">Rejeitar</button>
+                                                            </div>
+                                                        )}
+                                                        {status === 'rejected' && (
+                                                            <button onClick={() => handleApprove(org.id)} className="px-2 py-1 text-xs bg-green-600/20 text-green-400 rounded hover:bg-green-600/30">Reativar</button>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             );
@@ -401,12 +455,46 @@ export default function SuperAdminPanel() {
         );
     };
 
+    const renderAuditTab = () => {
+        if (auditLoading) return <p className="text-gray-400">Executando varredura...</p>;
+        if (!auditScan) return <p className="text-gray-400">Nenhuma varredura executada.</p>;
+
+        const s = auditScan.summary;
+        const statusStyles = { healthy: 'bg-green-500/20 text-green-400 border-green-500/30', warning: 'bg-amber-500/20 text-amber-400 border-amber-500/30', critical: 'bg-red-500/20 text-red-400 border-red-500/30' };
+
+        return (
+            <>
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                    <StatCard icon={UserCheck} label="Saudavel" value={s.healthy} color="bg-emerald-600" />
+                    <StatCard icon={AlertTriangle} label="Atencao" value={s.warning} color="bg-amber-500" />
+                    <StatCard icon={UserX} label="Critico" value={s.critical} color="bg-red-600" />
+                </div>
+                <div className="space-y-2">
+                    {auditScan.checks.map((check, i) => (
+                        <div key={i} className={`flex items-center justify-between rounded-lg border px-4 py-3 ${statusStyles[check.status]}`}>
+                            <div>
+                                <div className="text-sm font-medium">{check.check}</div>
+                                <div className="text-xs opacity-70">{check.detail}</div>
+                            </div>
+                            <span className="text-sm font-mono font-bold">{check.value}</span>
+                        </div>
+                    ))}
+                </div>
+                <div className="mt-4 flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Ultima varredura: {auditScan.scanned_at ? new Date(auditScan.scanned_at).toLocaleString('pt-BR') : '-'}</span>
+                    <button onClick={() => { setAuditScan(null); fetchAuditScan(); }} className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg">Re-executar</button>
+                </div>
+            </>
+        );
+    };
+
     const renderActiveTab = () => {
         switch (activeTab) {
             case 'organizers': return renderOrganizersTab();
             case 'ai-usage': return renderAIUsageTab();
             case 'system-health': return renderSystemHealthTab();
             case 'finance': return renderFinanceTab();
+            case 'audit': return renderAuditTab();
             default: return null;
         }
     };

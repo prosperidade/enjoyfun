@@ -126,6 +126,17 @@ function login(array $body): void
 
     $passwordOk = $user && password_verify($password, $user['password'] ?? '');
 
+    // Block pending/rejected organizers
+    if ($user && $passwordOk) {
+        $userStatus = $user['status'] ?? 'approved';
+        if ($userStatus === 'pending') {
+            jsonError('Sua conta ainda esta aguardando aprovacao do administrador.', 403);
+        }
+        if ($userStatus === 'rejected') {
+            jsonError('Sua solicitacao de cadastro foi recusada.', 403);
+        }
+    }
+
     if (!$user || !$passwordOk) {
         // Record failed attempt for rate limiting
         if ($clientIp !== '') {
@@ -200,14 +211,42 @@ function register(array $body): void
 
     $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
 
-    // Organizer: auto-registro público cria conta como 'organizer'
-    $stmt = $db->prepare('
-        INSERT INTO users (name, email, phone, cpf, password, role, is_active, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, true, NOW())
-        RETURNING id
-    ');
-    $stmt->execute([$name, $email, $phone, $cpf, $hash, 'organizer']);
+    // Organizer: auto-registro público cria conta como 'organizer' com status pendente
+    $hasStatus = columnExistsInTable($db, 'users', 'status');
+    $hasPlanId = columnExistsInTable($db, 'users', 'plan_id');
+
+    $cols = 'name, email, phone, cpf, password, role, is_active, created_at';
+    $vals = '?, ?, ?, ?, ?, ?, true, NOW()';
+    $params = [$name, $email, $phone, $cpf, $hash, 'organizer'];
+
+    if ($hasStatus) {
+        $cols .= ', status';
+        $vals .= ', ?';
+        $params[] = 'pending';
+    }
+    if ($hasPlanId) {
+        $defaultPlan = $db->query("SELECT id FROM plans WHERE slug = 'starter' LIMIT 1")->fetchColumn();
+        if ($defaultPlan) {
+            $cols .= ', plan_id';
+            $vals .= ', ?';
+            $params[] = (int) $defaultPlan;
+        }
+    }
+
+    $stmt = $db->prepare("INSERT INTO users ({$cols}) VALUES ({$vals}) RETURNING id");
+    $stmt->execute($params);
     $userId = (int) $stmt->fetchColumn();
+
+    // Self-isolation: organizer_id = own id
+    $db->prepare('UPDATE users SET organizer_id = ? WHERE id = ?')->execute([$userId, $userId]);
+
+    if ($hasStatus) {
+        jsonSuccess([
+            'user_id' => $userId,
+            'status' => 'pending',
+        ], 'Cadastro enviado! Aguarde a aprovacao do administrador.', 201);
+        return;
+    }
 
     $userData = buildUserPayload($db, ['id' => $userId, 'name' => $name, 'email' => $email, 'role' => 'organizer']);
     $tokens   = issueTokens($db, $userData);
@@ -1046,4 +1085,14 @@ function authClearRefreshCookie(): void
 {
     setcookie(authRefreshCookieName(), '', authRefreshCookieOptions(time() - 3600));
     unset($_COOKIE[authRefreshCookieName()]);
+}
+
+function columnExistsInTable(\PDO $db, string $table, string $column): bool
+{
+    static $cache = [];
+    $key = "{$table}.{$column}";
+    if (isset($cache[$key])) return $cache[$key];
+    $stmt = $db->prepare("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name=? AND column_name=?)");
+    $stmt->execute([$table, $column]);
+    return $cache[$key] = (bool) $stmt->fetchColumn();
 }

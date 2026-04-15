@@ -48,6 +48,7 @@ const EventFinanceExport = lazy(() => import("./pages/EventFinanceExport"));
 const EventFinanceSettings = lazy(() => import("./pages/EventFinanceSettings"));
 const Download = lazy(() => import("./pages/Download"));
 const PublicInvitation = lazy(() => import("./pages/PublicInvitation"));
+const Register = lazy(() => import("./pages/Register"));
 
 function NotFound() {
   return (
@@ -99,6 +100,7 @@ export default function App() {
         <Suspense fallback={<RouteLoading />}>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/cadastro" element={<Register />} />
             <Route path="/baixar" element={<Download />} />
 
             {/* ── Customer App (WebApp Mobile) ────────────────────────── */}

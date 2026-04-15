@@ -15,9 +15,14 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'GET'  && $id === 'stats' => getOrganizerStats(),
         $method === 'POST' && $id === 'organizers' => createOrganizer($body),
         $method === 'GET'  && $id === 'organizers' => listOrganizers(),
+        $method === 'PUT'  && $id === 'organizers' && $sub !== null && $subId === 'approve' => approveOrganizer((int)$sub),
+        $method === 'PUT'  && $id === 'organizers' && $sub !== null && $subId === 'reject' => rejectOrganizer((int)$sub),
         $method === 'GET'  && $id === 'ai-usage' => getAIUsageBreakdown(),
         $method === 'GET'  && $id === 'system-health' => getSystemHealth(),
         $method === 'GET'  && $id === 'finance-overview' => getFinanceOverview(),
+        $method === 'GET'  && $id === 'plans' => listPlans(),
+        $method === 'PUT'  && $id === 'organizers' && $sub !== null && $subId === 'plan' => updateOrganizerPlan((int)$sub, $body),
+        $method === 'GET'  && $id === 'audit-scan' => runAuditScan(),
         default => jsonError("Super Admin: Endpoint não encontrado", 404)
     };
 }
@@ -179,13 +184,27 @@ function listOrganizers(): void
 {
     try {
         $db = Database::getInstance();
+        $hasStatus = columnExistsCheck($db, 'users', 'status');
+        $hasPlanId = columnExistsCheck($db, 'users', 'plan_id');
+        $hasPlansTable = false;
+        try { $db->query("SELECT 1 FROM plans LIMIT 1"); $hasPlansTable = true; } catch (Exception $e) {}
+
+        $statusCol = $hasStatus ? "u.status" : "'approved' AS status";
+        $planCols = ($hasPlanId && $hasPlansTable) ? ", p.name AS plan_name, p.slug AS plan_slug" : ", NULL AS plan_name, NULL AS plan_slug";
+        $planJoin = ($hasPlanId && $hasPlansTable) ? "LEFT JOIN plans p ON p.id = u.plan_id" : "";
+
         $stmt = $db->prepare("
             SELECT u.id, u.name, u.email, u.phone, u.document, u.created_at,
+                   {$statusCol}, u.is_active,
                    COUNT(e.id) AS events_count
+                   {$planCols}
             FROM users u
             LEFT JOIN events e ON e.organizer_id = u.id
+            {$planJoin}
             WHERE u.role = 'organizer' AND u.organizer_id = u.id
-            GROUP BY u.id, u.name, u.email, u.phone, u.document, u.created_at
+            GROUP BY u.id, u.name, u.email, u.phone, u.document, u.created_at, u.is_active
+                     " . ($hasStatus ? ", u.status" : "") . "
+                     " . (($hasPlanId && $hasPlansTable) ? ", p.name, p.slug" : "") . "
             ORDER BY u.created_at DESC
         ");
         $stmt->execute();
@@ -397,4 +416,190 @@ function getFinanceOverview(): void
         error_log("[SuperAdmin Finance] Error (Ref: {$ref}) - " . $e->getMessage());
         jsonError("Erro ao carregar visao financeira (Ref: {$ref})", 500);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Approval workflow
+// ---------------------------------------------------------------------------
+
+function approveOrganizer(int $id): void
+{
+    $db = Database::getInstance();
+    $stmt = $db->prepare("UPDATE users SET status = 'approved' WHERE id = ? AND role = 'organizer'");
+    $stmt->execute([$id]);
+    if ($stmt->rowCount() === 0) jsonError('Organizador nao encontrado', 404);
+    jsonSuccess(null, 'Organizador aprovado com sucesso.');
+}
+
+function rejectOrganizer(int $id): void
+{
+    $db = Database::getInstance();
+    $stmt = $db->prepare("UPDATE users SET status = 'rejected', is_active = false WHERE id = ? AND role = 'organizer'");
+    $stmt->execute([$id]);
+    if ($stmt->rowCount() === 0) jsonError('Organizador nao encontrado', 404);
+    jsonSuccess(null, 'Organizador rejeitado.');
+}
+
+// ---------------------------------------------------------------------------
+// Plans management
+// ---------------------------------------------------------------------------
+
+function listPlans(): void
+{
+    $db = Database::getInstance();
+    $stmt = $db->query("SELECT id, name, slug, commission_pct, ai_monthly_cap_brl, max_events, max_staff_per_event, price_monthly_brl, features, is_active FROM plans ORDER BY price_monthly_brl ASC");
+    jsonSuccess($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function updateOrganizerPlan(int $organizerId, array $body): void
+{
+    $planId = (int)($body['plan_id'] ?? 0);
+    if ($planId <= 0) jsonError('plan_id obrigatorio', 422);
+
+    $db = Database::getInstance();
+
+    // Verify plan exists
+    $stmt = $db->prepare("SELECT id FROM plans WHERE id = ?");
+    $stmt->execute([$planId]);
+    if (!$stmt->fetchColumn()) jsonError('Plano nao encontrado', 404);
+
+    $stmt = $db->prepare("UPDATE users SET plan_id = ? WHERE id = ? AND role = 'organizer'");
+    $stmt->execute([$planId, $organizerId]);
+    if ($stmt->rowCount() === 0) jsonError('Organizador nao encontrado', 404);
+
+    jsonSuccess(null, 'Plano atualizado com sucesso.');
+}
+
+// ---------------------------------------------------------------------------
+// System audit scan
+// ---------------------------------------------------------------------------
+
+function runAuditScan(): void
+{
+    $db = Database::getInstance();
+    $checks = [];
+
+    // 1. Users without organizer_id
+    $stmt = $db->query("SELECT COUNT(*) FROM users WHERE role = 'organizer' AND (organizer_id IS NULL OR organizer_id != id)");
+    $orphanOrgs = (int)$stmt->fetchColumn();
+    $checks[] = [
+        'check' => 'Organizadores sem organizer_id',
+        'status' => $orphanOrgs === 0 ? 'healthy' : 'critical',
+        'value' => $orphanOrgs,
+        'detail' => $orphanOrgs === 0 ? 'Todos organizadores com isolamento correto' : "{$orphanOrgs} organizadores sem isolamento multi-tenant",
+    ];
+
+    // 2. Products without event_id
+    $stmt = $db->query("SELECT COUNT(*) FROM products WHERE event_id IS NULL");
+    $orphanProducts = (int)$stmt->fetchColumn();
+    $checks[] = [
+        'check' => 'Produtos sem evento',
+        'status' => $orphanProducts === 0 ? 'healthy' : 'warning',
+        'value' => $orphanProducts,
+        'detail' => $orphanProducts === 0 ? 'Todos produtos vinculados a eventos' : "{$orphanProducts} produtos orfaos",
+    ];
+
+    // 3. Events without organizer_id
+    $stmt = $db->query("SELECT COUNT(*) FROM events WHERE organizer_id IS NULL");
+    $orphanEvents = (int)$stmt->fetchColumn();
+    $checks[] = [
+        'check' => 'Eventos sem organizador',
+        'status' => $orphanEvents === 0 ? 'healthy' : 'critical',
+        'value' => $orphanEvents,
+        'detail' => $orphanEvents === 0 ? 'Todos eventos com organizador' : "{$orphanEvents} eventos orfaos",
+    ];
+
+    // 4. Pending organizers
+    $hasSt = columnExistsCheck($db, 'users', 'status');
+    $pendingOrgs = 0;
+    if ($hasSt) {
+        $stmt = $db->query("SELECT COUNT(*) FROM users WHERE role = 'organizer' AND status = 'pending'");
+        $pendingOrgs = (int)$stmt->fetchColumn();
+    }
+    $checks[] = [
+        'check' => 'Organizadores pendentes de aprovacao',
+        'status' => $pendingOrgs === 0 ? 'healthy' : 'warning',
+        'value' => $pendingOrgs,
+        'detail' => $pendingOrgs === 0 ? 'Nenhum cadastro pendente' : "{$pendingOrgs} aguardando aprovacao",
+    ];
+
+    // 5. Sales without audit log (last 24h)
+    $stmt = $db->query("
+        SELECT COUNT(*) FROM sales s
+        WHERE s.created_at > NOW() - INTERVAL '24 hours'
+        AND NOT EXISTS (
+            SELECT 1 FROM audit_log al
+            WHERE al.entity_type = 'sale' AND al.entity_id = CAST(s.id AS TEXT)
+            AND al.created_at > NOW() - INTERVAL '24 hours'
+        )
+    ");
+    $unauditedSales = (int)$stmt->fetchColumn();
+    $checks[] = [
+        'check' => 'Vendas sem auditoria (24h)',
+        'status' => $unauditedSales === 0 ? 'healthy' : 'warning',
+        'value' => $unauditedSales,
+        'detail' => $unauditedSales === 0 ? 'Todas vendas auditadas' : "{$unauditedSales} vendas sem audit log",
+    ];
+
+    // 6. AI spending near cap
+    $stmt = $db->query("
+        SELECT u.id, u.name, u.email,
+            COALESCE(SUM(a.estimated_cost), 0) AS monthly_cost
+        FROM users u
+        LEFT JOIN ai_usage_logs a ON a.organizer_id = u.organizer_id
+            AND a.created_at > date_trunc('month', NOW())
+        WHERE u.role = 'organizer'
+        GROUP BY u.id, u.name, u.email
+        HAVING COALESCE(SUM(a.estimated_cost), 0) > 400
+    ");
+    $highSpenders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $checks[] = [
+        'check' => 'Organizadores com gasto IA alto (>R$400/mes)',
+        'status' => count($highSpenders) === 0 ? 'healthy' : 'warning',
+        'value' => count($highSpenders),
+        'detail' => count($highSpenders) === 0 ? 'Nenhum organizador perto do limite' : implode(', ', array_map(fn($s) => "{$s['name']} (R\${$s['monthly_cost']})", $highSpenders)),
+    ];
+
+    // 7. Refresh tokens older than 30 days
+    $stmt = $db->query("SELECT COUNT(*) FROM refresh_tokens WHERE created_at < NOW() - INTERVAL '30 days'");
+    $oldTokens = (int)$stmt->fetchColumn();
+    $checks[] = [
+        'check' => 'Refresh tokens antigos (>30 dias)',
+        'status' => $oldTokens < 100 ? 'healthy' : 'warning',
+        'value' => $oldTokens,
+        'detail' => $oldTokens < 100 ? 'Poucos tokens antigos' : "{$oldTokens} tokens expirados devem ser limpos",
+    ];
+
+    // 8. Database size
+    $stmt = $db->query("SELECT pg_size_pretty(pg_database_size(current_database()))");
+    $dbSize = $stmt->fetchColumn();
+    $checks[] = [
+        'check' => 'Tamanho do banco',
+        'status' => 'healthy',
+        'value' => $dbSize,
+        'detail' => "Banco atual: {$dbSize}",
+    ];
+
+    // Summary
+    $criticalCount = count(array_filter($checks, fn($c) => $c['status'] === 'critical'));
+    $warningCount = count(array_filter($checks, fn($c) => $c['status'] === 'warning'));
+    $healthyCount = count(array_filter($checks, fn($c) => $c['status'] === 'healthy'));
+
+    jsonSuccess([
+        'summary' => [
+            'critical' => $criticalCount,
+            'warning' => $warningCount,
+            'healthy' => $healthyCount,
+            'total' => count($checks),
+        ],
+        'checks' => $checks,
+        'scanned_at' => date('c'),
+    ]);
+}
+
+function columnExistsCheck(PDO $db, string $table, string $column): bool
+{
+    $stmt = $db->prepare("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name=? AND column_name=?)");
+    $stmt->execute([$table, $column]);
+    return (bool)$stmt->fetchColumn();
 }

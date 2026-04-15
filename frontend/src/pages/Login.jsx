@@ -3,6 +3,7 @@ import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Zap, LogIn, UserPlus, ArrowRight, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '../lib/api';
 
 const perks = [
   'Gestão completa de eventos',
@@ -47,8 +48,15 @@ export default function Login() {
         await login(form.email, form.password);
         toast.success('Bem-vindo de volta! 🎉');
       } else {
-        await register({ name: form.name, email: form.email, password: form.password, phone: form.phone, cpf: form.cpf });
-        toast.success('Conta criada! Bem-vindo ao EnjoyFun! 🚀');
+        const res = await api.post('/auth/register', { name: form.name, email: form.email, password: form.password, phone: form.phone, cpf: form.cpf });
+        const regData = res.data?.data;
+        if (regData?.status === 'pending') {
+          toast.success(res.data?.message || 'Cadastro enviado! Aguarde aprovacao.');
+          setTab('login');
+          return;
+        }
+        // Legacy: if backend still returns tokens
+        toast.success('Conta criada!');
       }
     } catch (err) {
       const msg = err?.response?.data?.message || 'Ocorreu um erro. Tente novamente.';
