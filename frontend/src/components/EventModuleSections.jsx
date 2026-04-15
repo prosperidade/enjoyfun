@@ -766,11 +766,15 @@ export function MapsSection({ eventId, form, setForm }) {
       const res = await api.post("/organizer-files", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      const uploadedUrl =
-        res.data?.data?.storage_path || res.data?.data?.original_name || "";
-      setForm((prev) => ({ ...prev, [field]: uploadedUrl }));
+      const fileData = res.data?.data || {};
+      const storagePath = fileData.storage_path || "";
+      const fileName = fileData.original_name || file.name;
+      // Build accessible URL — storage_path is relative to backend public/
+      const baseUrl = api.defaults.baseURL?.replace(/\/api\/?$/, "") || "";
+      const fileUrl = storagePath ? `${baseUrl}/${storagePath}` : "";
+      setForm((prev) => ({ ...prev, [field]: fileUrl || fileName }));
       setSelectedFiles((prev) => ({ ...prev, [field]: null }));
-      toast.success("Arquivo enviado!");
+      toast.success(`"${fileName}" enviado com sucesso!`);
     } catch {
       toast.error("Erro ao enviar arquivo");
     }
@@ -813,8 +817,8 @@ export function MapsSection({ eventId, form, setForm }) {
 
               {currentUrl ? (
                 <div className="flex items-center gap-2 bg-gray-900 rounded-lg px-3 py-2">
-                  <span className="text-xs text-green-400 truncate flex-1">
-                    {currentUrl}
+                  <span className="text-xs text-green-400 truncate flex-1" title={currentUrl}>
+                    {currentUrl.split("/").pop() || currentUrl}
                   </span>
                   <a
                     href={currentUrl}
@@ -834,35 +838,40 @@ export function MapsSection({ eventId, form, setForm }) {
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <label className="flex-1">
+                  <div className="flex items-center gap-2">
                     <input
                       type="file"
                       accept="image/*,.pdf,.glb,.gltf"
-                      className="hidden"
+                      id={`map-upload-${slot.field}`}
+                      className="sr-only"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f)
+                        if (f) {
                           setSelectedFiles((prev) => ({
                             ...prev,
                             [slot.field]: f,
                           }));
+                        }
                       }}
                     />
-                    <span className="flex items-center gap-1.5 cursor-pointer bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs px-3 py-2 rounded-lg transition-colors">
+                    <label
+                      htmlFor={`map-upload-${slot.field}`}
+                      className="flex items-center gap-1.5 cursor-pointer bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs px-3 py-2 rounded-lg transition-colors flex-1"
+                    >
                       <Upload className="w-3.5 h-3.5" />
                       {file ? file.name : "Escolher arquivo"}
-                    </span>
-                  </label>
-                  {file && (
-                    <button
-                      type="button"
-                      disabled={isUploading}
-                      onClick={() => handleUpload(file, slot.field)}
-                      className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium px-3 py-2 rounded-lg disabled:opacity-40"
-                    >
-                      {isUploading ? "Enviando..." : "Enviar"}
-                    </button>
-                  )}
+                    </label>
+                    {file && (
+                      <button
+                        type="button"
+                        disabled={isUploading}
+                        onClick={() => handleUpload(file, slot.field)}
+                        className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium px-3 py-2 rounded-lg disabled:opacity-40"
+                      >
+                        {isUploading ? "Enviando..." : "Enviar"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
