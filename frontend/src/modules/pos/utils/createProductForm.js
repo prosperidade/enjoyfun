@@ -7,5 +7,6 @@ export function createProductForm(sector) {
     stock_qty: "",
     low_stock_threshold: 5,
     sector,
+    pdv_point_id: "",
   };
 }

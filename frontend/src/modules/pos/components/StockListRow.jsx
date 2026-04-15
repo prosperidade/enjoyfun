@@ -19,6 +19,11 @@ export default function StockListRow({
           <span className="text-[10px] bg-gray-700 px-1.5 rounded uppercase ml-2 text-gray-400">
             {product.sector}
           </span>
+          {product.pdv_point_name && (
+            <span className="text-[10px] bg-purple-900/50 text-purple-300 px-1.5 rounded ml-1">
+              {product.pdv_point_name}
+            </span>
+          )}
         </p>
         <p className="text-xs text-gray-500">ID: #{product.id}</p>
       </div>

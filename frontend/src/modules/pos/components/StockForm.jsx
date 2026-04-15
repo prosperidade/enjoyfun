@@ -1,7 +1,10 @@
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
+import api from "../../../lib/api";
 
 export default function StockForm({
   currentSector,
+  eventId,
   onCancel,
   onSubmit,
   prodForm,
@@ -10,6 +13,19 @@ export default function StockForm({
   setProdForm,
   showAddForm,
 }) {
+  const [pdvPoints, setPdvPoints] = useState([]);
+
+  useEffect(() => {
+    if (!showAddForm || !eventId) return;
+    api
+      .get(`/event-pdv-points?event_id=${eventId}`)
+      .then((res) => {
+        const all = res.data?.data || res.data || [];
+        setPdvPoints(all.filter((p) => p.pdv_type === currentSector));
+      })
+      .catch(() => setPdvPoints([]));
+  }, [showAddForm, eventId, currentSector]);
+
   if (!showAddForm) {
     return null;
   }
@@ -38,9 +54,9 @@ export default function StockForm({
       </h3>
       <form
         onSubmit={handleSubmit}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4"
       >
-        <div className="lg:col-span-1">
+        <div>
           <label className="text-xs text-gray-500 block mb-1">Setor</label>
           <select
             className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
@@ -50,7 +66,26 @@ export default function StockForm({
             <option value={currentSector}>{sectorTitle}</option>
           </select>
         </div>
-        <div className="lg:col-span-1">
+        {pdvPoints.length > 0 && (
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Ponto de Venda</label>
+            <select
+              className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
+              value={prodForm.pdv_point_id || ""}
+              onChange={(e) =>
+                setProdForm({ ...prodForm, pdv_point_id: e.target.value ? Number(e.target.value) : "" })
+              }
+            >
+              <option value="">Nenhum (geral)</option>
+              {pdvPoints.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div>
           <label className="text-xs text-gray-500 block mb-1">Nome</label>
           <input
             className="w-full bg-gray-950 border border-gray-700 text-white rounded-lg p-2 text-sm"
@@ -115,7 +150,7 @@ export default function StockForm({
             }
           />
         </div>
-        <div className="lg:col-span-6 flex justify-end gap-2 mt-2">
+        <div className="col-span-full flex justify-end gap-2 mt-2">
           <button
             type="button"
             onClick={onCancel}

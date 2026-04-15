@@ -364,6 +364,7 @@ export default function POS({ fixedSector = "bar" }) {
       stock_qty: p.stock_qty,
       low_stock_threshold: p.low_stock_threshold || 5,
       sector: p.sector || currentSector,
+      pdv_point_id: p.pdv_point_id || "",
     });
     setShowAddForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -550,6 +551,7 @@ export default function POS({ fixedSector = "bar" }) {
             >
               <StockForm
                 currentSector={currentSector}
+                eventId={eventId}
                 onCancel={() => setShowAddForm(false)}
                 onSubmit={handleAddProduct}
                 prodForm={prodForm}

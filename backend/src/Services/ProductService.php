@@ -11,16 +11,22 @@ class ProductService
     {
         self::assertOrganizer($organizerId);
         $sector = self::normalizeSector($sector);
-        $sectorScopeSql = self::buildSectorScopeSql($sector, 'sector');
+        $sectorScopeSql = self::buildSectorScopeSql($sector, 'p.sector');
 
         $hasCostPrice = self::columnExists($db, 'products', 'cost_price');
-        $costPriceExpr = $hasCostPrice ? 'CAST(cost_price AS FLOAT) as cost_price' : '0::float as cost_price';
+        $costPriceExpr = $hasCostPrice ? 'CAST(p.cost_price AS FLOAT) as cost_price' : '0::float as cost_price';
+
+        $hasPdvPoint = self::columnExists($db, 'products', 'pdv_point_id');
+        $pdvPointExpr = $hasPdvPoint ? 'p.pdv_point_id' : 'NULL::integer as pdv_point_id';
+        $pdvJoin = $hasPdvPoint ? 'LEFT JOIN event_pdv_points pp ON pp.id = p.pdv_point_id' : '';
+        $pdvNameExpr = $hasPdvPoint ? "pp.name as pdv_point_name" : "NULL::text as pdv_point_name";
 
         $stmt = $db->prepare("
-            SELECT id, event_id, name, CAST(price AS FLOAT) as price, {$costPriceExpr}, stock_qty, sector, low_stock_threshold
-            FROM public.products
-            WHERE event_id = ? AND organizer_id = ? AND {$sectorScopeSql}
-            ORDER BY name ASC
+            SELECT p.id, p.event_id, p.name, CAST(p.price AS FLOAT) as price, {$costPriceExpr}, p.stock_qty, p.sector, p.low_stock_threshold, {$pdvPointExpr}, {$pdvNameExpr}
+            FROM public.products p
+            {$pdvJoin}
+            WHERE p.event_id = ? AND p.organizer_id = ? AND {$sectorScopeSql}
+            ORDER BY p.name ASC
         ");
         $stmt->execute([$eventId, $organizerId]);
 
@@ -57,6 +63,7 @@ class ProductService
         }
 
         $hasCostPrice = self::columnExists($db, 'products', 'cost_price');
+        $hasPdvPoint = self::columnExists($db, 'products', 'pdv_point_id');
         $cols = 'event_id, organizer_id, name, price, stock_qty, sector, low_stock_threshold';
         $placeholders = '?, ?, ?, ?, ?, ?, ?';
         $values = [
@@ -72,6 +79,12 @@ class ProductService
             $cols .= ', cost_price';
             $placeholders .= ', ?';
             $values[] = (float)($payload['cost_price'] ?? 0);
+        }
+        if ($hasPdvPoint) {
+            $pdvPointId = isset($payload['pdv_point_id']) ? (int)$payload['pdv_point_id'] : null;
+            $cols .= ', pdv_point_id';
+            $placeholders .= ', ?';
+            $values[] = $pdvPointId ?: null;
         }
 
         $stmt = $db->prepare("
@@ -95,6 +108,7 @@ class ProductService
         }
 
         $hasCostPrice = self::columnExists($db, 'products', 'cost_price');
+        $hasPdvPoint = self::columnExists($db, 'products', 'pdv_point_id');
         $setClause = 'name = ?, price = ?, stock_qty = ?, low_stock_threshold = ?, updated_at = NOW()';
         $values = [
             trim((string)($payload['name'] ?? '')),
@@ -105,6 +119,11 @@ class ProductService
         if ($hasCostPrice) {
             $setClause = 'name = ?, price = ?, cost_price = ?, stock_qty = ?, low_stock_threshold = ?, updated_at = NOW()';
             array_splice($values, 2, 0, [(float)($payload['cost_price'] ?? 0)]);
+        }
+        if ($hasPdvPoint) {
+            $pdvPointId = isset($payload['pdv_point_id']) ? (int)$payload['pdv_point_id'] : null;
+            $setClause .= ', pdv_point_id = ?';
+            $values[] = $pdvPointId ?: null;
         }
         $values[] = $id;
         $values[] = $organizerId;

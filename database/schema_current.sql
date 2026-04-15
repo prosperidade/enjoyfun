@@ -2949,7 +2949,9 @@ CREATE TABLE public.products (
     vendor_id integer,
     sector character varying(50) DEFAULT 'bar'::character varying,
     low_stock_threshold integer DEFAULT 5,
-    organizer_id integer NOT NULL
+    organizer_id integer NOT NULL,
+    cost_price numeric(10,2) DEFAULT 0,
+    pdv_point_id integer REFERENCES event_pdv_points(id) ON DELETE SET NULL
 );
 
 ALTER TABLE ONLY public.products FORCE ROW LEVEL SECURITY;

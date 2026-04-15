@@ -120,6 +120,10 @@ class DashboardDomainService
             $stmtCriticalProductsCount->execute();
             $criticalStockProductsCount = (int)$stmtCriticalProductsCount->fetchColumn();
 
+            $hasPdvPointCol = self::columnExists($db, 'products', 'pdv_point_id') && self::tableExists($db, 'event_pdv_points');
+            $pdvJoin = $hasPdvPointCol ? 'LEFT JOIN event_pdv_points pp ON pp.id = p.pdv_point_id' : '';
+            $pdvSelect = $hasPdvPointCol ? ', pp.name AS pdv_point_name' : ", NULL::text AS pdv_point_name";
+
             $stmtCriticalProducts = $db->prepare("
                 SELECT
                     p.id,
@@ -127,7 +131,9 @@ class DashboardDomainService
                     LOWER(COALESCE(NULLIF(TRIM(p.sector), ''), 'geral')) AS sector,
                     COALESCE(p.stock_qty, 0) AS stock_qty,
                     COALESCE(p.low_stock_threshold, 0) AS low_stock_threshold
+                    {$pdvSelect}
                 FROM products p
+                {$pdvJoin}
                 WHERE COALESCE(p.stock_qty, 0) <= COALESCE(p.low_stock_threshold, 0)
                   {$productScope}
                   {$whereEventProducts}
@@ -143,12 +149,17 @@ class DashboardDomainService
                     'sector' => (string)($row['sector'] ?? 'geral'),
                     'stock_qty' => (int)($row['stock_qty'] ?? 0),
                     'low_stock_threshold' => (int)($row['low_stock_threshold'] ?? 0),
+                    'pdv_point_name' => $row['pdv_point_name'] ?? null,
                 ];
             }, $stmtCriticalProducts->fetchAll(PDO::FETCH_ASSOC) ?: []);
         }
 
         $criticalStockByPdvPoint = [];
         if ($eventId && self::tableExists($db, 'event_pdv_points')) {
+            $hasPdvPointId = self::columnExists($db, 'products', 'pdv_point_id');
+            $joinCondition = $hasPdvPointId
+                ? "(p.pdv_point_id = pp.id OR (p.pdv_point_id IS NULL AND LOWER(p.sector) = LOWER(pp.pdv_type)))"
+                : "LOWER(p.sector) = LOWER(pp.pdv_type)";
             $stmtPdvStock = $db->prepare("
                 SELECT
                     pp.name AS pdv_point_name,
@@ -157,7 +168,7 @@ class DashboardDomainService
                 FROM event_pdv_points pp
                 LEFT JOIN products p
                     ON p.event_id = pp.event_id
-                    AND LOWER(p.sector) = LOWER(pp.pdv_type)
+                    AND {$joinCondition}
                     AND COALESCE(p.stock_qty, 0) <= COALESCE(p.low_stock_threshold, 0)
                     AND p.organizer_id = :org_id
                 WHERE pp.event_id = :event_id

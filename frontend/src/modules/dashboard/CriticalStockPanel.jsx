@@ -51,7 +51,14 @@ export default function CriticalStockPanel({ loading, products, stockByPdvPoint 
                   className="flex items-center justify-between rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-2"
                 >
                   <div>
-                    <div className="text-xs font-medium text-white">{product.name}</div>
+                    <div className="text-xs font-medium text-white">
+                      {product.name}
+                      {product.pdv_point_name && (
+                        <span className="ml-1.5 text-[10px] bg-purple-900/50 text-purple-300 px-1.5 rounded">
+                          {product.pdv_point_name}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[11px] uppercase text-gray-500">{product.sector}</div>
                   </div>
                   <div className="text-right">
