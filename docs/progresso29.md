@@ -319,5 +319,76 @@ e03327d feat(ai): specialized block types for event_stages, event_sectors, event
 
 ---
 
-*EnjoyFun Platform — Sessao 29 concluida com 9 commits*
+## FASE 7 — App B2C Participante (enjoyfun-participant)
+
+### Decisao Arquitetural
+- App Expo independente em `c:\Users\Administrador\Desktop\enjoyfun-participant\`
+- Design system Aether Neon ("Galactic Concierge") convertido do DESIGN.md
+- Backend via B2CAppController no repo principal (11 endpoints)
+- Conceito AI-First de `docs/app-aifirst.md`: chat como home, blocos adaptativos
+
+### Backend: B2CAppController.php
+- 8 endpoints publicos: event, lineup, map, sectors, sessions, tables, stages, menu
+- 3 endpoints auth: tickets, wallet, transactions + recharge
+- Registrado em `/b2c/*` no router
+- Testado: event, map, menu retornam dados reais
+
+### App: 8 telas + auth flow (2.190 linhas)
+
+| Tela | Fonte HTML | Conversao |
+|------|-----------|-----------|
+| **LoginScreen** | Aether Neon style | Glassmorphism login com glow effects |
+| **EventHomeScreen** | `enjoyfun_immersive_hub` | Hero banner, countdown, stats, AI CTA |
+| **LineupScreen** | `main_stage_line_up_overlay` | Brutalist header, stage chips, artist cards |
+| **MapScreen** | `main_map_overview` | POI list com kind icons, Google Maps CTA |
+| **TicketsScreen** | `interactive_ticket_cards_update` | Ticket cards, dashed separator, QR modal |
+| **CardScreen** | `cashless_card_hub` | Holographic wallet, recharge grid, transactions |
+| **AgendaScreen** | `intelligent_agenda` | Timeline com session type badges, speaker |
+| **SeatingScreen** | `seating_map_galactic_arena` | Table grid por section, shape icons |
+| **ConciergeScreen** | `ai_concierge_chat_flow` | Chat IA com suggestions, POST /ai/chat |
+
+### Componentes compartilhados
+- **GlassCard** — glassmorphism + glow primary/secondary
+- **theme.ts** — 48 cores Aether Neon + tipografia Space Grotesk/Manrope
+
+### Navegacao
+- Stack: Login → Main (bottom tabs)
+- Bottom tabs: Home, Mapa, AI (concierge), Tickets, Card
+- Hidden tabs: Lineup, Agenda, Seating (acessiveis via navigate)
+- Auth flow: token check → login ou tabs, 401 → logout
+
+### Commits (enjoyfun-participant repo)
+```
+7440e39 feat: add ConciergeScreen (AI chat), restructure bottom tabs
+5a39d68 feat: add LoginScreen, AgendaScreen, SeatingScreen + auth flow
+1dfec62 feat: initial enjoyfun-participant app (B2C Aether Neon)
+```
+
+### Commit (enjoyfun repo principal)
+```
+24a9a28 feat(b2c): B2CAppController with public + auth endpoints for participant app
+```
+
+---
+
+## Pendencias do App B2C
+
+### MVP (pre D-Day)
+- Fontes Space Grotesk + Manrope via expo-font
+- Assets (icon.png, splash.png)
+- Testar no Expo Go (device real)
+- Push notifications integration
+- Offline cache (expo-sqlite pra info do evento)
+
+### Pos-MVP
+- 3D Venue viewer (expo-three ou WebView)
+- Checkout real no cardapio (debitar cashless)
+- Landing page publica SEO
+- Login por codigo WhatsApp
+- Friend locations no mapa
+- Live stream preview
+
+---
+
+*EnjoyFun Platform — Sessao 29 concluida com 12 commits (9 principal + 3 participant)*
 *2026-04-15*
