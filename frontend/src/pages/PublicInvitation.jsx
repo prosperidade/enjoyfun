@@ -9,6 +9,16 @@ import publicApi from '../lib/publicApi';
    Sem autenticacao, mobile-first, dark theme + purple accents
    ──────────────────────────────────────────────────────────── */
 
+function resolveImageUrl(ref) {
+  if (!ref) return null;
+  if (ref.startsWith('file:')) {
+    const fileId = ref.split(':')[1];
+    return `/api/invitations/banner/${fileId}`;
+  }
+  if (ref.startsWith('http')) return ref;
+  return ref.startsWith('/') ? ref : `/${ref}`;
+}
+
 const MEAL_OPTIONS = [
   { value: 'carne', label: 'Carne', icon: '🥩' },
   { value: 'peixe', label: 'Peixe', icon: '🐟' },
@@ -227,7 +237,7 @@ export default function PublicInvitation() {
         <div className="relative w-full h-56 sm:h-64 overflow-hidden">
           {event?.banner_url ? (
             <img
-              src={event.banner_url}
+              src={resolveImageUrl(event.banner_url)}
               alt={event.name}
               className="w-full h-full object-cover"
             />

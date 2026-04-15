@@ -24,10 +24,46 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
     }
 
     match (true) {
+        $method === 'GET'  && $eventSlug === 'banner' && $guestToken !== null && $action === null => serveEventBanner($guestToken),
         $method === 'GET'  && $action === null   => getInvitation($eventSlug, $guestToken),
         $method === 'POST' && $action === 'rsvp' => submitRsvp($eventSlug, $guestToken, $body),
         default => jsonError('Convite: rota nao encontrada.', 404),
     };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Serve event banner image (public, no auth)
+// GET /invitations/banner/{fileId}
+// ─────────────────────────────────────────────────────────────────────────────
+function serveEventBanner(string $fileId): void
+{
+    $db = Database::getInstance();
+    $id = (int) $fileId;
+    if ($id <= 0) { jsonError('Arquivo nao encontrado.', 404); }
+
+    $stmt = $db->prepare("
+        SELECT storage_path, mime_type, original_name, file_size_bytes
+        FROM public.organizer_files
+        WHERE id = :id
+        LIMIT 1
+    ");
+    $stmt->execute([':id' => $id]);
+    $file = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$file) { jsonError('Arquivo nao encontrado.', 404); }
+
+    $fullPath = BASE_PATH . '/public' . ($file['storage_path'] ?? '');
+    if (!file_exists($fullPath)) { jsonError('Arquivo nao encontrado.', 404); }
+
+    $mime = $file['mime_type'] ?: 'image/jpeg';
+    // Only serve images publicly
+    if (!str_starts_with($mime, 'image/')) { jsonError('Tipo de arquivo nao permitido.', 403); }
+
+    header('Content-Type: ' . $mime);
+    header('Content-Length: ' . filesize($fullPath));
+    header('Cache-Control: public, max-age=86400');
+    readfile($fullPath);
+    exit;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
