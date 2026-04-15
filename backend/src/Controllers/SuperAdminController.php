@@ -12,6 +12,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
 
     match (true) {
         $method === 'GET'  && $id === 'billing' && $sub === 'stats' => getGlobalBillingStats($user),
+        $method === 'GET'  && $id === 'stats' => getOrganizerStats(),
         $method === 'POST' && $id === 'organizers' => createOrganizer($body),
         $method === 'GET'  && $id === 'organizers' => listOrganizers(),
         default => jsonError("Super Admin: Endpoint não encontrado", 404)
@@ -122,18 +123,70 @@ function createOrganizer(array $body): void
     jsonSuccess(['id' => $newId], "Organizador criado com sucesso!", 201);
 }
 
+function getOrganizerStats(): void
+{
+    try {
+        $db = Database::getInstance();
+
+        // Total organizers
+        $stmt = $db->query("
+            SELECT COUNT(*) FROM users WHERE role = 'organizer' AND organizer_id = id
+        ");
+        $totalOrganizers = (int) $stmt->fetchColumn();
+
+        // Active organizers (at least 1 event)
+        $stmt = $db->query("
+            SELECT COUNT(DISTINCT u.id)
+            FROM users u
+            INNER JOIN events e ON e.organizer_id = u.id
+            WHERE u.role = 'organizer' AND u.organizer_id = u.id
+        ");
+        $activeOrganizers = (int) $stmt->fetchColumn();
+
+        $inactiveOrganizers = $totalOrganizers - $activeOrganizers;
+
+        // Gross sales (completed)
+        $totalGrossSales = 0.0;
+        $platformCommission = 0.0;
+        try {
+            $stmt = $db->query("
+                SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE status = 'completed'
+            ");
+            $totalGrossSales = (float) $stmt->fetchColumn();
+            $platformCommission = round($totalGrossSales * 0.01, 2);
+        } catch (Exception $e) {
+            // sales table may not exist yet — return nulls
+            $totalGrossSales = null;
+            $platformCommission = null;
+        }
+
+        jsonSuccess([
+            'total_organizers'    => $totalOrganizers,
+            'active_organizers'   => $activeOrganizers,
+            'inactive_organizers' => $inactiveOrganizers,
+            'total_gross_sales'   => $totalGrossSales,
+            'platform_commission' => $platformCommission,
+        ]);
+    } catch (Exception $e) {
+        jsonError("Erro ao buscar estatísticas: " . $e->getMessage(), 500);
+    }
+}
+
 function listOrganizers(): void
 {
     try {
         $db = Database::getInstance();
         $stmt = $db->prepare("
-            SELECT id, name, email, created_at 
-            FROM users 
-            WHERE role = 'organizer' AND organizer_id = id 
-            ORDER BY created_at DESC
+            SELECT u.id, u.name, u.email, u.phone, u.document, u.created_at,
+                   COUNT(e.id) AS events_count
+            FROM users u
+            LEFT JOIN events e ON e.organizer_id = u.id
+            WHERE u.role = 'organizer' AND u.organizer_id = u.id
+            GROUP BY u.id, u.name, u.email, u.phone, u.document, u.created_at
+            ORDER BY u.created_at DESC
         ");
         $stmt->execute();
-        
+
         jsonSuccess(['organizers' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
     } catch (Exception $e) {
         jsonError("Erro ao listar: " . $e->getMessage(), 500);
