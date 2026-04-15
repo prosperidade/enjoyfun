@@ -880,9 +880,62 @@ WHERE status = 'active' AND expires_at < NOW();
 
 ---
 
+## Migrations Multi-Evento (sessao 2026-04-14)
+
+Aplicar em ordem apos as migrations anteriores (086+):
+
+```bash
+psql -U postgres -d enjoyfun -f database/087_products_cost_price.sql
+psql -U postgres -d enjoyfun -f database/088_ticket_types_sector.sql
+psql -U postgres -d enjoyfun -f database/089_events_multi_event_fields.sql
+psql -U postgres -d enjoyfun -f database/090_event_stages.sql
+psql -U postgres -d enjoyfun -f database/091_event_sectors.sql
+psql -U postgres -d enjoyfun -f database/092_event_parking_config.sql
+psql -U postgres -d enjoyfun -f database/093_event_pdv_points.sql
+psql -U postgres -d enjoyfun -f database/094_event_templates_expanded.sql
+psql -U postgres -d enjoyfun -f database/095_event_tables.sql
+psql -U postgres -d enjoyfun -f database/096_event_sessions.sql
+psql -U postgres -d enjoyfun -f database/097_event_exhibitors.sql
+psql -U postgres -d enjoyfun -f database/098_event_certificates.sql
+psql -U postgres -d enjoyfun -f database/099_event_participants_rsvp.sql
+psql -U postgres -d enjoyfun -f database/100_event_ceremony_moments.sql
+psql -U postgres -d enjoyfun -f database/101_event_sub_events.sql
+```
+
+**Nota:** Todas as queries do backend checam existencia de coluna/tabela antes de usar. Se as migrations nao forem aplicadas, o sistema funciona normalmente sem os campos novos (graceful fallback).
+
+### Endpoints novos (multi-evento)
+
+```
+GET/POST/PUT/DELETE  /event-stages
+GET/POST/PUT/DELETE  /event-sectors
+GET/POST/PUT/DELETE  /event-parking-config
+GET/POST/PUT/DELETE  /event-pdv-points
+GET/POST/PUT/DELETE  /event-tables
+GET/POST/PUT/DELETE  /event-sessions
+GET/POST/PUT/DELETE  /event-exhibitors
+GET/POST/DELETE      /event-certificates
+GET                  /event-certificates/validate/:code (publico)
+GET/POST/PUT/DELETE  /event-ceremony-moments
+GET/POST/PUT/DELETE  /event-sub-events
+GET                  /organizer-files/{id}/download
+GET                  /superadmin/ai-usage
+GET                  /superadmin/system-health
+GET                  /superadmin/finance-overview
+```
+
+### Arquivos de referencia (novos)
+
+- `docs/adr_multi_event_customizable_v1.md` — ADR da arquitetura multi-evento
+- `docs/progresso28.md` — diario desta sessao (61 commits)
+- `frontend/src/components/EventModulesSelector.jsx` — seletor de modulos
+- `frontend/src/components/EventModuleSections.jsx` — secoes CRUD inline
+
+---
+
 ## Quando algo divergir
 
 1. conferir `README.md`
 2. conferir `CLAUDE.md`
 3. conferir `docs/auditorias.md`
-4. registrar a divergencia em `docs/progresso25.md` (Sprint AI v2 ativo) ou `docs/progresso19.md` (legado)
+4. registrar a divergencia em `docs/progresso28.md` (Multi-evento ativo) ou `docs/progresso26.md` (EMAS)
