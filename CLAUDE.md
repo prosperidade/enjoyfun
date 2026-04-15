@@ -157,7 +157,7 @@ super_admin / admin (André)
 
 **PostgreSQL 18.2 | DB: `enjoyfun` | host: 127.0.0.1:5432 | user: postgres**
 
-### Migrations versionadas até 103
+### Migrations versionadas até 104
 
 | Faixa | Conteúdo |
 |-------|---------|
@@ -188,6 +188,7 @@ super_admin / admin (André)
 | 064 | RLS policies para ai_conversation_sessions + ai_conversation_messages |
 | 102 | products.pdv_point_id (FK para event_pdv_points) |
 | 103 | users.status + plans table (3 tiers) + users.plan_id |
+| 104 | billing_invoices (faturas de plano por organizador) |
 
 **Pendências de banco:**
 - Migration `009`: não aplicada (escopo reduzido ao seguro)
@@ -415,6 +416,8 @@ enjoyfun/
 | Self-Registration | ✅ Novo | /cadastro público + aprovação admin + status pending/approved/rejected |
 | Planos (Billing) | ✅ Novo | Starter (2%) / Pro (1%) / Enterprise (0.5%) + migration 103 |
 | Auditoria Automática | ✅ Novo | 8 checks (orphans, spending, tokens, DB size) com re-scan |
+| Billing Self-Service | ✅ Novo | BillingController + faturas PIX + upgrade self-service + metricas MRR |
+| Meu Plano (Organizer) | ✅ Novo | Aba Settings com uso vs limites, cards de planos, upgrade, historico |
 | Multi-Evento | ✅ **ADR + Implementado** | 12 tipos, 10 tabelas novas, 10 CRUD endpoints, 12 module sections |
 | Palcos / Salas | ✅ Novo | event_stages CRUD + detection no AdaptiveResponse |
 | Setores | ✅ Novo | event_sectors CRUD + vinculado a ticket_types |
@@ -621,4 +624,4 @@ EMAS (Embedded Multi-Agent System) foi refundado completamente em 2026-04-12. Pl
 ---
 
 *EnjoyFun Platform v2.0 — SaaS White Label Multi-tenant*
-*Atualizado: 2026-04-15 — PDV Points + Visuais (Map/Seating/Agenda) + SuperAdmin fase 2 (plans+approval+audit) + B2C 5 telas. Diarios em docs/progresso29.md*
+*Atualizado: 2026-04-15 — PDV Points + Visuais + SuperAdmin fase 3 (billing self-service + MRR + invoices) + B2C 5 telas. Diarios em docs/progresso29.md*

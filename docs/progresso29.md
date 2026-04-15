@@ -241,12 +241,83 @@ e03327d feat(ai): specialized block types for event_stages, event_sectors, event
 - Login por codigo via WhatsApp
 - Pedidos: checkout real via cashless no CustomerMenu
 
-### SuperAdmin Fase 3
-- Self-service billing (pagamento Asaas/PIX para planos)
-- Dashboard de metricas por plano
+### SuperAdmin Fase 3 (pendencias restantes)
+- Integracao real com Asaas para PIX de planos (hoje gera PIX simulado)
 - Notificacoes de aprovacao por email/WhatsApp
+- Webhook automatico para confirmar pagamento de plano
 
 ---
 
-*EnjoyFun Platform — Sessao 29 concluida com 8 commits*
+## FASE 6 — SuperAdmin Fase 3: Billing Self-Service
+
+### Migration 104: billing_invoices
+- Tabela pra rastrear faturas mensais de plano por organizador
+- Status: pending/paid/overdue/cancelled
+- Campos: amount, billing_type, pix_code, reference_month, due_date
+
+### BillingController (novo)
+- `GET /billing/my-plan` — plano atual + uso (eventos, IA, faturas pendentes)
+- `GET /billing/plans` — lista planos disponiveis
+- `POST /billing/upgrade` — solicita upgrade (gera fatura PIX se pago)
+- `GET /billing/invoices` — historico de faturas do organizador
+- `GET /billing/usage` — resumo de uso vs limites do plano
+
+### SuperAdmin — Aba "Planos"
+- 3 cards por plano: organizadores, eventos, vendas, comissao, MRR
+- Cards de resumo: MRR total, total organizadores, comissao do mes
+- Tabela de faturas recentes com botao "Confirmar" (ativa plano)
+- Endpoint `GET /superadmin/plan-metrics` com JOIN lateral
+- Endpoint `GET /superadmin/billing-invoices` + `PUT .../confirm`
+
+### Settings — Aba "Meu Plano"
+- Medidores visuais: eventos usados vs limite, gasto IA vs cap
+- Cards dos 3 planos com features, precos, botao upgrade
+- Plano atual destacado com ring visual
+- Fluxo de upgrade: clica → gera fatura PIX → aparece no historico
+- Historico de faturas com status (pendente/pago)
+
+### Commit
+```
+f9fb394 feat(billing): self-service plans, invoices, plan metrics dashboard
+```
+
+---
+
+## Commits da Sessao (9 total)
+
+```
+f9fb394 feat(billing): self-service plans, invoices, plan metrics dashboard
+c637aa4 feat(customer): tickets, cashless card, and menu pages for B2C app
+3e4035d feat(superadmin): self-registration with approval, plans, audit scan
+d61fe0d feat(events): visual MapBuilder, SeatingChart, AgendaBuilder components
+e03327d feat(ai): specialized block types for event_stages, event_sectors, event_sessions
+09960cf feat(pos): link products to specific PDV points via pdv_point_id
+```
+
+---
+
+## Pendencias
+
+### Divida Tecnica — Mobile Blocks (P2)
+- 5 blocos novos no enjoyfun-mobile
+
+### Polimento Componentes Visuais
+- MapBuilder: persistir posicoes no banco
+- SeatingChart: drag de convidados para mesas
+- AgendaBuilder: drag vertical de sessoes
+
+### B2C Expansao
+- Checkout real no CustomerMenu (debitar cashless)
+- Landing page publica do evento (SEO)
+- Push notifications
+- Login por codigo WhatsApp
+
+### Billing Producao
+- Integracao Asaas real para PIX de planos
+- Webhook automatico de pagamento → ativar plano
+- Notificacoes email/WhatsApp de aprovacao e cobranca
+
+---
+
+*EnjoyFun Platform — Sessao 29 concluida com 9 commits*
 *2026-04-15*
