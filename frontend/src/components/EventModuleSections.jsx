@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import api from "../lib/api";
 import toast from "react-hot-toast";
 import {
@@ -360,15 +361,26 @@ export function LocationSection({ form, setForm }) {
         <input className={inputCls} placeholder="Estado" value={form.state || ""} onChange={set("state")} />
         <input className={inputCls} placeholder="Pais" value={form.country || "BR"} onChange={set("country")} />
       </div>
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <input className={inputCls} placeholder="CEP" value={form.zip_code || ""} onChange={set("zip_code")} />
         <select className={inputCls} value={form.venue_type || ""} onChange={set("venue_type")}>
           <option value="">Tipo de venue</option>
           {VENUE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
-        <input className={inputCls} type="number" step="any" placeholder="Latitude" value={form.latitude || ""} onChange={set("latitude")} />
-        <input className={inputCls} type="number" step="any" placeholder="Longitude" value={form.longitude || ""} onChange={set("longitude")} />
+        <input className={inputCls} placeholder="Cole a URL do Google Maps aqui"
+          value={form.map_url || ""}
+          onChange={(e) => {
+            const url = e.target.value;
+            setForm(prev => ({ ...prev, map_url: url }));
+            const match = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+            if (match) {
+              setForm(prev => ({ ...prev, map_url: url, latitude: match[1], longitude: match[2] }));
+            }
+          }}
+        />
       </div>
+      <input type="hidden" value={form.latitude || ""} />
+      <input type="hidden" value={form.longitude || ""} />
       <div className="grid grid-cols-1 gap-2">
         <input className={inputCls} placeholder="Classificacao etaria" value={form.age_rating || ""} onChange={set("age_rating")} />
       </div>
@@ -647,6 +659,9 @@ export function InvitationsSection({ eventId }) {
             Total de participantes cadastrados: <span className="text-white font-medium">{totalParticipants}</span>
           </p>
         )}
+        <Link to="/participants" className="inline-block text-purple-400 hover:text-purple-300 text-sm underline mt-1">
+          Ir para Publico e Participantes &rarr;
+        </Link>
       </div>
     </SectionShell>
   );

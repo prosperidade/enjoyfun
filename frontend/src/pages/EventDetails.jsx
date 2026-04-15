@@ -75,6 +75,15 @@ export default function EventDetails() {
   ].filter((m) => event[m.key]);
   const hasMaps = mapLinks.length > 0;
 
+  const getMapDownloadUrl = (ref) => {
+    if (!ref) return null;
+    if (ref.startsWith('file:')) {
+      const fileId = ref.split(':')[1];
+      return `/api/organizer-files/${fileId}/download`;
+    }
+    return ref;
+  };
+
   const handleDeleteEvent = async () => {
     if (!event?.can_delete) return;
     if (!window.confirm("Excluir este evento? Essa ação só é permitida para eventos sem dados vinculados.")) {
@@ -271,7 +280,7 @@ export default function EventDetails() {
             {mapLinks.map((m) => (
               <a
                 key={m.key}
-                href={event[m.key]}
+                href={getMapDownloadUrl(event[m.key])}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-sm text-gray-300 hover:text-white hover:border-purple-500/50 transition-colors"

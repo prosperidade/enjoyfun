@@ -73,6 +73,7 @@ function createEmptyEventForm() {
     map_image_url: "",
     map_seating_url: "",
     map_parking_url: "",
+    map_url: "",
   };
 }
 
@@ -126,7 +127,7 @@ function mapEventToForm(event) {
     ends_at: toDatetimeLocal(event?.ends_at),
     status: event?.status || "draft",
     capacity: event?.capacity ?? "",
-    event_timezone: event?.event_timezone || "",
+    event_timezone: event?.event_timezone || getBrowserTimeZone(),
     event_type: event?.event_type || "",
     modules_enabled: Array.isArray(event?.modules_enabled) ? event.modules_enabled : [],
     latitude: event?.latitude ?? "",
@@ -141,6 +142,7 @@ function mapEventToForm(event) {
     map_image_url: event?.map_image_url || "",
     map_seating_url: event?.map_seating_url || "",
     map_parking_url: event?.map_parking_url || "",
+    map_url: event?.map_url || "",
   };
 }
 
@@ -825,7 +827,7 @@ export default function Events() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/40 p-4 space-y-4">
+              {!['wedding', 'graduation'].includes(form.event_type) && (<div className="rounded-2xl border border-gray-800 bg-gray-950/40 p-4 space-y-4">
                 <div>
                   <h3 className="section-title">Tipos de Ingresso</h3>
                   <p className="text-xs text-gray-500 mt-1">
@@ -898,9 +900,9 @@ export default function Events() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </div>)}
 
-              <div className="grid xl:grid-cols-2 gap-6">
+              {!['wedding', 'graduation'].includes(form.event_type) && (<div className="grid xl:grid-cols-2 gap-6">
                 <div className="rounded-2xl border border-gray-800 bg-gray-950/40 p-4 space-y-4">
                   <div>
                     <h3 className="section-title">Lotes Comerciais</h3>
@@ -1120,7 +1122,7 @@ export default function Events() {
                     ))}
                   </div>
                 </div>
-              </div>
+              </div>)}
 
               {/* ── Modulos do Evento ── */}
               <EventModulesSelector
