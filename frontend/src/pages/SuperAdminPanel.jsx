@@ -11,7 +11,7 @@ function StatCard({ icon: Icon, label, value, sublabel, color = 'bg-blue-600' })
             </div>
             <div className="stat-value">{value ?? "—"}</div>
             <div className="stat-label">{label}</div>
-            {sublabel && <div className="mt-1 text-[10px] text-gray-500">{sublabel}</div>}
+            {sublabel && <div className="mt-1 text-[10px] text-gray-400">{sublabel}</div>}
         </div>
     );
 }
@@ -187,43 +187,43 @@ export default function SuperAdminPanel() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl md:col-span-1 h-fit">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Novo Organizador</h2>
+                    <h2 className="text-xl font-semibold mb-4 text-white">Novo Organizador</h2>
                     <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Nome da Empresa</label>
+                            <label className="block text-sm font-medium text-gray-300">Nome da Empresa</label>
                             <input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} required autoComplete="new-name" className="mt-1 w-full p-2 border border-gray-700 rounded-lg bg-gray-800 text-white focus:ring-purple-500 focus:border-purple-500 placeholder-gray-500" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">E-mail de Acesso</label>
+                            <label className="block text-sm font-medium text-gray-300">E-mail de Acesso</label>
                             <input type="email" name="email" value={formData.email || ''} onChange={handleInputChange} required autoComplete="new-email" className="mt-1 w-full p-2 border border-gray-700 rounded-lg bg-gray-800 text-white focus:ring-purple-500 focus:border-purple-500 placeholder-gray-500" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Senha Inicial</label>
+                            <label className="block text-sm font-medium text-gray-300">Senha Inicial</label>
                             <input type="password" name="password" value={formData.password || ''} onChange={handleInputChange} required minLength="6" autoComplete="new-password" className="mt-1 w-full p-2 border border-gray-700 rounded-lg bg-gray-800 text-white focus:ring-purple-500 focus:border-purple-500 placeholder-gray-500" />
                         </div>
-                        <button type="submit" disabled={isSubmitting} className={`w-full text-white p-2 rounded font-semibold ${isSubmitting ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                        <button type="submit" disabled={isSubmitting} className={`w-full text-white p-2 rounded font-semibold ${isSubmitting ? 'bg-gray-700' : 'bg-purple-600 hover:bg-purple-700'}`}>
                             {isSubmitting ? 'Criando...' : 'Criar Organizador'}
                         </button>
                     </form>
                 </div>
 
                 <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl md:col-span-2">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Organizadores</h2>
+                    <h2 className="text-xl font-semibold mb-4 text-white">Organizadores</h2>
                     {loading ? (
-                        <p className="text-gray-500">Carregando dados...</p>
+                        <p className="text-gray-400">Carregando dados...</p>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                            <table className="min-w-full divide-y divide-gray-800">
+                                <thead className="bg-gray-800/50">
                                     <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">E-mail</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telefone</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Documento</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eventos</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">ID</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Nome</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">E-mail</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Telefone</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Documento</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Eventos</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Data</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-gray-900 divide-y divide-gray-800">
@@ -232,19 +232,19 @@ export default function SuperAdminPanel() {
                                             const eventsCount = parseInt(org.events_count, 10) || 0;
                                             const isActive = eventsCount > 0;
                                             return (
-                                                <tr key={org.id} className="hover:bg-gray-50">
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">#{org.id}</td>
+                                                <tr key={org.id} className="hover:bg-gray-800/50">
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">#{org.id}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{org.name}</td>
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{org.email}</td>
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{org.phone || '--'}</td>
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{org.document || '--'}</td>
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">{eventsCount}</td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{org.email}</td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{org.phone || '--'}</td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{org.document || '--'}</td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">{eventsCount}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap">
                                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-700/40 text-gray-400'}`}>
                                                             {isActive ? 'Ativo' : 'Inativo'}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">
                                                         {org.created_at ? new Date(org.created_at).toLocaleDateString('pt-BR') : '-'}
                                                     </td>
                                                 </tr>
@@ -252,7 +252,7 @@ export default function SuperAdminPanel() {
                                         })
                                     ) : (
                                         <tr>
-                                            <td colSpan="8" className="px-4 py-4 text-center text-sm text-gray-500">
+                                            <td colSpan="8" className="px-4 py-4 text-center text-sm text-gray-400">
                                                 Nenhum organizador cadastrado.
                                             </td>
                                         </tr>
@@ -267,8 +267,8 @@ export default function SuperAdminPanel() {
     );
 
     const renderAIUsageTab = () => {
-        if (aiUsageLoading) return <p className="text-gray-500">Carregando uso de IA...</p>;
-        if (!aiUsage) return <p className="text-gray-500">Nenhum dado disponivel.</p>;
+        if (aiUsageLoading) return <p className="text-gray-400">Carregando uso de IA...</p>;
+        if (!aiUsage) return <p className="text-gray-400">Nenhum dado disponivel.</p>;
 
         const g = aiUsage.global;
         return (
@@ -280,15 +280,15 @@ export default function SuperAdminPanel() {
                 </div>
 
                 <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Uso por Organizador</h2>
+                    <h2 className="text-xl font-semibold mb-4 text-white">Uso por Organizador</h2>
                     <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                        <table className="min-w-full divide-y divide-gray-800">
+                            <thead className="bg-gray-800/50">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organizer ID</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requisicoes</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tokens</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Custo</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Organizer ID</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Requisicoes</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Tokens</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Custo</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-gray-900 divide-y divide-gray-800">
@@ -296,11 +296,11 @@ export default function SuperAdminPanel() {
                                     aiUsage.by_organizer.map((row) => {
                                         const isHighCost = row.total_cost > 50;
                                         return (
-                                            <tr key={row.organizer_id} className={isHighCost ? 'bg-amber-50' : 'hover:bg-gray-50'}>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">#{row.organizer_id}</td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{row.total_requests.toLocaleString('pt-BR')}</td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{row.total_tokens.toLocaleString('pt-BR')}</td>
-                                                <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${isHighCost ? 'text-amber-700' : 'text-gray-700'}`}>
+                                            <tr key={row.organizer_id} className={isHighCost ? 'bg-amber-50' : 'hover:bg-gray-800/50'}>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">#{row.organizer_id}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{row.total_requests.toLocaleString('pt-BR')}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{row.total_tokens.toLocaleString('pt-BR')}</td>
+                                                <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${isHighCost ? 'text-amber-700' : 'text-gray-300'}`}>
                                                     {formatCurrency(row.total_cost)}
                                                 </td>
                                             </tr>
@@ -308,7 +308,7 @@ export default function SuperAdminPanel() {
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="4" className="px-4 py-4 text-center text-sm text-gray-500">Nenhum uso registrado nos ultimos 30 dias.</td>
+                                        <td colSpan="4" className="px-4 py-4 text-center text-sm text-gray-400">Nenhum uso registrado nos ultimos 30 dias.</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -320,8 +320,8 @@ export default function SuperAdminPanel() {
     };
 
     const renderSystemHealthTab = () => {
-        if (healthLoading) return <p className="text-gray-500">Verificando saude do sistema...</p>;
-        if (!systemHealth) return <p className="text-gray-500">Nenhum dado disponivel.</p>;
+        if (healthLoading) return <p className="text-gray-400">Verificando saude do sistema...</p>;
+        if (!systemHealth) return <p className="text-gray-400">Nenhum dado disponivel.</p>;
 
         const h = systemHealth;
 
@@ -330,15 +330,15 @@ export default function SuperAdminPanel() {
                 green: 'bg-green-500',
                 red: 'bg-red-500',
                 amber: 'bg-amber-500',
-                gray: 'bg-gray-400',
+                gray: 'bg-gray-700',
             };
             return (
-                <div className="bg-white rounded-lg shadow-md p-5">
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
                     <div className="flex items-center gap-3 mb-2">
                         <span className={`w-3 h-3 rounded-full ${statusColors[status] || statusColors.gray}`} />
-                        <span className="text-sm font-medium text-gray-600">{label}</span>
+                        <span className="text-sm font-medium text-gray-400">{label}</span>
                     </div>
-                    <p className="text-xl font-bold text-gray-800">{value}</p>
+                    <p className="text-xl font-bold text-white">{value}</p>
                 </div>
             );
         };
@@ -385,8 +385,8 @@ export default function SuperAdminPanel() {
     };
 
     const renderFinanceTab = () => {
-        if (financeLoading) return <p className="text-gray-500">Carregando financeiro...</p>;
-        if (!finance) return <p className="text-gray-500">Nenhum dado disponivel.</p>;
+        if (financeLoading) return <p className="text-gray-400">Carregando financeiro...</p>;
+        if (!finance) return <p className="text-gray-400">Nenhum dado disponivel.</p>;
 
         const f = finance;
         return (
@@ -414,8 +414,8 @@ export default function SuperAdminPanel() {
     return (
         <div className="p-6 max-w-6xl mx-auto">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-800">Painel Super Admin</h1>
-                <p className="text-gray-600">Gestao White Label: Crie e gerencie os donos de eventos (Tenants).</p>
+                <h1 className="text-3xl font-bold text-white">Painel Super Admin</h1>
+                <p className="text-gray-400">Gestao White Label: Crie e gerencie os donos de eventos (Tenants).</p>
             </div>
 
             {/* Tab Navigation */}
@@ -430,7 +430,7 @@ export default function SuperAdminPanel() {
                             className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                                 isActive
                                     ? 'bg-purple-600 text-white shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
                             }`}
                         >
                             <TabIcon className="w-4 h-4" />
