@@ -758,6 +758,95 @@ class AdaptiveResponseService
             }
         }
 
+        // --- Event module specialized blocks (checked before generic timeline) ---
+
+        // event_stages: tool name contains 'stage' or 'palco', rows have 'name' + 'stage_type'
+        // Renders as a structured table with stage name, type, and capacity.
+        if ($isList) {
+            $stageToolMatch = str_contains($lcTool, 'stage') || str_contains($lcTool, 'palco');
+            if ($stageToolMatch) {
+                $sample = $data[$firstKey] ?? null;
+                if (is_array($sample) && isset($sample['name']) && isset($sample['stage_type'])) {
+                    return [
+                        'type'    => 'table',
+                        'id'      => $nextId(),
+                        'title'   => 'Palcos e Salas do Evento',
+                        'columns' => [
+                            ['key' => 'name',       'label' => 'Nome',       'type' => 'text'],
+                            ['key' => 'stage_type', 'label' => 'Tipo',       'type' => 'text'],
+                            ['key' => 'capacity',   'label' => 'Capacidade', 'type' => 'number'],
+                        ],
+                        'rows' => array_values($data),
+                    ];
+                }
+            }
+        }
+
+        // event_sectors: tool name contains 'sector' or 'setor', rows have 'name' + 'sector_type'
+        // Renders as a table with sector name, type, capacity, and price modifier.
+        if ($isList) {
+            $sectorToolMatch = str_contains($lcTool, 'sector') || str_contains($lcTool, 'setor');
+            if ($sectorToolMatch) {
+                $sample = $data[$firstKey] ?? null;
+                if (is_array($sample) && isset($sample['name']) && isset($sample['sector_type'])) {
+                    return [
+                        'type'    => 'table',
+                        'id'      => $nextId(),
+                        'title'   => 'Setores do Evento',
+                        'columns' => [
+                            ['key' => 'name',           'label' => 'Setor',        'type' => 'text'],
+                            ['key' => 'sector_type',    'label' => 'Tipo',         'type' => 'text'],
+                            ['key' => 'capacity',       'label' => 'Capacidade',   'type' => 'number'],
+                            ['key' => 'price_modifier', 'label' => 'Ajuste Preço', 'type' => 'currency'],
+                        ],
+                        'rows' => array_values($data),
+                    ];
+                }
+            }
+        }
+
+        // event_sessions: tool name contains 'session'/'sessao'/'agenda'/'palestra',
+        // rows have 'title' + 'starts_at'. Rendered as a timeline block (already
+        // supported by mobile/web renderers) with speaker and session type info.
+        if ($isList) {
+            $sessionKeywords = ['session', 'sessao', 'agenda', 'palestra'];
+            $sessionToolMatch = false;
+            foreach ($sessionKeywords as $kw) {
+                if (str_contains($lcTool, $kw)) {
+                    $sessionToolMatch = true;
+                    break;
+                }
+            }
+            if ($sessionToolMatch) {
+                $sample = $data[$firstKey] ?? null;
+                if (is_array($sample) && isset($sample['title']) && isset($sample['starts_at'])) {
+                    $events = [];
+                    foreach ($data as $row) {
+                        if (!is_array($row)) continue;
+                        $desc = trim(($row['speaker_name'] ?? '') . ' — ' . ($row['session_type'] ?? ''));
+                        // Clean up description if one side is empty (avoid leading/trailing ' — ')
+                        $desc = trim($desc, " —\t\n\r\0\x0B");
+                        $events[] = [
+                            'at'          => $row['starts_at'] ?? '',
+                            'label'       => $row['title'] ?? $row['name'] ?? '',
+                            'description' => $desc !== '' ? $desc : null,
+                            'status'      => 'upcoming',
+                        ];
+                    }
+                    if (!empty($events)) {
+                        return [
+                            'type'   => 'timeline',
+                            'id'     => $nextId(),
+                            'title'  => 'Agenda do Evento',
+                            'events' => $events,
+                        ];
+                    }
+                }
+            }
+        }
+
+        // --- End event module specialized blocks ---
+
         // timeline: list with at/time + label, when tool name suggests schedule/agenda
         $timelineKeywords = ['schedule', 'agenda', 'timeline', 'cronograma', 'roteiro'];
         $isTimelineTool = false;
