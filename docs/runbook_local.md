@@ -904,9 +904,15 @@ psql -U postgres -d enjoyfun -f database/101_event_sub_events.sql
 
 **Nota:** Todas as queries do backend checam existencia de coluna/tabela antes de usar. Se as migrations nao forem aplicadas, o sistema funciona normalmente sem os campos novos (graceful fallback).
 
-### Endpoints novos (multi-evento)
+### Endpoints novos (multi-evento + convites)
 
 ```
+# Convite Digital (PUBLICO, sem auth)
+GET   /invitations/{slug}/{token}           # dados do convite
+POST  /invitations/{slug}/{token}/rsvp      # submeter RSVP
+GET   /invitations/banner/{fileId}          # imagem do convite (publico)
+
+# Modulos de evento (auth required)
 GET/POST/PUT/DELETE  /event-stages
 GET/POST/PUT/DELETE  /event-sectors
 GET/POST/PUT/DELETE  /event-parking-config

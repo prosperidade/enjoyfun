@@ -258,19 +258,72 @@ a1ce535 fix(pos): increase checkout total tolerance to R$0.05
 
 ---
 
-## Pendencias Futuras (apos amanha)
+## FASE 8 — Sessao 2 (2026-04-15)
 
-### SuperAdmin (fase 2)
-- Self-registration de organizadores (tela publica)
-- Billing/pagamento pre-pago pra APIs
-- Agente IA de auditoria automatica do sistema
+### Migrations aplicadas
+- 087-101 (15 migrations) aplicadas no PostgreSQL com sucesso
+- Todas as tabelas e colunas verificadas
 
-### ADR Multi-Evento (proximas sprints)
-- Componentes visuais transversais (MapBuilder, SeatingChart drag-and-drop)
-- RSVP tracking completo na UI de Participants
-- Editor visual de planta (drag-and-drop de mesas/palcos)
+### Integracao mobile (backend)
+- AdaptiveResponseService detecta event_stages, event_sectors, event_sessions como blocos especializados (table/timeline)
+
+### 5 UX fixes do teste real
+- Localizacao: lat/lng substituido por campo URL Google Maps (auto-extrai coords)
+- Convites: link direto para Participantes
+- Casamento/formatura: seções de tickets/batches/comissarios escondidas
+- Timezone persiste na edicao
+- Mapas abrem corretamente no EventDetails
+
+### Convite Digital (feature completa)
+- Backend: `PublicInvitationController` com GET (dados) + POST (RSVP) publicos
+- Frontend: `PublicInvitation.jsx` — pagina bonita em /convite/:slug/:token
+- Rota publica de banner: GET /invitations/banner/{fileId}
+- Upload de arte do convite no modal de Convites (InvitationsSection)
+- GuestTicket.jsx mostra banner como header do card
+- EventService agora persiste banner_url
+- EventDetails mostra "Arte do Convite" na secao de arquivos
+
+### Commits da sessao 2 (10 commits)
+```
+e42e7e0 fix(events): persist banner_url in EventService + show in EventDetails
+e6bd29e feat(invitations): show banner image on guest ticket page
+ed1b40a fix(invitations): serve banner image via public endpoint, resolve file refs
+9c79451 feat(invitations): upload invitation template in Convites section
+607ceae feat(invitations): beautiful public RSVP page for weddings/events
+2a51ae5 feat(invitations): public RSVP endpoints (no auth required)
+08c61a6 fix(events): 5 UX fixes from real testing
+0279366 docs: update CLAUDE.md with multi-event architecture and session 28
+c8f9027 feat(ai): detect event_stages, event_sectors, event_sessions as specialized blocks
+f52d9c3 docs: add progresso28 (61 commits session) and update runbook
+```
 
 ---
 
-*EnjoyFun Platform — Sessao 28 concluida com 61 commits*
+## Pendencias Futuras
+
+### Prioridade 1 — Conectar produtos aos PDV points
+- Adicionar `pdv_point_id` em products pra vincular produto a bar especifico
+- Hoje estoque critico por bar agrupa por tipo (bar/food/shop), nao por bar individual
+
+### Prioridade 2 — Mobile app blocos novos
+- Criar 5 componentes no enjoyfun-mobile: EventStagesBlock, EventSectorsBlock, EventSessionsBlock, EventTablesBlock, EventMapsBlock
+- Backend ja detecta e formata (feito nesta sessao)
+
+### Prioridade 3 — Componentes visuais
+- MapBuilder (drag-and-drop de palcos/bares no mapa)
+- SeatingChart (mesas com drag-and-drop de convidados)
+- AgendaBuilder (sessoes/palestras em timeline visual)
+
+### Prioridade 4 — SuperAdmin fase 2
+- Self-registration de organizadores (tela publica + aprovacao)
+- Billing/pagamento pre-pago pra APIs
+- Agente IA de auditoria automatica do sistema
+
+### Prioridade 5 — B2C Participant App
+- Telas de ingressos, cashless, menu/pedidos no enjoyfun-app
+- Integrar com dados de event_stages, event_sectors, mapas
+
+---
+
+*EnjoyFun Platform — Sessao 28 concluida com 71 commits*
 *2026-04-14 / 2026-04-15*
