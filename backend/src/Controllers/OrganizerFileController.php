@@ -13,6 +13,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'POST' && $id === null => orgFileUpload($db),
         $method === 'GET' && is_numeric($id) && $sub === null => orgFileGet($db, (int)$id),
         $method === 'GET' && is_numeric($id) && $sub === 'parsed' => orgFileGetParsed($db, (int)$id),
+        $method === 'GET' && is_numeric($id) && $sub === 'download' => orgFileDownload($db, (int)$id),
         $method === 'POST' && is_numeric($id) && $sub === 'parse' => orgFileReparse($db, (int)$id),
         $method === 'POST' && is_numeric($id) && $sub === 'analyze' => orgFileAnalyzeWithGoogle($db, (int)$id),
         $method === 'DELETE' && is_numeric($id) => orgFileDelete($db, (int)$id),
@@ -299,6 +300,40 @@ function orgFileReparse(PDO $db, int $fileId): void
     $stmt->execute([':id' => $fileId]);
 
     jsonSuccess($stmt->fetch(PDO::FETCH_ASSOC), 'Re-parsing concluido.');
+}
+
+function orgFileDownload(PDO $db, int $fileId): void
+{
+    $operator = requireAuth(['admin', 'organizer', 'manager']);
+    $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
+
+    $stmt = $db->prepare("
+        SELECT storage_path, mime_type, original_name, file_size_bytes
+        FROM public.organizer_files
+        WHERE id = :id AND organizer_id = :org
+        LIMIT 1
+    ");
+    $stmt->execute([':id' => $fileId, ':org' => $organizerId]);
+    $file = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$file) {
+        jsonError('Arquivo nao encontrado.', 404);
+    }
+
+    $fullPath = BASE_PATH . '/public' . ($file['storage_path'] ?? '');
+    if (!file_exists($fullPath)) {
+        jsonError('Arquivo fisico nao encontrado no servidor.', 404);
+    }
+
+    $mime = $file['mime_type'] ?: 'application/octet-stream';
+    $name = $file['original_name'] ?: 'download';
+
+    header('Content-Type: ' . $mime);
+    header('Content-Disposition: inline; filename="' . $name . '"');
+    header('Content-Length: ' . filesize($fullPath));
+    header('Cache-Control: private, max-age=3600');
+    readfile($fullPath);
+    exit;
 }
 
 function orgFileDelete(PDO $db, int $fileId): void
