@@ -87,6 +87,7 @@ class EventService
             'map_image_url'   => 'varchar',
             'map_seating_url' => 'varchar',
             'map_parking_url' => 'varchar',
+            'banner_url'      => 'varchar',
         ];
         foreach ($multiEventCols as $col => $pgType) {
             $cols[] = self::columnExists($db, 'events', $col)
@@ -207,7 +208,7 @@ class EventService
         $multiEventStringFields = [
             'event_type', 'city', 'state', 'country', 'zip_code',
             'venue_type', 'age_rating',
-            'map_3d_url', 'map_image_url', 'map_seating_url', 'map_parking_url',
+            'map_3d_url', 'map_image_url', 'map_seating_url', 'map_parking_url', 'banner_url',
         ];
         foreach ($multiEventStringFields as $field) {
             if (self::eventsHasColumn($db, $field)) {
@@ -334,7 +335,7 @@ class EventService
         $multiEventStringFields = [
             'event_type', 'city', 'state', 'country', 'zip_code',
             'venue_type', 'age_rating',
-            'map_3d_url', 'map_image_url', 'map_seating_url', 'map_parking_url',
+            'map_3d_url', 'map_image_url', 'map_seating_url', 'map_parking_url', 'banner_url',
         ];
         foreach ($multiEventStringFields as $field) {
             if (self::eventsHasColumn($db, $field)) {
@@ -519,6 +520,7 @@ class EventService
             'map_image_url' => trim((string)($body['map_image_url'] ?? '')),
             'map_seating_url' => trim((string)($body['map_seating_url'] ?? '')),
             'map_parking_url' => trim((string)($body['map_parking_url'] ?? '')),
+            'banner_url' => trim((string)($body['banner_url'] ?? '')),
         ];
     }
 

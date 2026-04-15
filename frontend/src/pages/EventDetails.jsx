@@ -68,6 +68,7 @@ export default function EventDetails() {
   const hasLocation = event.city || event.latitude || event.longitude;
   const hasModules = Array.isArray(event.modules_enabled) && event.modules_enabled.length > 0;
   const mapLinks = [
+    { key: "banner_url", label: "Arte do Convite" },
     { key: "map_3d_url", label: "Mapa 3D" },
     { key: "map_image_url", label: "Mapa de Imagem" },
     { key: "map_seating_url", label: "Mapa de Assentos" },
