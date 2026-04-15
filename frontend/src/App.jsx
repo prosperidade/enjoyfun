@@ -47,6 +47,7 @@ const EventFinanceImport = lazy(() => import("./pages/EventFinanceImport"));
 const EventFinanceExport = lazy(() => import("./pages/EventFinanceExport"));
 const EventFinanceSettings = lazy(() => import("./pages/EventFinanceSettings"));
 const Download = lazy(() => import("./pages/Download"));
+const PublicInvitation = lazy(() => import("./pages/PublicInvitation"));
 
 function NotFound() {
   return (
@@ -108,6 +109,7 @@ export default function App() {
               <Route path="recharge" element={<CustomerRecharge />} />
             </Route>
             <Route path="/invite" element={<GuestTicket />} />
+            <Route path="/convite/:eventSlug/:guestToken" element={<PublicInvitation />} />
 
             <Route element={<PrivateRoute />}>
               <Route element={<EventScopeProvider><DashboardLayout /></EventScopeProvider>}>
