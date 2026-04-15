@@ -4,20 +4,17 @@ Cole isso no inicio do proximo chat:
 
 ---
 
-Leia o CLAUDE.md e docs/progresso28.md antes de qualquer acao.
+Leia o CLAUDE.md e docs/progresso29.md antes de qualquer acao.
 
 ## Contexto
 
-Sessao anterior (71 commits em 2 dias):
-- Auditoria completa de 8 telas do frontend (30+ bugs corrigidos)
-- Arquitetura multi-evento customizavel implementada (ADR + 13 migrations + 10 controllers + 12 module sections)
-- 12 tipos de evento + custom com modulos arrastáveis
-- SuperAdmin com 4 abas (Organizadores, APIs/Tokens, Saude, Financeiro)
-- Convite digital publico com RSVP (/convite/:slug/:token)
-- Upload de arte do convite + banner no GuestTicket
-- Integração mobile (backend detecta stages/sectors/sessions como blocos)
-- Todas as migrations 087-101 aplicadas no banco
-- Dark theme consistente em toda a plataforma
+Sessao anterior (4 commits):
+- P1: Produtos vinculados a PDV points especificos (migration 102, pdv_point_id em products)
+- P2 parcial: Backend emite block types especializados (event_stages, event_sectors, event_sessions). Web fallback implementado. Mobile blocos PENDENTES (divida tecnica)
+- P3: 3 componentes visuais avancados criados e integrados:
+  - MapBuilder: canvas drag-and-drop de palcos/bares/lojas com zoom e snap-to-grid
+  - SeatingChart: mapa de mesas visual com anel de ocupacao e convidados
+  - AgendaBuilder: timeline Gantt multi-track por palco, 6 tipos de sessao
 
 ## Stack ativa
 - Backend: PHP 8.4 porta 8080
@@ -27,44 +24,37 @@ Sessao anterior (71 commits em 2 dias):
 
 ## Documentacao de referencia
 - CLAUDE.md — estado real do sistema (atualizado 2026-04-15)
+- docs/progresso29.md — diario desta sessao
+- docs/progresso28.md — diario da sessao anterior (71 commits)
 - docs/adr_multi_event_customizable_v1.md — arquitetura multi-evento
-- docs/progresso28.md — diario completo das 2 sessoes
 - docs/runbook_local.md — bootstrap + migrations + endpoints
 - enjoyfunuiux/stitch_eventverse_immersive_hub/ — 62 mockups de UI/UX do app participante
 
 ## Proximas missoes (por prioridade)
 
-### P1 — Conectar produtos aos PDV points
-- Hoje: products tem campo `sector` (bar/food/shop) mas nao `pdv_point_id`
-- Problema: estoque critico no Dashboard agrupa por tipo, nao por bar individual
-- Solucao: migration adicionando `pdv_point_id` em products + atualizar ProductService + StockForm com dropdown de PDV point
-- Impacto: Dashboard mostra "Bar Palco 1: 3 itens criticos" em vez de "Bar: 5 itens"
+### P1 — Mobile blocks (divida tecnica)
+- 5 blocos no enjoyfun-mobile/enjoyfun-app/src/components/blocks/
+- EventStagesBlock.tsx, EventSectorsBlock.tsx, EventSessionsBlock.tsx, EventTablesBlock.tsx, EventMapsBlock.tsx
+- Types novos no types.ts + registro no AdaptiveUIRenderer.tsx
+- Descricao completa em docs/progresso29.md (FASE 2)
 
-### P2 — Mobile app (5 blocos novos)
-- Local: enjoyfun-mobile/enjoyfun-app/src/components/blocks/
-- Backend ja detecta e formata (AdaptiveResponseService atualizado)
-- Criar: EventStagesBlock.tsx, EventSectorsBlock.tsx, EventSessionsBlock.tsx, EventTablesBlock.tsx, EventMapsBlock.tsx
-- Registrar no AdaptiveUIRenderer.tsx
-- Atualizar types.ts com novas interfaces
-- Referencia: ver blocos existentes (LineupBlock, MapBlock, TimelineBlock)
-
-### P3 — Componentes visuais avancados
-- MapBuilder: drag-and-drop de palcos/bares num canvas (pra planta do evento)
-- SeatingChart: mesas com drag-and-drop de convidados (casamento/formatura)
-- AgendaBuilder: sessoes/palestras em timeline visual (congresso/corporativo)
-- Estes componentes seriam reutilizaveis e substituiriam os CRUDs simples atuais
-
-### P4 — SuperAdmin fase 2
+### P2 — SuperAdmin fase 2
 - Self-registration: tela publica pra organizador se cadastrar + aprovacao pelo admin
 - Billing: modelo pre-pago pra APIs, controle de tokens por organizador
 - Agente IA de auditoria: varredura automatica com alertas urgente/critico/saudavel
 - Planos: 3 niveis com porcentagem automatica
 
-### P5 — B2C Participant App
+### P3 — B2C Participant App
 - Telas no enjoyfun-app: ingressos, cashless/cartao, menu/pedidos
 - Referencia visual: enjoyfunuiux/ (mockups prontos)
 - Conectar com dados de event_stages, event_sectors, mapas
 - Landing page publica do evento (SEO)
+
+### P4 — Polimento dos componentes visuais
+- MapBuilder: persistir posicoes dos elementos no banco (campo JSON em events)
+- SeatingChart: drag de convidados para mesas (atribuicao visual)
+- AgendaBuilder: drag vertical de sessoes pra mudar horario
+- Instalar @dnd-kit/core se drag nativo nao for suficiente
 
 ## Regras
 - NAO mexer em agentes IA (AIPromptCatalogService, AIOrchestratorService, AIIntentRouterService)

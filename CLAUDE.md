@@ -1,6 +1,6 @@
 # CLAUDE.md — EnjoyFun Platform
 ## Guia Completo para IA: Arquitetura, Estado Real e Visão de Negócio
-### Atualizado: 2026-04-15 (Multi-Evento customizável + Auditoria UI 63 commits + SuperAdmin 4 abas)
+### Atualizado: 2026-04-15 (PDV Points + MapBuilder/SeatingChart/AgendaBuilder + Migration 102)
 
 ---
 
@@ -157,7 +157,7 @@ super_admin / admin (André)
 
 **PostgreSQL 18.2 | DB: `enjoyfun` | host: 127.0.0.1:5432 | user: postgres**
 
-### Migrations versionadas até 101
+### Migrations versionadas até 102
 
 | Faixa | Conteúdo |
 |-------|---------|
@@ -186,6 +186,7 @@ super_admin / admin (André)
 | 059 | Schema tenancy follow-up (`audit_log`, `ticket_types`, `events`) |
 | 062 | AI Agent Registry + Skills Warehouse + Conversation Sessions (5 tabelas, 12 agentes, 33 skills) |
 | 064 | RLS policies para ai_conversation_sessions + ai_conversation_messages |
+| 102 | products.pdv_point_id (FK para event_pdv_points) |
 
 **Pendências de banco:**
 - Migration `009`: não aplicada (escopo reduzido ao seguro)
@@ -419,9 +420,12 @@ enjoyfun/
 | Certificados | ✅ Novo | event_certificates + validação pública por código |
 | Cerimonial | ✅ Novo | event_ceremony_moments CRUD |
 | Sub-Eventos | ✅ Novo | event_sub_events CRUD (pré-festa, colação, etc) |
-| PDV Distribuído | ✅ Novo | event_pdv_points + estoque crítico por bar no Dashboard |
+| PDV Distribuído | ✅ Novo | event_pdv_points + products.pdv_point_id + estoque por bar individual |
 | Estacionamento Config | ✅ Novo | event_parking_config + fee automático na saída |
 | Mapas / Uploads | ✅ Novo | Upload via organizer-files + download endpoint |
+| MapBuilder Visual | ✅ Novo | Canvas drag-and-drop de palcos/bares/lojas com zoom e snap-to-grid |
+| SeatingChart Visual | ✅ Novo | Mapa de mesas com drag, anel de ocupação, convidados |
+| AgendaBuilder Visual | ✅ Novo | Timeline Gantt multi-track por palco, 6 tipos de sessão |
 
 ---
 
@@ -555,7 +559,8 @@ REGRAS INVIOLÁVEIS:
 | `docs/progresso19.md` | Diário — Hub de IA Multi-Agentes (overhaul completo) |
 | `docs/progresso24.md` | Diário — Readiness Sprint + Auditoria Pre-Evento Real |
 | `docs/progresso25.md` | Diário — Sprint AI v2 (Agent Registry, Skills Warehouse, Chat) |
-| `docs/progresso28.md` | Diário ativo — Auditoria UI + Multi-Evento + SuperAdmin (63 commits) |
+| `docs/progresso28.md` | Diário — Auditoria UI + Multi-Evento + SuperAdmin (71 commits) |
+| `docs/progresso29.md` | Diário ativo — PDV Points + Componentes Visuais (MapBuilder, SeatingChart, AgendaBuilder) |
 
 Auditorias técnicas entram por `docs/auditorias.md`; arquivos legados estão em `docs/archive/root_legacy/`.
 
@@ -612,4 +617,4 @@ EMAS (Embedded Multi-Agent System) foi refundado completamente em 2026-04-12. Pl
 ---
 
 *EnjoyFun Platform v2.0 — SaaS White Label Multi-tenant*
-*Atualizado: 2026-04-15 — Multi-Evento customizavel (12 tipos + custom) + Auditoria UI (63 commits) + SuperAdmin 4 abas. Diarios em docs/progresso28.md*
+*Atualizado: 2026-04-15 — PDV Points vinculados a produtos + MapBuilder/SeatingChart/AgendaBuilder visuais. Diarios em docs/progresso29.md*
