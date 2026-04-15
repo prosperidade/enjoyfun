@@ -767,12 +767,11 @@ export function MapsSection({ eventId, form, setForm }) {
         headers: { "Content-Type": "multipart/form-data" },
       });
       const fileData = res.data?.data || {};
-      const storagePath = fileData.storage_path || "";
+      const fileId = fileData.id;
       const fileName = fileData.original_name || file.name;
-      // Build accessible URL — storage_path is relative to backend public/
-      const baseUrl = api.defaults.baseURL?.replace(/\/api\/?$/, "") || "";
-      const fileUrl = storagePath ? `${baseUrl}/${storagePath}` : "";
-      setForm((prev) => ({ ...prev, [field]: fileUrl || fileName }));
+      // Store as "file:{id}:{name}" — backend serves via /organizer-files/{id}/download
+      const ref = fileId ? `file:${fileId}:${fileName}` : fileName;
+      setForm((prev) => ({ ...prev, [field]: ref }));
       setSelectedFiles((prev) => ({ ...prev, [field]: null }));
       toast.success(`"${fileName}" enviado com sucesso!`);
     } catch {
@@ -818,16 +817,24 @@ export function MapsSection({ eventId, form, setForm }) {
               {currentUrl ? (
                 <div className="flex items-center gap-2 bg-gray-900 rounded-lg px-3 py-2">
                   <span className="text-xs text-green-400 truncate flex-1" title={currentUrl}>
-                    {currentUrl.split("/").pop() || currentUrl}
+                    {currentUrl.startsWith("file:") ? currentUrl.split(":").slice(2).join(":") : currentUrl.split("/").pop() || currentUrl}
                   </span>
-                  <a
-                    href={currentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gray-400 hover:text-purple-400"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+                  {currentUrl.startsWith("file:") && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const fileId = currentUrl.split(":")[1];
+                        try {
+                          const res = await api.get(`/organizer-files/${fileId}/download`, { responseType: "blob" });
+                          const url = URL.createObjectURL(res.data);
+                          window.open(url, "_blank");
+                        } catch { toast.error("Erro ao abrir arquivo"); }
+                      }}
+                      className="text-gray-400 hover:text-purple-400"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => handleRemove(slot.field)}
