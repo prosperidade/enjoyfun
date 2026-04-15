@@ -3,6 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import publicApi from '../lib/publicApi';
 
+function resolveBannerUrl(ref) {
+  if (!ref) return null;
+  if (ref.startsWith('file:')) return `/api/invitations/banner/${ref.split(':')[1]}`;
+  if (ref.startsWith('http')) return ref;
+  return ref.startsWith('/') ? ref : `/${ref}`;
+}
+
 export default function GuestTicket() {
   const [searchParams] = useSearchParams();
   const rawToken = searchParams.get('token');
@@ -80,10 +87,18 @@ export default function GuestTicket() {
   return (
     <div className="min-h-screen bg-gray-950 px-4 py-6 flex items-start justify-center">
       <div className="w-full max-w-sm rounded-3xl border border-gray-800 bg-gradient-to-b from-gray-900 to-gray-950 shadow-2xl overflow-hidden">
+        {/* Banner do evento */}
+        {ticket.event_banner_url && (
+          <div className="relative w-full h-40 overflow-hidden">
+            <img src={resolveBannerUrl(ticket.event_banner_url)} alt={ticket.event_name} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent" />
+          </div>
+        )}
         <div className="p-5 border-b border-gray-800">
           <p className="text-xs uppercase tracking-[0.25em] text-blue-300/80">{title}</p>
           <h1 className="text-xl text-white font-bold mt-2 leading-tight">{ticket.event_name}</h1>
           <p className="text-sm text-gray-400 mt-1">{ticket.event_date || 'Data a confirmar'}</p>
+          {ticket.venue_name && <p className="text-sm text-gray-500 mt-1">{ticket.venue_name}</p>}
         </div>
 
         <div className="px-5 pt-4">

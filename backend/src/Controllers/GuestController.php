@@ -102,7 +102,8 @@ function getGuestTicket(array $query): void
                 NULL::int       AS meals_per_day,
                 NULL::numeric   AS payment_amount,
                 NULL::text      AS settings_source,
-                NULL::text      AS logo_url
+                NULL::text      AS logo_url,
+                e.banner_url    AS event_banner_url
             FROM guests g
             INNER JOIN events e ON e.id = g.event_id
             WHERE g.qr_code_token = ?
@@ -158,7 +159,8 @@ function getGuestTicket(array $query): void
                 {$parts['meals_expr']}::int       AS meals_per_day,
                 {$parts['payment_expr']}::numeric AS payment_amount,
                 {$parts['source_expr']}   AS settings_source,
-                NULL::text              AS logo_url
+                NULL::text              AS logo_url,
+                e.banner_url            AS event_banner_url
             FROM event_participants ep
             INNER JOIN events e ON e.id = ep.event_id
             INNER JOIN people p ON p.id = ep.person_id
