@@ -152,5 +152,101 @@ fa51e59 docs: update progresso28 (71 commits), runbook, prompt for next session
 
 ---
 
-*EnjoyFun Platform — Sessao 29 concluida com 4 commits*
+---
+
+## FASE 4 — SuperAdmin Fase 2 (P4)
+
+### 4.1 Self-Registration com Aprovacao
+- **Migration 103:** `users.status` (pending/approved/rejected), `plans` table (3 planos), `users.plan_id`
+- **Backend:** `/auth/register` cria organizer com status `pending`, bloqueia login ate aprovacao
+- **Frontend:** Pagina `/cadastro` com formulario completo (nome, email, telefone, CPF, senha)
+- **Login:** Mensagem clara quando conta pendente ou rejeitada
+- **SuperAdmin:** Botoes Aprovar/Rejeitar/Reativar na tabela de organizadores
+
+### 4.2 Planos (Starter/Pro/Enterprise)
+- **Starter:** 2% comissao, R$100 cap IA/mes, 3 eventos, 20 staff, gratis
+- **Pro:** 1% comissao, R$500 cap IA/mes, 20 eventos, 100 staff, R$299/mes
+- **Enterprise:** 0.5% comissao, R$2000 cap IA/mes, ilimitado, R$999/mes
+- Badge de plano na tabela de organizadores
+- Endpoint `PUT /superadmin/organizers/{id}/plan` para trocar plano
+- Organizadores existentes migrados automaticamente para Pro
+
+### 4.3 Auditoria Automatica
+- Endpoint `GET /superadmin/audit-scan` com 8 verificacoes:
+  1. Organizadores sem organizer_id (isolamento multi-tenant)
+  2. Produtos sem evento vinculado
+  3. Eventos sem organizador
+  4. Organizadores pendentes de aprovacao
+  5. Vendas sem audit log (24h)
+  6. Organizadores com gasto IA alto (>R$400/mes)
+  7. Refresh tokens antigos (>30 dias)
+  8. Tamanho do banco de dados
+- Cada check retorna status (healthy/warning/critical) + detalhe
+- Nova aba "Auditoria" no SuperAdmin com cards de resumo + lista de checks
+- Botao re-executar varredura
+
+### Commit
+```
+3e4035d feat(superadmin): self-registration with approval, plans, audit scan
+```
+
+---
+
+## FASE 5 — B2C Participant App (P5)
+
+### 3 Telas Novas
+
+| Tela | Rota | Descricao |
+|------|------|-----------|
+| **CustomerTickets** | `/app/:slug/tickets` | Lista completa de ingressos com filtros (todos/validos/usados/cancelados), modal QR code |
+| **CustomerCard** | `/app/:slug/card` | Cartao digital cashless visual (gradiente), saldo, QR code para POS, transacoes recentes |
+| **CustomerMenu** | `/app/:slug/menu` | Cardapio com abas bar/food/shop, busca, carrinho com + e -, barra flutuante com total |
+
+### Commit
+```
+c637aa4 feat(customer): tickets, cashless card, and menu pages for B2C app
+```
+
+---
+
+## Commits da Sessao (8 total)
+
+```
+c637aa4 feat(customer): tickets, cashless card, and menu pages for B2C app
+3e4035d feat(superadmin): self-registration with approval, plans, audit scan
+d61fe0d feat(events): visual MapBuilder, SeatingChart, AgendaBuilder components
+e03327d feat(ai): specialized block types for event_stages, event_sectors, event_sessions
+09960cf feat(pos): link products to specific PDV points via pdv_point_id
+```
+
+---
+
+## Pendencias
+
+### Divida Tecnica — Mobile Blocks (P2)
+- 5 blocos novos no enjoyfun-mobile/enjoyfun-app/src/components/blocks/
+- Types novos no types.ts
+- Registro no AdaptiveUIRenderer.tsx mobile
+- Descricao completa na FASE 2 acima
+
+### Polimento Componentes Visuais (P4 visual)
+- MapBuilder: persistir posicoes dos elementos no banco
+- SeatingChart: drag de convidados para mesas
+- AgendaBuilder: drag vertical de sessoes pra mudar horario
+- Considerar @dnd-kit/core se drag nativo nao for suficiente
+
+### B2C Expansao
+- Landing page publica do evento (SEO)
+- Push notifications por evento
+- Login por codigo via WhatsApp
+- Pedidos: checkout real via cashless no CustomerMenu
+
+### SuperAdmin Fase 3
+- Self-service billing (pagamento Asaas/PIX para planos)
+- Dashboard de metricas por plano
+- Notificacoes de aprovacao por email/WhatsApp
+
+---
+
+*EnjoyFun Platform — Sessao 29 concluida com 8 commits*
 *2026-04-15*

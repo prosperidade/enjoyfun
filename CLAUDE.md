@@ -157,7 +157,7 @@ super_admin / admin (André)
 
 **PostgreSQL 18.2 | DB: `enjoyfun` | host: 127.0.0.1:5432 | user: postgres**
 
-### Migrations versionadas até 102
+### Migrations versionadas até 103
 
 | Faixa | Conteúdo |
 |-------|---------|
@@ -187,6 +187,7 @@ super_admin / admin (André)
 | 062 | AI Agent Registry + Skills Warehouse + Conversation Sessions (5 tabelas, 12 agentes, 33 skills) |
 | 064 | RLS policies para ai_conversation_sessions + ai_conversation_messages |
 | 102 | products.pdv_point_id (FK para event_pdv_points) |
+| 103 | users.status + plans table (3 tiers) + users.plan_id |
 
 **Pendências de banco:**
 - Migration `009`: não aplicada (escopo reduzido ao seguro)
@@ -409,8 +410,11 @@ enjoyfun/
 | Docker / Deploy | ✅ Expandido | +Redis + MemPalace sidecar + SSE nginx config |
 | Logística de Artistas | ✅ Implementado | CRUD completo, timeline, alerts, team, files |
 | Controle de Custos | ✅ Parcial | cost_price em products, margem no POS. Custos por equipe no Dashboard |
-| Customer App / PWA | 🟡 Parcial | Recharge com Asaas PIX real. Service Worker e push pendentes |
-| SuperAdmin / Billing SaaS | ✅ **4 abas** | Organizadores + APIs/Tokens + Saúde Sistema + Financeiro |
+| Customer App / PWA | ✅ **5 telas** | Dashboard + Recharge + Tickets + Card + Menu. Push pendente |
+| SuperAdmin / Billing SaaS | ✅ **5 abas** | Organizadores + APIs/Tokens + Saúde + Financeiro + Auditoria |
+| Self-Registration | ✅ Novo | /cadastro público + aprovação admin + status pending/approved/rejected |
+| Planos (Billing) | ✅ Novo | Starter (2%) / Pro (1%) / Enterprise (0.5%) + migration 103 |
+| Auditoria Automática | ✅ Novo | 8 checks (orphans, spending, tokens, DB size) com re-scan |
 | Multi-Evento | ✅ **ADR + Implementado** | 12 tipos, 10 tabelas novas, 10 CRUD endpoints, 12 module sections |
 | Palcos / Salas | ✅ Novo | event_stages CRUD + detection no AdaptiveResponse |
 | Setores | ✅ Novo | event_sectors CRUD + vinculado a ticket_types |
@@ -617,4 +621,4 @@ EMAS (Embedded Multi-Agent System) foi refundado completamente em 2026-04-12. Pl
 ---
 
 *EnjoyFun Platform v2.0 — SaaS White Label Multi-tenant*
-*Atualizado: 2026-04-15 — PDV Points vinculados a produtos + MapBuilder/SeatingChart/AgendaBuilder visuais. Diarios em docs/progresso29.md*
+*Atualizado: 2026-04-15 — PDV Points + Visuais (Map/Seating/Agenda) + SuperAdmin fase 2 (plans+approval+audit) + B2C 5 telas. Diarios em docs/progresso29.md*
