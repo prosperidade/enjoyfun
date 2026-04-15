@@ -653,70 +653,133 @@ export function InvitationsSection({ eventId }) {
 }
 
 // ---------------------------------------------------------------------------
-// 10. CeremonySection (Cerimonial / Timeline de Momentos) — local state only
+// 10. CeremonySection (Cerimonial / Timeline de Momentos)
 // ---------------------------------------------------------------------------
 
-export function CeremonySection() {
+export function CeremonySection({ eventId }) {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState({ name: "", time: "", responsible: "", notes: "" });
+  const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(true);
 
-  const handleAdd = () => {
+  useEffect(() => {
+    if (!eventId) return;
+    api.get(`/event-ceremony-moments?event_id=${eventId}`).then((r) => setItems(r.data?.data || []));
+  }, [eventId]);
+
+  const handleAdd = async () => {
     if (!form.name.trim()) return toast.error("Nome do momento obrigatorio");
-    setItems((prev) => [...prev, { ...form, _id: Date.now() }]);
-    setForm({ name: "", time: "", responsible: "", notes: "" });
+    if (!eventId) return;
+    setLoading(true);
+    try {
+      const res = await api.post("/event-ceremony-moments", {
+        event_id: eventId,
+        name: form.name,
+        moment_time: form.time || null,
+        responsible: form.responsible || null,
+        notes: form.notes || null,
+        sort_order: items.length + 1,
+      });
+      setItems((prev) => [...prev, res.data?.data || res.data]);
+      setForm({ name: "", time: "", responsible: "", notes: "" });
+      toast.success("Momento adicionado");
+    } catch { toast.error("Erro ao adicionar momento"); }
+    setLoading(false);
   };
 
-  const handleRemove = (id) => setItems((prev) => prev.filter((i) => i._id !== id));
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/event-ceremony-moments/${id}`);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      toast.success("Momento removido");
+    } catch { toast.error("Erro ao remover"); }
+  };
 
   return (
     <SectionShell icon={Heart} title="Cerimonial / Timeline de Momentos" count={items.length} expanded={expanded} toggle={() => setExpanded(!expanded)}>
+      {!eventId && <NoEventNotice />}
       <div className="grid grid-cols-4 gap-2">
         <input className={inputCls} placeholder="Ex: Entrada dos noivos" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <input className={inputCls} type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />
         <input className={inputCls} placeholder="Responsavel" value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })} />
         <input className={inputCls} placeholder="Observacoes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
       </div>
-      <button type="button" className={btnAdd} onClick={handleAdd}>
+      <button type="button" className={btnAdd} disabled={loading || !eventId} onClick={handleAdd}>
         <Plus className="w-3 h-3" /> Adicionar momento
       </button>
       {items.map((item) => (
-        <div key={item._id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
-          <span>{item.time && <span className="text-purple-400 mr-2">{item.time}</span>}{item.name}{item.responsible ? ` — ${item.responsible}` : ""}{item.notes ? <span className="text-gray-500 ml-2">({item.notes})</span> : ""}</span>
-          <button type="button" className={btnDel} onClick={() => handleRemove(item._id)}><Trash2 className="w-4 h-4" /></button>
+        <div key={item.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
+          <span>{item.moment_time && <span className="text-purple-400 mr-2">{item.moment_time}</span>}{item.name}{item.responsible ? ` — ${item.responsible}` : ""}{item.notes ? <span className="text-gray-500 ml-2">({item.notes})</span> : ""}</span>
+          <button type="button" className={btnDel} onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
         </div>
       ))}
-      <p className="text-[10px] text-gray-600 italic">Estes momentos serao salvos apos aplicar a configuracao de cerimonial.</p>
     </SectionShell>
   );
 }
 
 // ---------------------------------------------------------------------------
-// 11. SubEventsSection (Sub-Eventos) — local state only
+// 11. SubEventsSection (Sub-Eventos)
 // ---------------------------------------------------------------------------
 
-const SUB_EVENT_SUGGESTIONS = ["Colacao de Grau", "Pre-Festa", "Despedida de Solteiro(a)", "After Party", "Ensaio"];
+const SUB_EVENT_SUGGESTIONS = [
+  { label: "Colacao de Grau", sub_event_type: "colacao" },
+  { label: "Pre-Festa", sub_event_type: "pre_festa" },
+  { label: "Despedida de Solteiro(a)", sub_event_type: "despedida" },
+  { label: "After Party", sub_event_type: "after_party" },
+  { label: "Ensaio", sub_event_type: "ensaio" },
+];
 
-export function SubEventsSection() {
+export function SubEventsSection({ eventId }) {
   const [items, setItems] = useState([]);
-  const [form, setForm] = useState({ name: "", date: "", venue: "", description: "" });
+  const [form, setForm] = useState({ name: "", sub_event_type: "", date: "", time: "", venue: "", description: "" });
+  const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(true);
 
-  const handleAdd = (name) => {
-    const entry = name ? { name, date: "", venue: "", description: "" } : form;
+  useEffect(() => {
+    if (!eventId) return;
+    api.get(`/event-sub-events?event_id=${eventId}`).then((r) => setItems(r.data?.data || []));
+  }, [eventId]);
+
+  const handleAdd = async (suggestion) => {
+    const entry = suggestion
+      ? { name: suggestion.label, sub_event_type: suggestion.sub_event_type, date: "", time: "", venue: "", description: "" }
+      : form;
     if (!entry.name.trim()) return toast.error("Nome do sub-evento obrigatorio");
-    setItems((prev) => [...prev, { ...entry, _id: Date.now() }]);
-    if (!name) setForm({ name: "", date: "", venue: "", description: "" });
+    if (!eventId) return;
+    setLoading(true);
+    try {
+      const res = await api.post("/event-sub-events", {
+        event_id: eventId,
+        name: entry.name,
+        sub_event_type: entry.sub_event_type || null,
+        event_date: entry.date || null,
+        event_time: entry.time || null,
+        venue: entry.venue || null,
+        description: entry.description || null,
+        sort_order: items.length + 1,
+      });
+      setItems((prev) => [...prev, res.data?.data || res.data]);
+      if (!suggestion) setForm({ name: "", sub_event_type: "", date: "", time: "", venue: "", description: "" });
+      toast.success("Sub-evento adicionado");
+    } catch { toast.error("Erro ao adicionar sub-evento"); }
+    setLoading(false);
   };
 
-  const handleRemove = (id) => setItems((prev) => prev.filter((i) => i._id !== id));
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/event-sub-events/${id}`);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      toast.success("Sub-evento removido");
+    } catch { toast.error("Erro ao remover"); }
+  };
 
   return (
     <SectionShell icon={CalendarRange} title="Sub-Eventos" count={items.length} expanded={expanded} toggle={() => setExpanded(!expanded)}>
+      {!eventId && <NoEventNotice />}
       <div className="flex flex-wrap gap-1.5 mb-2">
         {SUB_EVENT_SUGGESTIONS.map((s) => (
-          <button key={s} type="button" onClick={() => handleAdd(s)} className="text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded-lg border border-gray-700 transition-colors">
-            + {s}
+          <button key={s.label} type="button" disabled={loading || !eventId} onClick={() => handleAdd(s)} className="text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded-lg border border-gray-700 transition-colors disabled:opacity-40">
+            + {s.label}
           </button>
         ))}
       </div>
@@ -726,16 +789,15 @@ export function SubEventsSection() {
         <input className={inputCls} placeholder="Local / Venue" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} />
         <input className={inputCls} placeholder="Descricao" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
       </div>
-      <button type="button" className={btnAdd} onClick={() => handleAdd(null)}>
+      <button type="button" className={btnAdd} disabled={loading || !eventId} onClick={() => handleAdd(null)}>
         <Plus className="w-3 h-3" /> Adicionar sub-evento
       </button>
       {items.map((item) => (
-        <div key={item._id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
-          <span>{item.name}{item.date ? <span className="text-gray-500 ml-2">{item.date}</span> : ""}{item.venue ? ` @ ${item.venue}` : ""}{item.description ? <span className="text-gray-500 ml-2">({item.description})</span> : ""}</span>
-          <button type="button" className={btnDel} onClick={() => handleRemove(item._id)}><Trash2 className="w-4 h-4" /></button>
+        <div key={item.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
+          <span>{item.name}{item.event_date ? <span className="text-gray-500 ml-2">{item.event_date}</span> : ""}{item.venue ? ` @ ${item.venue}` : ""}{item.description ? <span className="text-gray-500 ml-2">({item.description})</span> : ""}</span>
+          <button type="button" className={btnDel} onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
         </div>
       ))}
-      <p className="text-[10px] text-gray-600 italic">Sub-eventos serao persistidos em uma futura migracao de banco.</p>
     </SectionShell>
   );
 }
