@@ -16,6 +16,11 @@ import {
   Building2,
   Mail,
   Heart,
+  Map,
+  Award,
+  Upload,
+  ExternalLink,
+  X,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -364,12 +369,8 @@ export function LocationSection({ form, setForm }) {
         <input className={inputCls} type="number" step="any" placeholder="Latitude" value={form.latitude || ""} onChange={set("latitude")} />
         <input className={inputCls} type="number" step="any" placeholder="Longitude" value={form.longitude || ""} onChange={set("longitude")} />
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2">
         <input className={inputCls} placeholder="Classificacao etaria" value={form.age_rating || ""} onChange={set("age_rating")} />
-        <input className={inputCls} placeholder="URL Mapa 3D" value={form.map_3d_url || ""} onChange={set("map_3d_url")} />
-        <input className={inputCls} placeholder="URL Imagem do mapa" value={form.map_image_url || ""} onChange={set("map_image_url")} />
-        <input className={inputCls} placeholder="URL Mapa de assentos" value={form.map_seating_url || ""} onChange={set("map_seating_url")} />
-        <input className={inputCls} placeholder="URL Mapa de estacionamento" value={form.map_parking_url || ""} onChange={set("map_parking_url")} />
       </div>
     </SectionShell>
   );
@@ -735,6 +736,313 @@ export function SubEventsSection() {
         </div>
       ))}
       <p className="text-[10px] text-gray-600 italic">Sub-eventos serao persistidos em uma futura migracao de banco.</p>
+    </SectionShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 12. MapsSection (File uploads via /organizer-files)
+// ---------------------------------------------------------------------------
+
+const MAP_SLOTS = [
+  { field: "map_3d_url", label: "Planta 3D do Local", description: "Palcos, bares, lojas, banheiros, entradas" },
+  { field: "map_image_url", label: "Mapa Geral do Evento", description: "Visao geral do evento (PNG/PDF)" },
+  { field: "map_seating_url", label: "Mapa de Assentos", description: "Poltronas ou mesas numeradas" },
+  { field: "map_parking_url", label: "Mapa de Estacionamento", description: "Vagas por setor" },
+];
+
+export function MapsSection({ eventId, form, setForm }) {
+  const [expanded, setExpanded] = useState(true);
+  const [uploading, setUploading] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState({});
+
+  const handleUpload = async (file, field) => {
+    setUploading(field);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("category", "event_map");
+      if (eventId) formData.append("event_id", eventId);
+      const res = await api.post("/organizer-files", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const uploadedUrl =
+        res.data?.data?.storage_path || res.data?.data?.original_name || "";
+      setForm((prev) => ({ ...prev, [field]: uploadedUrl }));
+      setSelectedFiles((prev) => ({ ...prev, [field]: null }));
+      toast.success("Arquivo enviado!");
+    } catch {
+      toast.error("Erro ao enviar arquivo");
+    }
+    setUploading(null);
+  };
+
+  const handleRemove = (field) => {
+    setForm((prev) => ({ ...prev, [field]: "" }));
+    setSelectedFiles((prev) => ({ ...prev, [field]: null }));
+    toast.success("Mapa removido");
+  };
+
+  const activeCount = MAP_SLOTS.filter((s) => form[s.field]).length;
+
+  return (
+    <SectionShell
+      icon={Map}
+      title="Mapas do Evento"
+      count={activeCount || null}
+      expanded={expanded}
+      toggle={() => setExpanded(!expanded)}
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {MAP_SLOTS.map((slot) => {
+          const currentUrl = form[slot.field] || "";
+          const file = selectedFiles[slot.field];
+          const isUploading = uploading === slot.field;
+
+          return (
+            <div
+              key={slot.field}
+              className="border border-gray-700 rounded-lg p-3 bg-gray-800/60 space-y-2"
+            >
+              <div>
+                <p className="text-sm font-medium text-gray-200">
+                  {slot.label}
+                </p>
+                <p className="text-[10px] text-gray-500">{slot.description}</p>
+              </div>
+
+              {currentUrl ? (
+                <div className="flex items-center gap-2 bg-gray-900 rounded-lg px-3 py-2">
+                  <span className="text-xs text-green-400 truncate flex-1">
+                    {currentUrl}
+                  </span>
+                  <a
+                    href={currentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-purple-400"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(slot.field)}
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <label className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*,.pdf,.glb,.gltf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f)
+                          setSelectedFiles((prev) => ({
+                            ...prev,
+                            [slot.field]: f,
+                          }));
+                      }}
+                    />
+                    <span className="flex items-center gap-1.5 cursor-pointer bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs px-3 py-2 rounded-lg transition-colors">
+                      <Upload className="w-3.5 h-3.5" />
+                      {file ? file.name : "Escolher arquivo"}
+                    </span>
+                  </label>
+                  {file && (
+                    <button
+                      type="button"
+                      disabled={isUploading}
+                      onClick={() => handleUpload(file, slot.field)}
+                      className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium px-3 py-2 rounded-lg disabled:opacity-40"
+                    >
+                      {isUploading ? "Enviando..." : "Enviar"}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </SectionShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 13. CertificatesSection (via /event-certificates API)
+// ---------------------------------------------------------------------------
+
+const CERTIFICATE_TYPES = [
+  { value: "participation", label: "Participacao" },
+  { value: "presentation", label: "Apresentacao" },
+  { value: "workshop", label: "Workshop" },
+  { value: "speaker", label: "Palestrante" },
+  { value: "organizer", label: "Organizador" },
+];
+
+export function CertificatesSection({ eventId }) {
+  const [items, setItems] = useState([]);
+  const [form, setForm] = useState({
+    participant_name: "",
+    participant_email: "",
+    certificate_type: "participation",
+    hours: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+
+  useEffect(() => {
+    if (!eventId) return;
+    api
+      .get(`/event-certificates?event_id=${eventId}`)
+      .then((r) => setItems(r.data?.data || []))
+      .catch(() => {});
+  }, [eventId]);
+
+  const handleGenerate = async () => {
+    if (!form.participant_name.trim())
+      return toast.error("Nome do participante obrigatorio");
+    if (!eventId) return;
+    setLoading(true);
+    try {
+      const res = await api.post("/event-certificates", {
+        event_id: eventId,
+        participant_name: form.participant_name,
+        participant_email: form.participant_email || null,
+        certificate_type: form.certificate_type,
+        hours: form.hours ? Number(form.hours) : null,
+      });
+      setItems((prev) => [...prev, res.data?.data || res.data]);
+      setForm({
+        participant_name: "",
+        participant_email: "",
+        certificate_type: "participation",
+        hours: "",
+      });
+      toast.success("Certificado gerado");
+    } catch {
+      toast.error("Erro ao gerar certificado");
+    }
+    setLoading(false);
+  };
+
+  const typeLabel = (t) =>
+    CERTIFICATE_TYPES.find((ct) => ct.value === t)?.label || t;
+
+  const emittedCount = items.length;
+  const pendingCount = items.filter(
+    (i) => i.status === "pending"
+  ).length;
+
+  return (
+    <SectionShell
+      icon={Award}
+      title="Certificados"
+      count={emittedCount || null}
+      expanded={expanded}
+      toggle={() => setExpanded(!expanded)}
+    >
+      {!eventId ? (
+        <p className="text-xs text-yellow-500">
+          Salve o evento primeiro para gerenciar certificados.
+        </p>
+      ) : (
+        <>
+          {/* Stats */}
+          <div className="flex gap-4 mb-2">
+            <div className="bg-gray-800 rounded-lg px-4 py-2 text-center">
+              <p className="text-lg font-bold text-white">{emittedCount}</p>
+              <p className="text-[10px] text-gray-400">Emitidos</p>
+            </div>
+            <div className="bg-gray-800 rounded-lg px-4 py-2 text-center">
+              <p className="text-lg font-bold text-yellow-400">
+                {pendingCount}
+              </p>
+              <p className="text-[10px] text-gray-400">Pendentes</p>
+            </div>
+          </div>
+
+          {/* Quick-generate form */}
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              className={inputCls}
+              placeholder="Nome do participante"
+              value={form.participant_name}
+              onChange={(e) =>
+                setForm({ ...form, participant_name: e.target.value })
+              }
+            />
+            <input
+              className={inputCls}
+              type="email"
+              placeholder="Email do participante"
+              value={form.participant_email}
+              onChange={(e) =>
+                setForm({ ...form, participant_email: e.target.value })
+              }
+            />
+            <select
+              className={inputCls}
+              value={form.certificate_type}
+              onChange={(e) =>
+                setForm({ ...form, certificate_type: e.target.value })
+              }
+            >
+              {CERTIFICATE_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            <input
+              className={inputCls}
+              type="number"
+              placeholder="Horas"
+              value={form.hours}
+              onChange={(e) => setForm({ ...form, hours: e.target.value })}
+            />
+          </div>
+          <button
+            type="button"
+            className={btnAdd}
+            disabled={loading || !eventId}
+            onClick={handleGenerate}
+          >
+            <Plus className="w-3 h-3" /> Gerar certificado
+          </button>
+
+          {/* List of issued certificates */}
+          {items.map((item) => (
+            <div
+              key={item.id || item.validation_code}
+              className="bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 space-y-1"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-medium">{item.participant_name}</span>
+                <span className="text-[10px] text-gray-500">
+                  {item.issued_at
+                    ? new Date(item.issued_at).toLocaleDateString("pt-BR")
+                    : ""}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-gray-400">
+                <span>{typeLabel(item.certificate_type)}</span>
+                {item.hours && <span>{item.hours}h</span>}
+                {item.validation_code && (
+                  <span className="font-mono text-purple-400">
+                    {item.validation_code}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
     </SectionShell>
   );
 }

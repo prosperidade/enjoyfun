@@ -40,6 +40,8 @@ const CONFIG_MODULES = [
   { key: "ceremony", label: "Cerimonial", icon: "Heart", description: "Timeline de momentos do evento" },
   { key: "sub_events", label: "Sub-Eventos", icon: "CalendarRange", description: "Pre-festa, colacao, despedida, after party" },
   { key: "location", label: "Localizacao", icon: "MapPin", description: "GPS, mapa, venue" },
+  { key: "maps", label: "Mapas / Uploads", icon: "Map", description: "Mapa 3D, planta, assentos" },
+  { key: "certificates", label: "Certificados", icon: "Award", description: "Emissao por participacao" },
 ];
 
 /**
@@ -54,8 +56,6 @@ const OPERATIONAL_MODULES = [
   { key: "finance", label: "Financeiro", icon: "DollarSign", description: "Orcamento e contas" },
   { key: "parking", label: "Estacionamento Op.", icon: "Car", description: "Controle de veiculos" },
   { key: "invitations", label: "Convites / RSVP", icon: "Mail", description: "Lista de convidados com confirmacao" },
-  { key: "certificates", label: "Certificados", icon: "Award", description: "Emissao por participacao" },
-  { key: "maps", label: "Mapas / Uploads", icon: "Map", description: "Mapa 3D, planta, assentos" },
 ];
 
 /** Full catalog (both groups combined) for external consumers. */
