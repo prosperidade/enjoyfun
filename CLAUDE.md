@@ -1,6 +1,6 @@
 # CLAUDE.md — EnjoyFun Platform
 ## Guia Completo para IA: Arquitetura, Estado Real e Visão de Negócio
-### Atualizado: 2026-04-13 (EMAS auditoria completa + 8/8 agents PASS — D-Day adiado pro próximo evento)
+### Atualizado: 2026-04-15 (Multi-Evento customizável + Auditoria UI 63 commits + SuperAdmin 4 abas)
 
 ---
 
@@ -157,7 +157,7 @@ super_admin / admin (André)
 
 **PostgreSQL 18.2 | DB: `enjoyfun` | host: 127.0.0.1:5432 | user: postgres**
 
-### Migrations versionadas até 064
+### Migrations versionadas até 101
 
 | Faixa | Conteúdo |
 |-------|---------|
@@ -192,9 +192,18 @@ super_admin / admin (André)
 - Aplicar migrations recentes nos ambientes ativos conforme janela de manutenção
 - Drift replay suportado: janela `039..059` provada; `034..038` com divergência pendente de reconciliação
 - ✅ Migrations 078-086 aplicadas (2026-04-13) — labels PT-BR, memory relevance, metrics, skill versioning, pgvector tables, approvals, memory embeddings
+- ✅ Migrations 087-101 aplicadas (2026-04-15) — multi-evento customizavel:
+  - 087: products.cost_price
+  - 088: ticket_types.sector
+  - 089: events +14 campos (event_type, modules_enabled, GPS, mapas, venue_type)
+  - 090-093: event_stages, event_sectors, event_parking_config, event_pdv_points
+  - 094: 6 novos templates (show, congress, theater, gym, rodeo, custom)
+  - 095-098: event_tables, event_sessions, event_exhibitors, event_certificates
+  - 099: event_participants +RSVP fields (meal_choice, table_id, guest_side)
+  - 100-101: event_ceremony_moments, event_sub_events
 
 ### Tabelas com `organizer_id` (multi-tenant ativo):
-`events` · `products` · `sales` · `tickets` · `ticket_types` · `digital_cards` · `parking_records` · `users` · `guests` · `event_participants` · `event_days` · `event_shifts` · `event_meal_services` · `workforce_assignments` · `workforce_roles` · `workforce_event_roles` · `participant_meals` · `ai_usage_logs` · `audit_log` · `card_issue_batches` · `refresh_tokens` · `vendors` · `organizer_mcp_servers` · `organizer_mcp_server_tools` · `organizer_files` · `organizer_ai_providers` · `organizer_ai_agents` · `ai_agent_executions` · `ai_agent_memories` · `ai_event_reports` · `ai_conversation_sessions` · `ai_conversation_messages`
+`events` · `products` · `sales` · `tickets` · `ticket_types` · `digital_cards` · `parking_records` · `users` · `guests` · `event_participants` · `event_days` · `event_shifts` · `event_meal_services` · `workforce_assignments` · `workforce_roles` · `workforce_event_roles` · `participant_meals` · `ai_usage_logs` · `audit_log` · `card_issue_batches` · `refresh_tokens` · `vendors` · `organizer_mcp_servers` · `organizer_mcp_server_tools` · `organizer_files` · `organizer_ai_providers` · `organizer_ai_agents` · `ai_agent_executions` · `ai_agent_memories` · `ai_event_reports` · `ai_conversation_sessions` · `ai_conversation_messages` · `event_stages` · `event_sectors` · `event_parking_config` · `event_pdv_points` · `event_tables` · `event_sessions` · `event_exhibitors` · `event_certificates` · `event_ceremony_moments` · `event_sub_events`
 
 ### Regra de Ouro — NUNCA violar:
 ```sql
@@ -361,25 +370,25 @@ enjoyfun/
 
 ---
 
-## 🗺️ ESTADO DOS MÓDULOS (2026-04-12)
+## 🗺️ ESTADO DOS MÓDULOS (2026-04-15)
 
 | Módulo | Estado Funcional | Pendências |
 |--------|-----------------|-----------|
 | Auth / JWT | ✅ Encerrado | Plano V4: RS256 |
-| Eventos | ✅ Encerrado | — |
-| Ingressos | ✅ Encerrado | — |
-| PDV (Bar/Food/Shop) | ✅ Encerrado funcional | Refatoração (consolidar em POSController) |
+| Eventos | ✅ **Multi-Evento** | 12 tipos + custom, módulos customizáveis, GPS, mapas |
+| Ingressos | ✅ Encerrado | Setor vinculado a event_sectors |
+| PDV (Bar/Food/Shop) | ✅ Encerrado + cost_price | Card de custos no Reports, margem calculada |
 | Cashless / Cartões | ✅ Encerrado | Smoke do fluxo completo pendente |
-| Estacionamento | ✅ Encerrado | — |
+| Estacionamento | ✅ **Completo** | Capacity warning + fee automático de event_parking_config |
 | Sync Offline | ✅ Hardened | NOWAIT, batch dedup, size limits. Smoke E2E pendente |
-| ParticipantsHub | ✅ Encerrado | Testes de contrato e telemetria |
-| Workforce | ✅ Encerrado funcional | Fatiado em helpers (299 linhas no controller principal) |
-| Meals Control | ✅ Encerrado | Migration 014 pendente de aplicação em janela controlada |
+| ParticipantsHub | ✅ Encerrado | RSVP fields adicionados (meal_choice, table_id, guest_side) |
+| Workforce | ✅ Encerrado funcional | normalizeCostBucket removido, cost_bucket direto do backend |
+| Meals Control | ✅ Encerrado | meal_unit_cost consolidado, sector case-insensitive |
 | Card Issuance em Massa | 🟡 Novo (migration 028) | Smoke ponta a ponta pendente |
 | White Label (Branding) | 🟡 Parcial | CSS vars dinâmicos, subdomínio ausente |
 | Channels / Mensageria | 🟡 Hardened | Idempotência via correlation_id. Retry/replay pendentes |
-| Analytics v1 | ✅ Encerrado | Snapshots materializados na V4 |
-| Dashboard | ✅ Funcional | — |
+| Analytics v1 | ✅ Encerrado | Textos técnicos limpos |
+| Dashboard | ✅ **Completo** | Cards com links, lideranças, estoque por PDV point, AI no topo |
 | IA (EMAS v1) | ✅ **COMPLETO + Two-Tier UI** | 13 agentes, 50+ tools, lazy context, grounding score, approval workflow, voice proxy, SSE, supervisor, memory recall, PT-BR labels |
 | Health Check | ✅ Real | Deep check + métricas + GET /ai/health (monitoring por agente) |
 | Agents Hub | ✅ Implementado | 13 agentes (incl. platform_guide), 50+ skills, DB-driven registry |
@@ -397,10 +406,22 @@ enjoyfun/
 | Documents Hub / RAG | ✅ Implementado | KB V3 hybrid (pgvector + Google File API + FTS) |
 | Gateways de Pagamento | ✅ Asaas ativo | Asaas PIX real + webhook + split 1%/99% + recharge integrado |
 | Docker / Deploy | ✅ Expandido | +Redis + MemPalace sidecar + SSE nginx config |
-| Logística de Artistas | 🔴 Pendente | ADR não escrito ainda |
-| Controle de Custos | 🔴 Pendente | ADR não escrito ainda |
+| Logística de Artistas | ✅ Implementado | CRUD completo, timeline, alerts, team, files |
+| Controle de Custos | ✅ Parcial | cost_price em products, margem no POS. Custos por equipe no Dashboard |
 | Customer App / PWA | 🟡 Parcial | Recharge com Asaas PIX real. Service Worker e push pendentes |
-| SuperAdmin / Billing SaaS | 🟡 Parcial | Dashboard de comissões e MRR ausentes |
+| SuperAdmin / Billing SaaS | ✅ **4 abas** | Organizadores + APIs/Tokens + Saúde Sistema + Financeiro |
+| Multi-Evento | ✅ **ADR + Implementado** | 12 tipos, 10 tabelas novas, 10 CRUD endpoints, 12 module sections |
+| Palcos / Salas | ✅ Novo | event_stages CRUD + detection no AdaptiveResponse |
+| Setores | ✅ Novo | event_sectors CRUD + vinculado a ticket_types |
+| Mesas / Seating | ✅ Novo | event_tables CRUD + RSVP em event_participants |
+| Sessões / Agenda | ✅ Novo | event_sessions CRUD + detection como timeline |
+| Expositores | ✅ Novo | event_exhibitors CRUD |
+| Certificados | ✅ Novo | event_certificates + validação pública por código |
+| Cerimonial | ✅ Novo | event_ceremony_moments CRUD |
+| Sub-Eventos | ✅ Novo | event_sub_events CRUD (pré-festa, colação, etc) |
+| PDV Distribuído | ✅ Novo | event_pdv_points + estoque crítico por bar no Dashboard |
+| Estacionamento Config | ✅ Novo | event_parking_config + fee automático na saída |
+| Mapas / Uploads | ✅ Novo | Upload via organizer-files + download endpoint |
 
 ---
 
@@ -520,8 +541,9 @@ REGRAS INVIOLÁVEIS:
 | ADR | Decisão | Status |
 |-----|---------|--------|
 | `adr_auth_jwt_strategy_v1.md` | HS256 como estratégia inicial, migrado para RS256 | ✅ RS256 implementado |
-| `adr_ai_multiagentes_strategy_v1.md` | Agents Hub + Embedded Bot como dois planos complementares | 📋 Aceito, pendente |
+| `adr_ai_multiagentes_strategy_v1.md` | Agents Hub + Embedded Bot como dois planos complementares | ✅ EMAS completo |
 | `adr_cashless_card_issuance_strategy_v1.md` | Emissão estruturada nasce no Workforce, não em /cards | 🟡 Aceito, parcialmente implementado |
+| `adr_multi_event_customizable_v1.md` | Modelo customizável com módulos, 12 tipos + custom | ✅ Implementado — 10 tabelas, 10 endpoints, 12 sections |
 
 ---
 
@@ -532,7 +554,8 @@ REGRAS INVIOLÁVEIS:
 | `docs/diagnostico.md` | Deve continuar alinhado com o estado real do código |
 | `docs/progresso19.md` | Diário — Hub de IA Multi-Agentes (overhaul completo) |
 | `docs/progresso24.md` | Diário — Readiness Sprint + Auditoria Pre-Evento Real |
-| `docs/progresso25.md` | Diário ativo — Sprint AI v2 (Agent Registry, Skills Warehouse, Chat Conversacional, UI AI-first) |
+| `docs/progresso25.md` | Diário — Sprint AI v2 (Agent Registry, Skills Warehouse, Chat) |
+| `docs/progresso28.md` | Diário ativo — Auditoria UI + Multi-Evento + SuperAdmin (63 commits) |
 
 Auditorias técnicas entram por `docs/auditorias.md`; arquivos legados estão em `docs/archive/root_legacy/`.
 
@@ -589,4 +612,4 @@ EMAS (Embedded Multi-Agent System) foi refundado completamente em 2026-04-12. Pl
 ---
 
 *EnjoyFun Platform v2.0 — SaaS White Label Multi-tenant*
-*Atualizado: 2026-04-13 — EMAS v1 COMPLETO + auditoria agentes (8/8 surfaces PASS, 20 commits sessao). Diarios em docs/progresso26.md + docs/progresso27.md*
+*Atualizado: 2026-04-15 — Multi-Evento customizavel (12 tipos + custom) + Auditoria UI (63 commits) + SuperAdmin 4 abas. Diarios em docs/progresso28.md*
