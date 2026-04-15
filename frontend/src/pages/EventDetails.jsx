@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../lib/api";
-import { CalendarDays, MapPin, Clock, ArrowLeft, Users, CheckCircle, Layers3, UserRound, Trash2, Pencil } from "lucide-react";
+import { CalendarDays, MapPin, Clock, ArrowLeft, Users, CheckCircle, Layers3, UserRound, Trash2, Pencil, Globe, Package, Map, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
 import { useEventScope } from "../context/EventScopeContext";
 
@@ -54,6 +54,27 @@ export default function EventDetails() {
   const starts = new Date(event.starts_at).toLocaleString("pt-BR");
   const ends = event.ends_at ? new Date(event.ends_at).toLocaleString("pt-BR") : "Não informado";
 
+  const EVENT_TYPE_LABELS = {
+    festival: "Festival", show: "Show", corporate: "Corporativo",
+    wedding: "Casamento", graduation: "Formatura", sports_stadium: "Esportivo",
+    expo: "Feira", congress: "Congresso", theater: "Teatro",
+    sports_gym: "Ginasio", rodeo: "Rodeio", custom: "Customizado",
+  };
+
+  const VENUE_TYPE_LABELS = {
+    outdoor: "Ar livre", indoor: "Fechado", hybrid: "Hibrido", stadium: "Estadio", arena: "Arena",
+  };
+
+  const hasLocation = event.city || event.latitude || event.longitude;
+  const hasModules = Array.isArray(event.modules_enabled) && event.modules_enabled.length > 0;
+  const mapLinks = [
+    { key: "map_3d_url", label: "Mapa 3D" },
+    { key: "map_image_url", label: "Mapa de Imagem" },
+    { key: "map_seating_url", label: "Mapa de Assentos" },
+    { key: "map_parking_url", label: "Mapa de Estacionamento" },
+  ].filter((m) => event[m.key]);
+  const hasMaps = mapLinks.length > 0;
+
   const handleDeleteEvent = async () => {
     if (!event?.can_delete) return;
     if (!window.confirm("Excluir este evento? Essa ação só é permitida para eventos sem dados vinculados.")) {
@@ -95,7 +116,14 @@ export default function EventDetails() {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white shadow-sm">{event.name}</h1>
-              <span className="badge-green mt-2 inline-block">{String(event.status || "draft").toUpperCase()}</span>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="badge-green inline-block">{String(event.status || "draft").toUpperCase()}</span>
+                {event.event_type && EVENT_TYPE_LABELS[event.event_type] && (
+                  <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    {EVENT_TYPE_LABELS[event.event_type]}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -177,6 +205,84 @@ export default function EventDetails() {
           <p className="text-xs text-gray-500 mt-1">Base comercial disponível para bilheteria.</p>
         </div>
       </div>
+
+      {/* ── Localização ── */}
+      {hasLocation && (
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <Globe size={18} className="text-purple-400" />
+            <h3 className="section-title mb-0">Localização</h3>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4 text-sm">
+            {event.city && (
+              <div>
+                <p className="text-gray-500 text-xs mb-1">Cidade</p>
+                <p className="text-white">{[event.city, event.state, event.country].filter(Boolean).join(", ")}</p>
+              </div>
+            )}
+            {event.venue_type && (
+              <div>
+                <p className="text-gray-500 text-xs mb-1">Tipo de local</p>
+                <p className="text-white">{VENUE_TYPE_LABELS[event.venue_type] || event.venue_type}</p>
+              </div>
+            )}
+            {event.zip_code && (
+              <div>
+                <p className="text-gray-500 text-xs mb-1">CEP</p>
+                <p className="text-white">{event.zip_code}</p>
+              </div>
+            )}
+            {(event.latitude && event.longitude) && (
+              <div>
+                <p className="text-gray-500 text-xs mb-1">Coordenadas GPS</p>
+                <p className="text-white font-mono text-xs">{event.latitude}, {event.longitude}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modulos Ativos ── */}
+      {hasModules && (
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <Package size={18} className="text-cyan-400" />
+            <h3 className="section-title mb-0">Modulos Ativos</h3>
+            <span className="text-xs text-gray-500 ml-auto">{event.modules_enabled.length} modulos</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {event.modules_enabled.map((mod) => (
+              <span key={mod} className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-800 text-gray-300 border border-gray-700">
+                {mod.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Mapas ── */}
+      {hasMaps && (
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <Map size={18} className="text-emerald-400" />
+            <h3 className="section-title mb-0">Mapas</h3>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {mapLinks.map((m) => (
+              <a
+                key={m.key}
+                href={event[m.key]}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-sm text-gray-300 hover:text-white hover:border-purple-500/50 transition-colors"
+              >
+                <ExternalLink size={14} className="text-purple-400 shrink-0" />
+                {m.label}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

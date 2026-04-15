@@ -25,6 +25,13 @@ const statusBadge = {
   cancelled: "badge-red",
 };
 
+const EVENT_TYPE_LABELS = {
+  festival: "Festival", show: "Show", corporate: "Corporativo",
+  wedding: "Casamento", graduation: "Formatura", sports_stadium: "Esportivo",
+  expo: "Feira", congress: "Congresso", theater: "Teatro",
+  sports_gym: "Ginasio", rodeo: "Rodeio", custom: "Customizado",
+};
+
 const statusLabel = {
   draft: "Rascunho",
   published: "Publicado",
@@ -1183,9 +1190,16 @@ export default function Events() {
                     por {ev.organizer_name || "Enjoy Fun"}
                   </p>
                 </div>
-                <span className={statusBadge[ev.status] || "badge-gray"}>
-                  {statusLabel[ev.status] || ev.status}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {ev.event_type && EVENT_TYPE_LABELS[ev.event_type] && (
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      {EVENT_TYPE_LABELS[ev.event_type]}
+                    </span>
+                  )}
+                  <span className={statusBadge[ev.status] || "badge-gray"}>
+                    {statusLabel[ev.status] || ev.status}
+                  </span>
+                </div>
               </div>
 
               {ev.venue_name && (
@@ -1200,9 +1214,12 @@ export default function Events() {
                   timeStyle: "short",
                 })}
               </div>
-              {ev.capacity ? (
-                <div className="text-xs text-gray-500">
-                  Capacidade: {parseInt(ev.capacity, 10).toLocaleString()}
+              {(ev.capacity || (ev.modules_enabled && ev.modules_enabled.length > 0)) ? (
+                <div className="flex items-center gap-3 text-xs text-gray-500">
+                  {ev.capacity ? <span>Capacidade: {parseInt(ev.capacity, 10).toLocaleString()}</span> : null}
+                  {ev.modules_enabled && ev.modules_enabled.length > 0 ? (
+                    <span className="text-gray-600">{ev.modules_enabled.length} modulos</span>
+                  ) : null}
                 </div>
               ) : null}
 
