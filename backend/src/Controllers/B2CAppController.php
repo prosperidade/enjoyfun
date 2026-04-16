@@ -83,8 +83,8 @@ function getEventPublicB2C(?string $slugOrId): void
     jsonSuccess([
         'id' => $eid,
         'name' => $event['name'] ?? '',
-        'start_date' => $event['start_date'] ?? null,
-        'end_date' => $event['end_date'] ?? null,
+        'start_date' => $event['starts_at'] ?? $event['start_date'] ?? null,
+        'end_date' => $event['ends_at'] ?? $event['end_date'] ?? null,
         'location' => $event['location'] ?? null,
         'capacity' => (int)($event['capacity'] ?? 0),
         'event_type' => $event['event_type'] ?? 'festival',
