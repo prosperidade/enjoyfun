@@ -183,14 +183,14 @@ export default function Guests() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="page-title flex items-center gap-2">
-            <Users size={22} className="text-blue-400" /> Convidados
+          <h1 className="text-2xl font-bold font-headline text-slate-100 flex items-center gap-2">
+            <Users size={22} className="text-cyan-400" /> Convidados
           </h1>
-          <p className="text-sm text-gray-500">{pagination.total} convidado(s) • {activeEventName}</p>
+          <p className="text-sm text-slate-500">{pagination.total} convidado(s) • {activeEventName}</p>
         </div>
 
         <button
-          className="btn-primary flex items-center gap-2"
+          className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-semibold flex items-center gap-2 transition-colors"
           onClick={() => {
             setUploadEvent(selectedEvent || '');
             setShowUploadModal(true);
@@ -201,15 +201,15 @@ export default function Guests() {
       </div>
 
       {/* Filtros */}
-      <div className="card p-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
         <input
-          className="input w-full lg:col-span-2"
+          className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none w-full lg:col-span-2 transition-colors"
           placeholder="Buscar por nome ou e-mail"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
         />
         <select
-          className="input w-full"
+          className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 outline-none w-full transition-colors"
           value={selectedEvent}
           onChange={(e) => { setSelectedEvent(e.target.value); setPage(1); }}
         >
@@ -221,35 +221,35 @@ export default function Guests() {
       </div>
 
       {/* Tabela */}
-      <div className="table-wrapper">
-        <table className="table">
+      <div className="overflow-x-auto rounded-2xl border border-slate-800/40 bg-[#111827]">
+        <table className="w-full text-sm">
           <thead>
-            <tr>
-              <th>Nome</th>
-              <th>E-mail</th>
-              <th>Telefone</th>
-              <th>Status</th>
-              <th>Evento</th>
-              <th>Ações</th>
+            <tr className="bg-slate-800/50">
+              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Nome</th>
+              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">E-mail</th>
+              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Telefone</th>
+              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Status</th>
+              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Evento</th>
+              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Ações</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-800/40">
             {loading ? (
               <tr><td colSpan={6} className="py-10 text-center"><div className="spinner w-6 h-6 mx-auto" /></td></tr>
             ) : guests.length === 0 ? (
-              <tr><td colSpan={6} className="py-10 text-center text-sm text-gray-500">Nenhum convidado encontrado para esse filtro.</td></tr>
+              <tr><td colSpan={6} className="py-10 text-center text-sm text-slate-500">Nenhum convidado encontrado para esse filtro.</td></tr>
             ) : (
               guests.map((guest) => (
-                <tr key={guest.id}>
-                  <td className="text-white font-medium">{guest.name}</td>
-                  <td>
-                    <div className="flex items-center gap-1 text-gray-300">
-                      <Mail size={14} className="text-gray-500" />
+                <tr key={guest.id} className="hover:bg-slate-800/30 transition-colors">
+                  <td className="px-4 py-3 text-slate-100 font-medium">{guest.name}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1 text-slate-300">
+                      <Mail size={14} className="text-slate-500" />
                       {guest.email}
                     </div>
                   </td>
-                  <td className="text-gray-400">{guest.phone || '—'}</td>
-                  <td>
+                  <td className="px-4 py-3 text-slate-400">{guest.phone || '—'}</td>
+                  <td className="px-4 py-3">
                     <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
                       guest.status === 'used'
                         ? 'bg-green-500/15 text-green-400 border border-green-500/30'
@@ -258,13 +258,13 @@ export default function Guests() {
                       {guest.status === 'used' ? 'Presente' : guest.status}
                     </span>
                   </td>
-                  <td className="text-gray-400">{guest.event_name || `#${guest.event_id}`}</td>
-                  <td>
+                  <td className="px-4 py-3 text-slate-400">{guest.event_name || `#${guest.event_id}`}</td>
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       {/* Copiar link */}
                       <button
                         type="button"
-                        className="btn-secondary px-2 py-1 inline-flex items-center gap-1 text-xs"
+                        className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 hover:text-cyan-400 rounded-xl px-2 py-1 inline-flex items-center gap-1 text-xs transition-colors"
                         onClick={() => copyInviteLink(guest.qr_code_token)}
                         title="Copiar link do convite"
                       >
@@ -274,7 +274,7 @@ export default function Guests() {
                       {/* Editar */}
                       <button
                         type="button"
-                        className="btn-secondary px-2 py-1 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
+                        className="border border-slate-700/50 text-cyan-400 hover:border-cyan-500/30 hover:text-cyan-300 rounded-xl px-2 py-1 inline-flex items-center gap-1 text-xs transition-colors"
                         onClick={() => openEdit(guest)}
                         title="Editar convidado"
                       >
@@ -284,7 +284,7 @@ export default function Guests() {
                       {/* Excluir */}
                       <button
                         type="button"
-                        className="btn-secondary px-2 py-1 inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-300 disabled:opacity-40"
+                        className="border border-slate-700/50 text-red-400 hover:border-red-500/30 hover:text-red-300 rounded-xl px-2 py-1 inline-flex items-center gap-1 text-xs disabled:opacity-40 transition-colors"
                         onClick={() => handleDelete(guest)}
                         disabled={deleting === guest.id}
                         title="Remover convidado"
@@ -304,18 +304,18 @@ export default function Guests() {
       </div>
 
       {/* Paginação */}
-      <div className="flex items-center justify-between text-sm text-gray-400">
+      <div className="flex items-center justify-between text-sm text-slate-400">
         <span>Página {pagination.page} de {pagination.total_pages}</span>
         <div className="flex gap-2">
           <button
-            className="btn-secondary"
+            className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 text-sm font-medium transition-colors disabled:opacity-40"
             disabled={pagination.page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             Anterior
           </button>
           <button
-            className="btn-secondary"
+            className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 text-sm font-medium transition-colors disabled:opacity-40"
             disabled={pagination.page >= pagination.total_pages}
             onClick={() => setPage((p) => Math.min(pagination.total_pages, p + 1))}
           >
@@ -326,13 +326,13 @@ export default function Guests() {
 
       {/* ── Modal: Upload CSV ─────────────────────────────────────────────── */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Upload size={18} className="text-blue-400" /> Importar Convidados via CSV
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+            <div className="p-6 border-b border-slate-700/50 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-100 font-headline flex items-center gap-2">
+                <Upload size={18} className="text-cyan-400" /> Importar Convidados via CSV
               </h2>
-              <button onClick={closeUploadModal} className="text-gray-400 hover:text-white">
+              <button onClick={closeUploadModal} className="text-slate-400 hover:text-slate-100 transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -340,14 +340,14 @@ export default function Guests() {
             {/* Resumo pós-importação */}
             {importSummary ? (
               <div className="p-6 space-y-4">
-                <div className="rounded-xl border border-gray-700 overflow-hidden divide-y divide-gray-700">
+                <div className="rounded-xl border border-slate-700/50 overflow-hidden divide-y divide-slate-700/50">
                   <div className="flex items-center gap-3 p-4 bg-green-500/10">
                     <CheckCircle2 size={22} className="text-green-400 shrink-0" />
                     <div>
-                      <p className="text-white font-semibold">
+                      <p className="text-slate-100 font-semibold">
                         {importSummary.imported} convidado(s) inserido(s)
                       </p>
-                      <p className="text-xs text-gray-400">Adicionados com sucesso à lista</p>
+                      <p className="text-xs text-slate-400">Adicionados com sucesso à lista</p>
                     </div>
                   </div>
 
@@ -355,10 +355,10 @@ export default function Guests() {
                     <div className="flex items-center gap-3 p-4 bg-amber-500/10">
                       <AlertCircle size={22} className="text-amber-400 shrink-0" />
                       <div>
-                        <p className="text-white font-semibold">
+                        <p className="text-slate-100 font-semibold">
                           {importSummary.ignored} ignorado(s) — já existiam
                         </p>
-                        <p className="text-xs text-gray-400">E-mail já cadastrado neste evento</p>
+                        <p className="text-xs text-slate-400">E-mail já cadastrado neste evento</p>
                       </div>
                     </div>
                   )}
@@ -367,21 +367,21 @@ export default function Guests() {
                     <div className="flex items-center gap-3 p-4 bg-red-500/10">
                       <AlertCircle size={22} className="text-red-400 shrink-0" />
                       <div>
-                        <p className="text-white font-semibold">
+                        <p className="text-slate-100 font-semibold">
                           {importSummary.skipped} linha(s) inválida(s)
                         </p>
-                        <p className="text-xs text-gray-400">Nome/e-mail ausente ou e-mail mal formatado</p>
+                        <p className="text-xs text-slate-400">Nome/e-mail ausente ou e-mail mal formatado</p>
                       </div>
                     </div>
                   )}
                 </div>
 
                 <div className="flex gap-3">
-                  <button className="btn-secondary flex-1" onClick={closeUploadModal}>
+                  <button className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-medium flex-1 transition-colors" onClick={closeUploadModal}>
                     Fechar
                   </button>
                   <button
-                    className="btn-primary flex-1"
+                    className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex-1 transition-colors"
                     onClick={() => setImportSummary(null)}
                   >
                     Nova Importação
@@ -391,9 +391,9 @@ export default function Guests() {
             ) : (
               <form onSubmit={handleUpload} className="p-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">Evento *</label>
+                  <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Evento *</label>
                   <select
-                    className="input w-full"
+                    className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 outline-none w-full transition-colors"
                     value={uploadEvent}
                     onChange={(e) => setUploadEvent(e.target.value)}
                   >
@@ -405,24 +405,24 @@ export default function Guests() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">Arquivo CSV *</label>
+                  <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Arquivo CSV *</label>
                   <input
                     type="file"
-                    className="input w-full"
+                    className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 outline-none w-full transition-colors file:mr-3 file:rounded-lg file:border-0 file:bg-slate-700 file:text-slate-300 file:px-3 file:py-1 file:text-sm"
                     accept=".csv,text/csv"
                     onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Cabeçalho obrigatório: <code className="text-blue-400">name,email</code>.
-                    {' '}Opcionais: <code className="text-gray-400">phone</code>.
+                  <p className="text-xs text-slate-500 mt-1">
+                    Cabeçalho obrigatório: <code className="text-cyan-400">name,email</code>.
+                    {' '}Opcionais: <code className="text-slate-400">phone</code>.
                   </p>
                 </div>
 
                 <div className="flex gap-3 pt-2">
-                  <button type="button" className="btn-secondary flex-1" onClick={closeUploadModal}>
+                  <button type="button" className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-medium flex-1 transition-colors" onClick={closeUploadModal}>
                     Cancelar
                   </button>
-                  <button type="submit" className="btn-primary flex-1" disabled={uploading}>
+                  <button type="submit" className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex-1 transition-colors disabled:opacity-50" disabled={uploading}>
                     {uploading ? <span className="spinner w-5 h-5" /> : 'Importar'}
                   </button>
                 </div>
@@ -434,22 +434,22 @@ export default function Guests() {
 
       {/* ── Modal: Editar Convidado ───────────────────────────────────────── */}
       {selectedGuest && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Pencil size={18} className="text-blue-400" /> Editar Convidado
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+            <div className="p-6 border-b border-slate-700/50 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-100 font-headline flex items-center gap-2">
+                <Pencil size={18} className="text-cyan-400" /> Editar Convidado
               </h2>
-              <button onClick={() => setSelectedGuest(null)} className="text-gray-400 hover:text-white">
+              <button onClick={() => setSelectedGuest(null)} className="text-slate-400 hover:text-slate-100 transition-colors">
                 <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleEdit} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1">Nome *</label>
+                <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Nome *</label>
                 <input
-                  className="input w-full"
+                  className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none w-full transition-colors"
                   value={editForm.holder_name}
                   onChange={(e) => setEditForm((f) => ({ ...f, holder_name: e.target.value }))}
                   placeholder="Nome completo"
@@ -458,10 +458,10 @@ export default function Guests() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1">E-mail</label>
+                <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">E-mail</label>
                 <input
                   type="email"
-                  className="input w-full"
+                  className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none w-full transition-colors"
                   value={editForm.holder_email}
                   onChange={(e) => setEditForm((f) => ({ ...f, holder_email: e.target.value }))}
                   placeholder="email@exemplo.com"
@@ -469,9 +469,9 @@ export default function Guests() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1">Telefone</label>
+                <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Telefone</label>
                 <input
-                  className="input w-full"
+                  className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none w-full transition-colors"
                   value={editForm.holder_phone}
                   onChange={(e) => setEditForm((f) => ({ ...f, holder_phone: e.target.value }))}
                   placeholder="(11) 99999-9999"
@@ -479,10 +479,10 @@ export default function Guests() {
               </div>
 
               <div className="flex gap-3 pt-2">
-                <button type="button" className="btn-secondary flex-1" onClick={() => setSelectedGuest(null)}>
+                <button type="button" className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-medium flex-1 transition-colors" onClick={() => setSelectedGuest(null)}>
                   Cancelar
                 </button>
-                <button type="submit" className="btn-primary flex-1" disabled={saving}>
+                <button type="submit" className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex-1 transition-colors disabled:opacity-50" disabled={saving}>
                   {saving ? <span className="spinner w-5 h-5" /> : 'Salvar Alterações'}
                 </button>
               </div>

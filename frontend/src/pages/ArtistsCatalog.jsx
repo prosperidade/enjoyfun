@@ -60,13 +60,13 @@ function SummaryCard({ label, value, helper, tone = "default" }) {
       ? "border-yellow-500/20 bg-yellow-500/5"
       : tone === "danger"
         ? "border-red-500/20 bg-red-500/5"
-        : "border-white/5";
+        : "border-slate-800/40";
 
   return (
     <div className={`card ${toneClass}`}>
-      <p className="text-xs uppercase tracking-[0.18em] text-gray-500">{label}</p>
-      <p className="mt-3 text-3xl font-semibold text-white">{value}</p>
-      <p className="mt-2 text-sm text-gray-500">{helper}</p>
+      <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{label}</p>
+      <p className="mt-3 text-3xl font-semibold text-slate-100">{value}</p>
+      <p className="mt-2 text-sm text-slate-400">{helper}</p>
     </div>
   );
 }
@@ -182,14 +182,14 @@ function ArtistFormModal({ events, selectedEventId, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div className="card max-h-[90vh] w-full max-w-3xl overflow-y-auto border-white/10">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+      <div className="card max-h-[90vh] w-full max-w-3xl overflow-y-auto border-slate-700/50">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <h2 className="section-title">
               {isRegisteringContract ? "Novo artista contratado" : "Novo artista"}
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-slate-400">
               {selectedEventId
                 ? "Cadastre o artista e ja registre a contratacao do evento selecionado."
                 : "Cadastre o artista no catalogo e, se precisar, ja vincule a contratacao inicial."}
@@ -198,7 +198,7 @@ function ArtistFormModal({ events, selectedEventId, onClose, onSaved }) {
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-500 transition-colors hover:text-white"
+            className="text-slate-400 transition-colors hover:text-slate-100"
           >
             <XCircle size={20} />
           </button>
@@ -278,7 +278,7 @@ function ArtistFormModal({ events, selectedEventId, onClose, onSaved }) {
             />
           </label>
 
-          <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-gray-300">
+          <label className="flex items-center gap-3 rounded-2xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
             <input
               type="checkbox"
               className="checkbox"
@@ -288,7 +288,7 @@ function ArtistFormModal({ events, selectedEventId, onClose, onSaved }) {
             Artista disponivel para novas contratacoes
           </label>
 
-          <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-gray-300">
+          <label className="flex items-center gap-3 rounded-2xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
             <input
               type="checkbox"
               className="checkbox"
@@ -299,12 +299,12 @@ function ArtistFormModal({ events, selectedEventId, onClose, onSaved }) {
           </label>
 
           {isRegisteringContract && (
-            <div className="space-y-4 rounded-3xl border border-white/10 bg-black/10 p-5">
+            <div className="space-y-4 rounded-3xl border border-slate-700/50 bg-slate-900/40 p-5">
               <div className="space-y-1">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-400">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
                   Contratacao inicial
                 </h3>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-slate-400">
                   {selectedEvent
                     ? `Vincule este artista ao evento ${selectedEvent.name} com valor, palco e horarios iniciais.`
                     : "Se quiser, o artista ja pode entrar contratado em um evento especifico."}
@@ -742,11 +742,11 @@ export default function ArtistsCatalog() {
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
-          <h1 className="page-title">
-            <MicVocal size={22} className="text-brand" />
+          <h1 className="page-title font-headline">
+            <MicVocal size={22} className="text-cyan-400" />
             Operacao de Artistas
           </h1>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-slate-400">
             {eventId && selectedEvent
               ? `Evento selecionado: ${selectedEvent.name}`
               : "Sem evento selecionado: exibindo o catalogo geral do organizador."}
@@ -782,7 +782,7 @@ export default function ArtistsCatalog() {
         </div>
       </div>
 
-      <div className="card space-y-4 border-white/5">
+      <div className="card space-y-4 border-slate-800/40">
         <div
           className={`grid gap-3 ${
             eventId
@@ -791,7 +791,7 @@ export default function ArtistsCatalog() {
           }`}
         >
           <label className="relative block">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               className="input pl-9"
               value={search}
@@ -859,7 +859,7 @@ export default function ArtistsCatalog() {
           activeFilter !== "all" ||
           bookingStatusFilter !== "all" ||
           severityFilter !== "all") && (
-          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
             <span className="uppercase tracking-[0.18em]">Filtros ativos</span>
             {search && <span className="badge-gray">Busca: {search}</span>}
             {eventId && selectedEvent && <span className="badge-gray">Evento: {selectedEvent.name}</span>}
@@ -887,7 +887,7 @@ export default function ArtistsCatalog() {
                 setBookingStatusFilter("all");
                 setSeverityFilter("all");
               }}
-              className="inline-flex items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-gray-400 transition-colors hover:border-white/20 hover:text-white"
+              className="inline-flex items-center gap-1 rounded-full border border-slate-700/50 px-3 py-1 text-slate-400 transition-colors hover:border-slate-600/50 hover:text-slate-100"
             >
               <XCircle size={12} />
               Limpar
@@ -896,7 +896,7 @@ export default function ArtistsCatalog() {
         )}
 
         {eventId && (
-          <p className="text-xs uppercase tracking-[0.18em] text-gray-600">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
             {operationalLoading
               ? "Atualizando leitura operacional de timeline..."
               : "Chegada operacional e severidade consolidadas a partir das timelines do evento."}
@@ -988,14 +988,14 @@ export default function ArtistsCatalog() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={eventId ? 8 : 6} className="py-12 text-center text-gray-500">
+                <td colSpan={eventId ? 8 : 6} className="py-12 text-center text-slate-400">
                   Carregando artistas...
                 </td>
               </tr>
             ) : visibleArtists.length === 0 ? (
               <tr>
-                <td colSpan={eventId ? 8 : 6} className="py-12 text-center text-gray-500">
-                  <AlertCircle size={16} className="mr-2 inline-block text-gray-600" />
+                <td colSpan={eventId ? 8 : 6} className="py-12 text-center text-slate-400">
+                  <AlertCircle size={16} className="mr-2 inline-block text-slate-500" />
                   Nenhum artista encontrado para os filtros atuais.
                 </td>
               </tr>
@@ -1008,13 +1008,13 @@ export default function ArtistsCatalog() {
                 return (
                   <tr
                     key={`${artist.id}-${artist.event_artist_id || "catalog"}`}
-                    className="cursor-pointer hover:bg-white/5"
+                    className="cursor-pointer hover:bg-slate-800/30"
                     onClick={() => navigate(detailPath)}
                   >
                     <td>
                       <div className="space-y-1">
-                        <p className="font-semibold text-white">{artist.stage_name}</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="font-semibold text-slate-100">{artist.stage_name}</p>
+                        <p className="text-sm text-slate-400">
                           {artist.legal_name || "Sem nome juridico"}
                         </p>
                       </div>
@@ -1024,24 +1024,24 @@ export default function ArtistsCatalog() {
                       <>
                         <td>
                           <div className="space-y-2">
-                            <p className="text-sm text-gray-300">
+                            <p className="text-sm text-slate-300">
                               {artist.booking_stage_name || "Palco nao definido"}
                             </p>
                             <span className={bookingMeta.className}>{bookingMeta.label}</span>
                           </div>
                         </td>
                         <td>
-                          <div className="space-y-1 text-sm text-gray-400">
+                          <div className="space-y-1 text-sm text-slate-400">
                             <p className="flex items-center gap-2">
-                              <CalendarDays size={14} className="text-gray-600" />
+                              <CalendarDays size={14} className="text-slate-500" />
                               {formatDateTime(artist.operational_arrival)}
                             </p>
                           </div>
                         </td>
                         <td>
-                          <div className="space-y-1 text-sm text-gray-400">
+                          <div className="space-y-1 text-sm text-slate-400">
                             <p>{formatDateTime(artist.performance_start_at)}</p>
-                            <p className="text-xs text-gray-600">
+                            <p className="text-xs text-slate-500">
                               Soundcheck: {formatDateTime(artist.soundcheck_at)}
                             </p>
                           </div>
@@ -1049,12 +1049,12 @@ export default function ArtistsCatalog() {
                         <td>
                           <div className="space-y-2">
                             <span className={severityMeta.className}>{severityMeta.label}</span>
-                            <p className="text-xs uppercase tracking-[0.18em] text-gray-600">
+                            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
                               {artist.timeline_status || "sem-timeline"}
                             </p>
                           </div>
                         </td>
-                        <td className="text-right tabular-nums text-white">
+                        <td className="text-right tabular-nums text-slate-100">
                           {formatCurrency(artist.cache_amount)}
                         </td>
                         <td className="text-right tabular-nums font-semibold text-emerald-300">
@@ -1064,15 +1064,15 @@ export default function ArtistsCatalog() {
                     ) : (
                       <>
                         <td>
-                          <div className="space-y-1 text-sm text-gray-400">
+                          <div className="space-y-1 text-sm text-slate-400">
                             <p>{artist.default_contact_name || "Sem contato principal"}</p>
                             <p>{artist.default_contact_phone || "Sem telefone"}</p>
                           </div>
                         </td>
-                        <td className="text-sm text-gray-300">
+                        <td className="text-sm text-slate-300">
                           {artist.artist_type || "Nao definido"}
                         </td>
-                        <td className="text-right tabular-nums text-white">
+                        <td className="text-right tabular-nums text-slate-100">
                           {formatNumber(artist.bookings_count)}
                         </td>
                         <td>
@@ -1092,7 +1092,7 @@ export default function ArtistsCatalog() {
                               event.stopPropagation();
                               navigate(buildDetailPath(artist, "bookings"));
                             }}
-                            className="rounded-full border border-white/10 px-3 py-1 text-xs text-gray-300 transition-colors hover:border-white/20 hover:text-white"
+                            className="rounded-full border border-slate-700/50 px-3 py-1 text-xs text-slate-300 transition-colors hover:border-slate-600/50 hover:text-slate-100"
                           >
                             Contratacao
                           </button>
@@ -1102,7 +1102,7 @@ export default function ArtistsCatalog() {
                               event.stopPropagation();
                               navigate(buildDetailPath(artist, "timeline"));
                             }}
-                            className="rounded-full border border-white/10 px-3 py-1 text-xs text-gray-300 transition-colors hover:border-white/20 hover:text-white"
+                            className="rounded-full border border-slate-700/50 px-3 py-1 text-xs text-slate-300 transition-colors hover:border-slate-600/50 hover:text-slate-100"
                           >
                             Timeline
                           </button>
@@ -1112,14 +1112,14 @@ export default function ArtistsCatalog() {
                               event.stopPropagation();
                               navigate(buildDetailPath(artist, "alerts"));
                             }}
-                            className="rounded-full border border-white/10 px-3 py-1 text-xs text-gray-300 transition-colors hover:border-white/20 hover:text-white"
+                            className="rounded-full border border-slate-700/50 px-3 py-1 text-xs text-slate-300 transition-colors hover:border-slate-600/50 hover:text-slate-100"
                           >
                             Alertas
                           </button>
-                          <ChevronRight size={16} className="ml-1 mt-1 text-gray-600" />
+                          <ChevronRight size={16} className="ml-1 mt-1 text-slate-500" />
                         </div>
                       ) : (
-                        <ChevronRight size={16} className="ml-auto text-gray-600" />
+                        <ChevronRight size={16} className="ml-auto text-slate-500" />
                       )}
                     </td>
                   </tr>

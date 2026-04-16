@@ -50,20 +50,20 @@ export default function WorkforceMemberSettingsModal({ isOpen, onClose, particip
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg overflow-hidden">
-        <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+        <div className="p-4 border-b border-slate-800/40 flex items-center justify-between">
           <div>
-            <h3 className="text-white font-bold">Configuração Operacional</h3>
-            <p className="text-xs text-gray-500 mt-1">{participant.name}</p>
+            <h3 className="text-slate-100 font-bold">Configuração Operacional</h3>
+            <p className="text-xs text-slate-500 mt-1">{participant.name}</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800">
+          <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800/50">
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={save} className="p-5 grid grid-cols-2 gap-4">
-          <label className="text-xs text-gray-400">
+          <label className="text-xs text-slate-400 uppercase tracking-wider">
             Turnos no Evento
             <input
               type="number"
@@ -73,7 +73,7 @@ export default function WorkforceMemberSettingsModal({ isOpen, onClose, particip
               onChange={(e) => setForm((p) => ({ ...p, max_shifts_event: Number(e.target.value) }))}
             />
           </label>
-          <label className="text-xs text-gray-400">
+          <label className="text-xs text-slate-400 uppercase tracking-wider">
             Horas por Turno
             <input
               type="number"
@@ -84,7 +84,7 @@ export default function WorkforceMemberSettingsModal({ isOpen, onClose, particip
               onChange={(e) => setForm((p) => ({ ...p, shift_hours: Number(e.target.value) }))}
             />
           </label>
-          <label className="text-xs text-gray-400">
+          <label className="text-xs text-slate-400 uppercase tracking-wider">
             Refeições por Dia
             <input
               type="number"
@@ -94,7 +94,7 @@ export default function WorkforceMemberSettingsModal({ isOpen, onClose, particip
               onChange={(e) => setForm((p) => ({ ...p, meals_per_day: Number(e.target.value) }))}
             />
           </label>
-          <label className="text-xs text-gray-400">
+          <label className="text-xs text-slate-400 uppercase tracking-wider">
             Valor por Turno (R$)
             <input
               type="number"
@@ -107,8 +107,8 @@ export default function WorkforceMemberSettingsModal({ isOpen, onClose, particip
           </label>
 
           <div className="col-span-2 flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary">Cancelar</button>
-            <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2">
+            <button type="button" onClick={onClose} className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-semibold transition-colors">Cancelar</button>
+            <button type="submit" disabled={loading} className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex items-center gap-2">
               <Save size={16} /> Salvar
             </button>
           </div>

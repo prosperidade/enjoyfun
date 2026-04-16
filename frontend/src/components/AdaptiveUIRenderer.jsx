@@ -223,7 +223,7 @@ function InsightBlock({ block }) {
           <div className={`text-xs font-semibold ${severity.label} mb-0.5`}>{block.title}</div>
         )}
         {block.body && (
-          <div className="text-sm text-gray-200 leading-relaxed">{block.body}</div>
+          <div className="text-sm text-slate-200 leading-relaxed">{block.body}</div>
         )}
       </div>
     </div>
@@ -239,7 +239,7 @@ function ChartBlock({ block }) {
 
   if (data.length === 0) {
     return (
-      <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-4 text-xs text-gray-400">
+      <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-4 text-xs text-slate-400">
         {block.title || 'Grafico'}: sem dados.
       </div>
     );
@@ -320,8 +320,8 @@ function ChartBlock({ block }) {
       {block.title && (
         <div className="flex items-center gap-2 px-3.5 py-2 border-b border-white/10">
           <BarChart3 size={14} className="text-purple-400" aria-hidden="true" />
-          <span className="text-xs font-medium text-gray-200">{block.title}</span>
-          {unit && <span className="text-[10px] text-gray-500 ml-auto">{unit}</span>}
+          <span className="text-xs font-medium text-slate-200">{block.title}</span>
+          {unit && <span className="text-[10px] text-slate-500 ml-auto">{unit}</span>}
         </div>
       )}
       <div className="p-2" style={{ height: 220 }}>
@@ -337,7 +337,7 @@ function TableBlock({ block }) {
 
   if (columns.length === 0 || rows.length === 0) {
     return (
-      <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-4 text-xs text-gray-400">
+      <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-4 text-xs text-slate-400">
         {block.title || 'Tabela'}: sem dados.
       </div>
     );
@@ -346,9 +346,9 @@ function TableBlock({ block }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-md overflow-hidden">
       {block.title && (
-        <div className="px-3.5 py-2 border-b border-white/10 text-xs font-medium text-gray-200">
+        <div className="px-3.5 py-2 border-b border-white/10 text-xs font-medium text-slate-200">
           {block.title}
-          <span className="text-[10px] text-gray-500 ml-2">{rows.length} registros</span>
+          <span className="text-[10px] text-slate-500 ml-2">{rows.length} registros</span>
         </div>
       )}
       <div className="overflow-x-auto">
@@ -359,7 +359,7 @@ function TableBlock({ block }) {
                 <th
                   key={col.key}
                   scope="col"
-                  className="text-left px-3 py-2 text-gray-400 font-medium whitespace-nowrap"
+                  className="text-left px-3 py-2 text-slate-400 font-medium whitespace-nowrap"
                 >
                   {col.label || col.key}
                 </th>
@@ -373,7 +373,7 @@ function TableBlock({ block }) {
                   <td
                     key={col.key}
                     className={`px-3 py-1.5 whitespace-nowrap ${
-                      col.type === 'number' || col.type === 'currency' ? 'text-right font-mono text-gray-200' : 'text-gray-300'
+                      col.type === 'number' || col.type === 'currency' ? 'text-right font-mono text-slate-200' : 'text-slate-300'
                     }`}
                   >
                     {formatValue(row[col.key], col.type)}
@@ -399,7 +399,7 @@ function CardGridBlock({ block }) {
         const direction = card.delta_direction || 'flat';
         const DeltaIcon = direction === 'up' ? TrendingUp : direction === 'down' ? TrendingDown : Minus;
         const deltaColor =
-          direction === 'up' ? 'text-emerald-400' : direction === 'down' ? 'text-rose-400' : 'text-gray-500';
+          direction === 'up' ? 'text-emerald-400' : direction === 'down' ? 'text-rose-400' : 'text-slate-500';
 
         return (
           <div
@@ -407,7 +407,7 @@ function CardGridBlock({ block }) {
             className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-3 hover:border-white/20 transition-colors"
           >
             <div className="flex items-start justify-between mb-1.5">
-              <span className="text-[10px] text-gray-400 uppercase tracking-wide">{card.label}</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-wide">{card.label}</span>
               <Icon size={14} className="text-purple-400" aria-hidden="true" />
             </div>
             <div className="text-xl font-bold text-white tabular-nums">{card.value}</div>
@@ -417,7 +417,7 @@ function CardGridBlock({ block }) {
                 <span>{card.delta}</span>
               </div>
             )}
-            {card.note && <div className="text-[10px] text-gray-500 mt-1">{card.note}</div>}
+            {card.note && <div className="text-[10px] text-slate-500 mt-1">{card.note}</div>}
           </div>
         );
       })}
@@ -448,7 +448,7 @@ function ActionsBlock({ block, onAction }) {
       return 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500';
     }
     if (style === 'secondary') {
-      return 'bg-white/5 hover:bg-white/10 text-gray-200 border-white/10';
+      return 'bg-white/5 hover:bg-white/10 text-slate-200 border-white/10';
     }
     return 'text-white border-transparent';
   };
@@ -481,7 +481,7 @@ function TextBlock({ block }) {
   const lines = useMemo(() => body.split('\n'), [body]);
 
   return (
-    <div className="text-sm text-gray-200 leading-relaxed space-y-1">
+    <div className="text-sm text-slate-200 leading-relaxed space-y-1">
       {lines.map((line, i) => {
         if (!line.trim()) return <div key={i} className="h-2" />;
         let formatted = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
@@ -514,7 +514,7 @@ function TextBlock({ block }) {
 const TIMELINE_STATUS_STYLES = {
   upcoming: 'bg-[#E94560] border-[#E94560]',
   done: 'bg-emerald-500 border-emerald-500',
-  cancelled: 'bg-gray-600 border-gray-600',
+  cancelled: 'bg-slate-600 border-slate-600',
 };
 
 function formatTime(iso) {
@@ -557,9 +557,9 @@ function TimelineBlock({ block }) {
                 className={`absolute -left-[22px] top-1 w-3 h-3 rounded-full border-2 ${dotClass}`}
                 aria-hidden="true"
               />
-              <div className="text-[11px] text-gray-400 font-mono">{formatDateTime(ev.at)}</div>
+              <div className="text-[11px] text-slate-400 font-mono">{formatDateTime(ev.at)}</div>
               <div className="text-sm font-semibold text-white">{ev.label}</div>
-              {ev.description && <div className="text-xs text-gray-400 mt-0.5">{ev.description}</div>}
+              {ev.description && <div className="text-xs text-slate-400 mt-0.5">{ev.description}</div>}
             </li>
           );
         })}
@@ -599,7 +599,7 @@ function LineupBlock({ block }) {
                 )}
                 <div className="p-2">
                   <div className="text-xs font-semibold text-white truncate">{slot.artist_name}</div>
-                  <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                     {formatTime(slot.start_at)} – {formatTime(slot.end_at)}
                   </div>
                 </div>
@@ -628,7 +628,7 @@ function MapBlock({ block }) {
     <div className="rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-white/10">
         <MapPin size={14} className="text-[#E94560]" />
-        <span className="text-xs text-gray-300">{markers.length} pontos</span>
+        <span className="text-xs text-slate-300">{markers.length} pontos</span>
       </div>
       <iframe
         title="Mapa do local"
@@ -639,10 +639,10 @@ function MapBlock({ block }) {
       {markers.length > 0 && (
         <ul className="px-4 py-2 space-y-1 max-h-32 overflow-y-auto">
           {markers.map((m, i) => (
-            <li key={i} className="flex items-center gap-2 text-xs text-gray-300">
+            <li key={i} className="flex items-center gap-2 text-xs text-slate-300">
               <MapPin size={10} className="text-[#E94560] flex-shrink-0" />
               <span className="truncate">{m.label}</span>
-              {m.kind && <span className="text-[10px] text-gray-500 ml-auto">{m.kind}</span>}
+              {m.kind && <span className="text-[10px] text-slate-500 ml-auto">{m.kind}</span>}
             </li>
           ))}
         </ul>
@@ -669,7 +669,7 @@ function ImageBlock({ block }) {
           onError={() => setErrored(true)}
         />
       )}
-      {block.caption && <div className="px-4 py-2 text-xs text-gray-400">{block.caption}</div>}
+      {block.caption && <div className="px-4 py-2 text-xs text-slate-400">{block.caption}</div>}
     </div>
   );
 }
@@ -683,8 +683,8 @@ function EvidenceBlock({ block, onAction }) {
       {block.title && (
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/10">
           <Quote size={14} className="text-amber-400" />
-          <span className="text-xs font-medium text-gray-200">{block.title}</span>
-          <span className="text-[10px] text-gray-500 ml-auto">{citations.length} citacao(oes)</span>
+          <span className="text-xs font-medium text-slate-200">{block.title}</span>
+          <span className="text-[10px] text-slate-500 ml-auto">{citations.length} citacao(oes)</span>
         </div>
       )}
       <div className="p-3 space-y-2">
@@ -703,18 +703,18 @@ function EvidenceBlock({ block, onAction }) {
                     {cite.file_name || `Arquivo #${cite.file_id || i + 1}`}
                   </span>
                   {cite.category && (
-                    <span className="rounded-full bg-white/5 border border-white/10 px-1.5 py-0.5 text-[9px] text-gray-400">
+                    <span className="rounded-full bg-white/5 border border-white/10 px-1.5 py-0.5 text-[9px] text-slate-400">
                       {cite.category}
                     </span>
                   )}
                 </div>
                 {cite.excerpt && (
-                  <blockquote className="text-xs text-gray-300 leading-relaxed border-l-2 border-amber-500/30 pl-2.5 italic">
+                  <blockquote className="text-xs text-slate-300 leading-relaxed border-l-2 border-amber-500/30 pl-2.5 italic">
                     {cite.excerpt.length > 280 ? `${cite.excerpt.slice(0, 280)}...` : cite.excerpt}
                   </blockquote>
                 )}
                 {cite.relevance && (
-                  <div className="mt-1.5 text-[10px] text-gray-500">
+                  <div className="mt-1.5 text-[10px] text-slate-500">
                     Relevancia: {cite.relevance}
                   </div>
                 )}
@@ -723,7 +723,7 @@ function EvidenceBlock({ block, onAction }) {
                 <button
                   type="button"
                   onClick={() => onAction({ action: 'navigate', target: `/files?highlight=${cite.file_id}` })}
-                  className="flex-shrink-0 p-1 text-gray-500 hover:text-amber-400 transition-colors"
+                  className="flex-shrink-0 p-1 text-slate-500 hover:text-amber-400 transition-colors"
                   title="Ver arquivo"
                 >
                   <ExternalLink size={12} />

@@ -190,20 +190,21 @@ export default function Sidebar({ isOpen, onClose }) {
     <>
       {isOpen && (
         <div
-          className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 lg:hidden"
           onClick={onClose}
         />
       )}
 
       <aside
         className={`
-        fixed top-0 left-0 h-full w-64 bg-gray-950 border-r border-gray-800 flex flex-col z-50
+        fixed top-0 left-0 h-full w-64 border-r border-slate-800/50 bg-slate-900/80 backdrop-blur-md flex flex-col z-50
         transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
         ${isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full lg:translate-x-0"}
       `}
       >
-        <div className="h-16 px-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
-          <NavLink to={buildScopedPath("/")} className="flex items-center gap-3">
+        {/* Logo & Branding */}
+        <div className="px-6 py-5 flex items-center justify-between flex-shrink-0">
+          <NavLink to={buildScopedPath("/")} className="block">
             {user?.organizer_settings?.logo_url ? (
               <img
                 src={user.organizer_settings.logo_url}
@@ -211,29 +212,25 @@ export default function Sidebar({ isOpen, onClose }) {
                 className="w-10 h-10 object-contain"
               />
             ) : (
-              <div className="flex items-center gap-3">
-                <img
-                  src="/images/logoenjoyfun.png"
-                  alt="EnjoyFun Logo"
-                  className="w-10 h-10 object-contain rounded-lg shadow-[0_0_12px_rgba(124,58,237,0.4)]"
-                />
-                <span className="font-bold text-white text-lg tracking-tight">
+              <div>
+                <h1 className="text-2xl font-black text-cyan-500 drop-shadow-[0_0_8px_rgba(0,240,255,0.5)] font-headline tracking-tighter">
                   {user?.organizer_settings?.app_name || "EnjoyFun"}
-                </span>
+                </h1>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 mt-1">Organizer Panel</p>
               </div>
             )}
           </NavLink>
           <button
             onClick={onClose}
-            className="lg:hidden p-1.5 text-gray-500 hover:text-white rounded-md hover:bg-gray-800"
+            className="lg:hidden p-1.5 text-slate-500 hover:text-slate-200 rounded-md hover:bg-slate-800/40"
           >
             <X size={20} />
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-6 overflow-y-auto space-y-1 scrollbar-hide">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-3 text-[10px]">
-            Menu Principal
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto an-scrollbar">
+          <div className="pt-2 pb-2">
+            <span className="px-4 text-[10px] font-bold text-slate-600 tracking-wider uppercase font-headline">Menu Principal</span>
           </div>
 
           {visibleNav.map((item) => {
@@ -245,7 +242,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 <div key={item.label} className="space-y-1">
                   <button
                     onClick={() => setIsGroupOpen(!isGroupOpen)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800/50 transition-all"
+                    className="w-full group flex items-center justify-between px-4 py-3 text-sm text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 rounded-lg transition-all duration-300"
                   >
                     <div className="flex items-center gap-3">
                       <Icon size={18} />
@@ -253,12 +250,12 @@ export default function Sidebar({ isOpen, onClose }) {
                     </div>
                     <ChevronDown
                       size={14}
-                      className={`transition-transform ${isGroupOpen ? "rotate-180" : ""}`}
+                      className={`text-slate-600 group-hover:text-cyan-400 transition-transform duration-200 ${isGroupOpen ? "rotate-180" : ""}`}
                     />
                   </button>
 
                   {isGroupOpen && (
-                    <div className="pl-9 space-y-1">
+                    <div className="pl-10 space-y-0.5">
                       {item.subItems.map((sub) => (
                         <NavLink
                           key={sub.to}
@@ -266,8 +263,8 @@ export default function Sidebar({ isOpen, onClose }) {
                           end={sub.to === "/finance"}
                           onClick={onClose}
                           className={({ isActive }) => `
-                            flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all
-                            ${isActive ? "text-purple-400 bg-purple-600/5" : "text-gray-500 hover:text-gray-300"}
+                            flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all duration-300
+                            ${isActive ? "text-cyan-400 bg-cyan-500/10" : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/30"}
                           `}
                         >
                           <sub.icon size={13} className="flex-shrink-0" />
@@ -286,11 +283,11 @@ export default function Sidebar({ isOpen, onClose }) {
                 to={buildScopedPath(item.to)}
                 end={item.to === "/"}
                 className={({ isActive }) => `
-                  flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group
+                  group flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all duration-300
                   ${
                     isActive
-                      ? "bg-purple-600/10 text-purple-400 font-semibold relative before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:bg-purple-500 before:rounded-r-md"
-                      : "text-gray-400 hover:text-white hover:bg-gray-800/50"
+                      ? "text-cyan-400 bg-cyan-500/10 border-l-2 border-cyan-500 rounded-r-lg font-semibold"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 rounded-lg"
                   }
                 `}
                 onClick={onClose}
@@ -301,28 +298,27 @@ export default function Sidebar({ isOpen, onClose }) {
             );
           })}
 
-          <div className="mt-8">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-3 text-[10px]">
-              Sistema
-            </div>
-            <NavLink
-              to={buildScopedPath("/settings")}
-              className={({ isActive }) => `
-                flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
-                ${isActive ? "bg-purple-600/10 text-purple-400 font-semibold" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}
-              `}
-              onClick={onClose}
-            >
-              <Settings size={18} />
-              Configurações
-            </NavLink>
+          <div className="pt-4 pb-2">
+            <span className="px-4 text-[10px] font-bold text-slate-600 tracking-wider uppercase font-headline">Sistema</span>
           </div>
+          <NavLink
+            to={buildScopedPath("/settings")}
+            className={({ isActive }) => `
+              group flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all duration-300
+              ${isActive ? "text-cyan-400 bg-cyan-500/10 border-l-2 border-cyan-500 rounded-r-lg font-semibold" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 rounded-lg"}
+            `}
+            onClick={onClose}
+          >
+            <Settings size={18} />
+            Configurações
+          </NavLink>
         </nav>
 
-        <div className="p-6 border-t border-gray-800/50">
-          <p className="text-[10px] text-center text-gray-600 font-medium uppercase tracking-widest">
-            EnjoyFun v2.0
-          </p>
+        {/* Sidebar Footer */}
+        <div className="mt-auto pt-6 border-t border-slate-800/50 px-4">
+          <div className="mt-4">
+            <p className="text-[10px] text-slate-600 font-mono">EnjoyFun v2.0</p>
+          </div>
         </div>
       </aside>
     </>

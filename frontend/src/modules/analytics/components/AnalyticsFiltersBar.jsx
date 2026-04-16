@@ -61,7 +61,7 @@ export default function AnalyticsFiltersBar({
 
           <div>
             <label className="input-label">Agrupar curva por</label>
-            <div className="flex gap-2 rounded-xl border border-gray-800 bg-gray-900/70 p-1.5">
+            <div className="flex gap-2 rounded-xl border border-slate-800/40 bg-[#111827] p-1.5">
               {GROUP_OPTIONS.map((option) => (
                 <button
                   key={option.value}
@@ -70,7 +70,7 @@ export default function AnalyticsFiltersBar({
                   className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
                     groupBy === option.value
                       ? "bg-brand text-white"
-                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
                   }`}
                 >
                   {option.label}
@@ -80,7 +80,7 @@ export default function AnalyticsFiltersBar({
           </div>
         </div>
 
-        <div className="rounded-xl border border-dashed border-gray-700 bg-gray-900/40 px-4 py-3 text-sm text-gray-400 lg:max-w-sm">
+        <div className="rounded-xl border border-dashed border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-400 lg:max-w-sm">
           O comparativo basico entre dois eventos ja pode ser ligado aqui. Filtros avancados de periodo e recortes adicionais seguem reservados para as proximas PRs do analitico.
         </div>
       </div>

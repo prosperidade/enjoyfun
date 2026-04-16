@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, UploadCloud, Store, Palette, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../../lib/api'; 
+import api from '../../lib/api';
 
 const BRAND_EVENT = 'brand-settings-updated';
 
@@ -9,7 +9,7 @@ function applyBrand(settings) {
     const root = document.documentElement;
     if (settings.primary_color) root.style.setProperty('--color-primary', settings.primary_color);
     if (settings.secondary_color) root.style.setProperty('--color-secondary', settings.secondary_color);
-    
+
     window.dispatchEvent(new CustomEvent(BRAND_EVENT, { detail: settings }));
     localStorage.setItem('enjoyfun_brand', JSON.stringify(settings));
 }
@@ -22,7 +22,7 @@ export default function BrandingTab() {
         subdomain: '',
         logo_url: null
     });
-    
+
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -101,20 +101,20 @@ export default function BrandingTab() {
         }
     };
 
-    if (loading) return <div className="text-gray-500 animate-pulse">Carregando visual...</div>;
+    if (loading) return <div className="text-slate-500 animate-pulse">Carregando visual...</div>;
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 fade-in">
             {/* Logo Column */}
-            <div className="card h-fit flex flex-col items-center">
-                <h2 className="section-title w-full flex items-center gap-2">
-                    <Store size={20} className="text-brand" /> Logomarca
+            <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-6 h-fit flex flex-col items-center">
+                <h2 className="text-lg font-semibold text-slate-200 w-full flex items-center gap-2 mb-4">
+                    <Store size={20} className="text-cyan-400" /> Logomarca
                 </h2>
-                <div className="w-44 h-44 rounded-xl border-2 border-dashed border-gray-700 flex items-center justify-center bg-gray-900/50 mb-4 overflow-hidden relative group">
+                <div className="w-44 h-44 rounded-xl border-2 border-dashed border-slate-700/50 flex items-center justify-center bg-slate-800/30 mb-4 overflow-hidden relative group hover:border-cyan-500/40 transition-colors">
                     {settings.logo_url ? (
                         <img src={settings.logo_url} alt="Logo" className="w-full h-full object-contain p-2" />
                     ) : (
-                        <span className="text-gray-500 text-sm">Sem Logo</span>
+                        <span className="text-slate-500 text-sm">Sem Logo</span>
                     )}
                     <label className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                         <UploadCloud size={24} className="mb-2" />
@@ -122,56 +122,56 @@ export default function BrandingTab() {
                         <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" disabled={uploading} />
                     </label>
                 </div>
-                <p className="text-xs text-gray-500 text-center px-4">Qualquer arquivo de imagem quadrado. Recomendado fundo transparente.</p>
+                <p className="text-xs text-slate-500 text-center px-4">Qualquer arquivo de imagem quadrado. Recomendado fundo transparente.</p>
             </div>
 
             {/* Form Column */}
-            <div className="card md:col-span-2 space-y-6">
+            <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-6 md:col-span-2 space-y-6">
                 <form onSubmit={handleSave} className="space-y-6">
                     <div>
-                        <h2 className="section-title flex items-center gap-2">
-                            <Palette size={20} className="text-brand" /> Personalização White-label
+                        <h2 className="text-lg font-semibold text-slate-200 flex items-center gap-2 mb-4">
+                            <Palette size={20} className="text-cyan-400" /> Personalização White-label
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="input-label">Nome da Plataforma/App</label>
-                                <input 
+                                <label className="text-xs text-slate-400 uppercase tracking-wider block mb-1">Nome da Plataforma/App</label>
+                                <input
                                     type="text" name="app_name" value={settings.app_name} onChange={handleInputChange} required
-                                    className="input" placeholder="Ex: EnjoyFun"
+                                    className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-slate-100 outline-none transition-colors" placeholder="Ex: EnjoyFun"
                                 />
                             </div>
                             <div>
-                                <label className="input-label">Subdomínio (Opcional)</label>
-                                <input 
+                                <label className="text-xs text-slate-400 uppercase tracking-wider block mb-1">Subdomínio (Opcional)</label>
+                                <input
                                     type="text" name="subdomain" value={settings.subdomain || ''} onChange={handleInputChange} placeholder="meuevento"
-                                    className="input text-gray-400 cursor-not-allowed" disabled title="Em breve"
+                                    className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-slate-400 cursor-not-allowed outline-none transition-colors" disabled title="Em breve"
                                 />
                             </div>
                             <div>
-                                <label className="input-label">Cor Principal</label>
+                                <label className="text-xs text-slate-400 uppercase tracking-wider block mb-1">Cor Principal</label>
                                 <div className="flex items-center gap-3">
-                                    <input 
+                                    <input
                                         type="color" name="primary_color" value={settings.primary_color} onChange={handleInputChange}
-                                        className="h-10 w-20 p-1 bg-gray-800 border border-gray-700 rounded cursor-pointer"
+                                        className="h-10 w-20 p-1 bg-slate-800/50 border border-slate-700/50 rounded-lg cursor-pointer"
                                     />
-                                    <span className="text-sm font-mono text-gray-500">{settings.primary_color}</span>
+                                    <span className="text-sm font-mono text-slate-500">{settings.primary_color}</span>
                                 </div>
                             </div>
                             <div>
-                                <label className="input-label">Cor Secundária</label>
+                                <label className="text-xs text-slate-400 uppercase tracking-wider block mb-1">Cor Secundária</label>
                                 <div className="flex items-center gap-3">
-                                    <input 
+                                    <input
                                         type="color" name="secondary_color" value={settings.secondary_color} onChange={handleInputChange}
-                                        className="h-10 w-20 p-1 bg-gray-800 border border-gray-700 rounded cursor-pointer"
+                                        className="h-10 w-20 p-1 bg-slate-800/50 border border-slate-700/50 rounded-lg cursor-pointer"
                                     />
-                                    <span className="text-sm font-mono text-gray-500">{settings.secondary_color}</span>
+                                    <span className="text-sm font-mono text-slate-500">{settings.secondary_color}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div className="pt-4 flex justify-end">
-                        <button type="submit" disabled={saving} className="btn-primary px-8 py-3">
+                        <button type="submit" disabled={saving} className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-8 py-3 flex items-center gap-2 hover:shadow-lg hover:shadow-cyan-500/20 transition-all">
                             <Save size={18} />
                             {saving ? 'Aplicando...' : 'Aplicar Marca'}
                         </button>

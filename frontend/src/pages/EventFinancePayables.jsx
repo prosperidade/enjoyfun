@@ -23,18 +23,18 @@ const fmt = (value) =>
   );
 
 const STATUS_LABELS = {
-  pending: { label: "Pendente", cls: "badge-yellow" },
-  partial: { label: "Pago parcial", cls: "badge-yellow" },
-  paid: { label: "Pago", cls: "badge-green" },
-  overdue: { label: "Vencido", cls: "badge-red" },
-  cancelled: { label: "Cancelado", cls: "badge-gray" },
+  pending: { label: "Pendente", cls: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-500/15 text-amber-400" },
+  partial: { label: "Pago parcial", cls: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-500/15 text-amber-400" },
+  paid: { label: "Pago", cls: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-500/15 text-green-400" },
+  overdue: { label: "Vencido", cls: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-500/15 text-red-400" },
+  cancelled: { label: "Cancelado", cls: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-700/50 text-slate-400" },
 };
 
 const SOURCE_TYPE_OPTIONS = [
   { value: "internal", label: "Interno" },
   { value: "supplier", label: "Fornecedor" },
-  { value: "artist", label: "Artista / Cachê" },
-  { value: "logistics", label: "Logística do Artista" },
+  { value: "artist", label: "Artista / Cache" },
+  { value: "logistics", label: "Logistica do Artista" },
 ];
 
 function formatArtistBookingLabel(booking) {
@@ -88,11 +88,11 @@ function NewPayableModal({
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!form.description || !form.category_id || !form.cost_center_id || !form.amount || !form.due_date) {
-      toast.error("Preencha todos os campos obrigatórios.");
+      toast.error("Preencha todos os campos obrigatorios.");
       return;
     }
     if (["artist", "logistics"].includes(form.source_type) && !form.event_artist_id) {
-      toast.error("Selecione a contratação do artista vinculada ao lançamento.");
+      toast.error("Selecione a contratacao do artista vinculada ao lancamento.");
       return;
     }
 
@@ -116,28 +116,28 @@ function NewPayableModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div className="card max-h-[90vh] w-full max-w-2xl overflow-y-auto border-cyan-800/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-xl">
+      <div className="bg-slate-900/95 backdrop-blur-xl max-h-[90vh] w-full max-w-2xl overflow-y-auto border border-cyan-800/40 rounded-2xl p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="section-title">Nova Conta a Pagar</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white">
+          <h2 className="text-lg font-semibold text-slate-200">Nova Conta a Pagar</h2>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-100 transition-colors">
             <X size={20} />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
-            <label className="input-label">Descrição *</label>
+            <label className="text-xs text-slate-400 uppercase tracking-wider">Descricao *</label>
             <input
-              className="input"
+              className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors"
               value={form.description}
               onChange={(event) => setField("description", event.target.value)}
-              placeholder="Ex: Cachê Artista..."
+              placeholder="Ex: Cache Artista..."
             />
           </div>
 
           <div>
-            <label className="input-label">Categoria *</label>
-            <select className="select" value={form.category_id} onChange={(event) => setField("category_id", event.target.value)}>
+            <label className="text-xs text-slate-400 uppercase tracking-wider">Categoria *</label>
+            <select className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors" value={form.category_id} onChange={(event) => setField("category_id", event.target.value)}>
               <option value="">Selecionar...</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>{category.name}</option>
@@ -146,8 +146,8 @@ function NewPayableModal({
           </div>
 
           <div>
-            <label className="input-label">Centro de Custo *</label>
-            <select className="select" value={form.cost_center_id} onChange={(event) => setField("cost_center_id", event.target.value)}>
+            <label className="text-xs text-slate-400 uppercase tracking-wider">Centro de Custo *</label>
+            <select className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors" value={form.cost_center_id} onChange={(event) => setField("cost_center_id", event.target.value)}>
               <option value="">Selecionar...</option>
               {costCenters.map((center) => (
                 <option key={center.id} value={center.id}>{center.name}</option>
@@ -156,9 +156,9 @@ function NewPayableModal({
           </div>
 
           <div>
-            <label className="input-label">Valor *</label>
+            <label className="text-xs text-slate-400 uppercase tracking-wider">Valor *</label>
             <input
-              className="input"
+              className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors"
               type="number"
               min="0"
               step="0.01"
@@ -169,9 +169,9 @@ function NewPayableModal({
           </div>
 
           <div>
-            <label className="input-label">Vencimento *</label>
+            <label className="text-xs text-slate-400 uppercase tracking-wider">Vencimento *</label>
             <input
-              className="input"
+              className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors"
               type="date"
               value={form.due_date}
               onChange={(event) => setField("due_date", event.target.value)}
@@ -179,8 +179,8 @@ function NewPayableModal({
           </div>
 
           <div>
-            <label className="input-label">Origem do Lançamento</label>
-            <select className="select" value={form.source_type} onChange={(event) => setField("source_type", event.target.value)}>
+            <label className="text-xs text-slate-400 uppercase tracking-wider">Origem do Lancamento</label>
+            <select className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors" value={form.source_type} onChange={(event) => setField("source_type", event.target.value)}>
               {SOURCE_TYPE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
@@ -188,8 +188,8 @@ function NewPayableModal({
           </div>
 
           <div>
-            <label className="input-label">Fornecedor</label>
-            <select className="select" value={form.supplier_id} onChange={(event) => setField("supplier_id", event.target.value)}>
+            <label className="text-xs text-slate-400 uppercase tracking-wider">Fornecedor</label>
+            <select className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors" value={form.supplier_id} onChange={(event) => setField("supplier_id", event.target.value)}>
               <option value="">Nenhum</option>
               {suppliers.map((supplier) => (
                 <option key={supplier.id} value={supplier.id}>{supplier.legal_name}</option>
@@ -199,9 +199,9 @@ function NewPayableModal({
 
           {["artist", "logistics"].includes(form.source_type) && (
             <div className="col-span-2">
-              <label className="input-label">Contratação do artista *</label>
-              <select className="select" value={form.event_artist_id} onChange={(event) => setField("event_artist_id", event.target.value)}>
-                <option value="">Selecionar contratação...</option>
+              <label className="text-xs text-slate-400 uppercase tracking-wider">Contratacao do artista *</label>
+              <select className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors" value={form.event_artist_id} onChange={(event) => setField("event_artist_id", event.target.value)}>
+                <option value="">Selecionar contratacao...</option>
                 {artistBookings.map((booking) => (
                   <option key={booking.event_artist_id} value={booking.event_artist_id}>
                     {formatArtistBookingLabel(booking)}
@@ -212,21 +212,21 @@ function NewPayableModal({
           )}
 
           <div>
-            <label className="input-label">Forma de Pagamento</label>
-            <select className="select" value={form.payment_method} onChange={(event) => setField("payment_method", event.target.value)}>
-              <option value="">Não definida</option>
+            <label className="text-xs text-slate-400 uppercase tracking-wider">Forma de Pagamento</label>
+            <select className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors" value={form.payment_method} onChange={(event) => setField("payment_method", event.target.value)}>
+              <option value="">Nao definida</option>
               <option value="pix">PIX</option>
               <option value="ted">TED</option>
               <option value="dinheiro">Dinheiro</option>
-              <option value="cartao">Cartão</option>
+              <option value="cartao">Cartao</option>
               <option value="boleto">Boleto</option>
             </select>
           </div>
 
           <div className="col-span-2">
-            <label className="input-label">Observações</label>
+            <label className="text-xs text-slate-400 uppercase tracking-wider">Observacoes</label>
             <textarea
-              className="input resize-none"
+              className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors resize-none"
               rows={2}
               value={form.notes}
               onChange={(event) => setField("notes", event.target.value)}
@@ -234,10 +234,10 @@ function NewPayableModal({
           </div>
 
           <div className="col-span-2 flex gap-3">
-            <button type="submit" disabled={saving} className="btn-primary flex-1">
+            <button type="submit" disabled={saving} className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex-1 transition-opacity hover:opacity-90 disabled:opacity-50">
               {saving ? "Salvando..." : "Criar Conta"}
             </button>
-            <button type="button" onClick={onClose} className="btn-outline flex-1">
+            <button type="button" onClick={onClose} className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 flex-1 transition-colors">
               Cancelar
             </button>
           </div>
@@ -341,13 +341,13 @@ export default function EventFinancePayables() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="page-title flex items-center gap-2">
+          <h1 className="text-2xl font-bold font-headline text-slate-100 flex items-center gap-2">
             <Receipt size={22} className="text-cyan-400" /> Contas a Pagar
           </h1>
-          <p className="text-sm text-gray-500">{payablesMeta.total} conta(s) encontrada(s)</p>
+          <p className="text-sm text-slate-500">{payablesMeta.total} conta(s) encontrada(s)</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select className="select w-auto" value={eventId} onChange={(event) => { setPage(1); setEventId(event.target.value); }}>
+          <select className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none w-auto" value={eventId} onChange={(event) => { setPage(1); setEventId(event.target.value); }}>
             <option value="">Selecionar evento...</option>
             {events.map((eventItem) => (
               <option key={eventItem.id} value={eventItem.id}>{eventItem.name}</option>
@@ -355,11 +355,11 @@ export default function EventFinancePayables() {
           </select>
           <button onClick={() => {
             if (categories.length === 0 || costCenters.length === 0) {
-              toast.error("É necessário cadastrar categorias e centros de custo antes de criar uma conta.");
+              toast.error("E necessario cadastrar categorias e centros de custo antes de criar uma conta.");
               return;
             }
             setShowNew(true);
-          }} disabled={!eventId} className="btn-primary">
+          }} disabled={!eventId} className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50">
             <Plus size={16} /> Nova Conta
           </button>
         </div>
@@ -367,10 +367,10 @@ export default function EventFinancePayables() {
 
       <div className="flex flex-wrap gap-3">
         <div className="relative min-w-[200px] flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
-              className="input pl-8"
-              placeholder="Buscar descrição, fornecedor ou artista..."
+              className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 pl-8 pr-3 py-2 text-sm outline-none transition-colors"
+              placeholder="Buscar descricao, fornecedor ou artista..."
               value={search}
               onChange={(event) => {
                 setPage(1);
@@ -378,7 +378,7 @@ export default function EventFinancePayables() {
               }}
             />
           </div>
-        <select className="select w-auto" value={filterStatus} onChange={(event) => {
+        <select className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none w-auto" value={filterStatus} onChange={(event) => {
           setPage(1);
           setFilterStatus(event.target.value);
         }}>
@@ -387,7 +387,7 @@ export default function EventFinancePayables() {
             <option key={key} value={key}>{value.label}</option>
           ))}
         </select>
-        <select className="select w-auto" value={filterCategory} onChange={(event) => {
+        <select className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none w-auto" value={filterCategory} onChange={(event) => {
           setPage(1);
           setFilterCategory(event.target.value);
         }}>
@@ -404,7 +404,7 @@ export default function EventFinancePayables() {
               setFilterCategory("");
               setSearch("");
             }}
-            className="btn-outline gap-1"
+            className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-3 py-2 flex items-center gap-1 transition-colors"
           >
             <XCircle size={14} /> Limpar
           </button>
@@ -412,64 +412,64 @@ export default function EventFinancePayables() {
       </div>
 
       {!eventId && (
-        <div className="card border-dashed border-white/10 py-16 text-center text-gray-500">
+        <div className="bg-[#111827] border-2 border-dashed border-slate-700/50 rounded-2xl py-16 text-center text-slate-500">
           Selecione um evento para visualizar as contas.
         </div>
       )}
 
       {eventId && (
         <>
-          <div className="table-wrapper">
+          <div className="overflow-x-auto rounded-2xl border border-slate-800/40 bg-[#111827]">
             {loading ? (
-              <p className="py-10 text-center text-gray-500">Carregando...</p>
+              <p className="py-10 text-center text-slate-500">Carregando...</p>
             ) : (
-              <table className="table">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr>
-                    <th>Descrição</th>
-                    <th>Categoria</th>
-                    <th>Centro</th>
-                    <th>Vencimento</th>
-                    <th className="text-right">Valor</th>
-                    <th className="text-right">Pago</th>
-                    <th className="text-right">Saldo</th>
-                    <th>Status</th>
-                    <th></th>
+                  <tr className="bg-slate-800/50">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Descricao</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Categoria</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Centro</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Vencimento</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Valor</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Pago</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Saldo</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Status</th>
+                    <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-800/40">
                   {payables.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-10 text-center text-gray-500">
-                        <AlertCircle className="mr-2 inline text-gray-600" size={16} />
+                      <td colSpan={9} className="py-10 text-center text-slate-500">
+                        <AlertCircle className="mr-2 inline text-slate-600" size={16} />
                         Nenhuma conta encontrada
                       </td>
                     </tr>
                   ) : (
                     payables.map((payable) => {
-                      const statusMeta = STATUS_LABELS[payable.status] || { label: payable.status, cls: "badge-gray" };
+                      const statusMeta = STATUS_LABELS[payable.status] || { label: payable.status, cls: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-700/50 text-slate-400" };
                       const isOverdue = payable.status === "overdue";
                       return (
                         <tr
                           key={payable.id}
-                          className={`cursor-pointer hover:bg-white/5 ${isOverdue ? "bg-red-900/5" : ""}`}
+                          className={`cursor-pointer hover:bg-slate-800/20 transition-colors ${isOverdue ? "bg-red-900/5" : ""}`}
                           onClick={() => navigate(buildScopedPath(`/finance/payables/${payable.id}`))}
                         >
-                          <td className="max-w-[240px]">
-                            <p className="truncate font-medium text-white">{payable.description}</p>
-                            <p className="mt-1 text-xs text-gray-500">{resolveSourceLabel(payable)}</p>
+                          <td className="px-4 py-3 max-w-[240px]">
+                            <p className="truncate font-medium text-slate-100">{payable.description}</p>
+                            <p className="mt-1 text-xs text-slate-500">{resolveSourceLabel(payable)}</p>
                           </td>
-                          <td className="text-sm text-gray-400">{payable.category_name}</td>
-                          <td className="text-sm text-gray-400">{payable.cost_center_name}</td>
-                          <td className={`text-sm font-mono ${isOverdue ? "text-red-400" : "text-gray-400"}`}>
+                          <td className="px-4 py-3 text-sm text-slate-400">{payable.category_name}</td>
+                          <td className="px-4 py-3 text-sm text-slate-400">{payable.cost_center_name}</td>
+                          <td className={`px-4 py-3 text-sm font-mono ${isOverdue ? "text-red-400" : "text-slate-400"}`}>
                             {payable.due_date}
                           </td>
-                          <td className="text-right tabular-nums">{fmt(payable.amount)}</td>
-                          <td className="text-right tabular-nums text-green-400">{fmt(payable.paid_amount)}</td>
-                          <td className="text-right tabular-nums text-yellow-400">{fmt(payable.remaining_amount)}</td>
-                          <td><span className={statusMeta.cls}>{statusMeta.label}</span></td>
-                          <td>
-                            <ChevronRight size={16} className="text-gray-600" />
+                          <td className="px-4 py-3 text-right tabular-nums text-slate-200">{fmt(payable.amount)}</td>
+                          <td className="px-4 py-3 text-right tabular-nums text-green-400">{fmt(payable.paid_amount)}</td>
+                          <td className="px-4 py-3 text-right tabular-nums text-yellow-400">{fmt(payable.remaining_amount)}</td>
+                          <td className="px-4 py-3"><span className={statusMeta.cls}>{statusMeta.label}</span></td>
+                          <td className="px-4 py-3">
+                            <ChevronRight size={16} className="text-slate-600" />
                           </td>
                         </tr>
                       );

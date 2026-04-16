@@ -8,7 +8,7 @@ const SECTOR_LABELS = { bar: 'Bar', food: 'Alimentação', shop: 'Loja', all: 'T
 
 const ROLE_COLORS = {
   manager: 'bg-purple-500/15 text-purple-400 border border-purple-500/30',
-  cashier: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
+  cashier: 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30',
 };
 const SECTOR_COLORS = {
   bar: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
@@ -75,61 +75,61 @@ export default function Users() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="page-title flex items-center gap-2">
-            <UsersIcon size={22} className="text-blue-400" /> Equipe / Staff
+          <h1 className="text-2xl font-bold font-headline text-slate-100 flex items-center gap-2">
+            <UsersIcon size={22} className="text-cyan-400" /> Equipe / Staff
           </h1>
-          <p className="text-gray-500 text-sm">{users.length} membro(s) cadastrado(s)</p>
+          <p className="text-slate-500 text-sm">{users.length} membro(s) cadastrado(s)</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="btn-primary flex items-center gap-2"
+          className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex items-center gap-2 transition-colors"
         >
           <Plus size={18} /> Novo Membro
         </button>
       </div>
 
       {/* Table */}
-      <div className="table-wrapper">
-        <table className="table">
+      <div className="overflow-x-auto rounded-2xl border border-slate-800/40 bg-[#111827]">
+        <table className="w-full text-sm">
           <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Email</th>
-              <th>Telefone</th>
-              <th>Cargo</th>
-              <th>Setor</th>
-              <th>Status</th>
-              <th>Cadastrado em</th>
+            <tr className="bg-slate-800/50">
+              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Nome</th>
+              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Email</th>
+              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Telefone</th>
+              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Cargo</th>
+              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Setor</th>
+              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Status</th>
+              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Cadastrado em</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-800/40">
             {loading ? (
               <tr><td colSpan={7} className="text-center py-10"><div className="spinner w-6 h-6 mx-auto" /></td></tr>
             ) : users.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-10 text-gray-500 text-sm">Nenhum membro cadastrado. Clique em "Novo Membro" para começar.</td></tr>
+              <tr><td colSpan={7} className="text-center py-10 text-slate-500 text-sm">Nenhum membro cadastrado. Clique em "Novo Membro" para começar.</td></tr>
             ) : users.map(u => (
-              <tr key={u.id}>
-                <td>
+              <tr key={u.id} className="hover:bg-slate-800/30 transition-colors">
+                <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-950 to-slate-800 border border-slate-700/50 flex items-center justify-center text-xs font-bold text-slate-100 flex-shrink-0">
                       {u.name?.charAt(0).toUpperCase()}
                     </div>
-                    <span className="font-medium text-white">{u.name}</span>
+                    <span className="font-medium text-slate-100">{u.name}</span>
                   </div>
                 </td>
-                <td className="text-gray-400">{u.email}</td>
-                <td className="text-gray-400">{u.phone || '—'}</td>
-                <td>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role] || 'bg-gray-700 text-gray-300'}`}>
+                <td className="px-4 py-3 text-slate-400">{u.email}</td>
+                <td className="px-4 py-3 text-slate-400">{u.phone || '—'}</td>
+                <td className="px-4 py-3">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role] || 'bg-slate-800/40 text-slate-300'}`}>
                     {ROLE_LABELS[u.role] || u.role || '—'}
                   </span>
                 </td>
-                <td>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${SECTOR_COLORS[u.sector] || 'bg-gray-700 text-gray-300'}`}>
+                <td className="px-4 py-3">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${SECTOR_COLORS[u.sector] || 'bg-slate-800/40 text-slate-300'}`}>
                     {SECTOR_LABELS[u.sector] || u.sector || '—'}
                   </span>
                 </td>
-                <td>
+                <td className="px-4 py-3">
                   <button
                     onClick={() => toggleActive(u.id, u.is_active)}
                     className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition-opacity ${u.is_active ? 'bg-green-500/15 text-green-400 border border-green-500/30' : 'bg-red-500/15 text-red-400 border border-red-500/30'}`}
@@ -138,7 +138,7 @@ export default function Users() {
                     {u.is_active ? 'Ativo' : 'Inativo'}
                   </button>
                 </td>
-                <td className="text-xs text-gray-500">{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
+                <td className="px-4 py-3 text-xs text-slate-500">{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
               </tr>
             ))}
           </tbody>
@@ -147,73 +147,73 @@ export default function Users() {
 
       {/* Create User Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Shield size={20} className="text-blue-400" />
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+            <div className="p-6 border-b border-slate-700/50 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-100 font-headline flex items-center gap-2">
+                <Shield size={20} className="text-cyan-400" />
                 Cadastrar Novo Membro da Equipe
               </h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-100 text-xl leading-none transition-colors">&#10005;</button>
             </div>
 
             <form onSubmit={handleCreate} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">Nome Completo *</label>
-                  <input autoFocus className="input w-full" placeholder="Ex: João da Silva" {...field('name')} />
+                  <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Nome Completo *</label>
+                  <input autoFocus className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none w-full transition-colors" placeholder="Ex: João da Silva" {...field('name')} />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">CPF</label>
-                  <input className="input w-full" placeholder="000.000.000-00" {...field('cpf')} />
+                  <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">CPF</label>
+                  <input className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none w-full transition-colors" placeholder="000.000.000-00" {...field('cpf')} />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">Telefone</label>
-                  <input className="input w-full" placeholder="(11) 9 0000-0000" {...field('phone')} />
+                  <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Telefone</label>
+                  <input className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none w-full transition-colors" placeholder="(11) 9 0000-0000" {...field('phone')} />
                 </div>
 
                 <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">E-mail *</label>
-                  <input className="input w-full" type="email" placeholder="email@exemplo.com" {...field('email')} />
+                  <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">E-mail *</label>
+                  <input className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none w-full transition-colors" type="email" placeholder="email@exemplo.com" {...field('email')} />
                 </div>
 
                 <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">Senha de Acesso *</label>
-                  <input className="input w-full" type="password" placeholder="Mínimo 6 caracteres" {...field('password')} />
+                  <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Senha de Acesso *</label>
+                  <input className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none w-full transition-colors" type="password" placeholder="Mínimo 6 caracteres" {...field('password')} />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">Cargo / Permissão</label>
+                  <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Cargo / Permissão</label>
                   <div className="relative">
-                    <select className="input w-full pr-8 appearance-none" {...field('role')}>
+                    <select className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 outline-none w-full pr-8 appearance-none transition-colors" {...field('role')}>
                       <option value="cashier">Caixa</option>
                       <option value="manager">Gerente</option>
                     </select>
-                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">Setor de Atuação</label>
+                  <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Setor de Atuação</label>
                   <div className="relative">
-                    <select className="input w-full pr-8 appearance-none" {...field('sector')}>
+                    <select className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 outline-none w-full pr-8 appearance-none transition-colors" {...field('sector')}>
                       <option value="all">Todos os Setores</option>
                       <option value="bar">Bar</option>
                       <option value="food">Alimentação</option>
                       <option value="shop">Loja</option>
                     </select>
-                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
               </div>
 
               <div className="pt-2 flex gap-3">
-                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">
+                <button type="button" onClick={() => setShowModal(false)} className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-medium flex-1 transition-colors">
                   Cancelar
                 </button>
-                <button type="submit" disabled={saving} className="btn-primary flex-1">
+                <button type="submit" disabled={saving} className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex-1 transition-colors disabled:opacity-50">
                   {saving ? <span className="spinner w-5 h-5" /> : 'Cadastrar Membro'}
                 </button>
               </div>

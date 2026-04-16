@@ -44,14 +44,14 @@ export default function AnalyticsAttendancePanel({ attendance }) {
     <div className="card">
       <div className="mb-4">
         <h3 className="section-title mb-0">Presenca e No-Show por Categoria</h3>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-slate-400">
           Bloco ativo apenas quando o backend confirma base consistente para o evento filtrado.
         </p>
         <div className="mt-2 inline-flex rounded-full border border-emerald-700/40 bg-emerald-950/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-200">
           Ativo
         </div>
         {sources.length ? (
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-slate-500">
             Fontes consolidadas: {sources.join(", ")}.
             {guestSource ? ` Fonte principal de convidados: ${guestSource}.` : ""}
           </p>

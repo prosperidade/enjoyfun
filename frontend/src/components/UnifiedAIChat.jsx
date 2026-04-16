@@ -295,29 +295,29 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
         >
           <Sparkles size={24} className="text-white group-hover:rotate-12 transition-transform" />
           {hasUnread && (
-            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-pink-500 rounded-full border-2 border-gray-950 animate-pulse" />
+            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-pink-500 rounded-full border-2 border-slate-950 animate-pulse" />
           )}
         </button>
       )}
 
       {/* Chat panel */}
       {isOpen && (
-        <div className="fixed bottom-0 right-0 z-50 w-full sm:w-[420px] h-[85vh] sm:h-[600px] sm:bottom-6 sm:right-6 flex flex-col bg-gray-900 border border-gray-700/60 sm:rounded-2xl shadow-2xl shadow-black/40 overflow-hidden">
+        <div className="fixed bottom-0 right-0 z-50 w-full sm:w-[420px] h-[85vh] sm:h-[600px] sm:bottom-6 sm:right-6 flex flex-col bg-slate-900/95 backdrop-blur-xl border border-slate-800/40 sm:rounded-2xl shadow-2xl shadow-black/40 overflow-hidden">
 
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gray-800/80 border-b border-gray-700/50">
+          <div className="flex items-center justify-between px-4 py-3 bg-slate-800/80 border-b border-slate-700/50">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center">
                 <Sparkles size={16} className="text-white" />
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-white">Guia da Plataforma</h3>
-                <div className="text-[10px] text-gray-400 flex items-center gap-1.5">
+                <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
                   {lastAgent && (
                     <>
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       <span>{AGENT_LABELS[lastAgent] || lastAgent}</span>
-                      <span className="text-gray-600">•</span>
+                      <span className="text-slate-600">•</span>
                     </>
                   )}
                   <button
@@ -335,21 +335,21 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
             <div className="flex items-center gap-1">
               <button
                 onClick={() => { setShowHistory(!showHistory); if (!showHistory) loadPastSessions(); }}
-                className={`p-1.5 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors ${showHistory ? 'text-purple-400' : 'text-gray-400'}`}
+                className={`p-1.5 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors ${showHistory ? 'text-purple-400' : 'text-slate-400'}`}
                 title="Conversas anteriores"
               >
                 <History size={16} />
               </button>
               <button
                 onClick={resetChat}
-                className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors"
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors"
                 title="Nova conversa"
               >
                 <RotateCcw size={16} />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors"
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors"
               >
                 <X size={18} />
               </button>
@@ -358,8 +358,8 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
 
           {/* Event Picker Panel */}
           {showEventPicker && availableEvents.length > 0 && (
-            <div className="border-b border-gray-700/50 bg-gray-800/40 px-4 py-3 max-h-64 overflow-y-auto">
-              <div className="text-xs font-medium text-gray-400 mb-2">Selecionar evento</div>
+            <div className="border-b border-slate-700/50 bg-slate-800/40 px-4 py-3 max-h-64 overflow-y-auto">
+              <div className="text-xs font-medium text-slate-400 mb-2">Selecionar evento</div>
               <div className="space-y-1">
                 <button
                   type="button"
@@ -371,7 +371,7 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
                   className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${
                     !effectiveEventId
                       ? 'bg-purple-600/20 text-purple-300 border border-purple-600/40'
-                      : 'text-gray-400 hover:bg-gray-700/40 border border-transparent'
+                      : 'text-slate-400 hover:bg-slate-700/40 border border-transparent'
                   }`}
                 >
                   Sem evento (visao geral)
@@ -390,11 +390,11 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${
                         isActive
                           ? 'bg-purple-600/20 text-purple-300 border border-purple-600/40'
-                          : 'text-gray-300 hover:bg-gray-700/40 border border-transparent'
+                          : 'text-slate-300 hover:bg-slate-700/40 border border-transparent'
                       }`}
                     >
                       <div className="font-medium">{ev.name}</div>
-                      {ev.venue_name && <div className="text-[10px] text-gray-500 mt-0.5">{ev.venue_name}</div>}
+                      {ev.venue_name && <div className="text-[10px] text-slate-500 mt-0.5">{ev.venue_name}</div>}
                     </button>
                   );
                 })}
@@ -404,32 +404,32 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
 
           {/* Session History Panel */}
           {showHistory && (
-            <div className="border-b border-gray-700/50 bg-gray-800/40 px-4 py-3 max-h-48 overflow-y-auto">
-              <div className="text-xs font-medium text-gray-400 mb-2">Conversas anteriores</div>
+            <div className="border-b border-slate-700/50 bg-slate-800/40 px-4 py-3 max-h-48 overflow-y-auto">
+              <div className="text-xs font-medium text-slate-400 mb-2">Conversas anteriores</div>
               {loadingHistory && (
-                <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
+                <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
                   <Loader2 size={12} className="animate-spin" /> Carregando...
                 </div>
               )}
               {!loadingHistory && pastSessions.length === 0 && (
-                <div className="text-xs text-gray-500 py-2">Nenhuma conversa anterior.</div>
+                <div className="text-xs text-slate-500 py-2">Nenhuma conversa anterior.</div>
               )}
               {pastSessions.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => resumeSession(s.id)}
-                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-700/50 transition-colors mb-1 group"
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-700/50 transition-colors mb-1 group"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-300 group-hover:text-white">
+                    <span className="text-xs text-slate-300 group-hover:text-white">
                       {AGENT_LABELS[s.routed_agent_key] || s.routed_agent_key || 'Conversa'}
                     </span>
-                    <span className="text-[10px] text-gray-500">
+                    <span className="text-[10px] text-slate-500">
                       {new Date(s.updated_at || s.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                   {s.surface && (
-                    <span className="text-[10px] text-gray-500">{s.surface}</span>
+                    <span className="text-[10px] text-slate-500">{s.surface}</span>
                   )}
                 </button>
               ))}
@@ -437,14 +437,14 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 scrollbar-thin scrollbar-thumb-gray-700">
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 scrollbar-thin scrollbar-thumb-slate-700">
             {messages.length === 0 && !showHistory && (
               <div className="flex flex-col items-center justify-center h-full text-center px-6">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-700/30 flex items-center justify-center mb-4">
                   <Sparkles size={24} className="text-purple-400" />
                 </div>
                 <h4 className="text-sm font-semibold text-white mb-1">Guia da Plataforma</h4>
-                <p className="text-xs text-gray-400 mb-4">
+                <p className="text-xs text-slate-400 mb-4">
                   Tire duvidas sobre funcionalidades, fluxos e configuracoes da EnjoyFun.
                 </p>
                 <div className="space-y-2 w-full">
@@ -456,7 +456,7 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
                     <button
                       key={suggestion}
                       onClick={() => { setInput(suggestion); inputRef.current?.focus(); }}
-                      className="w-full text-left text-xs text-gray-300 bg-gray-800/50 hover:bg-gray-800 border border-gray-700/40 rounded-lg px-3 py-2 transition-colors"
+                      className="w-full text-left text-xs text-slate-300 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/40 rounded-lg px-3 py-2 transition-colors"
                     >
                       {suggestion}
                     </button>
@@ -470,7 +470,7 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
                 <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${
                   msg.role === 'user'
                     ? 'bg-purple-600/80 text-white rounded-br-md'
-                    : 'bg-gray-800/70 border border-gray-700/40 rounded-bl-md'
+                    : 'bg-slate-800/70 border border-slate-700/40 rounded-bl-md'
                 }`}>
                   {msg.role === 'assistant' && msg.agentKey && (
                     <div className="text-[10px] text-purple-400 font-medium mb-1">
@@ -494,7 +494,7 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
                       }}
                     />
                   )}
-                  <div className={`text-[9px] mt-1 ${msg.role === 'user' ? 'text-purple-200/60' : 'text-gray-500'}`}>
+                  <div className={`text-[9px] mt-1 ${msg.role === 'user' ? 'text-purple-200/60' : 'text-slate-500'}`}>
                     {msg.timestamp?.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
@@ -503,8 +503,8 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
 
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-gray-800/70 border border-gray-700/40 rounded-2xl rounded-bl-md px-4 py-3">
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                <div className="bg-slate-800/70 border border-slate-700/40 rounded-2xl rounded-bl-md px-4 py-3">
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
                     <Loader2 size={14} className="animate-spin text-purple-400" />
                     Analisando...
                   </div>
@@ -516,7 +516,7 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
           </div>
 
           {/* Input */}
-          <div className="p-3 border-t border-gray-700/50 bg-gray-800/40">
+          <div className="p-3 border-t border-gray-700/50 bg-slate-800/40">
             <div className="flex items-end gap-2">
               <textarea
                 ref={inputRef}
@@ -525,14 +525,14 @@ export default function UnifiedAIChat({ eventId: eventIdProp, eventName: eventNa
                 onKeyDown={handleKeyDown}
                 placeholder="Pergunte sobre a plataforma..."
                 rows={1}
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5 text-sm text-gray-200 placeholder-gray-500 resize-none focus:border-purple-600 focus:ring-0 outline-none max-h-24 overflow-y-auto"
+                className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-500 resize-none focus:border-purple-500 focus:ring-0 outline-none max-h-24 overflow-y-auto"
                 style={{ minHeight: '40px' }}
                 disabled={loading}
               />
               <button
                 onClick={sendMessage}
                 disabled={!input.trim() || loading}
-                className="p-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex-shrink-0"
+                className="p-2.5 bg-purple-500 hover:bg-purple-400 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex-shrink-0"
               >
                 {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
               </button>

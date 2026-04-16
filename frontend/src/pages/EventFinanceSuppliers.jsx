@@ -14,7 +14,7 @@ const fmt = (v) =>
 const CONTRACT_STATUS = {
   draft: { label: "Rascunho", cls: "badge-gray" },
   active: { label: "Ativo", cls: "badge-green" },
-  completed: { label: "Concluído", cls: "badge-cyan" },
+  completed: { label: "Concluído", cls: "badge-blue" },
   cancelled: { label: "Cancelado", cls: "badge-red" },
 };
 
@@ -85,15 +85,15 @@ function SupplierRow({ supplier, events, onUpdated, scopedEventId, onScopedEvent
   };
 
   return (
-    <div className="card border-white/5">
+    <div className="card border-slate-800/40">
       <div
         className="flex items-start justify-between cursor-pointer"
         onClick={() => setOpen((o) => !o)}
       >
         <div>
-          <p className="font-semibold text-white">{supplier.legal_name}</p>
-          {supplier.trade_name && <p className="text-sm text-gray-400">{supplier.trade_name}</p>}
-          <div className="flex gap-4 mt-1 text-xs text-gray-500">
+          <p className="font-semibold text-slate-100">{supplier.legal_name}</p>
+          {supplier.trade_name && <p className="text-sm text-slate-400">{supplier.trade_name}</p>}
+          <div className="flex gap-4 mt-1 text-xs text-slate-400">
             {supplier.document_number && <span>Doc: {supplier.document_number}</span>}
             {supplier.contact_email && <span>{supplier.contact_email}</span>}
             {supplier.contact_phone && <span>{supplier.contact_phone}</span>}
@@ -101,20 +101,20 @@ function SupplierRow({ supplier, events, onUpdated, scopedEventId, onScopedEvent
         </div>
         <div className="flex items-center gap-2">
           {!supplier.is_active && <span className="badge-gray">Inativo</span>}
-          {open ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+          {open ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
         </div>
       </div>
 
       {open && (
-        <div className="mt-4 border-t border-white/5 pt-4 space-y-4">
+        <div className="mt-4 border-t border-slate-800/40 pt-4 space-y-4">
           {/* Pix / banco */}
           {(supplier.pix_key || supplier.bank_name) && (
-            <div className="grid grid-cols-2 gap-4 text-xs text-gray-400">
+            <div className="grid grid-cols-2 gap-4 text-xs text-slate-400">
               {supplier.pix_key && (
-                <div><span className="text-gray-600 block uppercase">Chave PIX</span>{supplier.pix_key}</div>
+                <div><span className="text-slate-500 block uppercase">Chave PIX</span>{supplier.pix_key}</div>
               )}
               {supplier.bank_name && (
-                <div><span className="text-gray-600 block uppercase">Banco</span>{supplier.bank_name} {supplier.bank_agency && `Ag. ${supplier.bank_agency}`} {supplier.bank_account && `CC ${supplier.bank_account}`}</div>
+                <div><span className="text-slate-500 block uppercase">Banco</span>{supplier.bank_name} {supplier.bank_agency && `Ag. ${supplier.bank_agency}`} {supplier.bank_account && `CC ${supplier.bank_account}`}</div>
               )}
             </div>
           )}
@@ -122,7 +122,7 @@ function SupplierRow({ supplier, events, onUpdated, scopedEventId, onScopedEvent
           {/* Contratos */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-medium text-gray-300 flex items-center gap-1">
+              <p className="text-sm font-medium text-slate-300 flex items-center gap-1">
                 <FileText size={14} /> Contratos
               </p>
               <div className="flex items-center gap-2">
@@ -144,7 +144,7 @@ function SupplierRow({ supplier, events, onUpdated, scopedEventId, onScopedEvent
             </div>
 
             {showNewContract && (
-              <form onSubmit={handleContractSave} className="card border-cyan-800/30 grid grid-cols-2 gap-3 mb-3">
+              <form onSubmit={handleContractSave} className="card border-cyan-500/30 grid grid-cols-2 gap-3 mb-3">
                 <div className="col-span-2">
                   <label className="input-label">Evento *</label>
                   <select className="select" value={newContract.event_id}
@@ -183,21 +183,21 @@ function SupplierRow({ supplier, events, onUpdated, scopedEventId, onScopedEvent
             )}
 
             {loadingContracts
-              ? <p className="text-xs text-gray-500">Carregando contratos...</p>
+              ? <p className="text-xs text-slate-400">Carregando contratos...</p>
               : contracts.length === 0
-              ? <p className="text-xs text-gray-600">Nenhum contrato para o evento selecionado.</p>
+              ? <p className="text-xs text-slate-500">Nenhum contrato para o evento selecionado.</p>
               : (
                 <div className="space-y-2">
                   {contracts.map((c) => {
                     const cs = CONTRACT_STATUS[c.status] || { label: c.status, cls: "badge-gray" };
                     return (
-                      <div key={c.id} className="flex items-center justify-between text-sm border-l-2 border-white/10 pl-3">
+                      <div key={c.id} className="flex items-center justify-between text-sm border-l-2 border-slate-700/50 pl-3">
                         <div>
-                          <p className="text-gray-300">{c.description}</p>
-                          {c.contract_number && <p className="text-xs text-gray-600">Nº {c.contract_number}</p>}
+                          <p className="text-slate-300">{c.description}</p>
+                          {c.contract_number && <p className="text-xs text-slate-500">Nº {c.contract_number}</p>}
                         </div>
                         <div className="flex items-center gap-3 text-right">
-                          <span className="text-white font-medium">{fmt(c.total_amount)}</span>
+                          <span className="text-slate-100 font-medium">{fmt(c.total_amount)}</span>
                           <span className={cs.cls}>{cs.label}</span>
                         </div>
                       </div>
@@ -237,11 +237,11 @@ function NewSupplierModal({ onSaved, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="card max-w-2xl w-full border-cyan-800/40 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+      <div className="card max-w-2xl w-full border-cyan-500/30 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="section-title">Novo Fornecedor</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white"><X size={20} /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-100"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
@@ -335,7 +335,7 @@ export default function EventFinanceSuppliers() {
           <h1 className="page-title flex items-center gap-2">
             <Building2 size={22} className="text-cyan-400" /> Fornecedores
           </h1>
-          <p className="text-gray-500 text-sm">{filtered.length} fornecedor(es)</p>
+          <p className="text-slate-400 text-sm">{filtered.length} fornecedor(es)</p>
         </div>
         <button onClick={() => setShowNew(true)} className="btn-primary">
           <Plus size={16} /> Novo Fornecedor
@@ -352,9 +352,9 @@ export default function EventFinanceSuppliers() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500">Carregando...</div>
+        <div className="text-center py-12 text-slate-400">Carregando...</div>
       ) : filtered.length === 0 ? (
-        <div className="card border-dashed border-white/10 text-center py-16 text-gray-500">
+        <div className="card border-dashed border-slate-700/50 text-center py-16 text-slate-400">
           Nenhum fornecedor encontrado.
         </div>
       ) : (

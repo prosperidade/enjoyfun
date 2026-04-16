@@ -31,21 +31,21 @@ export default function Settings() {
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-6 animate-fade-in">
             <div className="mb-8">
-                <h1 className="page-title">Configurações do Organizador</h1>
-                <p className="text-gray-400 text-sm mt-1">Gerencie branding, canais e camada financeira do seu evento white-label.</p>
+                <h1 className="text-2xl font-bold font-headline text-slate-100">Configurações do Organizador</h1>
+                <p className="text-slate-400 text-sm mt-1">Gerencie branding, canais e camada financeira do seu evento white-label.</p>
             </div>
 
             {/* Tabs Navigation */}
-            <div className="flex overflow-x-auto space-x-1 border-b border-gray-800 pb-px mb-6 hide-scrollbar">
+            <div className="flex overflow-x-auto space-x-1 border-b border-slate-800/40 pb-px mb-6 hide-scrollbar">
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`
                             flex items-center gap-2 px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-all duration-300
-                            ${activeTab === tab.id 
-                                ? 'border-brand text-brand' 
-                                : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'}
+                            ${activeTab === tab.id
+                                ? 'border-cyan-400 text-cyan-400'
+                                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'}
                         `}
                     >
                         {tab.icon}

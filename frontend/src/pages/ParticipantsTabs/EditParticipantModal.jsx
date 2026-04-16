@@ -52,18 +52,18 @@ export default function EditParticipantModal({ isOpen, onClose, participant, onU
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-scale-in">
-                <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-white">Editar Participante</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-scale-in">
+                <div className="p-6 border-b border-slate-800/40 flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-slate-100">Editar Participante</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-red-400 transition-colors">
                         <X size={24} />
                     </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Nome Completo</label>
+                        <label className="block text-xs text-slate-400 uppercase tracking-wider mb-1">Nome Completo</label>
                         <input
                             type="text"
                             required
@@ -75,7 +75,7 @@ export default function EditParticipantModal({ isOpen, onClose, participant, onU
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-1">E-mail</label>
+                            <label className="block text-xs text-slate-400 uppercase tracking-wider mb-1">E-mail</label>
                             <input
                                 type="email"
                                 className="input w-full"
@@ -84,7 +84,7 @@ export default function EditParticipantModal({ isOpen, onClose, participant, onU
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-1">Telefone</label>
+                            <label className="block text-xs text-slate-400 uppercase tracking-wider mb-1">Telefone</label>
                             <input
                                 type="text"
                                 className="input w-full"
@@ -95,7 +95,7 @@ export default function EditParticipantModal({ isOpen, onClose, participant, onU
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Categoria</label>
+                        <label className="block text-xs text-slate-400 uppercase tracking-wider mb-1">Categoria</label>
                         <select
                             required
                             className="select w-full"
@@ -113,14 +113,14 @@ export default function EditParticipantModal({ isOpen, onClose, participant, onU
                         <button
                             type="button"
                             onClick={onClose}
-                            className="btn-secondary flex-1"
+                            className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-semibold transition-colors flex-1"
                         >
                             Cancelar
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="btn-primary flex-1 flex items-center justify-center gap-2"
+                            className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex-1 flex items-center justify-center gap-2"
                         >
                             {loading ? <div className="spinner-sm" /> : <Save size={18} />}
                             Salvar Alterações

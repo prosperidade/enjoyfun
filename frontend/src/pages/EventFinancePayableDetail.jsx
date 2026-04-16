@@ -25,15 +25,15 @@ const STATUS_ICONS = {
   partial: <Clock size={16} className="text-yellow-400" />,
   paid: <CheckCircle size={16} className="text-green-400" />,
   overdue: <AlertTriangle size={16} className="text-red-400" />,
-  cancelled: <XCircle size={16} className="text-gray-500" />,
+  cancelled: <XCircle size={16} className="text-slate-500" />,
 };
 
 const STATUS_LABELS = {
-  pending: { label: "Pendente", cls: "badge-yellow" },
-  partial: { label: "Pago parcial", cls: "badge-yellow" },
-  paid: { label: "Pago", cls: "badge-green" },
-  overdue: { label: "Vencido", cls: "badge-red" },
-  cancelled: { label: "Cancelado", cls: "badge-gray" },
+  pending: { label: "Pendente", cls: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-500/15 text-amber-400" },
+  partial: { label: "Pago parcial", cls: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-500/15 text-amber-400" },
+  paid: { label: "Pago", cls: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-500/15 text-green-400" },
+  overdue: { label: "Vencido", cls: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-500/15 text-red-400" },
+  cancelled: { label: "Cancelado", cls: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-700/50 text-slate-400" },
 };
 
 function RegisterPaymentModal({ payableId, eventId, remaining, onSaved, onClose }) {
@@ -52,7 +52,7 @@ function RegisterPaymentModal({ payableId, eventId, remaining, onSaved, onClose 
     e.preventDefault();
     const amount = parseFloat(form.amount);
     if (!amount || amount <= 0) {
-      toast.error("Informe um valor válido.");
+      toast.error("Informe um valor valido.");
       return;
     }
     if (amount > remaining + 0.01) {
@@ -72,53 +72,53 @@ function RegisterPaymentModal({ payableId, eventId, remaining, onSaved, onClose 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="card max-w-md w-full border-green-800/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl">
+      <div className="bg-slate-900/95 backdrop-blur-xl max-w-md w-full border border-green-800/40 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="section-title">Registrar Pagamento</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white"><XCircle size={20} /></button>
+          <h2 className="text-lg font-semibold text-slate-200">Registrar Pagamento</h2>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-100 transition-colors"><XCircle size={20} /></button>
         </div>
-        <p className="text-sm text-gray-400 mb-4">
+        <p className="text-sm text-slate-400 mb-4">
           Saldo restante: <span className="text-yellow-400 font-semibold">{fmt(remaining)}</span>
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="input-label">Valor *</label>
-              <input className="input" type="number" min="0.01" step="0.01" max={remaining} value={form.amount}
+              <label className="text-xs text-slate-400 uppercase tracking-wider">Valor *</label>
+              <input className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors" type="number" min="0.01" step="0.01" max={remaining} value={form.amount}
                 onChange={(e) => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="0,00" />
             </div>
             <div>
-              <label className="input-label">Data *</label>
-              <input className="input" type="date" value={form.payment_date}
+              <label className="text-xs text-slate-400 uppercase tracking-wider">Data *</label>
+              <input className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors" type="date" value={form.payment_date}
                 onChange={(e) => setForm(f => ({ ...f, payment_date: e.target.value }))} />
             </div>
           </div>
           <div>
-            <label className="input-label">Forma de Pagamento</label>
-            <select className="select" value={form.payment_method} onChange={(e) => setForm(f => ({ ...f, payment_method: e.target.value }))}>
+            <label className="text-xs text-slate-400 uppercase tracking-wider">Forma de Pagamento</label>
+            <select className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors" value={form.payment_method} onChange={(e) => setForm(f => ({ ...f, payment_method: e.target.value }))}>
               <option value="pix">PIX</option>
               <option value="ted">TED</option>
               <option value="dinheiro">Dinheiro</option>
-              <option value="cartao">Cartão</option>
+              <option value="cartao">Cartao</option>
               <option value="boleto">Boleto</option>
             </select>
           </div>
           <div>
-            <label className="input-label">Código de Referência</label>
-            <input className="input" value={form.reference_code}
+            <label className="text-xs text-slate-400 uppercase tracking-wider">Codigo de Referencia</label>
+            <input className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors" value={form.reference_code}
               onChange={(e) => setForm(f => ({ ...f, reference_code: e.target.value }))} placeholder="Comprovante, NSU..." />
           </div>
           <div>
-            <label className="input-label">Observações</label>
-            <textarea className="input resize-none" rows={2} value={form.notes}
+            <label className="text-xs text-slate-400 uppercase tracking-wider">Observacoes</label>
+            <textarea className="mt-1 w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors resize-none" rows={2} value={form.notes}
               onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))} />
           </div>
           <div className="flex gap-3">
-            <button type="submit" disabled={saving} className="btn-primary flex-1">
+            <button type="submit" disabled={saving} className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex-1 transition-opacity hover:opacity-90 disabled:opacity-50">
               {saving ? "Salvando..." : "Registrar Pagamento"}
             </button>
-            <button type="button" onClick={onClose} className="btn-outline flex-1">Cancelar</button>
+            <button type="button" onClick={onClose} className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 flex-1 transition-colors">Cancelar</button>
           </div>
         </form>
       </div>
@@ -185,13 +185,13 @@ export default function EventFinancePayableDetail() {
   };
 
   if (loading) {
-    return <div className="text-center py-16 text-gray-500">Carregando...</div>;
+    return <div className="text-center py-16 text-slate-500">Carregando...</div>;
   }
   if (!payable) {
-    return <div className="text-center py-16 text-gray-500">Conta não encontrada.</div>;
+    return <div className="text-center py-16 text-slate-500">Conta nao encontrada.</div>;
   }
 
-  const st = STATUS_LABELS[payable.status] || { label: payable.status, cls: "badge-gray" };
+  const st = STATUS_LABELS[payable.status] || { label: payable.status, cls: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-700/50 text-slate-400" };
   const canPay = !["cancelled", "paid"].includes(payable.status);
   const canCancel = !["cancelled", "paid"].includes(payable.status);
   const paidPct = payable.amount > 0 ? Math.min(100, (payable.paid_amount / payable.amount) * 100) : 0;
@@ -210,25 +210,25 @@ export default function EventFinancePayableDetail() {
 
       {/* Header */}
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate(buildScopedPath("/finance/payables", payable?.event_id))} className="btn-outline p-2">
+        <button onClick={() => navigate(buildScopedPath("/finance/payables", payable?.event_id))} className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl p-2 transition-colors">
           <ArrowLeft size={16} />
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-2">
             {STATUS_ICONS[payable.status]}
-            <h1 className="page-title">{payable.description}</h1>
+            <h1 className="text-2xl font-bold font-headline text-slate-100">{payable.description}</h1>
           </div>
-          <p className="text-gray-500 text-sm">{payable.category_name} · {payable.cost_center_name}</p>
+          <p className="text-slate-500 text-sm">{payable.category_name} · {payable.cost_center_name}</p>
         </div>
         <div className="flex items-center gap-2">
           <span className={st.cls}>{st.label}</span>
           {canPay && (
-            <button onClick={() => setShowPayment(true)} className="btn-primary">
+            <button onClick={() => setShowPayment(true)} className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex items-center gap-1.5 transition-opacity hover:opacity-90">
               <Plus size={16} /> Pagar
             </button>
           )}
           {canCancel && (
-            <button onClick={() => setShowCancel(!showCancel)} className="btn-outline text-red-400 border-red-500/40">
+            <button onClick={() => setShowCancel(!showCancel)} className="border border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-xl px-4 py-2 flex items-center gap-1.5 transition-colors">
               <Ban size={16} /> Cancelar
             </button>
           )}
@@ -237,55 +237,55 @@ export default function EventFinancePayableDetail() {
 
       {/* Cancelamento inline */}
       {showCancel && (
-        <div className="card border-red-500/30 bg-red-900/5 space-y-3">
+        <div className="bg-[#111827] border border-red-500/30 rounded-2xl p-5 space-y-3">
           <p className="text-red-400 text-sm font-medium">Motivo do cancelamento</p>
-          <input className="input" placeholder="Ex: Negociação cancelada..." value={cancelReason}
+          <input className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl text-slate-200 px-3 py-2 text-sm outline-none transition-colors" placeholder="Ex: Negociacao cancelada..." value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)} />
           <div className="flex gap-2">
-            <button onClick={handleCancel} className="btn-outline text-red-400 border-red-500/40">Confirmar Cancelamento</button>
-            <button onClick={() => setShowCancel(false)} className="btn-outline">Voltar</button>
+            <button onClick={handleCancel} className="border border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-xl px-4 py-2 transition-colors">Confirmar Cancelamento</button>
+            <button onClick={() => setShowCancel(false)} className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 transition-colors">Voltar</button>
           </div>
         </div>
       )}
 
       {/* Valores */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="card border-white/5 text-center">
-          <p className="text-xs text-gray-500 uppercase">Valor Total</p>
-          <p className="text-2xl font-bold text-white mt-1">{fmt(payable.amount)}</p>
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-5 text-center">
+          <p className="text-xs text-slate-400 uppercase tracking-wider">Valor Total</p>
+          <p className="text-2xl font-bold text-slate-100 mt-1">{fmt(payable.amount)}</p>
         </div>
-        <div className="card border-white/5 text-center">
-          <p className="text-xs text-gray-500 uppercase">Pago</p>
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-5 text-center">
+          <p className="text-xs text-slate-400 uppercase tracking-wider">Pago</p>
           <p className="text-2xl font-bold text-green-400 mt-1">{fmt(payable.paid_amount)}</p>
         </div>
-        <div className="card border-white/5 text-center">
-          <p className="text-xs text-gray-500 uppercase">Saldo</p>
-          <p className={`text-2xl font-bold mt-1 ${parseFloat(payable.remaining_amount) > 0 ? "text-yellow-400" : "text-gray-500"}`}>
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-5 text-center">
+          <p className="text-xs text-slate-400 uppercase tracking-wider">Saldo</p>
+          <p className={`text-2xl font-bold mt-1 ${parseFloat(payable.remaining_amount) > 0 ? "text-yellow-400" : "text-slate-500"}`}>
             {fmt(payable.remaining_amount)}
           </p>
         </div>
       </div>
 
       {/* Progresso */}
-      <div className="card border-white/5">
-        <div className="flex justify-between text-xs text-gray-400 mb-2">
+      <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-5">
+        <div className="flex justify-between text-xs text-slate-400 mb-2">
           <span>Progresso de pagamento</span>
           <span>{paidPct.toFixed(0)}%</span>
         </div>
-        <div className="w-full bg-white/5 rounded-full h-2">
+        <div className="w-full bg-slate-800/50 rounded-full h-2">
           <div className="h-2 rounded-full bg-green-500 transition-all" style={{ width: `${paidPct}%` }} />
         </div>
-        <div className="flex justify-between text-xs text-gray-500 mt-2">
+        <div className="flex justify-between text-xs text-slate-500 mt-2">
           <span>Vencimento: {payable.due_date}</span>
           {payable.supplier_name && <span>Fornecedor: {payable.supplier_name}</span>}
           {payable.payment_method && <span>Pagamento: {payable.payment_method.toUpperCase()}</span>}
         </div>
         {payable.artist_id && (
-          <div className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2 text-sm text-cyan-100">
+          <div className="mt-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-3 py-2 text-sm text-cyan-100">
             <span className="text-cyan-300">Origem vinculada:</span>{" "}
             <Link
               to={buildScopedPath(`/artists/${payable.artist_id}?tab=bookings`, payable.event_id)}
-              className="font-medium text-cyan-200 hover:text-white"
+              className="font-medium text-cyan-200 hover:text-slate-100"
             >
               {payable.artist_stage_name || `Artista #${payable.artist_id}`}
             </Link>
@@ -294,41 +294,41 @@ export default function EventFinancePayableDetail() {
       </div>
 
       {/* Pagamentos */}
-      <div className="card border-white/5">
-        <h2 className="section-title">Histórico de Pagamentos</h2>
+      <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-5">
+        <h2 className="text-lg font-semibold text-slate-200">Historico de Pagamentos</h2>
         {payments.length === 0 ? (
-          <p className="text-gray-500 text-sm mt-3">Nenhum pagamento registrado.</p>
+          <p className="text-slate-500 text-sm mt-3">Nenhum pagamento registrado.</p>
         ) : (
-          <div className="table-wrapper mt-4">
-            <table className="table">
+          <div className="overflow-x-auto rounded-2xl border border-slate-800/40 bg-[#111827] mt-4">
+            <table className="w-full text-sm">
               <thead>
-                <tr>
-                  <th>Data</th>
-                  <th className="text-right">Valor</th>
-                  <th>Forma</th>
-                  <th>Referência</th>
-                  <th>Status</th>
-                  <th></th>
+                <tr className="bg-slate-800/50">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Data</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Valor</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Forma</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Referencia</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">Status</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-800/40">
                 {payments.map((pay) => (
-                  <tr key={pay.id} className={pay.status === "reversed" ? "opacity-40" : ""}>
-                    <td className="font-mono text-sm">{pay.payment_date}</td>
-                    <td className="text-right font-semibold text-green-400">{fmt(pay.amount)}</td>
-                    <td className="text-sm capitalize">{pay.payment_method || "—"}</td>
-                    <td className="text-sm text-gray-400">{pay.reference_code || "—"}</td>
-                    <td>
+                  <tr key={pay.id} className={`hover:bg-slate-800/20 transition-colors ${pay.status === "reversed" ? "opacity-40" : ""}`}>
+                    <td className="px-4 py-3 font-mono text-sm">{pay.payment_date}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-green-400">{fmt(pay.amount)}</td>
+                    <td className="px-4 py-3 text-sm capitalize text-slate-300">{pay.payment_method || "—"}</td>
+                    <td className="px-4 py-3 text-sm text-slate-400">{pay.reference_code || "—"}</td>
+                    <td className="px-4 py-3">
                       {pay.status === "reversed"
-                        ? <span className="badge-red">Estornado</span>
-                        : <span className="badge-green">Registrado</span>}
+                        ? <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-500/15 text-red-400">Estornado</span>
+                        : <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-500/15 text-green-400">Registrado</span>}
                     </td>
-                    <td>
+                    <td className="px-4 py-3">
                       {pay.status === "posted" && (
                         <button
                           onClick={() => handleReverse(pay.id)}
                           disabled={reversing === pay.id}
-                          className="p-1.5 text-gray-500 hover:text-red-400 transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-red-400 transition-colors"
                           title="Estornar"
                         >
                           <RotateCcw size={14} />
@@ -344,30 +344,30 @@ export default function EventFinancePayableDetail() {
       </div>
 
       {/* Anexos */}
-      <div className="card border-white/5">
-        <h2 className="section-title flex items-center gap-2">
-          <Paperclip size={16} className="text-gray-400" /> Anexos
+      <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-5">
+        <h2 className="text-lg font-semibold text-slate-200 flex items-center gap-2">
+          <Paperclip size={16} className="text-slate-400" /> Anexos
         </h2>
         {attachments.length === 0 ? (
-          <p className="text-gray-500 text-sm mt-3">Nenhum anexo.</p>
+          <p className="text-slate-500 text-sm mt-3">Nenhum anexo.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {attachments.map((a) => (
               <li key={a.id} className="flex items-center gap-3 text-sm">
-                <Paperclip size={14} className="text-gray-500" />
-                <span className="text-gray-300">{a.original_name}</span>
-                <span className="text-xs text-gray-600">({a.attachment_type})</span>
+                <Paperclip size={14} className="text-slate-500" />
+                <span className="text-slate-300">{a.original_name}</span>
+                <span className="text-xs text-slate-600">({a.attachment_type})</span>
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      {/* Observações */}
+      {/* Observacoes */}
       {payable.notes && (
-        <div className="card border-white/5">
-          <h2 className="section-title">Observações</h2>
-          <p className="text-gray-400 text-sm mt-2">{payable.notes}</p>
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-5">
+          <h2 className="text-lg font-semibold text-slate-200">Observacoes</h2>
+          <p className="text-slate-400 text-sm mt-2">{payable.notes}</p>
         </div>
       )}
     </div>

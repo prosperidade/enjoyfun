@@ -187,7 +187,7 @@ export default function Parking() {
       // Se o usuário clicou no campo manual de placa ou no select de evento, aborta o foco no scanner
       const activeTag = document.activeElement?.tagName?.toLowerCase();
       if (activeTag === 'input' || activeTag === 'select' || activeTag === 'textarea') return;
-      
+
       if (entryScannerRef.current && document.activeElement !== entryScannerRef.current) {
         entryScannerRef.current.focus();
       }
@@ -251,15 +251,15 @@ export default function Parking() {
 
   const handleValidateTicket = async () => {
     if (!ticketInput.trim()) return;
-    
+
     setValidating(true);
     setValidationResult(null);
-    
+
     try {
       // Rota corrigida para o motor independente de Estacionamento
       // Enviamos o qr_token no body conforme o novo ParkingController
-      const res = await api.post("/parking/validate", { 
-        qr_token: ticketInput.trim() 
+      const res = await api.post("/parking/validate", {
+        qr_token: ticketInput.trim()
       });
 
       if (res.data.success) {
@@ -271,12 +271,12 @@ export default function Parking() {
           event: res.data.data?.event_name,
           current_status: res.data.data?.current_status,
         });
-        
+
         setTicketInput("");
         toast.success(res.data.message);
-        
+
         // Atualiza a lista de veículos na tela para refletir a entrada/saída
-        fetchRecords(); 
+        fetchRecords();
       }
     } catch (err) {
       if (!err.response || err.code === 'ERR_NETWORK') {
@@ -337,12 +337,12 @@ export default function Parking() {
         return toast.success(action === "exit" ? "Saída validada localmente!" : "Entrada validada localmente!");
       }
       const errorMsg = err.response?.data?.message || "Erro ao validar voucher.";
-      
+
       setValidationResult({
         ok: false,
         message: errorMsg,
       });
-      
+
       toast.error(errorMsg);
     } finally {
       setValidating(false);
@@ -358,16 +358,16 @@ export default function Parking() {
 
   return (
     <div className="space-y-6">
-      
-      {/* MODAL PADRONIZADO: IGUAL AO DE INGRESSOS (ROXO) */}
+
+      {/* MODAL QR — AETHER NEON */}
       {selectedTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
-          <div className="card max-w-sm w-full border-purple-500/50 text-center space-y-6 p-8 relative overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in">
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-800/40 rounded-2xl max-w-sm w-full text-center space-y-6 p-8 relative overflow-hidden shadow-2xl shadow-cyan-500/5">
             {/* Linha de Gradiente Superior */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent"></div>
-            
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent"></div>
+
             <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2 text-purple-400">
+              <div className="flex items-center gap-2 text-cyan-400">
                 <Clock size={16} className="animate-pulse" />
                 <span className="text-xs font-mono">
                   {currentTime.toLocaleTimeString("pt-BR")}
@@ -375,18 +375,18 @@ export default function Parking() {
               </div>
               <button
                 onClick={() => setSelectedTicket(null)}
-                className="text-gray-500 hover:text-white transition-colors"
+                className="text-slate-500 hover:text-slate-200 transition-colors"
               >
                 <XCircle size={24} />
               </button>
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-xl font-bold text-white uppercase tracking-tight">
+              <h3 className="text-xl font-bold font-headline text-slate-100 uppercase tracking-tight">
                 Ingresso Estacionamento
               </h3>
-              <p className="text-xs text-gray-400 italic">
-                Válido apenas com relógio em movimento
+              <p className="text-xs text-slate-500 italic">
+                Valido apenas com relogio em movimento
               </p>
             </div>
 
@@ -400,14 +400,14 @@ export default function Parking() {
             </div>
 
             <div className="space-y-1">
-              <p className="text-white font-bold text-3xl font-mono tracking-widest uppercase truncate px-2">
+              <p className="text-cyan-400 font-bold text-3xl font-mono tracking-widest uppercase truncate px-2">
                 {selectedTicket.license_plate}
               </p>
-              <p className="text-purple-400 font-semibold uppercase">
+              <p className="text-cyan-300/70 font-semibold uppercase">
                 {VEHICLE_TYPE_LABELS[selectedTicket.vehicle_type] || (selectedTicket.vehicle_type ? selectedTicket.vehicle_type.toUpperCase() : '—')}
               </p>
               <div className="pt-2">
-                <span className="bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[10px] font-mono text-gray-400 uppercase">
+                <span className="bg-slate-800/50 border border-slate-700/50 px-3 py-1 rounded-full text-[10px] font-mono text-slate-500 uppercase">
                   Ref: {selectedTicket.qr_token}
                 </span>
               </div>
@@ -415,7 +415,7 @@ export default function Parking() {
 
             <button
               onClick={() => setSelectedTicket(null)}
-              className="btn-primary w-full py-4 text-lg font-bold"
+              className="w-full py-4 text-lg font-bold bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 rounded-xl hover:from-cyan-400 hover:to-cyan-300 transition-all"
             >
               FECHAR
             </button>
@@ -426,11 +426,11 @@ export default function Parking() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="page-title flex items-center gap-2">
+          <h1 className="text-2xl font-bold font-headline text-slate-100 flex items-center gap-2">
             <ParkingSquare size={22} className="text-cyan-400" /> Portaria
           </h1>
-          <p className="text-gray-500 text-sm">
-            {parkedCount} veículo(s) no local
+          <p className="text-slate-500 text-sm mt-1">
+            {parkedCount} veiculo(s) no local
             {totalRevenue > 0 && (
               <span className="ml-3 text-green-400 font-semibold">
                 Receita: R$ {totalRevenue.toFixed(2)}
@@ -438,12 +438,12 @@ export default function Parking() {
             )}
           </p>
           {selectedEvent?.capacity > 0 && (
-            <span className={`inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+            <span className={`inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full text-xs font-semibold ${
               parkedCount >= selectedEvent.capacity
-                ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                ? "bg-red-500/15 text-red-400 border border-red-500/20"
                 : parkedCount >= selectedEvent.capacity * 0.9
-                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                  : "bg-green-500/20 text-green-400 border border-green-500/30"
+                  ? "bg-amber-500/15 text-amber-400 border border-amber-500/20"
+                  : "bg-green-500/15 text-green-400 border border-green-500/20"
             }`}>
               <span className={`inline-block w-1.5 h-1.5 rounded-full ${
                 parkedCount >= selectedEvent.capacity
@@ -463,37 +463,37 @@ export default function Parking() {
         {tab === "parking" && (
           <button
             onClick={() => setShowForm(!showForm)}
-            className="btn-primary"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl hover:from-cyan-400 hover:to-cyan-300 transition-all shadow-lg shadow-cyan-500/20"
           >
             <Plus size={16} /> Registrar Entrada
           </button>
         )}
       </div>
 
-      {/* Abas */}
-      <div className="flex gap-2 border-b border-gray-700">
+      {/* Abas — Aether Neon Tabs */}
+      <div className="inline-flex bg-slate-800/50 rounded-xl p-1 gap-1">
         <button
           onClick={() => setTab("parking")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
             tab === "parking"
-              ? "border-cyan-400 text-cyan-400"
-              : "border-transparent text-gray-400 hover:text-white"
+              ? "bg-cyan-500 text-slate-950 font-semibold shadow-md"
+              : "text-slate-400 hover:text-slate-200"
           }`}
         >
-          <ParkingSquare size={14} className="inline mr-1" /> Estacionamento
+          <ParkingSquare size={14} /> Estacionamento
         </button>
         <button
           onClick={() => {
             setTab("tickets");
             setValidationResult(null);
           }}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
             tab === "tickets"
-              ? "border-cyan-400 text-cyan-400"
-              : "border-transparent text-gray-400 hover:text-white"
+              ? "bg-cyan-500 text-slate-950 font-semibold shadow-md"
+              : "text-slate-400 hover:text-slate-200"
           }`}
         >
-          <QrCode size={14} className="inline mr-1" /> Validar Ingresso
+          <QrCode size={14} /> Validar Ingresso
         </button>
       </div>
 
@@ -501,10 +501,10 @@ export default function Parking() {
       {tab === "parking" && (
         <>
           {showForm && (
-            <div className="card border-cyan-800/40 max-w-lg relative">
-              <h2 className="section-title">Registrar Entrada de Veículo</h2>
+            <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-5 max-w-lg relative">
+              <h2 className="text-lg font-semibold font-headline text-slate-100 mb-4">Registrar Entrada de Veiculo</h2>
 
-              {/* 🚀 ADIÇÃO CIRÚRGICA: Input Invisível para capturar o Scanner */}
+              {/* Input Invisivel para capturar o Scanner */}
               <input
                 ref={entryScannerRef}
                 value={entryScanInput}
@@ -522,9 +522,9 @@ export default function Parking() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="input-label">Evento *</label>
+                  <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5">Evento *</label>
                   <select
-                    className="select"
+                    className="w-full bg-slate-800/50 border border-slate-700/50 text-slate-200 rounded-xl px-3 py-2.5 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 outline-none transition-colors"
                     value={form.event_id}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, event_id: e.target.value }))
@@ -539,9 +539,9 @@ export default function Parking() {
                   </select>
                 </div>
                 <div>
-                  <label className="input-label">Placa * (Ou bip aqui)</label>
+                  <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5">Placa * (Ou bip aqui)</label>
                   <input
-                    className="input uppercase"
+                    className="w-full bg-slate-800/50 border border-slate-700/50 text-slate-200 rounded-xl px-3 py-2.5 font-mono uppercase text-lg focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 outline-none transition-colors placeholder:text-slate-600"
                     placeholder="ABC1234"
                     value={form.license_plate}
                     onChange={(e) =>
@@ -553,9 +553,9 @@ export default function Parking() {
                   />
                 </div>
                 <div>
-                  <label className="input-label">Tipo</label>
+                  <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5">Tipo</label>
                   <select
-                    className="select"
+                    className="w-full bg-slate-800/50 border border-slate-700/50 text-slate-200 rounded-xl px-3 py-2.5 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 outline-none transition-colors"
                     value={form.vehicle_type}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, vehicle_type: e.target.value }))
@@ -563,17 +563,17 @@ export default function Parking() {
                   >
                     <option value="car">Carro</option>
                     <option value="motorcycle">Moto</option>
-                    <option value="truck">Caminhão</option>
-                    <option value="bus">Ônibus</option>
+                    <option value="truck">Caminhao</option>
+                    <option value="bus">Onibus</option>
                   </select>
                 </div>
                 <div className="col-span-2 flex gap-3">
-                  <button onClick={handleEntry} className="btn-primary flex-1">
+                  <button onClick={handleEntry} className="flex-1 py-2.5 bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl hover:from-cyan-400 hover:to-cyan-300 transition-all">
                     Registrar Manual
                   </button>
                   <button
                     onClick={() => setShowForm(false)}
-                    className="btn-outline flex-1"
+                    className="flex-1 py-2.5 border border-slate-700/50 text-slate-400 hover:text-slate-200 hover:border-slate-600 rounded-xl transition-all"
                   >
                     Cancelar
                   </button>
@@ -584,7 +584,7 @@ export default function Parking() {
 
           <div className="flex gap-3">
             <select
-              className="select w-auto"
+              className="bg-slate-800/50 border border-slate-700/50 text-slate-200 rounded-xl px-3 py-2 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 outline-none transition-colors w-auto"
               value={eventId}
               onChange={(e) => setEventId(e.target.value)}
             >
@@ -609,60 +609,63 @@ export default function Parking() {
             ]}
           />
 
-          <div className="table-wrapper">
+          <div className="bg-[#111827] border border-slate-800/40 rounded-2xl overflow-hidden">
             {loading ? (
-              <p className="text-center text-gray-500 py-10">Carregando...</p>
+              <p className="text-center text-slate-500 py-10">Carregando...</p>
             ) : (
-              <table className="table">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr>
-                    <th>Placa</th>
-                    <th>Tipo</th>
-                    <th>Entrada</th>
-                    <th>Saída</th>
-                    <th>Taxa</th>
-                    <th>Status</th>
-                    <th>Ação</th>
+                  <tr className="bg-slate-800/50">
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Placa</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Tipo</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Entrada</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Saida</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Taxa</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Acao</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-800/40">
                   {records.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center text-gray-500 py-10">
+                      <td colSpan={7} className="text-center text-slate-500 py-10">
                         Nenhum registro
                       </td>
                     </tr>
                   ) : (
                     records.map((r) => (
-                      <tr key={r.id}>
-                        <td className="font-mono font-bold text-white">
+                      <tr key={r.id} className="hover:bg-slate-800/20 transition-colors">
+                        <td className="px-4 py-3 font-mono font-bold text-slate-100">
                           {r.license_plate}
                         </td>
-                        <td>{VEHICLE_TYPE_LABELS[r.vehicle_type] || (r.vehicle_type ? r.vehicle_type.toUpperCase() : '—')}</td>
-                        <td className="text-xs text-gray-400">
+                        <td className="px-4 py-3 text-slate-300">{VEHICLE_TYPE_LABELS[r.vehicle_type] || (r.vehicle_type ? r.vehicle_type.toUpperCase() : '—')}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500">
                           {r.entry_at ? new Date(r.entry_at).toLocaleString("pt-BR") : "Aguardando"}
                         </td>
-                        <td className="text-xs text-gray-400">
+                        <td className="px-4 py-3 text-xs text-slate-500">
                           {r.exit_at ? new Date(r.exit_at).toLocaleString("pt-BR") : "—"}
                         </td>
-                        <td className="text-sm">
+                        <td className="px-4 py-3 text-sm">
                           {r.status === "exited" && Number(r.fee_paid) > 0
                             ? <span className="text-green-400 font-semibold">R$ {Number(r.fee_paid).toFixed(2)}</span>
-                            : <span className="text-gray-600">—</span>}
+                            : <span className="text-slate-600">—</span>}
                         </td>
-                        <td>
-                          <span className={
-                            r.status === "pending" ? "badge-yellow" : 
-                            r.status === "parked" ? "badge-green" : "badge-gray"
-                          }>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                            r.status === "pending"
+                              ? "bg-amber-500/15 text-amber-400"
+                              : r.status === "parked"
+                                ? "bg-green-500/15 text-green-400"
+                                : "bg-slate-700/50 text-slate-400"
+                          }`}>
                            {r.status === "pending" ? "Aguardando Bip" : r.status === "parked" ? "No local" : "Saiu"}
                           </span>
                         </td>
-                        <td>
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             {r.status === "parked" && (
-                              <button onClick={() => handleExit(r.id)} className="btn-outline btn-sm">
-                                Registrar Saída
+                              <button onClick={() => handleExit(r.id)} className="px-3 py-1.5 text-xs font-medium border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors">
+                                Registrar Saida
                               </button>
                             )}
                             {r.qr_token && (
@@ -696,50 +699,50 @@ export default function Parking() {
       {/* Aba Validar Ingresso */}
       {tab === "tickets" && (
         <div className="max-w-lg space-y-6">
-          <div className="card border-cyan-800/40">
-            <h2 className="section-title flex items-center gap-2">
+          <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-5">
+            <h2 className="text-lg font-semibold font-headline text-slate-100 flex items-center gap-2 mb-4">
               <QrCode size={18} className="text-cyan-400" /> Validar Ingresso
             </h2>
             <div className="flex gap-2">
               <input
-                className="input flex-1"
-                placeholder="Código ou referência (EF-...)"
+                className="flex-1 bg-slate-800/50 border border-slate-700/50 text-slate-200 rounded-xl px-3 py-2.5 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 outline-none transition-colors placeholder:text-slate-600"
+                placeholder="Codigo ou referencia (EF-...)"
                 value={ticketInput}
                 onChange={(e) => setTicketInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleValidateTicket()}
                 autoFocus
               />
-              <button onClick={handleValidateTicket} disabled={validating || !ticketInput.trim()} className="btn-primary">
+              <button onClick={handleValidateTicket} disabled={validating || !ticketInput.trim()} className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl hover:from-cyan-400 hover:to-cyan-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                 {validating ? "..." : "Validar"}
               </button>
             </div>
           </div>
 
           {validationResult && (
-            <div className={`card border ${
+            <div className={`bg-[#111827] border rounded-2xl p-5 ${
               !validationResult.ok
-                ? "border-red-500/40 bg-red-900/10"
+                ? "border-red-500/20 bg-red-500/5"
                 : (validationResult.current_status || validationResult.status) === "parked"
-                  ? "border-green-500/40 bg-green-900/10" // Entrada = Verde
-                  : "border-blue-500/40 bg-blue-900/10"   // Saída = Azul
+                  ? "border-green-500/20 bg-green-500/5"
+                  : "border-blue-500/20 bg-blue-500/5"
             }`}>
               <div className="flex items-start gap-4">
                 {!validationResult.ok ? (
                   <XCircle size={40} className="text-red-400 flex-shrink-0" />
                 ) : (validationResult.current_status || validationResult.status) === "parked" ? (
-                  <div className="flex flex-col items-center justify-center bg-green-500/20 text-green-400 p-3 rounded-lg flex-shrink-0">
+                  <div className="flex flex-col items-center justify-center bg-green-500/15 text-green-400 p-3 rounded-xl flex-shrink-0">
                     <CheckCircle size={32} />
                     <span className="text-xs font-bold mt-1 uppercase">Entrada</span>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center bg-blue-500/20 text-blue-400 p-3 rounded-lg flex-shrink-0">
+                  <div className="flex flex-col items-center justify-center bg-blue-500/15 text-blue-400 p-3 rounded-xl flex-shrink-0">
                     <CheckCircle size={32} />
-                    <span className="text-xs font-bold mt-1 uppercase">Saída</span>
+                    <span className="text-xs font-bold mt-1 uppercase">Saida</span>
                   </div>
                 )}
 
                 <div className="flex-1">
-                  <p className={`font-bold text-xl mb-2 ${
+                  <p className={`font-bold font-headline text-xl mb-2 ${
                     !validationResult.ok
                       ? "text-red-400"
                       : (validationResult.current_status || validationResult.status) === "parked"
@@ -750,23 +753,23 @@ export default function Parking() {
                   </p>
 
                   {validationResult.ok && (
-                    <div className="grid grid-cols-2 gap-2 text-sm text-gray-300 bg-black/20 p-3 rounded">
+                    <div className="grid grid-cols-2 gap-2 text-sm text-slate-300 bg-slate-800/30 p-3 rounded-xl border border-slate-700/30">
                       {validationResult.holder && (
                         <div>
-                          <span className="text-gray-500 text-xs block uppercase">Placa</span>
-                          <span className="font-mono font-bold text-white text-lg">{validationResult.holder}</span>
+                          <span className="text-slate-500 text-xs block uppercase">Placa</span>
+                          <span className="font-mono font-bold text-cyan-400 text-lg">{validationResult.holder}</span>
                         </div>
                       )}
                       {validationResult.type && (
                         <div>
-                          <span className="text-gray-500 text-xs block uppercase">Veículo</span>
-                          <span className="font-semibold">{validationResult.type}</span>
+                          <span className="text-slate-500 text-xs block uppercase">Veiculo</span>
+                          <span className="font-semibold text-slate-200">{validationResult.type}</span>
                         </div>
                       )}
                       {validationResult.event && (
-                        <div className="col-span-2 mt-1 pt-2 border-t border-white/5">
-                          <span className="text-gray-500 text-xs block uppercase">Evento</span>
-                          <span className="font-semibold">{validationResult.event}</span>
+                        <div className="col-span-2 mt-1 pt-2 border-t border-slate-700/30">
+                          <span className="text-slate-500 text-xs block uppercase">Evento</span>
+                          <span className="font-semibold text-slate-200">{validationResult.event}</span>
                         </div>
                       )}
                     </div>

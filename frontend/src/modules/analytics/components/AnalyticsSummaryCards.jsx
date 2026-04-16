@@ -70,7 +70,7 @@ export default function AnalyticsSummaryCards({ loading, summary }) {
             </div>
             <div className="stat-label">{item.label}</div>
             {item.key === "remaining_balance" && !loading ? (
-              <div className="mt-1 text-[10px] text-gray-500">
+              <div className="mt-1 text-[10px] text-slate-500">
                 Base confiavel atual de cartoes ativos
               </div>
             ) : null}

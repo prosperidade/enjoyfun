@@ -5,25 +5,25 @@ export default function PosHeader({ isOffline, navigate, sectorInfo }) {
   const { buildScopedPath } = useEventScope();
 
   return (
-    <header className="h-16 px-6 border-b border-gray-800 flex items-center justify-between bg-gray-950/50 backdrop-blur-md sticky top-0 z-50">
+    <header className="h-16 px-6 border-b border-slate-800/40 flex items-center justify-between bg-slate-950/50 backdrop-blur-md sticky top-0 z-50">
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate(buildScopedPath("/"))}
-          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-all flex items-center justify-center"
+          className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800/40 rounded-full transition-all flex items-center justify-center"
           title="Voltar ao Dashboard"
         >
           <ArrowLeft size={20} />
         </button>
 
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gray-900 rounded-lg border border-gray-800">
+          <div className="p-2 bg-slate-900/60 rounded-lg border border-slate-800/40">
             {sectorInfo.icon}
           </div>
           <div>
-            <h1 className="font-bold text-sm tracking-widest text-white uppercase">
+            <h1 className="font-bold text-sm tracking-widest text-slate-100 uppercase">
               PDV {sectorInfo.title}
             </h1>
-            <p className="text-[10px] text-gray-500 font-medium uppercase tracking-tighter">
+            <p className="text-[10px] text-slate-500 font-medium uppercase tracking-tighter">
               EnjoyFun v2.0 • Unidade Digital
             </p>
           </div>

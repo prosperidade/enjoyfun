@@ -90,21 +90,21 @@ function FileDropZone({ onFile, file }) {
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
       className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors
-        ${dragging ? "border-cyan-400 bg-cyan-400/5" : file ? "border-green-500/50 bg-green-900/5" : "border-white/10 hover:border-white/20"}`}
+        ${dragging ? "border-cyan-400 bg-cyan-400/5" : file ? "border-green-500/50 bg-green-900/5" : "border-slate-700/50 hover:border-slate-600/50"}`}
     >
       <input ref={inputRef} type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={handleChange} />
       {file ? (
         <div className="space-y-2">
           <FileText size={32} className="text-green-400 mx-auto" />
           <p className="text-green-400 font-medium">{file.name}</p>
-          <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
+          <p className="text-xs text-slate-400">{(file.size / 1024).toFixed(1)} KB</p>
         </div>
       ) : (
         <div className="space-y-3">
-          <Upload size={32} className="text-gray-500 mx-auto" />
+          <Upload size={32} className="text-slate-400 mx-auto" />
           <div>
-            <p className="text-gray-300 font-medium">Arraste o arquivo CSV aqui</p>
-            <p className="text-xs text-gray-500 mt-1">ou clique para selecionar — CSV, TSV até 5 MB</p>
+            <p className="text-slate-300 font-medium">Arraste o arquivo CSV aqui</p>
+            <p className="text-xs text-slate-400 mt-1">ou clique para selecionar — CSV, TSV até 5 MB</p>
           </div>
           <button type="button" className="btn-outline text-sm mx-auto flex items-center gap-2">
             <FolderOpen size={14} /> Escolher arquivo
@@ -204,7 +204,7 @@ export default function EventFinanceImport() {
         <h1 className="page-title flex items-center gap-2">
           <Upload size={22} className="text-cyan-400" /> Importação em Lote
         </h1>
-        <p className="text-gray-500 text-sm">Importe fornecedores, contas a pagar ou orçamentos via arquivo CSV</p>
+        <p className="text-slate-400 text-sm">Importe fornecedores, contas a pagar ou orçamentos via arquivo CSV</p>
       </div>
 
       {/* Stepper */}
@@ -212,25 +212,25 @@ export default function EventFinanceImport() {
         {STEPS.map((s, i) => (
           <div key={i} className="flex items-center gap-1 flex-1 last:flex-none">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
-              ${i < step ? "bg-green-500 text-white" : i === step ? "bg-cyan-500 text-white" : "bg-white/10 text-gray-500"}`}>
+              ${i < step ? "bg-green-500 text-slate-100" : i === step ? "bg-cyan-500 text-slate-100" : "bg-slate-800/40 text-slate-400"}`}>
               {i < step ? <CheckCircle size={14} /> : i + 1}
             </div>
-            <span className={`text-xs hidden md:block truncate ${i === step ? "text-cyan-400" : "text-gray-500"}`}>{s}</span>
-            {i < STEPS.length - 1 && <ChevronRight size={14} className="text-gray-700 flex-shrink-0" />}
+            <span className={`text-xs hidden md:block truncate ${i === step ? "text-cyan-400" : "text-slate-400"}`}>{s}</span>
+            {i < STEPS.length - 1 && <ChevronRight size={14} className="text-slate-500 flex-shrink-0" />}
           </div>
         ))}
       </div>
 
       {/* Step 0: Configurar */}
       {step === 0 && (
-        <div className="card border-white/5 space-y-4">
+        <div className="card border-slate-800/40 space-y-4">
           <h2 className="section-title">O que deseja importar?</h2>
           <div className="grid grid-cols-1 gap-3">
             {IMPORT_TYPES.map((t) => (
               <label
                 key={t.value}
                 className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors
-                  ${importType === t.value ? "border-cyan-500/60 bg-cyan-900/10" : "border-white/5 hover:border-white/10"}`}
+                  ${importType === t.value ? "border-cyan-500/60 bg-cyan-900/10" : "border-slate-800/40 hover:border-slate-700/50"}`}
               >
                 <input
                   type="radio"
@@ -241,8 +241,8 @@ export default function EventFinanceImport() {
                   className="mt-0.5 accent-cyan-500"
                 />
                 <div>
-                  <p className="font-medium text-white">{t.label}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Colunas: <code className="text-cyan-400">{t.description}</code></p>
+                  <p className="font-medium text-slate-100">{t.label}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Colunas: <code className="text-cyan-400">{t.description}</code></p>
                 </div>
               </label>
             ))}
@@ -266,15 +266,15 @@ export default function EventFinanceImport() {
 
       {/* Step 1: Upload do arquivo */}
       {step === 1 && (
-        <div className="card border-white/5 space-y-4">
+        <div className="card border-slate-800/40 space-y-4">
           <h2 className="section-title">Selecionar arquivo CSV</h2>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-slate-400">
             Importe um arquivo <strong>.csv</strong> ou <strong>.tsv</strong>. A primeira linha deve ser o cabeçalho.
             Separadores aceitos: vírgula, ponto-e-vírgula ou tabulação.
           </p>
 
-          <div className="bg-black/20 border border-white/5 rounded-lg p-3">
-            <p className="text-xs text-gray-500 mb-1">Cabeçalho esperado:</p>
+          <div className="bg-slate-900/50 border border-slate-800/40 rounded-lg p-3">
+            <p className="text-xs text-slate-400 mb-1">Cabeçalho esperado:</p>
             <code className="text-xs font-mono text-cyan-400">{selectedType?.description}</code>
           </div>
 
@@ -286,7 +286,7 @@ export default function EventFinanceImport() {
               <span><strong>{parsedRows.length}</strong> linha(s) detectada(s) em <strong>{file.name}</strong></span>
               <button
                 onClick={() => { setFile(null); setParsedRows([]); }}
-                className="ml-auto text-gray-500 hover:text-white"
+                className="ml-auto text-slate-400 hover:text-slate-100"
               >
                 <X size={14} />
               </button>
@@ -316,14 +316,14 @@ export default function EventFinanceImport() {
       {/* Step 2: Preview */}
       {step === 2 && preview && (
         <div className="space-y-4">
-          <div className="card border-white/5">
+          <div className="card border-slate-800/40">
             <h2 className="section-title">Preview de importação</h2>
             <div className="flex gap-6 mt-3 text-sm">
               <span className="text-green-400">✓ {preview.valid} válida(s)</span>
-              <span className={preview.invalid > 0 ? "text-red-400" : "text-gray-500"}>
+              <span className={preview.invalid > 0 ? "text-red-400" : "text-slate-400"}>
                 ✕ {preview.invalid} inválida(s)
               </span>
-              <span className="text-gray-400">Total: {preview.total_rows}</span>
+              <span className="text-slate-400">Total: {preview.total_rows}</span>
             </div>
           </div>
 
@@ -332,7 +332,7 @@ export default function EventFinanceImport() {
               <p className="text-red-400 text-sm font-medium mb-2 flex items-center gap-1">
                 <AlertCircle size={14} /> Linhas com erro
               </p>
-              <ul className="text-xs text-gray-400 space-y-1 max-h-32 overflow-y-auto">
+              <ul className="text-xs text-slate-400 space-y-1 max-h-32 overflow-y-auto">
                 {preview.errors.map((e, i) => (
                   <li key={i}>Linha {e.row}: {e.errors?.join(", ")}</li>
                 ))}
@@ -359,7 +359,7 @@ export default function EventFinanceImport() {
                         ? <span className="badge-green">Válida</span>
                         : <span className="badge-red">Inválida</span>}
                     </td>
-                    <td className="text-xs text-gray-400 max-w-[200px] truncate">
+                    <td className="text-xs text-slate-400 max-w-[200px] truncate">
                       {Object.values(r.raw_payload || {}).slice(0, 4).join(" | ")}
                     </td>
                     <td className="text-xs text-red-400">
@@ -370,7 +370,7 @@ export default function EventFinanceImport() {
               </tbody>
             </table>
             {preview.total_rows > 30 && (
-              <p className="text-xs text-gray-600 p-2 text-center">Exibindo 30 de {preview.total_rows} linhas.</p>
+              <p className="text-xs text-slate-500 p-2 text-center">Exibindo 30 de {preview.total_rows} linhas.</p>
             )}
           </div>
 
@@ -394,13 +394,13 @@ export default function EventFinanceImport() {
           <h2 className="text-xl font-bold text-green-400">Importação concluída!</h2>
           <div className="flex justify-center gap-8 text-sm">
             <div>
-              <p className="text-2xl font-bold text-white">{result.applied}</p>
-              <p className="text-gray-400">Registro(s) criado(s)</p>
+              <p className="text-2xl font-bold text-slate-100">{result.applied}</p>
+              <p className="text-slate-400">Registro(s) criado(s)</p>
             </div>
             {result.skipped > 0 && (
               <div>
                 <p className="text-2xl font-bold text-yellow-400">{result.skipped}</p>
-                <p className="text-gray-400">Ignorado(s)</p>
+                <p className="text-slate-400">Ignorado(s)</p>
               </div>
             )}
           </div>

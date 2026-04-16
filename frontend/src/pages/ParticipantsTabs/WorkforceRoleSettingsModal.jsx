@@ -563,21 +563,21 @@ export default function WorkforceRoleSettingsModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+        <div className="p-4 border-b border-slate-800/40 flex items-center justify-between flex-shrink-0">
           <div>
-            <h3 className="text-white font-bold">Configuração por Cargo</h3>
-            <p className="text-xs text-gray-500 mt-1">{roleNameInput || role.name}</p>
+            <h3 className="text-slate-100 font-bold">Configuração por Cargo</h3>
+            <p className="text-xs text-slate-500 mt-1">{roleNameInput || role.name}</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800">
+          <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800/50">
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={save} className="flex flex-col min-h-0">
           <div className="p-4 grid grid-cols-2 gap-3 overflow-y-auto min-h-0">
-            <label className="text-xs text-gray-400 col-span-2">
+            <label className="text-xs text-slate-400 col-span-2">
               Cargo existente
               <select
                 className="input mt-1 w-full"
@@ -592,7 +592,7 @@ export default function WorkforceRoleSettingsModal({
                 ))}
               </select>
             </label>
-            <label className="text-xs text-gray-400 col-span-2">
+            <label className="text-xs text-slate-400 col-span-2">
               Nome do cargo
               <input
                 type="text"
@@ -602,7 +602,7 @@ export default function WorkforceRoleSettingsModal({
                 placeholder="Ex.: Supervisor de Bar"
               />
             </label>
-            <label className="text-xs text-gray-400 col-span-2">
+            <label className="text-xs text-slate-400 col-span-2">
               Setor do cargo
               <input
                 type="text"
@@ -612,7 +612,7 @@ export default function WorkforceRoleSettingsModal({
                 placeholder="Ex.: bar"
               />
             </label>
-            <label className="text-xs text-gray-400 col-span-2">
+            <label className="text-xs text-slate-400 col-span-2">
               Nome da liderança
               <input
                 type="text"
@@ -621,7 +621,7 @@ export default function WorkforceRoleSettingsModal({
                 onChange={(e) => setForm((p) => ({ ...p, leader_name: e.target.value }))}
               />
             </label>
-            <label className="text-xs text-gray-400">
+            <label className="text-xs text-slate-400">
               CPF
               <input
                 type="text"
@@ -630,7 +630,7 @@ export default function WorkforceRoleSettingsModal({
                 onChange={(e) => setForm((p) => ({ ...p, leader_cpf: e.target.value }))}
               />
             </label>
-            <label className="text-xs text-gray-400">
+            <label className="text-xs text-slate-400">
               Celular
               <input
                 type="text"
@@ -640,13 +640,13 @@ export default function WorkforceRoleSettingsModal({
               />
             </label>
 
-            <div className="col-span-2 rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-3">
-              <p className="text-[11px] text-gray-400 uppercase tracking-wider">Conta de acesso da liderança</p>
-              <p className="mt-1 text-xs text-gray-500">
+            <div className="col-span-2 rounded-xl border border-slate-800/40 bg-slate-950/60 px-3 py-3">
+              <p className="text-[11px] text-slate-400 uppercase tracking-wider">Conta de acesso da liderança</p>
+              <p className="mt-1 text-xs text-slate-500">
                 Se este cargo estiver ligado a uma conta ou participante, o sistema reconhece essa pessoa como responsável oficial.
               </p>
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <label className="text-xs text-gray-400">
+                <label className="text-xs text-slate-400">
                   Participante do Evento
                   <input
                     type="text"
@@ -670,12 +670,12 @@ export default function WorkforceRoleSettingsModal({
                       </option>
                     ))}
                   </select>
-                  <p className="mt-1 text-[11px] text-gray-500">
+                  <p className="mt-1 text-[11px] text-slate-500">
                     Busca remota limitada a 50 resultados por vez para não cortar eventos grandes.
                   </p>
                 </label>
 
-                <label className="text-xs text-gray-400">
+                <label className="text-xs text-slate-400">
                   Conta de acesso / liderança já cadastrada
                   <select
                     className="input mt-1 w-full"
@@ -704,8 +704,8 @@ export default function WorkforceRoleSettingsModal({
                 </label>
               </div>
 
-              <div className="mt-3 rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-2 text-xs text-gray-400">
-                <p className="font-semibold text-white">
+              <div className="mt-3 rounded-xl border border-slate-800/40 bg-slate-900/60 px-3 py-2 text-xs text-slate-400">
+                <p className="font-semibold text-slate-100">
                   {leadershipLinked
                     ? "Liderança vinculada"
                     : leadershipResolved
@@ -718,23 +718,23 @@ export default function WorkforceRoleSettingsModal({
                   Participante: {selectedLeaderParticipant?.name || "não vinculado"} | Usuário: {selectedLeaderUser?.name || "não vinculado"}
                 </p>
                 {selectedTreeLeadershipOption && (
-                  <p className="mt-1 text-gray-500">
+                  <p className="mt-1 text-slate-500">
                     Este cargo responde para: {selectedTreeLeadershipOption.role_name} • {selectedTreeLeadershipOption.leader_name || "sem nome"}
                   </p>
                 )}
                 {selectedTreeLeadershipOption && (
-                  <p className="mt-1 text-gray-500">
+                  <p className="mt-1 text-slate-500">
                     Essa referência não troca o nome/CPF deste cargo; ela apenas mostra a liderança acima dele.
                   </p>
                 )}
                 {(selectedLeaderParticipant || selectedLeaderUser) && (
-                  <p className="mt-1 text-gray-500">
+                  <p className="mt-1 text-slate-500">
                     Se os dados coincidirem, o sistema tenta completar o outro cadastro automaticamente.
                   </p>
                 )}
               </div>
             </div>
-            <label className="text-xs text-gray-400">
+            <label className="text-xs text-slate-400">
               Número de Turnos
               <input
                 type="number"
@@ -744,7 +744,7 @@ export default function WorkforceRoleSettingsModal({
                 onChange={(e) => setForm((p) => ({ ...p, max_shifts_event: Number(e.target.value) }))}
               />
             </label>
-            <label className="text-xs text-gray-400">
+            <label className="text-xs text-slate-400">
               Horas por Turno
               <input
                 type="number"
@@ -755,7 +755,7 @@ export default function WorkforceRoleSettingsModal({
                 onChange={(e) => setForm((p) => ({ ...p, shift_hours: Number(e.target.value) }))}
               />
             </label>
-            <label className="text-xs text-gray-400">
+            <label className="text-xs text-slate-400">
               Refeições por Dia
               <input
                 type="number"
@@ -765,7 +765,7 @@ export default function WorkforceRoleSettingsModal({
                 onChange={(e) => setForm((p) => ({ ...p, meals_per_day: Number(e.target.value) }))}
               />
             </label>
-            <label className="text-xs text-gray-400">
+            <label className="text-xs text-slate-400">
               Valor por Turno (R$)
               <input
                 type="number"
@@ -777,7 +777,7 @@ export default function WorkforceRoleSettingsModal({
               />
             </label>
 
-            <label className="text-xs text-gray-400 col-span-2">
+            <label className="text-xs text-slate-400 col-span-2">
               Tipo de Custo
               <select
                 className="input mt-1 w-full"
@@ -798,8 +798,8 @@ export default function WorkforceRoleSettingsModal({
               </select>
             </label>
 
-            <div className="col-span-2 rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2">
-              <p className="text-[11px] text-gray-400">
+            <div className="col-span-2 rounded-xl border border-slate-800/40 bg-slate-950/60 px-3 py-2">
+              <p className="text-[11px] text-slate-400">
                 Total estimado por membro neste cargo = Valor por Turno x Número de Turnos
               </p>
               <p className="text-sm font-semibold text-emerald-400 mt-1">
@@ -807,27 +807,27 @@ export default function WorkforceRoleSettingsModal({
               </p>
             </div>
 
-            <div className="col-span-2 rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2">
-              <p className="text-[11px] text-gray-400">
+            <div className="col-span-2 rounded-xl border border-slate-800/40 bg-slate-950/60 px-3 py-2">
+              <p className="text-[11px] text-slate-400">
                 Custo total do setor ({(normalizedSector || "geral").replace(/_/g, " ")}) incluindo este cargo
               </p>
               {sectorCostLoading ? (
-                <p className="text-sm text-gray-500 mt-1">Carregando custo do setor...</p>
+                <p className="text-sm text-slate-500 mt-1">Carregando custo do setor...</p>
                 ) : (
                   <>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-slate-500 mt-1">
                       Base atual: R$ {Number(sectorCostSummary?.sectorTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} | Planejado:{" "}
                       {Number(sectorCostSummary?.plannedMembersTotal || 0).toLocaleString("pt-BR")} | Preenchido:{" "}
                       {Number(sectorCostSummary?.filledMembersTotal || 0).toLocaleString("pt-BR")}
                     </p>
-                    <p className="text-[11px] text-gray-500 mt-1">
+                    <p className="text-[11px] text-slate-500 mt-1">
                       Liderança: {Number(sectorCostSummary?.leadershipPositionsTotal || 0).toLocaleString("pt-BR")} • Operação:{" "}
                       {Number(sectorCostSummary?.operationalMembersTotal || 0).toLocaleString("pt-BR")}
                     </p>
                     <p className="text-sm font-semibold text-cyan-400 mt-1">
                       Projeção com o cargo: R$ {Number(projectedSectorTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </p>
-                    <p className="text-[11px] text-gray-500 mt-1">
+                    <p className="text-[11px] text-slate-500 mt-1">
                       Planejado no setor: {Number(projectedSectorMembers || 0).toLocaleString("pt-BR")}
                       {missingLeadSlot > 0 ? " (inclui 1 posição-base deste cargo)" : ""}
                     </p>
@@ -836,9 +836,9 @@ export default function WorkforceRoleSettingsModal({
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 p-4 border-t border-gray-800 flex-shrink-0">
-            <button type="button" onClick={onClose} className="btn-secondary">Cancelar</button>
-            <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2">
+          <div className="flex justify-end gap-2 p-4 border-t border-slate-800/40 flex-shrink-0">
+            <button type="button" onClick={onClose} className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-semibold transition-colors">Cancelar</button>
+            <button type="submit" disabled={loading} className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex items-center gap-2">
               <Save size={16} /> Salvar
             </button>
           </div>

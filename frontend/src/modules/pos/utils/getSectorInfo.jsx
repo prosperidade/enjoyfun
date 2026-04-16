@@ -18,8 +18,8 @@ export function getSectorInfo(sector) {
   }
 
   return {
-    icon: <Beer className="text-purple-400" size={28} />,
+    icon: <Beer className="text-cyan-400" size={28} />,
     title: "BAR",
-    fallbackIcon: <Beer className="text-purple-400" size={32} />,
+    fallbackIcon: <Beer className="text-cyan-400" size={32} />,
   };
 }

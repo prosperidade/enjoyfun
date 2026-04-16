@@ -11,7 +11,7 @@ export default function AnalyticsProductMixPanel({
     <div className="card">
       <div className="mb-4">
         <h3 className="section-title mb-0">{title}</h3>
-        <p className="mt-1 text-sm text-gray-400">{description}</p>
+        <p className="mt-1 text-sm text-slate-400">{description}</p>
       </div>
 
       {loading ? (
@@ -23,12 +23,12 @@ export default function AnalyticsProductMixPanel({
           {items.map((item) => (
             <div
               key={`${item.product_id}-${item.product_name}`}
-              className="rounded-xl border border-gray-800 bg-gray-900/40 px-4 py-3"
+              className="rounded-xl border border-slate-800/40 bg-[#111827] px-4 py-3"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-white">{item.product_name}</p>
-                  <p className="mt-1 text-xs uppercase tracking-wide text-gray-500">
+                  <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
                     {item.sector} • {Number(item.quantity_sold || 0).toLocaleString("pt-BR")} unidades
                   </p>
                 </div>
@@ -40,7 +40,7 @@ export default function AnalyticsProductMixPanel({
                     })}
                     %
                   </p>
-                  <p className="text-xs text-gray-500">share de receita</p>
+                  <p className="text-xs text-slate-500">share de receita</p>
                 </div>
               </div>
             </div>

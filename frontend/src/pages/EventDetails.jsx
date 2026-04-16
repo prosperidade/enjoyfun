@@ -49,7 +49,7 @@ export default function EventDetails() {
   }, [id]);
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="spinner w-10 h-10" /></div>;
-  if (!event) return <div className="text-center py-20 text-gray-400">Evento não encontrado.</div>;
+  if (!event) return <div className="text-center py-20 text-slate-400">Evento não encontrado.</div>;
 
   const starts = new Date(event.starts_at).toLocaleString("pt-BR");
   const ends = event.ends_at ? new Date(event.ends_at).toLocaleString("pt-BR") : "Não informado";
@@ -104,28 +104,28 @@ export default function EventDetails() {
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <Link to="/events" className="btn-outline inline-flex">
+          <Link to="/events" className="an-btn an-btn-secondary">
             <ArrowLeft size={16} /> Voltar para Eventos
           </Link>
-          <Link to={`/events?edit=${id}`} className="btn-outline inline-flex">
+          <Link to={`/events?edit=${id}`} className="an-btn an-btn-secondary">
             <Pencil size={16} /> Editar Evento
           </Link>
         </div>
         {event?.can_delete ? (
-          <button type="button" className="btn-outline inline-flex" onClick={handleDeleteEvent}>
+          <button type="button" className="an-btn an-btn-secondary" onClick={handleDeleteEvent}>
             <Trash2 size={16} /> Excluir Evento
           </button>
         ) : null}
       </div>
 
-      <div className="card overflow-hidden p-0 border-purple-800/40">
-        <div className="h-48 bg-gradient-to-r from-purple-900 to-indigo-900 relative">
+      <div className="an-card overflow-hidden p-0 border-cyan-500/20">
+        <div className="h-48 bg-gradient-to-r from-slate-900 via-cyan-950/50 to-slate-900 relative">
           <div className="absolute bottom-4 left-6 flex items-center gap-3">
-            <div className="bg-gray-900 p-3 rounded-lg border border-purple-500 shadow-xl">
-              <CalendarDays size={32} className="text-purple-400" />
+            <div className="bg-slate-900 p-3 rounded-lg border border-cyan-500/30 shadow-xl neon-glow-cyan">
+              <CalendarDays size={32} className="text-cyan-400" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white shadow-sm">{event.name}</h1>
+              <h1 className="text-3xl font-bold text-slate-100 font-headline">{event.name}</h1>
               <div className="flex items-center gap-2 mt-2">
                 <span className="badge-green inline-block">{String(event.status || "draft").toUpperCase()}</span>
                 {event.event_type && EVENT_TYPE_LABELS[event.event_type] && (
@@ -140,41 +140,41 @@ export default function EventDetails() {
 
         <div className="p-6 grid sm:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <h3 className="section-title">Informações do Evento</h3>
+            <h3 className="text-lg font-semibold text-slate-200">Informações do Evento</h3>
 
             {event.venue_name && (
-              <div className="flex items-start gap-3 text-gray-300">
-                <MapPin className="text-purple-400 shrink-0" size={20} />
+              <div className="flex items-start gap-3 text-slate-300">
+                <MapPin className="text-cyan-400 shrink-0" size={20} />
                 <div>
                   <p className="font-semibold">{event.venue_name}</p>
-                  <p className="text-sm text-gray-500">{event.address}</p>
+                  <p className="text-sm text-slate-500">{event.address}</p>
                 </div>
               </div>
             )}
 
-            <div className="flex items-center gap-3 text-gray-300">
-              <Clock className="text-purple-400 shrink-0" size={20} />
+            <div className="flex items-center gap-3 text-slate-300">
+              <Clock className="text-cyan-400 shrink-0" size={20} />
               <div>
-                <p className="text-sm">Início: <span className="font-semibold text-white">{starts}</span></p>
-                <p className="text-sm">Fim: <span className="font-semibold text-white">{ends}</span></p>
+                <p className="text-sm">Início: <span className="font-semibold text-slate-100">{starts}</span></p>
+                <p className="text-sm">Fim: <span className="font-semibold text-slate-100">{ends}</span></p>
               </div>
             </div>
 
             {event.capacity && (
-              <div className="flex items-center gap-3 text-gray-300">
-                <Users className="text-purple-400 shrink-0" size={20} />
-                <p>Capacidade: <span className="font-semibold text-white">{parseInt(event.capacity).toLocaleString()} pessoas</span></p>
+              <div className="flex items-center gap-3 text-slate-300">
+                <Users className="text-cyan-400 shrink-0" size={20} />
+                <p>Capacidade: <span className="font-semibold text-slate-100">{parseInt(event.capacity).toLocaleString()} pessoas</span></p>
               </div>
             )}
           </div>
 
           <div className="space-y-4">
-            <h3 className="section-title">Descrição</h3>
-            <p className="text-gray-400 text-sm leading-relaxed whitespace-pre-wrap">
+            <h3 className="text-lg font-semibold text-slate-200">Descrição</h3>
+            <p className="text-slate-400 text-sm leading-relaxed whitespace-pre-wrap">
               {event.description || "Nenhuma descrição fornecida."}
             </p>
 
-            <div className="mt-6 pt-6 border-t border-gray-800">
+            <div className="mt-6 pt-6 border-t border-slate-800/40">
               <div className="flex items-center gap-2 text-green-400 font-semibold mb-2">
                 <CheckCircle size={18} /> Sistema Integrado
               </div>
@@ -188,64 +188,64 @@ export default function EventDetails() {
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
-        <div className="card">
-          <div className="flex items-center gap-2 text-gray-400 text-sm mb-2">
+        <div className="an-card">
+          <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
             <Layers3 size={16} className="text-cyan-400" />
             Lotes comerciais
           </div>
-          <p className="text-2xl font-semibold text-white">{batches.length}</p>
-          <p className="text-xs text-gray-500 mt-1">Configurados no fluxo de criação do evento.</p>
+          <p className="text-2xl font-semibold text-slate-100">{batches.length}</p>
+          <p className="text-xs text-slate-500 mt-1">Configurados no fluxo de criação do evento.</p>
         </div>
 
-        <div className="card">
-          <div className="flex items-center gap-2 text-gray-400 text-sm mb-2">
+        <div className="an-card">
+          <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
             <UserRound size={16} className="text-amber-400" />
             Comissários
           </div>
-          <p className="text-2xl font-semibold text-white">{commissaries.length}</p>
-          <p className="text-xs text-gray-500 mt-1">Vinculados ao evento.</p>
+          <p className="text-2xl font-semibold text-slate-100">{commissaries.length}</p>
+          <p className="text-xs text-slate-500 mt-1">Vinculados ao evento.</p>
         </div>
 
-        <div className="card">
-          <div className="flex items-center gap-2 text-gray-400 text-sm mb-2">
-            <CalendarDays size={16} className="text-purple-400" />
+        <div className="an-card">
+          <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
+            <CalendarDays size={16} className="text-cyan-400" />
             Tipos de ingresso
           </div>
-          <p className="text-2xl font-semibold text-white">{ticketTypes.length}</p>
-          <p className="text-xs text-gray-500 mt-1">Base comercial disponível para bilheteria.</p>
+          <p className="text-2xl font-semibold text-slate-100">{ticketTypes.length}</p>
+          <p className="text-xs text-slate-500 mt-1">Base comercial disponível para bilheteria.</p>
         </div>
       </div>
 
       {/* ── Localização ── */}
       {hasLocation && (
-        <div className="card">
+        <div className="an-card">
           <div className="flex items-center gap-2 mb-4">
-            <Globe size={18} className="text-purple-400" />
+            <Globe size={18} className="text-cyan-400" />
             <h3 className="section-title mb-0">Localização</h3>
           </div>
           <div className="grid sm:grid-cols-2 gap-4 text-sm">
             {event.city && (
               <div>
-                <p className="text-gray-500 text-xs mb-1">Cidade</p>
-                <p className="text-white">{[event.city, event.state, event.country].filter(Boolean).join(", ")}</p>
+                <p className="text-slate-500 text-xs mb-1">Cidade</p>
+                <p className="text-slate-100">{[event.city, event.state, event.country].filter(Boolean).join(", ")}</p>
               </div>
             )}
             {event.venue_type && (
               <div>
-                <p className="text-gray-500 text-xs mb-1">Tipo de local</p>
-                <p className="text-white">{VENUE_TYPE_LABELS[event.venue_type] || event.venue_type}</p>
+                <p className="text-slate-500 text-xs mb-1">Tipo de local</p>
+                <p className="text-slate-100">{VENUE_TYPE_LABELS[event.venue_type] || event.venue_type}</p>
               </div>
             )}
             {event.zip_code && (
               <div>
-                <p className="text-gray-500 text-xs mb-1">CEP</p>
-                <p className="text-white">{event.zip_code}</p>
+                <p className="text-slate-500 text-xs mb-1">CEP</p>
+                <p className="text-slate-100">{event.zip_code}</p>
               </div>
             )}
             {(event.latitude && event.longitude) && (
               <div>
-                <p className="text-gray-500 text-xs mb-1">Coordenadas GPS</p>
-                <p className="text-white font-mono text-xs">{event.latitude}, {event.longitude}</p>
+                <p className="text-slate-500 text-xs mb-1">Coordenadas GPS</p>
+                <p className="text-slate-100 font-mono text-xs">{event.latitude}, {event.longitude}</p>
               </div>
             )}
           </div>
@@ -254,15 +254,15 @@ export default function EventDetails() {
 
       {/* ── Modulos Ativos ── */}
       {hasModules && (
-        <div className="card">
+        <div className="an-card">
           <div className="flex items-center gap-2 mb-4">
             <Package size={18} className="text-cyan-400" />
             <h3 className="section-title mb-0">Modulos Ativos</h3>
-            <span className="text-xs text-gray-500 ml-auto">{event.modules_enabled.length} modulos</span>
+            <span className="text-xs text-slate-500 ml-auto">{event.modules_enabled.length} modulos</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {event.modules_enabled.map((mod) => (
-              <span key={mod} className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-800 text-gray-300 border border-gray-700">
+              <span key={mod} className="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-800/40 text-slate-300 border border-slate-700/50">
                 {mod.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
               </span>
             ))}
@@ -272,7 +272,7 @@ export default function EventDetails() {
 
       {/* ── Mapas ── */}
       {hasMaps && (
-        <div className="card">
+        <div className="an-card">
           <div className="flex items-center gap-2 mb-4">
             <Map size={18} className="text-emerald-400" />
             <h3 className="section-title mb-0">Mapas</h3>
@@ -284,9 +284,9 @@ export default function EventDetails() {
                 href={getMapDownloadUrl(event[m.key])}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-sm text-gray-300 hover:text-white hover:border-purple-500/50 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/40 border border-slate-700/50 text-sm text-slate-300 hover:text-slate-100 hover:border-cyan-500/30 transition-colors"
               >
-                <ExternalLink size={14} className="text-purple-400 shrink-0" />
+                <ExternalLink size={14} className="text-cyan-400 shrink-0" />
                 {m.label}
               </a>
             ))}

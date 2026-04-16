@@ -50,20 +50,20 @@ export default function BulkMessageModal({ isOpen, onClose, selectedParticipants
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-scale-in">
-                <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        {type === "whatsapp" ? <MessageCircle className="text-green-500" /> : <Mail className="text-blue-500" />}
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-scale-in">
+                <div className="p-6 border-b border-slate-800/40 flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                        {type === "whatsapp" ? <MessageCircle className="text-green-400" /> : <Mail className="text-cyan-400" />}
                         Disparo em Massa ({selectedParticipants.length})
                     </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+                    <button onClick={onClose} className="text-slate-400 hover:text-red-400 transition-colors">
                         <X size={24} />
                     </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <div className="bg-blue-900/20 border border-blue-800/30 p-3 rounded-lg text-xs text-blue-300">
+                    <div className="bg-cyan-500/10 border border-cyan-500/20 p-3 rounded-xl text-xs text-cyan-300">
                         <p className="font-semibold mb-1">Dica de Placeholders:</p>
                         <ul className="list-disc list-inside">
                             <li>Use <code>{"{{name}}"}</code> para o nome do participante</li>
@@ -72,7 +72,7 @@ export default function BulkMessageModal({ isOpen, onClose, selectedParticipants
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Mensagem</label>
+                        <label className="block text-xs text-slate-400 uppercase tracking-wider mb-1">Mensagem</label>
                         <textarea
                             required
                             rows={6}
@@ -84,13 +84,13 @@ export default function BulkMessageModal({ isOpen, onClose, selectedParticipants
                     </div>
 
                     <div className="flex gap-3 pt-2">
-                        <button type="button" onClick={onClose} className="btn-secondary flex-1">
+                        <button type="button" onClick={onClose} className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-semibold transition-colors flex-1">
                             Cancelar
                         </button>
                         <button
                             type="submit"
                             disabled={loading || !message}
-                            className={`btn-primary flex-1 flex items-center justify-center gap-2 ${type === 'whatsapp' ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                            className={`font-semibold rounded-xl px-4 py-2 flex-1 flex items-center justify-center gap-2 ${type === 'whatsapp' ? 'bg-gradient-to-r from-green-500 to-green-400 text-slate-950' : 'bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950'}`}
                         >
                             {loading ? <div className="spinner-sm" /> : <Send size={18} />}
                             Enviar Agora

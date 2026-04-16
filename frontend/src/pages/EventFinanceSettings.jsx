@@ -85,17 +85,17 @@ export default function EventFinanceSettings() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="page-title flex items-center gap-2">
-            <SettingsIcon size={24} className="text-purple-400" /> Configurações Financeiras
+            <SettingsIcon size={24} className="text-cyan-400" /> Configurações Financeiras
           </h1>
-          <p className="text-gray-400 text-sm">Gerencie Categorias globais e Centros de Custo por evento.</p>
+          <p className="text-slate-400 text-sm">Gerencie Categorias globais e Centros de Custo por evento.</p>
         </div>
       </div>
 
-      <div className="flex gap-4 border-b border-white/10 pb-2">
+      <div className="flex gap-4 border-b border-slate-700/50 pb-2">
         <button
           onClick={() => setActiveTab("categories")}
           className={`px-4 py-2 font-medium text-sm rounded-lg transition-colors ${
-            activeTab === "categories" ? "bg-purple-600/20 text-purple-400" : "text-gray-400 hover:text-white"
+            activeTab === "categories" ? "bg-cyan-500/15 text-cyan-400" : "text-slate-400 hover:text-slate-100"
           }`}
         >
           Categorias de Custo (Globais)
@@ -103,7 +103,7 @@ export default function EventFinanceSettings() {
         <button
           onClick={() => setActiveTab("cost-centers")}
           className={`px-4 py-2 font-medium text-sm rounded-lg transition-colors ${
-            activeTab === "cost-centers" ? "bg-purple-600/20 text-purple-400" : "text-gray-400 hover:text-white"
+            activeTab === "cost-centers" ? "bg-cyan-500/15 text-cyan-400" : "text-slate-400 hover:text-slate-100"
           }`}
         >
           Centros de Custo (Por Evento)
@@ -145,15 +145,15 @@ export default function EventFinanceSettings() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="5" className="text-center py-6 text-gray-500">Carregando...</td></tr>
+                <tr><td colSpan="5" className="text-center py-6 text-slate-400">Carregando...</td></tr>
               ) : (activeTab === "categories" ? categories : costCenters).length === 0 ? (
-                <tr><td colSpan="5" className="text-center py-6 text-gray-500">Nenhum registro encontrado.</td></tr>
+                <tr><td colSpan="5" className="text-center py-6 text-slate-400">Nenhum registro encontrado.</td></tr>
               ) : (
                 (activeTab === "categories" ? categories : costCenters).map((item) => (
                   <tr key={item.id}>
-                    <td className="font-mono text-xs text-purple-400">#{item.id}</td>
+                    <td className="font-mono text-xs text-cyan-400">#{item.id}</td>
                     <td className="font-medium">{item.name}</td>
-                    <td className="text-gray-400">{item.code || "—"}</td>
+                    <td className="text-slate-400">{item.code || "—"}</td>
                     <td>
                       {item.is_active ? (
                         <span className="badge-green flex items-center gap-1 w-max">
@@ -166,7 +166,7 @@ export default function EventFinanceSettings() {
                       )}
                     </td>
                     <td className="text-right">
-                      <button onClick={() => handleOpenModal("edit", item)} className="p-2 text-gray-400 hover:text-purple-400 rounded-lg hover:bg-white/5">
+                      <button onClick={() => handleOpenModal("edit", item)} className="p-2 text-slate-400 hover:text-cyan-300 rounded-lg hover:bg-slate-800/30">
                         <Edit2 size={16} />
                       </button>
                     </td>
@@ -175,20 +175,20 @@ export default function EventFinanceSettings() {
               )}
             </tbody>
           </table>
-          <p className="text-xs text-gray-500 mt-2 p-3 bg-white/5 rounded-lg">
+          <p className="text-xs text-slate-400 mt-2 p-3 bg-slate-800/30 rounded-lg">
             <strong>Dica Importante:</strong> O número do ID (coluna à esquerda) é o Identificador Exato que você deve usar nas planilhas de importação CSV como `category_id` ou `cost_center_id`.
           </p>
         </div>
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-gray-950 border border-gray-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-            <div className="p-5 border-b border-gray-800 flex justify-between items-center">
-              <h3 className="font-bold text-lg text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-900/95 border border-slate-700/50 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="p-5 border-b border-slate-700/50 flex justify-between items-center">
+              <h3 className="font-bold text-lg text-slate-100">
                 {modalMode === "create" ? "Novo Registro" : "Editar Registro"}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-white">
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-100">
                 <XCircle size={20} />
               </button>
             </div>
@@ -219,18 +219,18 @@ export default function EventFinanceSettings() {
                 <input
                   type="text"
                   disabled
-                  className="input text-gray-500 bg-black/20"
+                  className="input text-slate-400 bg-slate-900/50"
                   value={formData.id ? `#${formData.id}` : "—"}
                   placeholder=""
                 />
               </div>
               {modalMode === "edit" && (
-                <label className="flex items-center gap-3 p-3 border border-white/10 rounded-lg bg-black/20 cursor-pointer">
+                <label className="flex items-center gap-3 p-3 border border-slate-700/50 rounded-lg bg-slate-900/50 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.is_active}
                     onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    className="accent-purple-500 w-4 h-4"
+                    className="accent-cyan-500 w-4 h-4"
                   />
                   <span className="text-sm font-medium">Registro Ativo</span>
                 </label>

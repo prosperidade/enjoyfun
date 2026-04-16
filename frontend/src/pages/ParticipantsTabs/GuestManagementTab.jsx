@@ -208,26 +208,26 @@ export default function GuestManagementTab({ eventId }) {
     return (
         <div className="space-y-6 animate-fade-in">
             {selectedIds.length > 0 && (
-                <div className="bg-brand/10 border border-brand/20 p-4 rounded-2xl flex items-center justify-between animate-slide-up">
+                <div className="bg-cyan-500/10 border border-cyan-500/20 p-4 rounded-xl flex items-center justify-between animate-slide-up">
                     <div className="flex items-center gap-3">
-                        <CheckCircle className="text-brand" size={20} />
-                        <span className="text-brand font-semibold">{selectedIds.length} selecionados</span>
+                        <CheckCircle className="text-cyan-400" size={20} />
+                        <span className="text-cyan-400 font-semibold">{selectedIds.length} selecionados</span>
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={() => openBulk('whatsapp')} className="btn-primary bg-green-600 hover:bg-green-700 h-9 px-4 text-xs flex items-center gap-2">
+                        <button onClick={() => openBulk('whatsapp')} className="bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25 h-9 px-4 text-xs flex items-center gap-2 rounded-xl font-semibold transition-colors">
                             <MessageCircle size={14} /> WhatsApp
                         </button>
-                        <button onClick={() => openBulk('email')} className="btn-secondary h-9 px-4 text-xs flex items-center gap-2">
+                        <button onClick={() => openBulk('email')} className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 h-9 px-4 text-xs flex items-center gap-2 rounded-xl font-semibold transition-colors">
                             <Mail size={14} /> Email
                         </button>
                         <button
                             onClick={handleBulkDelete}
                             disabled={bulkDeleting}
-                            className="btn-secondary h-9 px-4 text-xs flex items-center gap-2 border-red-700/60 text-red-400 hover:bg-red-900/30"
+                            className="bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 h-9 px-4 text-xs flex items-center gap-2 rounded-xl font-semibold transition-colors"
                         >
                             <Trash2 size={14} /> {bulkDeleting ? 'Deletando...' : 'Delete'}
                         </button>
-                        <button onClick={() => setSelectedIds([])} className="p-2 text-gray-400 hover:text-white transition-colors">
+                        <button onClick={() => setSelectedIds([])} className="p-2 text-slate-400 hover:text-slate-100 transition-colors">
                             Cancelar
                         </button>
                     </div>
@@ -236,11 +236,11 @@ export default function GuestManagementTab({ eventId }) {
 
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
                 <div className="relative w-full sm:w-96">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input
                         type="text"
                         placeholder="Buscar convidados por nome ou e-mail..."
-                        className="input pl-10 w-full"
+                        className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl pl-10 w-full px-3 py-2 text-sm text-slate-100 outline-none transition-colors"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
@@ -248,22 +248,22 @@ export default function GuestManagementTab({ eventId }) {
                 <div className="flex gap-2 w-full sm:w-auto">
                     <button
                         onClick={() => setIsImportModalOpen(true)}
-                        className="btn-secondary h-10 px-4 text-xs flex items-center gap-2 w-full sm:w-auto justify-center"
+                        className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl h-10 px-4 text-xs flex items-center gap-2 w-full sm:w-auto justify-center font-semibold transition-colors"
                     >
                         <FileDown size={14} /> Importar CSV
                     </button>
                 </div>
             </div>
 
-            <div className="card overflow-hidden p-0 border border-gray-800">
+            <div className="bg-[#111827] border border-slate-800/40 rounded-2xl overflow-hidden p-0">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-gray-300">
-                        <thead className="bg-gray-900/80 text-gray-400 uppercase text-xs border-b border-gray-800">
+                    <table className="w-full text-left text-sm text-slate-300">
+                        <thead className="bg-slate-800/50 text-slate-400 uppercase text-xs tracking-wider border-b border-slate-800/40">
                             <tr>
                                 <th className="px-6 py-4 w-10">
                                     <input
                                         type="checkbox"
-                                        className="checkbox"
+                                        className="accent-cyan-500"
                                         checked={filteredData.length > 0 && selectedIds.length === filteredData.length}
                                         onChange={toggleSelectAll}
                                     />
@@ -274,7 +274,7 @@ export default function GuestManagementTab({ eventId }) {
                                 <th className="px-6 py-4 font-semibold text-right">Ações</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-800">
+                        <tbody className="divide-y divide-slate-800/40">
                             {loading ? (
                                 <tr>
                                     <td colSpan="5" className="px-6 py-12 text-center">
@@ -283,22 +283,22 @@ export default function GuestManagementTab({ eventId }) {
                                 </tr>
                             ) : filteredData.length > 0 ? (
                                 filteredData.map((guest) => (
-                                    <tr key={guest.id} className={`hover:bg-gray-800/30 transition-colors ${selectedIds.includes(guest.id) ? 'bg-brand/5' : ''}`}>
+                                    <tr key={guest.id} className={`hover:bg-slate-800/30 transition-colors ${selectedIds.includes(guest.id) ? 'bg-cyan-500/5' : ''}`}>
                                         <td className="px-6 py-4">
                                             <input
                                                 type="checkbox"
-                                                className="checkbox"
+                                                className="accent-cyan-500"
                                                 checked={selectedIds.includes(guest.id)}
                                                 onChange={() => toggleSelect(guest.id)}
                                             />
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="font-semibold text-white">{guest.name}</div>
-                                            <div className="text-xs text-gray-500">{guest.email || 'Sem e-mail'}</div>
-                                            <div className="text-xs text-gray-500">{guest.event_name || `Evento #${guest.event_id}`}</div>
+                                            <div className="font-semibold text-slate-100">{guest.name}</div>
+                                            <div className="text-xs text-slate-500">{guest.email || 'Sem e-mail'}</div>
+                                            <div className="text-xs text-slate-500">{guest.event_name || `Evento #${guest.event_id}`}</div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="bg-purple-900/40 text-purple-400 border border-purple-800/50 px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wide">
+                                            <span className="bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wide">
                                                 {guest.status || 'esperado'}
                                             </span>
                                         </td>
@@ -306,7 +306,7 @@ export default function GuestManagementTab({ eventId }) {
                                             <div className="flex items-center justify-center gap-2">
                                                 <button
                                                     onClick={() => handleCopyLink(guest.qr_code_token)}
-                                                    className="p-1 px-2 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 text-xs flex items-center gap-1 transition-colors"
+                                                    className="p-1 px-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-lg border border-slate-700/50 text-xs flex items-center gap-1 transition-colors text-slate-300"
                                                     title="Copiar Link direto"
                                                 >
                                                     <Copy size={12} /> Link
@@ -315,7 +315,7 @@ export default function GuestManagementTab({ eventId }) {
                                                     href={`${window.location.origin}/invite?token=${guest.qr_code_token}`}
                                                     target="_blank"
                                                     rel="noreferrer"
-                                                    className="p-1 px-2 border border-brand/30 text-brand-light hover:bg-brand/10 rounded text-xs flex items-center gap-1 transition-colors"
+                                                    className="p-1 px-2 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 rounded-lg text-xs flex items-center gap-1 transition-colors"
                                                 >
                                                     <QrCode size={12} /> QR
                                                 </a>
@@ -325,14 +325,14 @@ export default function GuestManagementTab({ eventId }) {
                                             <div className="flex justify-end gap-1">
                                                 <button
                                                     onClick={() => openEdit(guest)}
-                                                    className="p-2 bg-gray-800 hover:bg-blue-900/40 text-blue-400 rounded-lg transition-colors border border-gray-700"
+                                                    className="p-2 bg-slate-800/50 hover:bg-cyan-500/10 text-cyan-400 rounded-lg transition-colors border border-slate-700/50 hover:border-cyan-500/30"
                                                     title="Editar"
                                                 >
                                                     <Pencil size={14} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(guest)}
-                                                    className="p-2 bg-gray-800 hover:bg-red-900/40 text-red-500 rounded-lg transition-colors border border-gray-700 disabled:opacity-40"
+                                                    className="p-2 bg-slate-800/50 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors border border-slate-700/50 hover:border-red-500/30 disabled:opacity-40"
                                                     disabled={deletingId === guest.id}
                                                     title="Excluir"
                                                 >
@@ -344,7 +344,7 @@ export default function GuestManagementTab({ eventId }) {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
                                         Nenhum convidado encontrado.
                                     </td>
                                 </tr>
@@ -369,33 +369,33 @@ export default function GuestManagementTab({ eventId }) {
             />
 
             {isImportModalOpen && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-                        <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-                            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                                <FileDown size={18} className="text-brand" /> Importar Convidados via CSV
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+                        <div className="p-6 border-b border-slate-800/40 flex justify-between items-center">
+                            <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                                <FileDown size={18} className="text-cyan-400" /> Importar Convidados via CSV
                             </h2>
-                            <button onClick={closeImportModal} className="text-gray-400 hover:text-white transition-colors">
+                            <button onClick={closeImportModal} className="text-slate-400 hover:text-red-400 transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
 
                         {importSummary ? (
                             <div className="p-6 space-y-4">
-                                <div className="rounded-xl border border-gray-700 overflow-hidden divide-y divide-gray-700">
+                                <div className="rounded-xl border border-slate-700/50 overflow-hidden divide-y divide-slate-700/50">
                                     <div className="flex items-center gap-3 p-4 bg-green-500/10">
                                         <CheckCircle size={22} className="text-green-400 shrink-0" />
                                         <div>
-                                            <p className="text-white font-semibold">{importSummary.imported} convidado(s) inserido(s)</p>
-                                            <p className="text-xs text-gray-400">Adicionados com sucesso</p>
+                                            <p className="text-slate-100 font-semibold">{importSummary.imported} convidado(s) inserido(s)</p>
+                                            <p className="text-xs text-slate-400">Adicionados com sucesso</p>
                                         </div>
                                     </div>
                                     {importSummary.ignored > 0 && (
                                         <div className="flex items-center gap-3 p-4 bg-amber-500/10">
                                             <AlertCircle size={22} className="text-amber-400 shrink-0" />
                                             <div>
-                                                <p className="text-white font-semibold">{importSummary.ignored} ignorado(s)</p>
-                                                <p className="text-xs text-gray-400">Já existiam no evento</p>
+                                                <p className="text-slate-100 font-semibold">{importSummary.ignored} ignorado(s)</p>
+                                                <p className="text-xs text-slate-400">Já existiam no evento</p>
                                             </div>
                                         </div>
                                     )}
@@ -403,15 +403,15 @@ export default function GuestManagementTab({ eventId }) {
                                         <div className="flex items-center gap-3 p-4 bg-red-500/10">
                                             <AlertCircle size={22} className="text-red-400 shrink-0" />
                                             <div>
-                                                <p className="text-white font-semibold">{importSummary.skipped} inválido(s)</p>
-                                                <p className="text-xs text-gray-400">Linhas com erro de validação</p>
+                                                <p className="text-slate-100 font-semibold">{importSummary.skipped} inválido(s)</p>
+                                                <p className="text-xs text-slate-400">Linhas com erro de validação</p>
                                             </div>
                                         </div>
                                     )}
                                 </div>
                                 <div className="flex gap-3">
-                                    <button className="btn-secondary flex-1" onClick={closeImportModal}>Fechar</button>
-                                    <button className="btn-primary flex-1" onClick={() => { setImportSummary(null); setImportFile(null); }}>
+                                    <button className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-semibold transition-colors flex-1" onClick={closeImportModal}>Fechar</button>
+                                    <button className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex-1" onClick={() => { setImportSummary(null); setImportFile(null); }}>
                                         Nova Importação
                                     </button>
                                 </div>
@@ -419,22 +419,22 @@ export default function GuestManagementTab({ eventId }) {
                         ) : (
                             <form onSubmit={handleImport} className="p-6 space-y-4">
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-400 mb-1">Arquivo CSV *</label>
+                                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Arquivo CSV *</label>
                                     <input
                                         type="file"
-                                        className="input w-full"
+                                        className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl w-full px-3 py-2 text-sm text-slate-100"
                                         accept=".csv,text/csv"
                                         onChange={(e) => setImportFile(e.target.files?.[0] || null)}
                                     />
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className="text-xs text-slate-500 mt-1">
                                         Cabeçalho obrigatório: <code className="text-blue-400">name,email</code>. Opcional: <code>phone</code>.
                                     </p>
                                 </div>
                                 <div className="flex gap-3 pt-2">
-                                    <button type="button" className="btn-secondary flex-1" onClick={closeImportModal}>
+                                    <button type="button" className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-semibold transition-colors flex-1" onClick={closeImportModal}>
                                         Cancelar
                                     </button>
-                                    <button type="submit" className="btn-primary flex-1" disabled={importing}>
+                                    <button type="submit" className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex-1" disabled={importing}>
                                         {importing ? <span className="spinner w-5 h-5" /> : 'Importar'}
                                     </button>
                                 </div>

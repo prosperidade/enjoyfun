@@ -50,12 +50,12 @@ function getCacheItem(key) {
 }
 
 const statusBadge = {
-  pending: "badge-yellow",
-  paid: "badge-green",
-  used: "badge-blue",
-  cancelled: "badge-red",
-  refunded: "badge-gray",
-  active: "badge-green",
+  pending: "bg-amber-500/10 text-amber-400",
+  paid: "bg-green-500/10 text-green-400",
+  used: "bg-cyan-500/10 text-cyan-400",
+  cancelled: "bg-red-500/10 text-red-400",
+  refunded: "bg-slate-500/15 text-slate-400",
+  active: "bg-green-500/10 text-green-400",
 };
 
 const statusLabel = {
@@ -370,55 +370,81 @@ export default function Tickets() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-8">
+      {/* ── Header ─────────────────────────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="page-title flex items-center gap-2">
-            <Ticket size={22} className="text-brand" /> Ingressos Comerciais
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">{ticketMeta.total} ingressos comerciais ativos</p>
+          <div className="flex items-center gap-3 mb-1">
+            <Ticket size={28} className="text-cyan-400" />
+            <h1 className="font-headline text-2xl md:text-3xl font-bold text-slate-100 tracking-tight">
+              Ingressos Comerciais
+            </h1>
+          </div>
+          <p className="text-slate-400 flex items-center gap-2 text-sm">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            {ticketMeta.total} ingressos comerciais ativos
+          </p>
         </div>
-        <div className="flex flex-wrap gap-3 w-full sm:w-auto">
+        <div className="flex gap-4 w-full md:w-auto">
           <Link
             to={buildScopedPath("/scanner?mode=portaria", effectiveEventId)}
             state={{ returnTo: buildScopedPath("/tickets", effectiveEventId) }}
-            className="btn-outline flex-1 sm:flex-none justify-center"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-800/60 hover:bg-slate-700/60 text-slate-100 border border-slate-700/50 hover:border-cyan-500/30 rounded-xl transition-all"
           >
             <Camera size={18} /> Scanner
           </Link>
-          <button onClick={handleQuickSale} className="btn-primary flex-1 sm:flex-none justify-center">
+          <button
+            onClick={handleQuickSale}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-cyan-400 hover:shadow-[0_0_25px_rgba(0,240,255,0.35)] active:scale-95 text-slate-950 font-bold rounded-xl shadow-[0_0_15px_rgba(0,240,255,0.2)] transition-all"
+          >
             <Plus size={18} /> Venda Rápida
           </button>
         </div>
       </div>
 
-      <div className="card p-4 space-y-3">
-        <p className="text-xs text-gray-500 uppercase tracking-wide">Operação Comercial de Ingressos</p>
-        <div className="grid md:grid-cols-4 gap-3">
-          <select className="select" name="ticket_event_filter" value={effectiveEventId} onChange={(e) => handleEventChange(e.target.value)}>
-            <option value="">Selecione o evento</option>
-            {events.map((event) => (
-              <option key={event.id} value={event.id}>{event.name}</option>
-            ))}
-          </select>
-          <select className="select" name="ticket_batch_filter" value={effectiveBatchFilter} onChange={(e) => { setPage(1); setBatchFilter(e.target.value); }} disabled={!effectiveEventId}>
-            <option value="">Todos os lotes</option>
-            {batches.map((batch) => (
-              <option key={batch.id} value={batch.id}>{batch.name}</option>
-            ))}
-          </select>
-          <select className="select" name="ticket_commissary_filter" value={effectiveCommissaryFilter} onChange={(e) => { setPage(1); setCommissaryFilter(e.target.value); }} disabled={!effectiveEventId}>
-            <option value="">Todos os comissários</option>
-            {commissaries.map((commissary) => (
-              <option key={commissary.id} value={commissary.id}>{commissary.name}</option>
-            ))}
-          </select>
-          <select className="select" name="ticket_sector_filter" value={sectorFilter} onChange={(e) => { setPage(1); setSectorFilter(e.target.value); }} disabled={!effectiveEventId || sectors.length === 0}>
-            <option value="">Todos os setores</option>
-            {sectors.map((sector) => (
-              <option key={sector} value={sector}>{sector}</option>
-            ))}
-          </select>
+      {/* ── Filter Card ────────────────────────────────── */}
+      <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-5 md:p-7">
+        <div className="flex items-center gap-2 mb-5">
+          <span className="w-1 h-5 bg-cyan-500 rounded-full" />
+          <p className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold">Operação Comercial de Ingressos</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Evento</label>
+            <select className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 rounded-xl text-sm text-slate-200 px-3 py-2.5 transition-all" name="ticket_event_filter" value={effectiveEventId} onChange={(e) => handleEventChange(e.target.value)}>
+              <option value="">Selecione o evento</option>
+              {events.map((event) => (
+                <option key={event.id} value={event.id}>{event.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lote</label>
+            <select className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 rounded-xl text-sm text-slate-200 px-3 py-2.5 transition-all" name="ticket_batch_filter" value={effectiveBatchFilter} onChange={(e) => { setPage(1); setBatchFilter(e.target.value); }} disabled={!effectiveEventId}>
+              <option value="">Todos os lotes</option>
+              {batches.map((batch) => (
+                <option key={batch.id} value={batch.id}>{batch.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Comissário</label>
+            <select className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 rounded-xl text-sm text-slate-200 px-3 py-2.5 transition-all" name="ticket_commissary_filter" value={effectiveCommissaryFilter} onChange={(e) => { setPage(1); setCommissaryFilter(e.target.value); }} disabled={!effectiveEventId}>
+              <option value="">Todos os comissários</option>
+              {commissaries.map((commissary) => (
+                <option key={commissary.id} value={commissary.id}>{commissary.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Setor</label>
+            <select className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 rounded-xl text-sm text-slate-200 px-3 py-2.5 transition-all" name="ticket_sector_filter" value={sectorFilter} onChange={(e) => { setPage(1); setSectorFilter(e.target.value); }} disabled={!effectiveEventId || sectors.length === 0}>
+              <option value="">Todos os setores</option>
+              {sectors.map((sector) => (
+                <option key={sector} value={sector}>{sector}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -434,50 +460,59 @@ export default function Tickets() {
         ]}
       />
 
+      {/* ── Table ──────────────────────────────────────── */}
       {loading ? (
         <div className="flex justify-center py-20"><div className="spinner w-10 h-10" /></div>
       ) : (
-        <div className="table-wrapper">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Titular</th>
-                <th>Evento</th>
-                <th>Tipo</th>
-                <th>Lote</th>
-                <th>Comissário</th>
-                <th>Status</th>
-                <th className="text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tickets.map((ticket) => (
-                <tr key={ticket.id} className="hover:bg-white/5 transition-colors">
-                  <td>
-                    <div className="font-medium text-white">{ticket.holder_name || "Cliente"}</div>
-                    <div className="text-[10px] text-gray-500 font-mono">{ticket.order_reference}</div>
-                  </td>
-                  <td>{ticket.event_name}</td>
-                  <td><span className="badge-purple">{ticket.type_name || "Geral"}</span></td>
-                  <td className="text-gray-300">{ticket.batch_name || "Sem lote"}</td>
-                  <td className="text-gray-300">{ticket.commissary_name || "Sem comissário"}</td>
-                  <td><span className={statusBadge[ticket.status]}>{statusLabel[ticket.status]}</span></td>
-                  <td className="text-right">
-                    <div className="flex justify-end gap-2">
-                      {ticket.status === "paid" ? (
-                        <button onClick={() => handleTransfer(ticket.id)} title="Transferir Titularidade" className="p-2 hover:bg-white/10 rounded-lg text-gray-400 transition-all">
-                          <Send size={18} />
-                        </button>
-                      ) : null}
-                      <button onClick={() => setSelectedTicket(ticket)} className="p-2 hover:text-brand hover:bg-brand-soft rounded-lg text-gray-400 transition-all">
-                        <Eye size={20} />
-                      </button>
-                    </div>
-                  </td>
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800/40">
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-800/50">Titular</th>
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-800/50">Evento</th>
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-800/50">Tipo</th>
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-800/50">Lote</th>
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-800/50">Comissário</th>
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-800/50">Status</th>
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-800/50 text-right">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-800/30">
+                {tickets.map((ticket) => (
+                  <tr key={ticket.id} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="px-5 py-3.5">
+                      <p className="font-medium text-slate-100">{ticket.holder_name || "Cliente"}</p>
+                      <p className="text-[10px] text-slate-500 font-mono mt-0.5">{ticket.order_reference}</p>
+                    </td>
+                    <td className="px-5 py-3.5 text-slate-300">{ticket.event_name}</td>
+                    <td className="px-5 py-3.5">
+                      <span className="px-2 py-1 bg-purple-500/10 text-purple-400 text-[10px] font-bold rounded uppercase tracking-tight">{ticket.type_name || "Geral"}</span>
+                    </td>
+                    <td className="px-5 py-3.5 text-slate-400">{ticket.batch_name || "Sem lote"}</td>
+                    <td className="px-5 py-3.5 text-slate-400">{ticket.commissary_name || "Sem comissário"}</td>
+                    <td className="px-5 py-3.5">
+                      <span className={`px-2 py-1 text-[10px] font-bold rounded uppercase ${statusBadge[ticket.status] || "bg-slate-500/15 text-slate-400"}`}>
+                        {statusLabel[ticket.status] || ticket.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="flex justify-end gap-1">
+                        {ticket.status === "paid" ? (
+                          <button onClick={() => handleTransfer(ticket.id)} title="Transferir Titularidade" className="p-2 hover:bg-cyan-500/10 rounded-lg text-slate-500 hover:text-cyan-400 transition-all">
+                            <Send size={16} />
+                          </button>
+                        ) : null}
+                        <button onClick={() => setSelectedTicket(ticket)} className="p-2 hover:bg-cyan-500/10 rounded-lg text-slate-500 hover:text-cyan-400 transition-all">
+                          <Eye size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -490,39 +525,66 @@ export default function Tickets() {
         />
       ) : null}
 
+      {/* ── QR Modal ────────────────────────────────────── */}
       {selectedTicket ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-          <div className="card max-w-sm w-full border-brand/50 text-center space-y-6 p-8 relative overflow-hidden shadow-2xl">
-            <div className="absolute top-0 left-0 w-full h-1 bg-brand-gradient"></div>
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2 text-brand">
-                <Clock size={16} className="animate-pulse" />
-                <span className="text-xs font-mono">{currentTime.toLocaleTimeString("pt-BR")}</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl">
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-cyan-500/30 max-w-md w-full text-center relative overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.1)] rounded-3xl">
+            {/* Decorative gradient line */}
+            <div className="h-1 bg-gradient-to-r from-cyan-500 to-cyan-400" />
+
+            <div className="p-8 space-y-6">
+              {/* Top bar: clock + close */}
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2 text-cyan-400">
+                  <Clock size={14} className="animate-pulse" />
+                  <span className="text-[11px] font-mono">{currentTime.toLocaleTimeString("pt-BR")}</span>
+                </div>
+                <button onClick={() => setSelectedTicket(null)} className="text-slate-500 hover:text-red-400 transition-colors">
+                  <XCircle size={22} />
+                </button>
               </div>
-              <button onClick={() => setSelectedTicket(null)} className="text-gray-500 hover:text-white">
-                <XCircle size={24} />
-              </button>
-            </div>
 
-            <div className="space-y-1">
-              <h3 className="text-xl font-bold text-white uppercase tracking-tight">Ingresso Oficial</h3>
-              <p className="text-[10px] text-brand animate-pulse font-bold">ATUALIZA EM {timeLeft}s</p>
-            </div>
-
-            <div className="bg-white p-3 rounded-xl inline-block mx-auto shadow-inner border-4 border-brand">
-              <QRCodeCanvas value={dynamicToken} size={200} level="H" includeMargin />
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-white font-bold text-2xl truncate px-2">{selectedTicket.holder_name || "Cliente"}</p>
-              <p className="text-brand font-semibold uppercase">{selectedTicket.type_name || "Ingresso Geral"}</p>
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] py-1 px-2 rounded mt-2 font-bold uppercase">
-                Prints e fotos são inválidos nesta portaria
+              {/* Anti-print warning */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-500/10 text-red-400 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                Prints e fotos sao invalidos
               </div>
-            </div>
 
-            <div className="pt-4 mt-4 border-t border-gray-800">
-              <button onClick={() => setSelectedTicket(null)} className="btn-primary w-full py-3 text-lg font-bold tracking-widest">
+              {/* Title */}
+              <div className="space-y-1">
+                <h3 className="font-headline text-2xl font-bold text-slate-100 uppercase tracking-tight">Ingresso Oficial</h3>
+                <p className="text-slate-400 text-sm">{selectedTicket.event_name} &bull; {selectedTicket.type_name || "Geral"}</p>
+              </div>
+
+              {/* QR Code */}
+              <div className="relative inline-block">
+                <div className="bg-white p-5 rounded-2xl border-4 border-cyan-500/50 shadow-[0_0_20px_rgba(0,240,255,0.15)]">
+                  <QRCodeCanvas value={dynamicToken} size={200} level="H" includeMargin />
+                </div>
+                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-slate-900 px-3 py-1 rounded-full border border-cyan-500/30">
+                  <p className="text-[10px] font-mono text-cyan-400 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping" />
+                    ATUALIZA EM {timeLeft}s
+                  </p>
+                </div>
+              </div>
+
+              {/* Holder info */}
+              <div className="p-4 bg-slate-800/40 rounded-xl border border-slate-700/50 mt-6">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-widest">Titular</span>
+                  <span className="text-[10px] text-slate-500 uppercase tracking-widest">Tipo</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-slate-200 truncate mr-3">{selectedTicket.holder_name || "Cliente"}</span>
+                  <span className="text-sm font-medium text-cyan-400 uppercase shrink-0">{selectedTicket.type_name || "Geral"}</span>
+                </div>
+              </div>
+
+              {/* Close button */}
+              <button
+                onClick={() => setSelectedTicket(null)}
+                className="w-full py-3.5 bg-gradient-to-r from-cyan-500 to-cyan-400 hover:shadow-[0_0_25px_rgba(0,240,255,0.3)] text-slate-950 font-bold rounded-2xl text-lg tracking-widest transition-all active:scale-95"
+              >
                 FECHAR
               </button>
             </div>
@@ -530,34 +592,44 @@ export default function Tickets() {
         </div>
       ) : null}
 
+      {/* ── Transfer Modal ─────────────────────────────── */}
       {transferModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md mx-4 space-y-4">
-            <h2 className="text-lg font-bold text-white">Transferir Ingresso</h2>
-            <input
-              type="email"
-              placeholder="E-mail do novo titular"
-              value={transferModal.email}
-              onChange={(e) => setTransferModal({ ...transferModal, email: e.target.value })}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand"
-            />
-            <input
-              type="text"
-              placeholder="Nome completo do novo titular"
-              value={transferModal.name}
-              onChange={(e) => setTransferModal({ ...transferModal, name: e.target.value })}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand"
-            />
-            <div className="flex gap-3 justify-end">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-5">
+            <h2 className="font-headline text-lg font-bold text-slate-100 flex items-center gap-2">
+              <Send size={18} className="text-cyan-400" />
+              Transferir Ingresso
+            </h2>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">E-mail do Destinatário</label>
+              <input
+                type="email"
+                placeholder="maria@email.com"
+                value={transferModal.email}
+                onChange={(e) => setTransferModal({ ...transferModal, email: e.target.value })}
+                className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 rounded-xl text-sm text-slate-200 placeholder-slate-600 px-3 py-2.5 transition-all"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Nome Completo</label>
+              <input
+                type="text"
+                placeholder="Nome completo do novo titular"
+                value={transferModal.name}
+                onChange={(e) => setTransferModal({ ...transferModal, name: e.target.value })}
+                className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 rounded-xl text-sm text-slate-200 placeholder-slate-600 px-3 py-2.5 transition-all"
+              />
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
               <button
                 onClick={() => setTransferModal(null)}
-                className="px-4 py-2 rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800 transition"
+                className="px-4 py-2 border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 hover:text-slate-100 rounded-xl text-sm font-medium transition-all"
               >
                 Cancelar
               </button>
               <button
                 onClick={submitTransfer}
-                className="btn-primary px-4 py-2"
+                className="px-5 py-2 bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold rounded-xl text-sm shadow-[0_0_15px_rgba(0,240,255,0.2)] hover:shadow-[0_0_25px_rgba(0,240,255,0.35)] transition-all active:scale-95"
               >
                 Transferir
               </button>

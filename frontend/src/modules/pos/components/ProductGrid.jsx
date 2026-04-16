@@ -20,11 +20,11 @@ export default function ProductGrid({
         </div>
       ) : null}
       {loading ? (
-        <div className="flex justify-center py-20 text-purple-500">
+        <div className="flex justify-center py-20 text-cyan-500">
           <span className="animate-spin border-4 border-t-transparent border-purple-500 rounded-full w-10 h-10" />
         </div>
       ) : visibleProducts.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-800 bg-gray-900/40 px-6 py-16 text-center text-sm text-gray-400">
+        <div className="rounded-2xl border border-dashed border-slate-800/40 bg-slate-900/60/40 px-6 py-16 text-center text-sm text-slate-400">
           Nenhum produto disponível para este evento no setor atual.
         </div>
       ) : (

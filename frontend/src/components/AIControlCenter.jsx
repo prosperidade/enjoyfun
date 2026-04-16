@@ -158,24 +158,24 @@ export default function AIControlCenter() {
   };
 
   if (loading) {
-    return <div className="text-gray-500 animate-pulse">Carregando providers de IA...</div>;
+    return <div className="text-slate-500 animate-pulse">Carregando providers de IA...</div>;
   }
 
   return (
     <div className="space-y-8 fade-in">
-      <div className="card space-y-6 p-8">
+      <div className="bg-[#111827] border border-slate-800/40 rounded-2xl space-y-6 p-8">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="section-title flex items-center gap-2">
-              <Server size={20} className="text-brand" /> Providers de IA
+            <h2 className="text-lg font-semibold text-slate-200 flex items-center gap-2">
+              <Server size={20} className="text-purple-400" /> Providers de IA
             </h2>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-slate-400 mt-1">
               Configure as 3 plataformas que preferir. Depois escolha qual cada agente
               vai usar direto na página de Assistentes. O "padrão" só é usado como
               fallback se um agente não tiver provider explícito.
             </p>
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-slate-500">
             Campo de API Key em branco preserva o segredo já salvo.
           </div>
         </div>
@@ -206,28 +206,28 @@ function ProviderCard({ provider, saving, testing, onChange, onSave, onTestConne
   const selectedMeta = knownMeta;
 
   return (
-    <div className="card-hover flex flex-col gap-4 border-gray-800">
+    <div className="bg-slate-800/40 border border-slate-700/50 hover:border-purple-500/30 rounded-2xl p-5 flex flex-col gap-4 transition-colors">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-bold text-white">{provider.label}</h3>
-          <p className="text-xs text-gray-400 mt-1">
+          <h3 className="font-bold text-slate-100">{provider.label}</h3>
+          <p className="text-xs text-slate-400 mt-1">
             {provider.supports_tool_use
               ? "Suporta tool use e configuracao futura do orchestrator."
               : "Provider catalogado sem tool use ativo."}
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
-          <span className={`badge ${provider.is_configured ? "badge-green" : "badge-gray"}`}>
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${provider.is_configured ? "bg-green-500/15 text-green-400" : "bg-slate-700/50 text-slate-400"}`}>
             {provider.is_configured ? "Configurado" : "Sem chave"}
           </span>
-          {provider.is_default ? <span className="badge badge-green">Padrao</span> : null}
+          {provider.is_default ? <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-purple-500/15 text-purple-400">Padrao</span> : null}
         </div>
       </div>
 
-      <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-3">
+      <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/60 px-3 py-3">
         <div>
-          <p className="text-sm text-gray-200">Provider ativo</p>
-          <p className="text-xs text-gray-500">
+          <p className="text-sm text-slate-200">Provider ativo</p>
+          <p className="text-xs text-slate-500">
             Controla se este provider pode ser usado pelo organizer.
           </p>
         </div>
@@ -241,10 +241,10 @@ function ProviderCard({ provider, saving, testing, onChange, onSave, onTestConne
         />
       </label>
 
-      <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-3">
+      <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/60 px-3 py-3">
         <div>
-          <p className="text-sm text-gray-200">Fallback padrão</p>
-          <p className="text-xs text-gray-500">Usado por agentes sem provider explicito.</p>
+          <p className="text-sm text-slate-200">Fallback padrão</p>
+          <p className="text-xs text-slate-500">Usado por agentes sem provider explicito.</p>
         </div>
         <input
           type="checkbox"
@@ -257,12 +257,12 @@ function ProviderCard({ provider, saving, testing, onChange, onSave, onTestConne
       </label>
 
       <div>
-        <label className="input-label flex items-center gap-2">
-          <ShieldCheck size={14} className="text-gray-400" /> API Key / segredo
+        <label className="text-xs text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-1">
+          <ShieldCheck size={14} className="text-slate-400" /> API Key / segredo
         </label>
         <input
           type="password"
-          className="input"
+          className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-purple-500 focus:ring-1 focus:ring-purple-500/20 rounded-xl px-4 py-2.5 text-slate-100 outline-none transition-colors"
           value={provider.api_key}
           onChange={(event) => onChange(provider.provider, "api_key", event.target.value)}
           placeholder="Digite apenas se quiser atualizar a chave"
@@ -271,9 +271,9 @@ function ProviderCard({ provider, saving, testing, onChange, onSave, onTestConne
       </div>
 
       <div>
-        <label className="input-label">Modelo</label>
+        <label className="text-xs text-slate-400 uppercase tracking-wider block mb-1">Modelo</label>
         <select
-          className="input"
+          className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-purple-500 rounded-xl px-4 py-2.5 text-slate-100 outline-none transition-colors"
           value={currentModel}
           onChange={(event) => onChange(provider.provider, "model", event.target.value)}
         >
@@ -292,7 +292,7 @@ function ProviderCard({ provider, saving, testing, onChange, onSave, onTestConne
           ))}
         </select>
         {selectedMeta && (
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-slate-500">
             {selectedMeta.description} · in ${selectedMeta.input_cost_per_1m.toFixed(2)}/1M · out ${selectedMeta.output_cost_per_1m.toFixed(2)}/1M
           </p>
         )}
@@ -304,10 +304,10 @@ function ProviderCard({ provider, saving, testing, onChange, onSave, onTestConne
       </div>
 
       <div>
-        <label className="input-label">Base URL (opcional)</label>
+        <label className="text-xs text-slate-400 uppercase tracking-wider block mb-1">Base URL (opcional)</label>
         <input
           type="text"
-          className="input"
+          className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-purple-500 rounded-xl px-4 py-2.5 text-slate-100 outline-none transition-colors"
           value={provider.base_url}
           onChange={(event) => onChange(provider.provider, "base_url", event.target.value)}
           placeholder="Use apenas se houver endpoint customizado/proxy"
@@ -318,7 +318,7 @@ function ProviderCard({ provider, saving, testing, onChange, onSave, onTestConne
         <button
           type="button"
           disabled={saving || testing}
-          className="btn-secondary flex items-center gap-2"
+          className="border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 rounded-xl flex items-center gap-2 px-4 py-2 text-sm transition-colors"
           onClick={() => onTestConnection(provider)}
           title="Testar conexão com o provider"
         >
@@ -332,7 +332,7 @@ function ProviderCard({ provider, saving, testing, onChange, onSave, onTestConne
         <button
           type="button"
           disabled={saving}
-          className="btn-primary flex items-center gap-2"
+          className="bg-purple-500 hover:bg-purple-400 text-white font-semibold rounded-xl flex items-center gap-2 px-4 py-2 text-sm transition-colors"
           onClick={() => onSave(provider)}
         >
           <Save size={16} />

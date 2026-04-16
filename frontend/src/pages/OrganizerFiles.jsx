@@ -36,7 +36,7 @@ const CATEGORIES = [
 ];
 
 const PARSED_STATUS_META = {
-  pending: { icon: Clock, color: "text-gray-400", label: "Pendente" },
+  pending: { icon: Clock, color: "text-slate-400", label: "Pendente" },
   parsing: { icon: RefreshCw, color: "text-blue-400", label: "Processando" },
   parsed: { icon: CheckCircle, color: "text-emerald-400", label: "Processado" },
   failed: { icon: XCircle, color: "text-red-400", label: "Erro" },
@@ -44,7 +44,7 @@ const PARSED_STATUS_META = {
 };
 
 const EMBEDDING_STATUS_META = {
-  pending: { color: "text-gray-500", label: null },
+  pending: { color: "text-slate-500", label: null },
   indexing: { color: "text-blue-400", label: "Indexando...", animate: true },
   indexed: { color: "text-emerald-400", label: "Indexado" },
   failed: { color: "text-red-400", label: "Erro no indice" },
@@ -234,21 +234,21 @@ export default function OrganizerFiles() {
     <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="flex items-center gap-2 text-2xl font-bold text-white">
+            <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-100">
               <FileSpreadsheet size={24} />
               Documentos e Planilhas
             </h1>
-            <p className="mt-1 text-sm text-gray-400">
+            <p className="mt-1 text-sm text-slate-400">
               Suba arquivos (CSV, Excel, PDF, JSON) para que os agentes de IA analisem, categorizem e organizem automaticamente.
             </p>
-            <p className="mt-2 text-xs text-gray-500">{filesMeta.total} arquivo(s) neste recorte.</p>
+            <p className="mt-2 text-xs text-slate-500">{filesMeta.total} arquivo(s) neste recorte.</p>
           </div>
 
           <div className="flex items-center gap-3">
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200"
+              className="rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm text-slate-200"
             >
               <option value="">Todas as categorias</option>
               {CATEGORIES.map((c) => (
@@ -256,21 +256,21 @@ export default function OrganizerFiles() {
               ))}
             </select>
 
-            <button onClick={fetchFiles} disabled={loading} className="rounded-xl border border-gray-700 bg-gray-900 p-2 text-gray-400 hover:text-white">
+            <button onClick={fetchFiles} disabled={loading} className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-2 text-slate-400 hover:text-slate-100">
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             </button>
           </div>
         </div>
 
         {/* Upload area */}
-        <div className="rounded-2xl border border-dashed border-gray-700 bg-gray-950/50 p-6">
+        <div className="rounded-2xl border border-dashed border-gray-700 bg-[#111827] p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-end">
             <div className="flex-1">
-              <label className="mb-1 block text-xs text-gray-400">Categoria</label>
+              <label className="mb-1 block text-xs text-slate-400">Categoria</label>
               <select
                 value={uploadCategory}
                 onChange={(e) => setUploadCategory(e.target.value)}
-                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200"
+                className="w-full rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm text-slate-200"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -278,13 +278,13 @@ export default function OrganizerFiles() {
               </select>
             </div>
             <div className="flex-1">
-              <label className="mb-1 block text-xs text-gray-400">Notas (opcional)</label>
+              <label className="mb-1 block text-xs text-slate-400">Notas (opcional)</label>
               <input
                 type="text"
                 value={uploadNotes}
                 onChange={(e) => setUploadNotes(e.target.value)}
                 placeholder="Descricao do arquivo..."
-                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200"
+                className="w-full rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm text-slate-200"
               />
             </div>
             <div>
@@ -298,7 +298,7 @@ export default function OrganizerFiles() {
               />
               <label
                 htmlFor="file-upload"
-                className={`flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600 ${uploading ? "opacity-50 pointer-events-none" : ""}`}
+                className={`flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2 text-sm font-semibold text-slate-100 transition hover:bg-emerald-600 ${uploading ? "opacity-50 pointer-events-none" : ""}`}
               >
                 <Upload size={16} />
                 {uploading ? "Enviando..." : "Enviar arquivo"}
@@ -309,25 +309,25 @@ export default function OrganizerFiles() {
 
         {/* Search */}
         <div className="relative">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Buscar arquivos..."
-            className="w-full rounded-xl border border-gray-700 bg-gray-900 py-2 pl-9 pr-9 text-sm text-gray-200 placeholder-gray-500 focus:border-gray-600 focus:outline-none"
+            className="w-full rounded-xl border border-slate-700/50 bg-slate-900/40 py-2 pl-9 pr-9 text-sm text-slate-200 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
           />
           {searchQuery && (
             <button
               onClick={clearSearch}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-100"
             >
               <XCircle size={16} />
             </button>
           )}
         </div>
 
-        {searchLoading && <p className="text-sm text-gray-500">Buscando...</p>}
+        {searchLoading && <p className="text-sm text-slate-500">Buscando...</p>}
 
         <EmbeddedAIChat
           surface="documents"
@@ -342,10 +342,10 @@ export default function OrganizerFiles() {
         />
 
         {/* Files list */}
-        <div className="rounded-2xl border border-gray-800 bg-gray-950/70">
+        <div className="rounded-2xl border border-slate-800/40 bg-[#111827]">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-gray-800 text-xs uppercase text-gray-500">
+              <tr className="border-b border-slate-800/40 text-xs uppercase text-slate-500">
                 <th className="px-4 py-3">Arquivo</th>
                 <th className="px-4 py-3">Categoria</th>
                 <th className="px-4 py-3">Tamanho</th>
@@ -357,7 +357,7 @@ export default function OrganizerFiles() {
             <tbody>
               {(searchResults !== null ? searchResults : files).length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                     {loading ? "Carregando..." : searchResults !== null ? "Nenhum resultado encontrado." : "Nenhum arquivo encontrado. Suba seu primeiro arquivo acima."}
                   </td>
                 </tr>
@@ -366,10 +366,10 @@ export default function OrganizerFiles() {
                   const statusMeta = PARSED_STATUS_META[file.parsed_status] || PARSED_STATUS_META.pending;
                   const StatusIcon = statusMeta.icon;
                   return (
-                    <tr key={file.id} className="border-b border-gray-800/50 hover:bg-gray-900/30">
+                    <tr key={file.id} className="border-b border-slate-800/40/50 hover:bg-slate-900/40/30">
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium text-gray-200">{file.original_name}</p>
+                          <p className="font-medium text-slate-200">{file.original_name}</p>
                           {file.parsed_status === "parsed" && file.category && (
                             <span
                               className="inline-flex items-center gap-1 rounded-full border border-emerald-700/60 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-300"
@@ -413,14 +413,14 @@ export default function OrganizerFiles() {
                             </span>
                           )}
                         </div>
-                        {file.notes && <p className="mt-0.5 text-xs text-gray-500">{file.notes}</p>}
+                        {file.notes && <p className="mt-0.5 text-xs text-slate-500">{file.notes}</p>}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="rounded-full bg-gray-800 px-2 py-1 text-xs text-gray-300">
+                        <span className="rounded-full bg-slate-800/50 px-2 py-1 text-xs text-slate-300">
                           {CATEGORIES.find((c) => c.value === file.category)?.label || file.category}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-400">{formatBytes(file.file_size_bytes)}</td>
+                      <td className="px-4 py-3 text-slate-400">{formatBytes(file.file_size_bytes)}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`flex items-center gap-1 text-xs ${statusMeta.color}`}
@@ -430,7 +430,7 @@ export default function OrganizerFiles() {
                           {statusMeta.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">{formatDate(file.created_at)}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">{formatDate(file.created_at)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {file.parsed_status === "parsed" && (
@@ -479,16 +479,16 @@ export default function OrganizerFiles() {
                 <Bot size={18} />
                 <p className="font-semibold">Dados processados: {selectedFile.original_name}</p>
               </div>
-              <button onClick={() => { setSelectedFile(null); setParsedData(null); }} className="text-gray-400 hover:text-white">
+              <button onClick={() => { setSelectedFile(null); setParsedData(null); }} className="text-slate-400 hover:text-slate-100">
                 <XCircle size={18} />
               </button>
             </div>
 
             {loadingParsed ? (
-              <p className="mt-4 text-sm text-gray-400">Carregando dados...</p>
+              <p className="mt-4 text-sm text-slate-400">Carregando dados...</p>
             ) : parsedData ? (
               <div className="mt-4 space-y-3">
-                <div className="flex gap-4 text-xs text-gray-400">
+                <div className="flex gap-4 text-xs text-slate-400">
                   <span>Formato: {parsedData.format || "?"}</span>
                   <span>Linhas: {parsedData.rows_count || 0}</span>
                   {parsedData.headers && <span>Colunas: {parsedData.headers.length}</span>}
@@ -496,20 +496,20 @@ export default function OrganizerFiles() {
                 </div>
 
                 {parsedData.headers && (
-                  <div className="max-h-64 overflow-auto rounded-xl border border-gray-800 bg-gray-950">
+                  <div className="max-h-64 overflow-auto rounded-xl border border-slate-800/40 bg-slate-950">
                     <table className="w-full text-left text-xs">
                       <thead>
-                        <tr className="border-b border-gray-800 bg-gray-900">
+                        <tr className="border-b border-slate-800/40 bg-slate-900/40">
                           {parsedData.headers.map((h) => (
-                            <th key={h} className="px-3 py-2 text-gray-400">{h}</th>
+                            <th key={h} className="px-3 py-2 text-slate-400">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {(parsedData.rows || []).slice(0, 20).map((row, i) => (
-                          <tr key={i} className="border-b border-gray-800/30">
+                          <tr key={i} className="border-b border-slate-800/40/30">
                             {parsedData.headers.map((h) => (
-                              <td key={h} className="px-3 py-1.5 text-gray-300">{row[h] ?? ""}</td>
+                              <td key={h} className="px-3 py-1.5 text-slate-300">{row[h] ?? ""}</td>
                             ))}
                           </tr>
                         ))}
@@ -519,13 +519,13 @@ export default function OrganizerFiles() {
                 )}
 
                 {parsedData.column_types && (
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-slate-500">
                     Tipos detectados: {Object.entries(parsedData.column_types).map(([col, type]) => `${col}(${type})`).join(", ")}
                   </div>
                 )}
               </div>
             ) : (
-              <p className="mt-4 text-sm text-gray-500">Nenhum dado processado disponivel. Tente re-processar o arquivo.</p>
+              <p className="mt-4 text-sm text-slate-500">Nenhum dado processado disponivel. Tente re-processar o arquivo.</p>
             )}
           </div>
         )}

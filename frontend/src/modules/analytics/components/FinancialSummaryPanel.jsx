@@ -50,7 +50,7 @@ export default function FinancialSummaryPanel({ eventId, compareEventId, analyti
 
   if (!eventId) {
     return (
-      <div className="card border-dashed border-white/10 py-6 text-center text-sm text-gray-500">
+      <div className="card border-dashed border-white/10 py-6 text-center text-sm text-slate-500">
         Selecione um evento para ver a análise financeira.
       </div>
     );
@@ -96,7 +96,7 @@ export default function FinancialSummaryPanel({ eventId, compareEventId, analyti
               const positive = diff > 0;
               return (
                 <div key={label}>
-                  <p className="text-[10px] uppercase text-gray-500">{label}</p>
+                  <p className="text-[10px] uppercase text-slate-500">{label}</p>
                   <p className="font-bold text-white">{fmt(current)}</p>
                   <div className={`mt-0.5 flex items-center justify-center gap-1 text-xs ${positive ? "text-red-400" : "text-green-400"}`}>
                     {positive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
@@ -111,33 +111,33 @@ export default function FinancialSummaryPanel({ eventId, compareEventId, analyti
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="card">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Receita Bruta</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Receita Bruta</p>
           <p className="mt-2 text-2xl font-bold text-white">{fmt(grossRevenue)}</p>
-          <p className="mt-1 text-[11px] text-gray-500">Leitura comercial do analítico</p>
+          <p className="mt-1 text-[11px] text-slate-500">Leitura comercial do analítico</p>
         </div>
         <div className="card">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Comprometido</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Comprometido</p>
           <p className="mt-2 text-2xl font-bold text-yellow-400">{fmt(data?.committed)}</p>
-          <p className="mt-1 text-[11px] text-gray-500">{pct.toFixed(1)}% do orçamento</p>
+          <p className="mt-1 text-[11px] text-slate-500">{pct.toFixed(1)}% do orçamento</p>
         </div>
         <div className="card">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Pago</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Pago</p>
           <p className="mt-2 text-2xl font-bold text-green-400">{fmt(data?.paid)}</p>
-          <p className="mt-1 text-[11px] text-gray-500">Baixas já lançadas</p>
+          <p className="mt-1 text-[11px] text-slate-500">Baixas já lançadas</p>
         </div>
         <div className="card">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Margem Estimada</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Margem Estimada</p>
           <p className={`mt-2 text-2xl font-bold ${estimatedMargin >= 0 ? "text-emerald-400" : "text-red-400"}`}>
             {fmt(estimatedMargin)}
           </p>
-          <p className="mt-1 text-[11px] text-gray-500">Receita bruta menos custo comprometido</p>
+          <p className="mt-1 text-[11px] text-slate-500">Receita bruta menos custo comprometido</p>
         </div>
       </div>
 
       {data && (
         <div className="card">
-          <div className="mb-2 flex justify-between text-xs text-gray-400">
-            <span className="font-medium text-gray-300">Utilização do Orçamento</span>
+          <div className="mb-2 flex justify-between text-xs text-slate-400">
+            <span className="font-medium text-slate-300">Utilização do Orçamento</span>
             <span>{fmt(data.committed)} / {fmt(data.total_budget)}</span>
           </div>
           <div className="h-2.5 w-full rounded-full bg-white/5">
@@ -146,7 +146,7 @@ export default function FinancialSummaryPanel({ eventId, compareEventId, analyti
               style={{ width: `${Math.min(pct, 100)}%` }}
             />
           </div>
-          <div className="mt-1.5 flex justify-between text-[11px] text-gray-500">
+          <div className="mt-1.5 flex justify-between text-[11px] text-slate-500">
             <span>Pago: {fmt(data.paid)}</span>
             <span>
               {data.is_over_budget
@@ -160,30 +160,30 @@ export default function FinancialSummaryPanel({ eventId, compareEventId, analyti
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.95fr)]">
         <div className="card">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-200">Comprometido por Categoria</h3>
+            <h3 className="text-sm font-semibold text-slate-200">Comprometido por Categoria</h3>
             <NavLink to={buildScopedPath("/finance/budget", eventId)} className="text-xs text-purple-400 transition-colors hover:text-purple-300">
               Ver orçamento →
             </NavLink>
           </div>
           {byCategory.length === 0 ? (
-            <p className="text-sm text-gray-500">Nenhuma categoria com lançamentos.</p>
+            <p className="text-sm text-slate-500">Nenhuma categoria com lançamentos.</p>
           ) : (
             <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
               {byCategory.map((row) => {
                 const rowPct = data?.committed > 0 ? Math.min(100, (Number(row.committed || 0) / Number(data.committed || 1)) * 100) : 0;
                 return (
-                  <div key={row.category_id} className="rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-2">
+                  <div key={row.category_id} className="rounded-lg border border-slate-700/50 bg-slate-800/40 px-3 py-2">
                     <div className="mb-1.5 flex justify-between text-xs">
-                      <span className="font-medium text-gray-300">{row.category_name}</span>
+                      <span className="font-medium text-slate-300">{row.category_name}</span>
                       <div className="text-right">
                         <span className="tabular-nums font-semibold text-yellow-400">{fmt(row.committed)}</span>
-                        <span className="ml-2 text-gray-600">({rowPct.toFixed(0)}%)</span>
+                        <span className="ml-2 text-slate-600">({rowPct.toFixed(0)}%)</span>
                       </div>
                     </div>
                     <div className="h-1 w-full rounded-full bg-white/5">
                       <div className="h-1 rounded-full bg-yellow-500/50 transition-all" style={{ width: `${rowPct}%` }} />
                     </div>
-                    <div className="mt-1 flex justify-between text-[10px] text-gray-500">
+                    <div className="mt-1 flex justify-between text-[10px] text-slate-500">
                       <span>
                         {Number(row.payables_count || row.count || 0)} conta(s)
                         {Number(row.overdue_count || 0) > 0 && (
@@ -201,36 +201,36 @@ export default function FinancialSummaryPanel({ eventId, compareEventId, analyti
 
         <div className="card">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-200">Custo por Artista</h3>
+            <h3 className="text-sm font-semibold text-slate-200">Custo por Artista</h3>
             <NavLink to={buildScopedPath("/finance/export", eventId)} className="text-xs text-purple-400 transition-colors hover:text-purple-300">
               Exportar →
             </NavLink>
           </div>
           {artistRows.length === 0 ? (
-            <p className="text-sm text-gray-500">Nenhum artista com custo configurado.</p>
+            <p className="text-sm text-slate-500">Nenhum artista com custo configurado.</p>
           ) : (
             <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
               {artistRows.slice(0, 8).map((artist) => {
                 const artistCost = Number(artist.total_artist_cost || artist.committed || 0);
                 const share = totalArtistCost > 0 ? (artistCost / totalArtistCost) * 100 : 0;
                 return (
-                  <div key={artist.event_artist_id} className="rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-2">
+                  <div key={artist.event_artist_id} className="rounded-lg border border-slate-700/50 bg-slate-800/40 px-3 py-2">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-white">
                           {artist.artist_stage_name || `Booking #${artist.event_artist_id}`}
                         </p>
-                        <p className="text-[11px] text-gray-500">
+                        <p className="text-[11px] text-slate-500">
                           {artist.booking_status || "sem status"}
                           {artist.performance_start_at ? ` · ${artist.performance_start_at}` : ""}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-yellow-400">{fmt(artistCost)}</p>
-                        <p className="text-[11px] text-gray-500">{share.toFixed(0)}% do custo artístico</p>
+                        <p className="text-[11px] text-slate-500">{share.toFixed(0)}% do custo artístico</p>
                       </div>
                     </div>
-                    <div className="mt-2 flex justify-between text-[10px] text-gray-500">
+                    <div className="mt-2 flex justify-between text-[10px] text-slate-500">
                       <span>Cache {fmt(artist.cache_amount)} · Logística {fmt(artist.total_logistics_cost)}</span>
                       <span className="text-green-500">{fmt(artist.paid)} pago</span>
                     </div>

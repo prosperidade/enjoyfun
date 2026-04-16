@@ -11,9 +11,9 @@ import CustomTooltip from "./CustomTooltip";
 
 export default function SalesTimelineChart({ loadingReports, reportData }) {
   return (
-    <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
+    <div className="bg-slate-900/60 border border-slate-800/40 p-6 rounded-2xl">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="text-white font-bold">Timeline de Vendas do Setor</h3>
+        <h3 className="text-slate-100 font-bold">Timeline de Vendas do Setor</h3>
         {loadingReports ? (
           <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">
             Atualizando
@@ -51,7 +51,7 @@ export default function SalesTimelineChart({ loadingReports, reportData }) {
           </AreaChart>
         </ResponsiveContainer>
       ) : (
-        <p className="text-center text-gray-600 text-sm py-20">
+        <p className="text-center text-slate-600 text-sm py-20">
           {loadingReports ? "Carregando historico..." : "Sem dados históricos."}
         </p>
       )}

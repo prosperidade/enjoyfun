@@ -3,15 +3,19 @@ import { Users, UserCheck, UserX, DollarSign, Percent, Cpu, Activity, Database, 
 import api from '../lib/api';
 
 function StatCard({ icon: Icon, label, value, sublabel, color = 'bg-blue-600' }) {
+    // Extract color name for the soft bg variant (e.g. "bg-blue-600" → "blue")
+    const colorName = color.replace(/^bg-/, '').replace(/-\d+$/, '');
+    const softBg = `bg-${colorName}-500/15`;
+    const softText = `text-${colorName}-400`;
     return (
-        <div className="stat-card group relative overflow-hidden">
-            <div className={`absolute top-0 right-0 h-24 w-24 rounded-full mix-blend-overlay opacity-10 blur-2xl ${color} -mr-8 -mt-8`} />
-            <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-                <Icon size={20} className="text-white" />
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-5 relative overflow-hidden group hover:border-cyan-500/30 transition-all">
+            <div className={`absolute top-0 right-0 h-24 w-24 rounded-full mix-blend-overlay opacity-5 blur-2xl ${color} -mr-8 -mt-8`} />
+            <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${softBg}`}>
+                <Icon size={20} className={softText} />
             </div>
-            <div className="stat-value">{value ?? "—"}</div>
-            <div className="stat-label">{label}</div>
-            {sublabel && <div className="mt-1 text-[10px] text-gray-400">{sublabel}</div>}
+            <div className="text-2xl font-bold text-slate-100">{value ?? "\u2014"}</div>
+            <div className="text-sm text-slate-400">{label}</div>
+            {sublabel && <div className="mt-1 text-[10px] text-slate-500">{sublabel}</div>}
         </div>
     );
 }
@@ -251,72 +255,72 @@ export default function SuperAdminPanel() {
             </div>
 
             {message.text && (
-                <div className={`p-4 mb-6 rounded ${message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                <div className={`p-4 mb-6 rounded-xl ${message.type === 'success' ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'}`}>
                     {message.text}
                 </div>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl md:col-span-1 h-fit">
-                    <h2 className="text-xl font-semibold mb-4 text-white">Novo Organizador</h2>
+                <div className="bg-[#111827] border border-slate-800/40 p-6 rounded-2xl md:col-span-1 h-fit">
+                    <h2 className="text-xl font-semibold mb-4 text-slate-100">Novo Organizador</h2>
                     <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
                         <div>
-                            <label className="block text-sm font-medium text-gray-300">Nome da Empresa</label>
-                            <input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} required autoComplete="new-name" className="mt-1 w-full p-2 border border-gray-700 rounded-lg bg-gray-800 text-white focus:ring-purple-500 focus:border-purple-500 placeholder-gray-500" />
+                            <label className="block text-sm font-medium text-slate-400">Nome da Empresa</label>
+                            <input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} required autoComplete="new-name" className="mt-1 w-full p-2.5 border border-slate-700/50 rounded-xl bg-slate-800/50 text-slate-100 focus:border-cyan-500 focus:outline-none placeholder-slate-500 transition-colors" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300">E-mail de Acesso</label>
-                            <input type="email" name="email" value={formData.email || ''} onChange={handleInputChange} required autoComplete="new-email" className="mt-1 w-full p-2 border border-gray-700 rounded-lg bg-gray-800 text-white focus:ring-purple-500 focus:border-purple-500 placeholder-gray-500" />
+                            <label className="block text-sm font-medium text-slate-400">E-mail de Acesso</label>
+                            <input type="email" name="email" value={formData.email || ''} onChange={handleInputChange} required autoComplete="new-email" className="mt-1 w-full p-2.5 border border-slate-700/50 rounded-xl bg-slate-800/50 text-slate-100 focus:border-cyan-500 focus:outline-none placeholder-slate-500 transition-colors" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300">Senha Inicial</label>
-                            <input type="password" name="password" value={formData.password || ''} onChange={handleInputChange} required minLength="6" autoComplete="new-password" className="mt-1 w-full p-2 border border-gray-700 rounded-lg bg-gray-800 text-white focus:ring-purple-500 focus:border-purple-500 placeholder-gray-500" />
+                            <label className="block text-sm font-medium text-slate-400">Senha Inicial</label>
+                            <input type="password" name="password" value={formData.password || ''} onChange={handleInputChange} required minLength="6" autoComplete="new-password" className="mt-1 w-full p-2.5 border border-slate-700/50 rounded-xl bg-slate-800/50 text-slate-100 focus:border-cyan-500 focus:outline-none placeholder-slate-500 transition-colors" />
                         </div>
-                        <button type="submit" disabled={isSubmitting} className={`w-full text-white p-2 rounded font-semibold ${isSubmitting ? 'bg-gray-700' : 'bg-purple-600 hover:bg-purple-700'}`}>
+                        <button type="submit" disabled={isSubmitting} className={`w-full p-2.5 rounded-xl font-semibold transition-all ${isSubmitting ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 hover:shadow-lg hover:shadow-cyan-500/20'}`}>
                             {isSubmitting ? 'Criando...' : 'Criar Organizador'}
                         </button>
                     </form>
                 </div>
 
-                <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl md:col-span-2">
-                    <h2 className="text-xl font-semibold mb-4 text-white">Organizadores</h2>
+                <div className="bg-[#111827] border border-slate-800/40 p-6 rounded-2xl md:col-span-2">
+                    <h2 className="text-xl font-semibold mb-4 text-slate-100">Organizadores</h2>
                     {loading ? (
-                        <p className="text-gray-400">Carregando dados...</p>
+                        <p className="text-slate-400">Carregando dados...</p>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-800">
-                                <thead className="bg-gray-800/50">
+                            <table className="min-w-full divide-y divide-slate-800/40">
+                                <thead className="bg-slate-800/50">
                                     <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">ID</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Nome</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">E-mail</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Telefone</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Eventos</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Plano</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Acoes</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">ID</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Nome</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">E-mail</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Telefone</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Eventos</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Plano</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Acoes</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-gray-900 divide-y divide-gray-800">
+                                <tbody className="divide-y divide-slate-800/40">
                                     {organizers.length > 0 ? (
                                         organizers.map((org) => {
                                             const eventsCount = parseInt(org.events_count, 10) || 0;
                                             const status = org.status || 'approved';
                                             const statusStyles = {
-                                                approved: 'bg-green-500/20 text-green-400',
-                                                pending: 'bg-amber-500/20 text-amber-400',
-                                                rejected: 'bg-red-500/20 text-red-400',
+                                                approved: 'bg-green-500/15 text-green-400',
+                                                pending: 'bg-amber-500/15 text-amber-400',
+                                                rejected: 'bg-red-500/15 text-red-400',
                                             };
                                             const statusLabels = { approved: 'Aprovado', pending: 'Pendente', rejected: 'Rejeitado' };
                                             return (
-                                                <tr key={org.id} className="hover:bg-gray-800/50">
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">#{org.id}</td>
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{org.name}</td>
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{org.email}</td>
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{org.phone || '--'}</td>
-                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">{eventsCount}</td>
+                                                <tr key={org.id} className="hover:bg-slate-800/30 transition-colors">
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">#{org.id}</td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-slate-100">{org.name}</td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{org.email}</td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{org.phone || '--'}</td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-300 font-medium">{eventsCount}</td>
                                                     <td className="px-4 py-4 whitespace-nowrap">
-                                                        <span className="text-xs text-purple-300 bg-purple-900/30 px-2 py-0.5 rounded-full">{org.plan_name || 'Starter'}</span>
+                                                        <span className="text-xs text-cyan-400 bg-cyan-500/15 px-2 py-0.5 rounded-full">{org.plan_name || 'Starter'}</span>
                                                     </td>
                                                     <td className="px-4 py-4 whitespace-nowrap">
                                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[status] || statusStyles.approved}`}>
@@ -326,12 +330,12 @@ export default function SuperAdminPanel() {
                                                     <td className="px-4 py-4 whitespace-nowrap">
                                                         {status === 'pending' && (
                                                             <div className="flex gap-1">
-                                                                <button onClick={() => handleApprove(org.id)} className="px-2 py-1 text-xs bg-green-600/20 text-green-400 rounded hover:bg-green-600/30">Aprovar</button>
-                                                                <button onClick={() => handleReject(org.id)} className="px-2 py-1 text-xs bg-red-600/20 text-red-400 rounded hover:bg-red-600/30">Rejeitar</button>
+                                                                <button onClick={() => handleApprove(org.id)} className="px-2 py-1 text-xs bg-green-500/15 text-green-400 rounded-lg hover:bg-green-500/25 transition-colors">Aprovar</button>
+                                                                <button onClick={() => handleReject(org.id)} className="px-2 py-1 text-xs bg-red-500/15 text-red-400 rounded-lg hover:bg-red-500/25 transition-colors">Rejeitar</button>
                                                             </div>
                                                         )}
                                                         {status === 'rejected' && (
-                                                            <button onClick={() => handleApprove(org.id)} className="px-2 py-1 text-xs bg-green-600/20 text-green-400 rounded hover:bg-green-600/30">Reativar</button>
+                                                            <button onClick={() => handleApprove(org.id)} className="px-2 py-1 text-xs bg-green-500/15 text-green-400 rounded-lg hover:bg-green-500/25 transition-colors">Reativar</button>
                                                         )}
                                                     </td>
                                                 </tr>
@@ -339,7 +343,7 @@ export default function SuperAdminPanel() {
                                         })
                                     ) : (
                                         <tr>
-                                            <td colSpan="8" className="px-4 py-4 text-center text-sm text-gray-400">
+                                            <td colSpan="8" className="px-4 py-4 text-center text-sm text-slate-400">
                                                 Nenhum organizador cadastrado.
                                             </td>
                                         </tr>
@@ -354,8 +358,8 @@ export default function SuperAdminPanel() {
     );
 
     const renderAIUsageTab = () => {
-        if (aiUsageLoading) return <p className="text-gray-400">Carregando uso de IA...</p>;
-        if (!aiUsage) return <p className="text-gray-400">Nenhum dado disponivel.</p>;
+        if (aiUsageLoading) return <p className="text-slate-400">Carregando uso de IA...</p>;
+        if (!aiUsage) return <p className="text-slate-400">Nenhum dado disponivel.</p>;
 
         const g = aiUsage.global;
         return (
@@ -366,28 +370,28 @@ export default function SuperAdminPanel() {
                     <StatCard icon={DollarSign} label="Custo Total (30d)" value={formatCurrency(g.total_cost)} color="bg-emerald-600" />
                 </div>
 
-                <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl">
-                    <h2 className="text-xl font-semibold mb-4 text-white">Uso por Organizador</h2>
+                <div className="bg-[#111827] border border-slate-800/40 p-6 rounded-2xl">
+                    <h2 className="text-xl font-semibold mb-4 text-slate-100">Uso por Organizador</h2>
                     <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-800">
-                            <thead className="bg-gray-800/50">
+                        <table className="min-w-full divide-y divide-slate-800/40">
+                            <thead className="bg-slate-800/50">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Organizer ID</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Requisicoes</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Tokens</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Custo</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Organizer ID</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Requisicoes</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Tokens</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Custo</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-gray-900 divide-y divide-gray-800">
+                            <tbody className="divide-y divide-slate-800/40">
                                 {aiUsage.by_organizer.length > 0 ? (
                                     aiUsage.by_organizer.map((row) => {
                                         const isHighCost = row.total_cost > 50;
                                         return (
-                                            <tr key={row.organizer_id} className={isHighCost ? 'bg-amber-50' : 'hover:bg-gray-800/50'}>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">#{row.organizer_id}</td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{row.total_requests.toLocaleString('pt-BR')}</td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{row.total_tokens.toLocaleString('pt-BR')}</td>
-                                                <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${isHighCost ? 'text-amber-700' : 'text-gray-300'}`}>
+                                            <tr key={row.organizer_id} className={isHighCost ? 'bg-amber-500/10 border-l-2 border-amber-400' : 'hover:bg-slate-800/30 transition-colors'}>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-300 font-medium">#{row.organizer_id}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.total_requests.toLocaleString('pt-BR')}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.total_tokens.toLocaleString('pt-BR')}</td>
+                                                <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${isHighCost ? 'text-amber-400 font-semibold' : 'text-slate-300'}`}>
                                                     {formatCurrency(row.total_cost)}
                                                 </td>
                                             </tr>
@@ -395,7 +399,7 @@ export default function SuperAdminPanel() {
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="4" className="px-4 py-4 text-center text-sm text-gray-400">Nenhum uso registrado nos ultimos 30 dias.</td>
+                                        <td colSpan="4" className="px-4 py-4 text-center text-sm text-slate-400">Nenhum uso registrado nos ultimos 30 dias.</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -407,25 +411,25 @@ export default function SuperAdminPanel() {
     };
 
     const renderSystemHealthTab = () => {
-        if (healthLoading) return <p className="text-gray-400">Verificando saude do sistema...</p>;
-        if (!systemHealth) return <p className="text-gray-400">Nenhum dado disponivel.</p>;
+        if (healthLoading) return <p className="text-slate-400">Verificando saude do sistema...</p>;
+        if (!systemHealth) return <p className="text-slate-400">Nenhum dado disponivel.</p>;
 
         const h = systemHealth;
 
         const HealthIndicator = ({ label, value, status }) => {
             const statusColors = {
-                green: 'bg-green-500',
-                red: 'bg-red-500',
-                amber: 'bg-amber-500',
-                gray: 'bg-gray-700',
+                green: 'bg-green-400',
+                red: 'bg-red-400',
+                amber: 'bg-amber-400',
+                gray: 'bg-slate-600',
             };
             return (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <div className="bg-[#111827] border border-slate-800/40 rounded-xl p-5 hover:border-cyan-500/30 transition-all">
                     <div className="flex items-center gap-3 mb-2">
                         <span className={`w-3 h-3 rounded-full ${statusColors[status] || statusColors.gray}`} />
-                        <span className="text-sm font-medium text-gray-400">{label}</span>
+                        <span className="text-sm font-medium text-slate-400">{label}</span>
                     </div>
-                    <p className="text-xl font-bold text-white">{value}</p>
+                    <p className="text-xl font-bold text-slate-100">{value}</p>
                 </div>
             );
         };
@@ -472,8 +476,8 @@ export default function SuperAdminPanel() {
     };
 
     const renderFinanceTab = () => {
-        if (financeLoading) return <p className="text-gray-400">Carregando financeiro...</p>;
-        if (!finance) return <p className="text-gray-400">Nenhum dado disponivel.</p>;
+        if (financeLoading) return <p className="text-slate-400">Carregando financeiro...</p>;
+        if (!finance) return <p className="text-slate-400">Nenhum dado disponivel.</p>;
 
         const f = finance;
         return (
@@ -489,11 +493,11 @@ export default function SuperAdminPanel() {
     };
 
     const renderAuditTab = () => {
-        if (auditLoading) return <p className="text-gray-400">Executando varredura...</p>;
-        if (!auditScan) return <p className="text-gray-400">Nenhuma varredura executada.</p>;
+        if (auditLoading) return <p className="text-slate-400">Executando varredura...</p>;
+        if (!auditScan) return <p className="text-slate-400">Nenhuma varredura executada.</p>;
 
         const s = auditScan.summary;
-        const statusStyles = { healthy: 'bg-green-500/20 text-green-400 border-green-500/30', warning: 'bg-amber-500/20 text-amber-400 border-amber-500/30', critical: 'bg-red-500/20 text-red-400 border-red-500/30' };
+        const statusStyles = { healthy: 'bg-green-500/15 text-green-400 border-green-500/30', warning: 'bg-amber-500/15 text-amber-400 border-amber-500/30', critical: 'bg-red-500/15 text-red-400 border-red-500/30' };
 
         return (
             <>
@@ -504,7 +508,7 @@ export default function SuperAdminPanel() {
                 </div>
                 <div className="space-y-2">
                     {auditScan.checks.map((check, i) => (
-                        <div key={i} className={`flex items-center justify-between rounded-lg border px-4 py-3 ${statusStyles[check.status]}`}>
+                        <div key={i} className={`flex items-center justify-between rounded-xl border px-4 py-3 backdrop-blur-md ${statusStyles[check.status]}`}>
                             <div>
                                 <div className="text-sm font-medium">{check.check}</div>
                                 <div className="text-xs opacity-70">{check.detail}</div>
@@ -514,18 +518,18 @@ export default function SuperAdminPanel() {
                     ))}
                 </div>
                 <div className="mt-4 flex items-center justify-between">
-                    <span className="text-xs text-gray-500">Ultima varredura: {auditScan.scanned_at ? new Date(auditScan.scanned_at).toLocaleString('pt-BR') : '-'}</span>
-                    <button onClick={() => { setAuditScan(null); fetchAuditScan(); }} className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg">Re-executar</button>
+                    <span className="text-xs text-slate-500">Ultima varredura: {auditScan.scanned_at ? new Date(auditScan.scanned_at).toLocaleString('pt-BR') : '-'}</span>
+                    <button onClick={() => { setAuditScan(null); fetchAuditScan(); }} className="text-xs bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold px-3 py-1.5 rounded-lg hover:shadow-lg hover:shadow-cyan-500/20 transition-all">Re-executar</button>
                 </div>
             </>
         );
     };
 
     const renderPlansTab = () => {
-        if (planMetricsLoading) return <p className="text-gray-400">Carregando metricas de planos...</p>;
-        if (!planMetrics) return <p className="text-gray-400">Nenhum dado disponivel.</p>;
+        if (planMetricsLoading) return <p className="text-slate-400">Carregando metricas de planos...</p>;
+        if (!planMetrics) return <p className="text-slate-400">Nenhum dado disponivel.</p>;
 
-        const planColors = { starter: 'bg-gray-600', pro: 'bg-purple-600', enterprise: 'bg-blue-600' };
+        const planColors = { starter: 'bg-slate-600', pro: 'bg-cyan-500', enterprise: 'bg-blue-500' };
         const totalMRR = planMetrics.reduce((s, p) => s + p.mrr, 0);
         const totalOrgs = planMetrics.reduce((s, p) => s + p.organizer_count, 0);
         const totalCommission = planMetrics.reduce((s, p) => s + p.commission_month, 0);
@@ -542,18 +546,18 @@ export default function SuperAdminPanel() {
                 {/* Plan cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     {planMetrics.map(p => (
-                        <div key={p.plan_id} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                        <div key={p.plan_id} className="bg-[#111827] border border-slate-800/40 rounded-2xl p-5 hover:border-cyan-500/30 transition-all">
                             <div className="flex items-center gap-2 mb-3">
-                                <span className={`w-3 h-3 rounded-full ${planColors[p.plan_slug] || 'bg-gray-500'}`} />
-                                <span className="text-white font-semibold text-sm">{p.plan_name}</span>
-                                <span className="ml-auto text-xs text-gray-500">{formatCurrency(p.price)}/mes</span>
+                                <span className={`w-3 h-3 rounded-full ${planColors[p.plan_slug] || 'bg-slate-500'}`} />
+                                <span className="text-slate-100 font-semibold text-sm">{p.plan_name}</span>
+                                <span className="ml-auto text-xs text-slate-500">{formatCurrency(p.price)}/mes</span>
                             </div>
                             <div className="space-y-2 text-sm">
-                                <div className="flex justify-between"><span className="text-gray-400">Organizadores</span><span className="text-white font-medium">{p.organizer_count}</span></div>
-                                <div className="flex justify-between"><span className="text-gray-400">Eventos</span><span className="text-white font-medium">{p.total_events}</span></div>
-                                <div className="flex justify-between"><span className="text-gray-400">Vendas (mes)</span><span className="text-white font-medium">{formatCurrency(p.sales_month)}</span></div>
-                                <div className="flex justify-between"><span className="text-gray-400">Comissao ({p.commission_pct}%)</span><span className="text-emerald-400 font-medium">{formatCurrency(p.commission_month)}</span></div>
-                                <div className="flex justify-between"><span className="text-gray-400">MRR</span><span className="text-purple-400 font-bold">{formatCurrency(p.mrr)}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-400">Organizadores</span><span className="text-slate-100 font-medium">{p.organizer_count}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-400">Eventos</span><span className="text-slate-100 font-medium">{p.total_events}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-400">Vendas (mes)</span><span className="text-slate-100 font-medium">{formatCurrency(p.sales_month)}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-400">Comissao ({p.commission_pct}%)</span><span className="text-emerald-400 font-medium">{formatCurrency(p.commission_month)}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-400">MRR</span><span className="text-cyan-400 font-bold">{formatCurrency(p.mrr)}</span></div>
                             </div>
                         </div>
                     ))}
@@ -562,28 +566,28 @@ export default function SuperAdminPanel() {
                 {/* Billing invoices */}
                 {billingInvoices.length > 0 && (
                     <div>
-                        <h3 className="text-sm font-semibold text-gray-300 mb-3">Faturas Recentes</h3>
-                        <div className="overflow-x-auto rounded-xl border border-gray-800">
+                        <h3 className="text-sm font-semibold text-slate-300 mb-3">Faturas Recentes</h3>
+                        <div className="overflow-x-auto rounded-2xl border border-slate-800/40 bg-[#111827]">
                             <table className="min-w-full">
-                                <thead className="bg-gray-800/50">
+                                <thead className="bg-slate-800/50">
                                     <tr>
-                                        <th className="px-3 py-2 text-left text-xs text-gray-400">Organizador</th>
-                                        <th className="px-3 py-2 text-left text-xs text-gray-400">Plano</th>
-                                        <th className="px-3 py-2 text-left text-xs text-gray-400">Valor</th>
-                                        <th className="px-3 py-2 text-left text-xs text-gray-400">Mes</th>
-                                        <th className="px-3 py-2 text-left text-xs text-gray-400">Status</th>
-                                        <th className="px-3 py-2 text-left text-xs text-gray-400">Acao</th>
+                                        <th className="px-3 py-2 text-left text-xs text-slate-400 uppercase tracking-wider">Organizador</th>
+                                        <th className="px-3 py-2 text-left text-xs text-slate-400 uppercase tracking-wider">Plano</th>
+                                        <th className="px-3 py-2 text-left text-xs text-slate-400 uppercase tracking-wider">Valor</th>
+                                        <th className="px-3 py-2 text-left text-xs text-slate-400 uppercase tracking-wider">Mes</th>
+                                        <th className="px-3 py-2 text-left text-xs text-slate-400 uppercase tracking-wider">Status</th>
+                                        <th className="px-3 py-2 text-left text-xs text-slate-400 uppercase tracking-wider">Acao</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-800">
+                                <tbody className="divide-y divide-slate-800/40">
                                     {billingInvoices.map(inv => {
-                                        const invStatusStyles = { pending: 'bg-amber-500/20 text-amber-400', paid: 'bg-green-500/20 text-green-400', overdue: 'bg-red-500/20 text-red-400', cancelled: 'bg-gray-700 text-gray-400' };
+                                        const invStatusStyles = { pending: 'bg-amber-500/15 text-amber-400', paid: 'bg-green-500/15 text-green-400', overdue: 'bg-red-500/15 text-red-400', cancelled: 'bg-slate-700/50 text-slate-400' };
                                         return (
-                                            <tr key={inv.id} className="hover:bg-gray-800/30">
-                                                <td className="px-3 py-2 text-sm text-white">{inv.organizer_name}</td>
-                                                <td className="px-3 py-2 text-xs text-purple-300">{inv.plan_name}</td>
-                                                <td className="px-3 py-2 text-sm text-gray-300">{formatCurrency(inv.amount)}</td>
-                                                <td className="px-3 py-2 text-xs text-gray-400">{inv.reference_month}</td>
+                                            <tr key={inv.id} className="hover:bg-slate-800/30 transition-colors">
+                                                <td className="px-3 py-2 text-sm text-slate-100">{inv.organizer_name}</td>
+                                                <td className="px-3 py-2 text-xs text-cyan-400">{inv.plan_name}</td>
+                                                <td className="px-3 py-2 text-sm text-slate-300">{formatCurrency(inv.amount)}</td>
+                                                <td className="px-3 py-2 text-xs text-slate-400">{inv.reference_month}</td>
                                                 <td className="px-3 py-2">
                                                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${invStatusStyles[inv.status] || invStatusStyles.pending}`}>
                                                         {inv.status === 'pending' ? 'Pendente' : inv.status === 'paid' ? 'Pago' : inv.status}
@@ -591,7 +595,7 @@ export default function SuperAdminPanel() {
                                                 </td>
                                                 <td className="px-3 py-2">
                                                     {inv.status === 'pending' && (
-                                                        <button onClick={() => handleConfirmInvoice(inv.id)} className="text-xs bg-green-600/20 text-green-400 px-2 py-1 rounded hover:bg-green-600/30">Confirmar</button>
+                                                        <button onClick={() => handleConfirmInvoice(inv.id)} className="text-xs bg-green-500/15 text-green-400 px-2 py-1 rounded-lg hover:bg-green-500/25 transition-colors">Confirmar</button>
                                                     )}
                                                 </td>
                                             </tr>
@@ -621,12 +625,12 @@ export default function SuperAdminPanel() {
     return (
         <div className="p-6 max-w-6xl mx-auto">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-white">Painel Super Admin</h1>
-                <p className="text-gray-400">Gestao White Label: Crie e gerencie os donos de eventos (Tenants).</p>
+                <h1 className="text-3xl font-bold font-headline text-slate-100">Painel Super Admin</h1>
+                <p className="text-slate-400 mt-1">Gestao White Label: Crie e gerencie os donos de eventos (Tenants).</p>
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex gap-1 mb-8 bg-gray-900 border border-gray-800 rounded-xl p-1 overflow-x-auto">
+            <div className="flex gap-1 mb-8 bg-[#111827] border border-slate-800/40 rounded-xl p-1 overflow-x-auto">
                 {TAB_ITEMS.map((tab) => {
                     const TabIcon = tab.icon;
                     const isActive = activeTab === tab.key;
@@ -634,10 +638,10 @@ export default function SuperAdminPanel() {
                         <button
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key)}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
                                 isActive
-                                    ? 'bg-purple-600 text-white shadow-sm'
-                                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                                    ? 'bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
                             }`}
                         >
                             <TabIcon className="w-4 h-4" />

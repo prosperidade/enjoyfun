@@ -113,7 +113,7 @@ export default function EventTemplateSelector({
     return (
       <div className="flex items-center justify-center py-8">
         <div className="spinner w-6 h-6" />
-        <span className="ml-2 text-sm text-gray-400">
+        <span className="ml-2 text-sm text-slate-400">
           Carregando tipos de evento...
         </span>
       </div>
@@ -130,12 +130,12 @@ export default function EventTemplateSelector({
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-2 w-full text-left"
       >
-        <Sparkles size={16} className="text-purple-400" />
-        <span className="input-label mb-0">Tipo do Evento</span>
-        <span className="text-xs text-gray-500 ml-1">
+        <Sparkles size={16} className="text-cyan-400" />
+        <span className="an-label mb-0">Tipo do Evento</span>
+        <span className="text-xs text-slate-500 ml-1">
           — a IA ativa automaticamente as ferramentas certas
         </span>
-        <span className="ml-auto text-gray-500">
+        <span className="ml-auto text-slate-500">
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </span>
       </button>
@@ -165,8 +165,8 @@ export default function EventTemplateSelector({
                     hover:scale-[1.02] hover:shadow-lg
                     ${
                       isSelected
-                        ? "border-purple-500/60 bg-purple-500/10 shadow-purple-500/10 shadow-md ring-1 ring-purple-500/30"
-                        : "border-gray-800 bg-gray-950/40 hover:border-gray-700 hover:bg-gray-900/60"
+                        ? "border-cyan-400/60 bg-cyan-500/10 shadow-cyan-500/10 shadow-md ring-1 ring-cyan-400/30"
+                        : "border-slate-700/50 bg-slate-800/40 hover:border-slate-600 hover:bg-slate-800/60"
                     }
                     ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
                   `}
@@ -195,7 +195,7 @@ export default function EventTemplateSelector({
                     </div>
                     <div className="min-w-0">
                       <p
-                        className="font-medium text-sm text-white truncate"
+                        className="font-medium text-sm text-slate-100 truncate"
                         title={template.label}
                       >
                         {template.label}
@@ -204,7 +204,7 @@ export default function EventTemplateSelector({
                   </div>
 
                   {/* Description */}
-                  <p className="text-[11px] text-gray-500 line-clamp-2 mb-2">
+                  <p className="text-[11px] text-slate-500 line-clamp-2 mb-2">
                     {template.description}
                   </p>
 
@@ -213,20 +213,20 @@ export default function EventTemplateSelector({
                     {highlights.slice(0, 3).map((h) => (
                       <span
                         key={h}
-                        className="text-[10px] px-1.5 py-0.5 rounded-md bg-gray-800/60 text-gray-400"
+                        className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-800/50 text-slate-400"
                       >
                         {h}
                       </span>
                     ))}
                     {highlights.length > 3 && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-gray-800/60 text-gray-500">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-800/50 text-slate-500">
                         +{highlights.length - 3}
                       </span>
                     )}
                   </div>
 
                   {/* Skills count */}
-                  <p className="text-[10px] text-gray-600 mt-2">
+                  <p className="text-[10px] text-slate-600 mt-2">
                     {template.skills_count || "?"} ferramentas incluídas
                   </p>
                 </button>
@@ -237,7 +237,7 @@ export default function EventTemplateSelector({
           {/* Custom templates section */}
           {customTemplates.length > 0 && (
             <div className="mt-3">
-              <p className="text-xs text-gray-500 mb-2">
+              <p className="text-xs text-slate-500 mb-2">
                 Seus templates personalizados:
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -261,7 +261,7 @@ export default function EventTemplateSelector({
                         ${
                           isSelected
                             ? "border-purple-500/60 bg-purple-500/10 ring-1 ring-purple-500/30"
-                            : "border-gray-800 bg-gray-950/40 hover:border-gray-700"
+                            : "border-slate-700/50 bg-slate-800/40 hover:border-slate-600"
                         }
                         ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
                       `}
@@ -271,10 +271,10 @@ export default function EventTemplateSelector({
                           size={14}
                           style={{ color: template.color }}
                         />
-                        <p className="font-medium text-sm text-white truncate">
+                        <p className="font-medium text-sm text-slate-100 truncate">
                           {template.label}
                         </p>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-400 ml-auto">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 ml-auto">
                           Personalizado
                         </span>
                       </div>
@@ -287,7 +287,7 @@ export default function EventTemplateSelector({
 
           {/* No selection hint */}
           {!selected && (
-            <p className="text-xs text-gray-500 italic">
+            <p className="text-xs text-slate-500 italic">
               💡 Selecione o tipo do evento para que a IA configure
               automaticamente. Ou deixe em branco para acessar todas as
               ferramentas.

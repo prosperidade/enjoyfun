@@ -446,8 +446,8 @@ export default function AIAssistants() {
             <Sparkles size={20} className="text-white" />
           </div>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-white">Assistente IA</h1>
-            <p className="text-sm text-gray-400">
+            <h1 className="text-2xl font-bold font-headline text-slate-100">Assistente IA</h1>
+            <p className="text-sm text-slate-400">
               Seus assistentes inteligentes para o evento.
               {activeCount > 0 && <span className="text-purple-400 ml-1">{activeCount} ativos</span>}
             </p>
@@ -465,13 +465,13 @@ export default function AIAssistants() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-gray-800/40 border border-gray-700/40 rounded-xl p-4">
-          <div className="text-xs text-gray-400 mb-1">Assistentes ativos</div>
-          <div className="text-2xl font-bold text-white">{activeCount} <span className="text-sm text-gray-500 font-normal">de {agents.length}</span></div>
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4">
+          <div className="text-xs text-slate-400 mb-1">Assistentes ativos</div>
+          <div className="text-2xl font-bold text-slate-100">{activeCount} <span className="text-sm text-slate-500 font-normal">de {agents.length}</span></div>
         </div>
-        <div className="bg-gray-800/40 border border-gray-700/40 rounded-xl p-4">
-          <div className="text-xs text-gray-400 mb-1">Motor de IA</div>
-          <div className="text-lg font-bold text-white">
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4">
+          <div className="text-xs text-slate-400 mb-1">Motor de IA</div>
+          <div className="text-lg font-bold text-slate-100">
             {defaultProvider
               ? <span className="capitalize">{defaultProvider.provider}</span>
               : <span className="text-amber-400 text-sm">Nenhum configurado</span>
@@ -490,16 +490,16 @@ export default function AIAssistants() {
           pickerSelection.provider === provider && pickerSelection.model === modelId;
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-            <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-800/40 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800/40">
                 <div>
-                  <h3 className="text-white font-semibold text-sm">Motor de IA do assistente</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <h3 className="text-slate-100 font-semibold text-sm">Motor de IA do assistente</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
                     {pickerAgent.label_friendly || pickerAgent.label}
                   </p>
                 </div>
-                <button onClick={closePicker} className="text-gray-500 hover:text-gray-300">
+                <button onClick={closePicker} className="text-slate-500 hover:text-slate-300">
                   <X size={18} />
                 </button>
               </div>
@@ -508,7 +508,7 @@ export default function AIAssistants() {
                 {activeProviders.length === 0 ? (
                   <div className="text-center py-6">
                     <p className="text-sm text-amber-400">Nenhum provider configurado</p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-slate-500 mt-1">
                       Configure ao menos um provider em Configuracoes de IA antes de escolher o motor por assistente.
                     </p>
                   </div>
@@ -517,17 +517,17 @@ export default function AIAssistants() {
                     <button
                       type="button"
                       onClick={() => setPickerSelection({ provider: null, model: null })}
-                      className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors ${
+                      className={`w-full text-left rounded-xl border px-3 py-2.5 transition-colors ${
                         pickerSelection.provider === null
-                          ? 'border-purple-600 bg-purple-600/10'
-                          : 'border-gray-700 hover:border-gray-600 bg-gray-800/40'
+                          ? 'border-purple-500 bg-purple-500/10'
+                          : 'border-slate-700/50 hover:border-purple-500/30 bg-slate-800/50'
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-white">Usar padrao do organizador</span>
+                        <span className="text-xs font-medium text-slate-100">Usar padrao do organizador</span>
                         {pickerSelection.provider === null && <Check size={14} className="text-purple-400" />}
                       </div>
-                      <p className="text-[11px] text-gray-500 mt-0.5">
+                      <p className="text-[11px] text-slate-500 mt-0.5">
                         Segue o provider default configurado no organizador.
                       </p>
                     </button>
@@ -537,11 +537,11 @@ export default function AIAssistants() {
                       const models = getModelsForProvider(providerKey);
                       return (
                         <div key={providerKey} className="space-y-2">
-                          <div className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">
+                          <div className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
                             {PROVIDER_LABELS[providerKey] || providerKey}
                           </div>
                           {models.length === 0 && (
-                            <p className="text-[11px] text-gray-500">Nenhum modelo catalogado.</p>
+                            <p className="text-[11px] text-slate-500">Nenhum modelo catalogado.</p>
                           )}
                           {models.map((m) => {
                             const selected = selectionMatches(providerKey, m.id);
@@ -551,15 +551,15 @@ export default function AIAssistants() {
                                 key={m.id}
                                 type="button"
                                 onClick={() => setPickerSelection({ provider: providerKey, model: m.id })}
-                                className={`w-full text-left rounded-lg border px-3 py-2 transition-colors ${
+                                className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${
                                   selected
-                                    ? 'border-purple-600 bg-purple-600/10'
-                                    : 'border-gray-800 hover:border-gray-600 bg-gray-800/30'
+                                    ? 'border-purple-500 bg-purple-500/10'
+                                    : 'border-slate-800/40 hover:border-purple-500/30 bg-slate-800/30'
                                 }`}
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-2 min-w-0">
-                                    <span className="text-xs font-medium text-white truncate">{m.label}</span>
+                                    <span className="text-xs font-medium text-slate-100 truncate">{m.label}</span>
                                     {recommended && (
                                       <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">
                                         <Star size={9} /> Recomendado
@@ -568,8 +568,8 @@ export default function AIAssistants() {
                                   </div>
                                   {selected && <Check size={14} className="text-purple-400 flex-shrink-0" />}
                                 </div>
-                                <p className="text-[11px] text-gray-400 mt-0.5">{m.description}</p>
-                                <p className="text-[10px] text-gray-500 mt-0.5">
+                                <p className="text-[11px] text-slate-400 mt-0.5">{m.description}</p>
+                                <p className="text-[10px] text-slate-500 mt-0.5">
                                   ${m.input_cost_per_1m.toFixed(2)}/1M in · ${m.output_cost_per_1m.toFixed(2)}/1M out
                                 </p>
                                 {recommended && rec && (
@@ -585,17 +585,17 @@ export default function AIAssistants() {
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-800 bg-gray-900/50">
+              <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-slate-800/40 bg-slate-900/50">
                 <button
                   onClick={closePicker}
-                  className="px-3 py-1.5 text-xs text-gray-300 hover:text-white"
+                  className="px-3 py-1.5 text-xs text-slate-300 hover:text-white"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleSavePicker}
                   disabled={isSavingPicker || activeProviders.length === 0}
-                  className="px-4 py-1.5 text-xs font-medium bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors flex items-center gap-2"
+                  className="px-4 py-1.5 text-xs font-medium bg-purple-500 hover:bg-purple-400 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl transition-colors flex items-center gap-2"
                 >
                   {isSavingPicker && <Loader2 size={12} className="animate-spin" />}
                   Salvar escolha
@@ -619,10 +619,10 @@ export default function AIAssistants() {
           return (
             <div
               key={key}
-              className={`bg-gray-800/40 border rounded-xl overflow-hidden transition-all ${
+              className={`bg-[#111827] border rounded-2xl overflow-hidden transition-all ${
                 agent.is_enabled
-                  ? 'border-gray-700/40 hover:border-purple-700/40'
-                  : 'border-gray-800/40 opacity-60'
+                  ? 'border-slate-800/40 hover:border-purple-500/30'
+                  : 'border-slate-800/40 opacity-60'
               }`}
             >
               {/* Card header */}
@@ -633,8 +633,8 @@ export default function AIAssistants() {
                       <Icon size={18} className="text-white" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white leading-tight">{friendlyLabel}</h3>
-                      <p className="text-[11px] text-gray-400 leading-tight mt-0.5">{agent.description || ''}</p>
+                      <h3 className="text-sm font-semibold text-slate-100 leading-tight">{friendlyLabel}</h3>
+                      <p className="text-[11px] text-slate-400 leading-tight mt-0.5">{agent.description || ''}</p>
                     </div>
                   </div>
 
@@ -648,7 +648,7 @@ export default function AIAssistants() {
                     {agent.is_enabled ? (
                       <ToggleRight size={28} className="text-purple-400 hover:text-purple-300 transition-colors" />
                     ) : (
-                      <ToggleLeft size={28} className="text-gray-600 hover:text-gray-400 transition-colors" />
+                      <ToggleLeft size={28} className="text-slate-600 hover:text-slate-400 transition-colors" />
                     )}
                   </button>
                 </div>
@@ -656,7 +656,7 @@ export default function AIAssistants() {
                 {/* Permissions dropdown */}
                 {agent.is_enabled && (
                   <div className="mb-3">
-                    <label className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1 block">
+                    <label className="text-[10px] text-slate-500 uppercase tracking-wider font-medium mb-1 block">
                       Permissoes
                     </label>
                     <div className="relative">
@@ -664,15 +664,15 @@ export default function AIAssistants() {
                         value={agent.approval_mode || 'confirm_write'}
                         onChange={(e) => handleApprovalChange(key, e.target.value)}
                         disabled={isSaving}
-                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-gray-200 appearance-none cursor-pointer focus:border-purple-600 focus:ring-0 outline-none pr-8"
+                        className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-3 py-1.5 text-xs text-slate-200 appearance-none cursor-pointer focus:border-purple-500 focus:ring-0 outline-none pr-8"
                       >
                         {Object.entries(APPROVAL_LABELS).map(([mode, label]) => (
                           <option key={mode} value={mode}>{label}</option>
                         ))}
                       </select>
-                      <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                      <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
                     </div>
-                    <p className="text-[10px] text-gray-500 mt-1">
+                    <p className="text-[10px] text-slate-500 mt-1">
                       {APPROVAL_DESCRIPTIONS[agent.approval_mode || 'confirm_write']}
                     </p>
                   </div>
@@ -686,14 +686,14 @@ export default function AIAssistants() {
                   const rec = getRecommendation(key);
                   return (
                     <div className="mb-3">
-                      <label className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1 block">
+                      <label className="text-[10px] text-slate-500 uppercase tracking-wider font-medium mb-1 block">
                         Motor de IA
                       </label>
                       <button
                         type="button"
                         onClick={() => openPicker(agent)}
                         disabled={isSaving}
-                        className="w-full flex items-center justify-between gap-2 bg-gray-800 border border-gray-700 hover:border-purple-600 rounded-lg px-3 py-1.5 text-xs text-gray-200 text-left transition-colors"
+                        className="w-full flex items-center justify-between gap-2 bg-slate-800/50 border border-slate-700/50 hover:border-purple-500 rounded-xl px-3 py-1.5 text-xs text-slate-200 text-left transition-colors"
                       >
                         <span className="flex items-center gap-2 min-w-0">
                           <Cpu size={12} className="text-purple-400 flex-shrink-0" />
@@ -703,10 +703,10 @@ export default function AIAssistants() {
                               {currentModel && <span className="text-gray-400"> · {currentModel}</span>}
                             </span>
                           ) : (
-                            <span className="text-gray-400 truncate">Padrao do organizador</span>
+                            <span className="text-slate-400 truncate">Padrao do organizador</span>
                           )}
                         </span>
-                        <Settings2 size={12} className="text-gray-500 flex-shrink-0" />
+                        <Settings2 size={12} className="text-slate-500 flex-shrink-0" />
                       </button>
                       {rec && !hasOverride && (
                         <p className="text-[10px] text-amber-400/80 mt-1 flex items-center gap-1">
@@ -719,16 +719,16 @@ export default function AIAssistants() {
 
                 {/* Example prompt */}
                 {agent.is_enabled && example && (
-                  <div className="bg-gray-800/50 rounded-lg px-3 py-2 mb-3">
-                    <div className="text-[10px] text-gray-500 mb-0.5">Exemplo de pergunta</div>
-                    <p className="text-xs text-gray-300 italic">"{example}"</p>
+                  <div className="bg-slate-800/50 rounded-xl px-3 py-2 mb-3 border border-slate-700/30">
+                    <div className="text-[10px] text-slate-500 mb-0.5">Exemplo de pergunta</div>
+                    <p className="text-xs text-slate-300 italic">"{example}"</p>
                   </div>
                 )}
               </div>
 
               {/* Card footer */}
               {agent.is_enabled && (
-                <div className="px-4 py-2.5 bg-gray-800/30 border-t border-gray-700/30">
+                <div className="px-4 py-2.5 bg-slate-800/30 border-t border-slate-700/30">
                   <button
                     onClick={() => openChat(key)}
                     className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 hover:text-purple-200 text-xs font-medium rounded-lg transition-colors"
@@ -746,43 +746,43 @@ export default function AIAssistants() {
       {/* DNA modal */}
       {dnaModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
           onClick={closeDnaModal}
         >
           <div
-            className="bg-gray-900 border border-purple-700/40 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+            className="bg-slate-900/95 backdrop-blur-xl border border-purple-700/40 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-start justify-between p-5 border-b border-gray-800">
+            <div className="flex items-start justify-between p-5 border-b border-slate-800/40">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg">
                   <Brain size={20} className="text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white">DNA do Negocio</h2>
-                  <p className="text-xs text-gray-400">Estas informacoes guiam todos os assistentes de IA.</p>
+                  <h2 className="text-lg font-bold text-slate-100">DNA do Negocio</h2>
+                  <p className="text-xs text-slate-400">Estas informacoes guiam todos os assistentes de IA.</p>
                 </div>
               </div>
               <button
                 onClick={closeDnaModal}
                 disabled={dnaSaving}
-                className="text-gray-500 hover:text-gray-300 transition-colors"
+                className="text-slate-500 hover:text-slate-300 transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-gray-800 px-5">
+            <div className="flex border-b border-slate-800/40 px-5">
               <button
                 type="button"
                 onClick={() => attemptSwitch({ type: 'tab', value: 'organizer' })}
                 disabled={dnaSaving}
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   dnaTab === 'organizer'
-                    ? 'border-purple-500 text-white'
-                    : 'border-transparent text-gray-400 hover:text-gray-200'
+                    ? 'border-purple-500 text-slate-100'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
               >
                 Organizador
@@ -796,8 +796,8 @@ export default function AIAssistants() {
                 disabled={dnaSaving}
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   dnaTab === 'event'
-                    ? 'border-purple-500 text-white'
-                    : 'border-transparent text-gray-400 hover:text-gray-200'
+                    ? 'border-purple-500 text-slate-100'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
               >
                 Evento específico
@@ -822,17 +822,17 @@ export default function AIAssistants() {
               ) : (
                 <>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                       Selecione o evento
                     </label>
-                    <p className="text-[11px] text-gray-500 mb-2">
+                    <p className="text-[11px] text-slate-500 mb-2">
                       Campos vazios herdam do DNA do organizador. Apenas o preenchido sobrescreve.
                     </p>
                     <select
                       value={dnaSelectedEventId}
                       onChange={(e) => attemptSwitch({ type: 'event', value: e.target.value })}
                       disabled={dnaSaving || dnaEventsLoading}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-purple-600 focus:ring-0 outline-none disabled:opacity-50"
+                      className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-slate-100 focus:border-purple-500 focus:ring-0 outline-none disabled:opacity-50"
                     >
                       <option value="">{dnaEventsLoading ? 'Carregando eventos...' : '— escolha um evento —'}</option>
                       {dnaEvents.map((ev) => {
@@ -859,7 +859,7 @@ export default function AIAssistants() {
                       />
                     )
                   ) : (
-                    <div className="text-center py-8 text-sm text-gray-500">
+                    <div className="text-center py-8 text-sm text-slate-500">
                       Selecione um evento acima para editar o DNA específico dele.
                     </div>
                   )}
@@ -868,11 +868,11 @@ export default function AIAssistants() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-2 p-5 border-t border-gray-800">
+            <div className="flex items-center justify-end gap-2 p-5 border-t border-slate-800/40">
               <button
                 onClick={closeDnaModal}
                 disabled={dnaSaving}
-                className="px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm text-slate-300 hover:text-white transition-colors disabled:opacity-50"
               >
                 Fechar
               </button>
@@ -894,19 +894,19 @@ export default function AIAssistants() {
           {/* Inline confirm dialog — unsaved changes */}
           {dnaPendingSwitch && (
             <div
-              className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
+              className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="bg-gray-900 border border-amber-700/50 rounded-2xl shadow-2xl w-full max-w-md p-6">
-                <h3 className="text-base font-bold text-white mb-2">Alterações não salvas</h3>
-                <p className="text-sm text-gray-300 mb-5">
+              <div className="bg-slate-900/95 backdrop-blur-xl border border-amber-700/50 rounded-2xl shadow-2xl w-full max-w-md p-6">
+                <h3 className="text-base font-bold text-slate-100 mb-2">Alterações não salvas</h3>
+                <p className="text-sm text-slate-300 mb-5">
                   Você tem alterações não salvas nesta aba. Deseja salvar antes de continuar?
                 </p>
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={handleCancelSwitch}
                     disabled={dnaSaving}
-                    className="px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors disabled:opacity-50"
+                    className="px-4 py-2 text-sm text-slate-300 hover:text-white transition-colors disabled:opacity-50"
                   >
                     Cancelar
                   </button>
@@ -981,15 +981,15 @@ function DnaFieldset({ form, onChange, showContext }) {
     <>
       {fields.map((f) => (
         <div key={f.key}>
-          <label className="block text-xs font-semibold text-gray-300 mb-1.5">{f.label}</label>
-          <p className="text-[11px] text-gray-500 mb-2">{f.hint}</p>
+          <label className="block text-xs font-semibold text-slate-300 mb-1.5">{f.label}</label>
+          <p className="text-[11px] text-slate-500 mb-2">{f.hint}</p>
           <textarea
             value={form[f.key]}
             onChange={(e) => onChange(f.key, e.target.value)}
             rows={f.rows}
             maxLength={4000}
             placeholder={f.placeholder}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-purple-600 focus:ring-0 outline-none resize-y"
+            className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-slate-100 focus:border-purple-500 focus:ring-0 outline-none resize-y"
           />
         </div>
       ))}

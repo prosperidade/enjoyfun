@@ -32,14 +32,14 @@ export default function ReportsControls({
 
   return (
     <>
-      <div className="bg-gray-900/70 border border-gray-800 p-4 rounded-2xl">
+      <div className="bg-slate-900/60/70 border border-slate-800/40 p-4 rounded-2xl">
         <p className="text-[11px] font-black tracking-[0.25em] uppercase text-indigo-400">
           Relatorio Setorial
         </p>
-        <h2 className="text-xl font-black text-white mt-2">
+        <h2 className="text-xl font-black text-slate-100 mt-2">
           Indicadores operacionais do setor {sectorTitle}
         </h2>
-        <p className="text-sm text-gray-400 mt-1">
+        <p className="text-sm text-slate-400 mt-1">
           Cards, historico e mix abaixo refletem apenas o setor atual.
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
@@ -62,14 +62,14 @@ export default function ReportsControls({
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-gray-900 border border-gray-800 p-4 rounded-xl">
-        <div className="flex flex-wrap gap-2 bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50 w-full sm:w-auto overflow-x-auto">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-slate-900/60 border border-slate-800/40 p-4 rounded-xl">
+        <div className="flex flex-wrap gap-2 bg-slate-800/50 p-1.5 rounded-xl border border-slate-700/50/50 w-full sm:w-auto overflow-x-auto">
           {TIME_FILTERS.map((filter) => (
             <button
               key={filter}
               onClick={() => onTimeFilterChange(filter)}
               disabled={loadingReports && timeFilter === filter}
-              className={`flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition-all ${timeFilter === filter ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/20" : "text-gray-400 hover:text-white hover:bg-gray-700"}`}
+              className={`flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition-all ${timeFilter === filter ? "bg-indigo-600 text-slate-100 shadow-lg shadow-indigo-900/20" : "text-slate-400 hover:text-slate-100 hover:bg-gray-700"}`}
             >
               {filter.toUpperCase()}
             </button>

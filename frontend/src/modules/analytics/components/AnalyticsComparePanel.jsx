@@ -97,8 +97,8 @@ function CompareCurveTooltip({ active, label, payload }) {
   }
 
   return (
-    <div className="rounded-xl border border-gray-700 bg-gray-950/95 px-4 py-3 shadow-2xl">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+    <div className="rounded-xl border border-slate-700/50 bg-slate-950/95 backdrop-blur-xl px-4 py-3 shadow-2xl">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
       <p className="mt-2 text-sm text-white">
@@ -129,8 +129,8 @@ function SummaryCompareCard({ baseSummary, compareSummary, item }) {
         : "text-gray-300";
 
   return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-900/45 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+    <div className="rounded-2xl border border-slate-800/40 bg-[#111827] p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {item.label}
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -226,7 +226,7 @@ export default function AnalyticsComparePanel({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="section-title mb-0">Comparativo entre Eventos</h3>
-            <p className="mt-1 text-sm text-gray-400">
+            <p className="mt-1 text-sm text-slate-400">
               Comparacao simples e pos-evento restrita aos blocos seguros desta PR.
             </p>
             <div className="mt-2 inline-flex rounded-full border border-emerald-700/40 bg-emerald-950/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-200">
@@ -237,7 +237,7 @@ export default function AnalyticsComparePanel({
             <span className="rounded-full border border-cyan-800/50 bg-cyan-950/30 px-3 py-1 text-cyan-200">
               Base: {baseEventName}
             </span>
-            <span className="rounded-full border border-gray-700 px-2 py-1 text-gray-500">
+            <span className="rounded-full border border-slate-700/50 px-2 py-1 text-slate-500">
               vs
             </span>
             <span className="rounded-full border border-amber-800/50 bg-amber-950/30 px-3 py-1 text-amber-200">
@@ -258,8 +258,8 @@ export default function AnalyticsComparePanel({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl border border-gray-800 bg-gray-900/35 p-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-gray-200">
+          <div className="rounded-2xl border border-slate-800/40 bg-[#111827] p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
               <Layers3 size={16} className="text-cyan-300" />
               Setor lider do evento base
             </div>
@@ -267,8 +267,8 @@ export default function AnalyticsComparePanel({
               {baseSummary?.top_sector || "Nao definido"}
             </div>
           </div>
-          <div className="rounded-2xl border border-gray-800 bg-gray-900/35 p-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-gray-200">
+          <div className="rounded-2xl border border-slate-800/40 bg-[#111827] p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
               <TrendingUp size={16} className="text-amber-300" />
               Setor lider do evento comparado
             </div>
@@ -284,7 +284,7 @@ export default function AnalyticsComparePanel({
           <ArrowLeftRight size={18} className="text-brand" />
           <div>
             <h3 className="section-title mb-0">Curva Comparativa</h3>
-            <p className="mt-1 text-sm text-gray-400">
+            <p className="mt-1 text-sm text-slate-400">
               Sobreposicao da receita por bucket para o evento base e o evento comparado.
             </p>
           </div>
@@ -321,7 +321,7 @@ export default function AnalyticsComparePanel({
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <p className="py-10 text-sm text-gray-500">
+          <p className="py-10 text-sm text-slate-500">
             Nao ha dados suficientes para desenhar a curva comparativa neste recorte.
           </p>
         )}

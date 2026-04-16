@@ -15,8 +15,8 @@ function SalesCurveTooltip({ active, payload, label }) {
   }
 
   return (
-    <div className="rounded-xl border border-gray-700 bg-gray-950/95 px-4 py-3 shadow-2xl">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+    <div className="rounded-xl border border-slate-700/50 bg-slate-950/95 backdrop-blur-xl px-4 py-3 shadow-2xl">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
       <p className="mt-2 text-sm text-white">
@@ -41,7 +41,7 @@ export default function AnalyticsSalesCurvePanel({ loading, salesCurve }) {
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
           <h3 className="section-title mb-0">Curva de Vendas</h3>
-          <p className="mt-1 text-sm text-gray-400">
+          <p className="mt-1 text-sm text-slate-400">
             Leitura pos-evento por tickets pagos no recorte atual.
           </p>
         </div>

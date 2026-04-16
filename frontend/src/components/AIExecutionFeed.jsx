@@ -19,7 +19,7 @@ const APPROVAL_STATUS_META = {
 };
 
 const RISK_LEVEL_META = {
-  none: { label: "Nenhum", className: "text-gray-300 border-gray-800/50 bg-gray-950/40" },
+  none: { label: "Nenhum", className: "text-slate-300 border-slate-800/40/50 bg-slate-950/40" },
   read: { label: "Leitura", className: "text-green-300 border-green-800/50 bg-green-950/30" },
   write: { label: "Escrita", className: "text-amber-300 border-amber-800/50 bg-amber-950/30" },
   destructive: { label: "Destrutivo", className: "text-red-200 border-red-600/50 bg-red-900/40" },
@@ -34,7 +34,7 @@ function resolveApprovalStatusMeta(status) {
 }
 
 function resolveRiskMeta(level) {
-  return RISK_LEVEL_META[String(level || "").toLowerCase()] || { label: level || "n/d", className: "text-gray-400 border-gray-800 bg-gray-950/30" };
+  return RISK_LEVEL_META[String(level || "").toLowerCase()] || { label: level || "n/d", className: "text-slate-400 border-slate-800/40 bg-slate-950/30" };
 }
 
 function formatTimestamp(value) {
@@ -241,7 +241,7 @@ export default function AIExecutionFeed() {
   const otherExecutions = executions.filter((ex) => ex.approval_status !== "pending");
 
   if (loading) {
-    return <div className="text-gray-500 animate-pulse">Carregando execucoes recentes de IA...</div>;
+    return <div className="text-slate-500 animate-pulse">Carregando execucoes recentes de IA...</div>;
   }
 
   return (
@@ -251,13 +251,13 @@ export default function AIExecutionFeed() {
           <h2 className="section-title flex items-center gap-2">
             <Activity size={20} className="text-brand" /> Execucoes recentes
           </h2>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1">
             Trilha operacional materializada em <code>ai_agent_executions</code> para acompanhar
             o comportamento real do runtime.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="px-3 py-1 rounded-full border border-gray-800 bg-gray-900 text-gray-300">
+          <span className="px-3 py-1 rounded-full border border-slate-800/40 bg-slate-900 text-slate-300">
             {summary.total} recentes
           </span>
           <span className="px-3 py-1 rounded-full border border-green-900/60 bg-green-950/40 text-green-300">
@@ -275,7 +275,7 @@ export default function AIExecutionFeed() {
             type="button"
             onClick={() => loadExecutions({ silent: true })}
             disabled={refreshing}
-            className="px-3 py-1 rounded-full border border-gray-700 bg-gray-950 text-gray-300 hover:border-gray-500 disabled:opacity-60"
+            className="px-3 py-1 rounded-full border border-slate-700/50 bg-slate-950 text-slate-300 hover:border-purple-500/30 disabled:opacity-60"
           >
             <span className="inline-flex items-center gap-2">
               <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
@@ -315,13 +315,13 @@ export default function AIExecutionFeed() {
 
       {/* Other Executions */}
       {otherExecutions.length === 0 && pendingApprovals.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-800 bg-gray-950/60 p-6 text-sm text-gray-400">
+        <div className="rounded-2xl border border-dashed border-slate-800/40 bg-slate-950/60 p-6 text-sm text-slate-400">
           Nenhuma execucao recente materializada ainda para este organizer.
         </div>
       ) : otherExecutions.length > 0 ? (
         <div className="space-y-4">
           {pendingApprovals.length > 0 ? (
-            <h3 className="text-sm font-semibold text-gray-400">Historico de execucoes</h3>
+            <h3 className="text-sm font-semibold text-slate-400">Historico de execucoes</h3>
           ) : null}
           <div className="grid xl:grid-cols-2 gap-5">
             {otherExecutions.map((execution) => (
@@ -379,44 +379,44 @@ function PendingApprovalCard({ execution, onApprove, onReject }) {
           <h3 className="font-bold text-white">
             {execution.agent_key || "Fluxo legado / sem agente explicito"}
           </h3>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-slate-400 mt-1">
             {(execution.surface || "sem superficie").toUpperCase()} • {execution.entrypoint || "ai/insight"}
           </p>
         </div>
-        <div className="text-right text-xs text-gray-500">
+        <div className="text-right text-xs text-slate-500">
           <p>{formatTimestamp(execution.created_at)}</p>
           <p className="mt-1">{formatDuration(execution.request_duration_ms)}</p>
         </div>
       </div>
 
       {/* Scope and context */}
-      <div className="rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-2 text-xs">
-        <span className="text-gray-500">Escopo: </span>
-        <span className="text-gray-200 font-medium">{scopeKey}</span>
+      <div className="rounded-xl border border-slate-800/40 bg-slate-900/60 px-3 py-2 text-xs">
+        <span className="text-slate-500">Escopo: </span>
+        <span className="text-slate-200 font-medium">{scopeKey}</span>
         {execution.event_id ? (
           <>
             <span className="text-gray-600 mx-2">|</span>
-            <span className="text-gray-500">Evento: </span>
-            <span className="text-gray-200">{execution.event_id}</span>
+            <span className="text-slate-500">Evento: </span>
+            <span className="text-slate-200">{execution.event_id}</span>
           </>
         ) : null}
       </div>
 
       {/* Tool calls detail */}
       {toolCalls.length > 0 ? (
-        <div className="rounded-xl border border-gray-800 bg-gray-950/70 p-3 space-y-2">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-gray-500">
+        <div className="rounded-xl border border-slate-800/40 bg-slate-950/70 p-3 space-y-2">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
             Tools que serao executadas ({toolCalls.length})
           </p>
           {toolCalls.map((tool, idx) => (
             <div key={idx} className="flex items-start gap-2 text-xs">
-              <span className="shrink-0 mt-0.5 w-5 h-5 flex items-center justify-center rounded bg-gray-800 text-gray-400 text-[10px] font-mono">
+              <span className="shrink-0 mt-0.5 w-5 h-5 flex items-center justify-center rounded bg-slate-800 text-slate-400 text-[10px] font-mono">
                 {idx + 1}
               </span>
               <div className="min-w-0">
                 <p className="font-semibold text-white">{tool.tool_name || tool.name || "tool desconhecida"}</p>
                 {formatToolPreview(tool) ? (
-                  <p className="text-gray-400 mt-0.5 break-all">
+                  <p className="text-slate-400 mt-0.5 break-all">
                     {formatToolPreview(tool)}
                   </p>
                 ) : null}
@@ -444,7 +444,7 @@ function PendingApprovalCard({ execution, onApprove, onReject }) {
         {showRejectInput ? (
           <div className="flex flex-col gap-2">
             <textarea
-              className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-gray-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-700/50 bg-slate-900 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:border-purple-500 focus:outline-none"
               placeholder="Motivo da rejeicao (opcional)"
               rows={2}
               value={rejectReason}
@@ -463,7 +463,7 @@ function PendingApprovalCard({ execution, onApprove, onReject }) {
               <button
                 type="button"
                 onClick={() => setShowRejectInput(false)}
-                className="text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
               >
                 Cancelar
               </button>
@@ -507,7 +507,7 @@ function ExecutionCard({ execution }) {
       : normalizePreview(execution.response_preview, "Sem preview de resposta salvo.");
 
   return (
-    <article className="card-hover flex flex-col gap-4 border-gray-800">
+    <article className="card-hover flex flex-col gap-4 border-slate-800/40">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap gap-2 mb-2">
@@ -527,11 +527,11 @@ function ExecutionCard({ execution }) {
           <h3 className="font-bold text-white">
             {execution.agent_key || "Fluxo legado / sem agente explicito"}
           </h3>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-slate-400 mt-1">
             {(execution.surface || "sem superficie").toUpperCase()} • {execution.entrypoint || "ai/insight"}
           </p>
         </div>
-        <div className="text-right text-xs text-gray-500">
+        <div className="text-right text-xs text-slate-500">
           <p>{formatTimestamp(execution.created_at)}</p>
           <p className="mt-1">{formatDuration(execution.request_duration_ms)}</p>
         </div>
@@ -569,7 +569,7 @@ function ExecutionCard({ execution }) {
             ? "border-green-900/50 bg-green-950/20"
             : "border-red-900/50 bg-red-950/20"
         }`}>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-gray-500 mb-2">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-2">
             Resultado da execucao pos-aprovacao
           </p>
           <p className={`text-xs leading-relaxed whitespace-pre-wrap break-words ${
@@ -580,11 +580,11 @@ function ExecutionCard({ execution }) {
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-2 text-[11px] text-gray-500">
-        <span className="px-2 py-1 rounded-full border border-gray-800 bg-gray-950/70">
+      <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
+        <span className="px-2 py-1 rounded-full border border-slate-800/40 bg-slate-950/70">
           tool calls: {Number(execution.tool_call_count || 0)}
         </span>
-        <span className="px-2 py-1 rounded-full border border-gray-800 bg-gray-950/70">
+        <span className="px-2 py-1 rounded-full border border-slate-800/40 bg-slate-950/70">
           concluido: {formatTimestamp(execution.completed_at)}
         </span>
       </div>
@@ -596,12 +596,12 @@ function MetaBox({ icon, label, value }) {
   const IconComponent = icon;
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-2">
-      <div className="flex items-center gap-2 text-gray-500 mb-1">
+    <div className="rounded-xl border border-slate-800/40 bg-slate-900/60 px-3 py-2">
+      <div className="flex items-center gap-2 text-slate-500 mb-1">
         <IconComponent size={12} />
         <span>{label}</span>
       </div>
-      <p className="text-gray-200">{value}</p>
+      <p className="text-slate-200">{value}</p>
     </div>
   );
 }
@@ -610,15 +610,15 @@ function PreviewBox({ title, text, tone = "default" }) {
   const textClassName =
     tone === "danger" ? "text-red-200" :
     tone === "warning" ? "text-amber-200" :
-    "text-gray-300";
+    "text-slate-300";
   const borderClassName =
     tone === "danger" ? "border-red-900/50 bg-red-950/20" :
     tone === "warning" ? "border-amber-900/50 bg-amber-950/20" :
-    "border-gray-800 bg-gray-950/70";
+    "border-slate-800/40 bg-slate-950/70";
 
   return (
     <div className={`rounded-xl border p-3 ${borderClassName}`}>
-      <p className="text-[11px] uppercase tracking-[0.2em] text-gray-500 mb-2">{title}</p>
+      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-2">{title}</p>
       <p className={`text-xs leading-relaxed whitespace-pre-wrap break-words ${textClassName}`}>
         {text}
       </p>

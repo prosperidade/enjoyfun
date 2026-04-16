@@ -612,8 +612,8 @@ const operationalStatusMeta = (status = "") => {
     default:
       return {
         label: "Sem dados",
-        badgeClass: "border-gray-700 bg-gray-900/70 text-gray-400",
-        cardClass: "border-gray-800 bg-gray-950/50"
+        badgeClass: "border-slate-700/50 bg-slate-900/70 text-slate-400",
+        cardClass: "border-slate-800/40 bg-slate-950/50"
       };
   }
 };
@@ -1562,7 +1562,7 @@ export default function WorkforceOpsTab({ eventId }) {
   if (!selectedManager) {
     return (
       <div className="space-y-6">
-        <div className="card p-4 border border-gray-800 bg-gray-900/40">
+        <div className="card p-4 border border-slate-800/40 bg-slate-900/40">
           <div className="grid grid-cols-1 md:grid-cols-[1fr_180px] gap-3">
             <input
               className="input"
@@ -1578,15 +1578,15 @@ export default function WorkforceOpsTab({ eventId }) {
               <Plus size={16} /> {savingNewManagerRole ? "Criando..." : "Criar Cargo"}
             </button>
           </div>
-          <div className="mt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs text-gray-500">
+          <div className="mt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs text-slate-500">
             <div>
-              <p className="font-semibold text-white">Crie o cargo da liderança, configure nome/CPF/telefone e depois entre na tabela para importar a equipe.</p>
+              <p className="font-semibold text-slate-100">Crie o cargo da liderança, configure nome/CPF/telefone e depois entre na tabela para importar a equipe.</p>
               <p className="mt-1">
                 Setor inferido agora:{" "}
-                <span className="text-brand">{inferSectorFromRoleName(newManagerRoleName) || "sera definido pelo nome do cargo"}</span>
+                <span className="text-cyan-400">{inferSectorFromRoleName(newManagerRoleName) || "sera definido pelo nome do cargo"}</span>
               </p>
             </div>
-            <div className="rounded-xl border border-gray-800 bg-gray-950/50 px-3 py-2 uppercase tracking-wider">
+            <div className="rounded-xl border border-slate-800/40 bg-slate-950/50 px-3 py-2 uppercase tracking-wider">
               {managerRows.length === 0
                 ? "Nenhum gerente configurado"
                 : `${managerRows.length} liderança(s) cadastrada(s)`}
@@ -1619,8 +1619,8 @@ export default function WorkforceOpsTab({ eventId }) {
               onClick={() => setOverviewTab("operation")}
               className={`h-full rounded-2xl border px-4 py-4 text-left transition ${
                 activeOverviewTab === "operation"
-                  ? "border-brand/50 bg-brand/10 text-white"
-                  : "border-gray-800 bg-gray-950/50 text-gray-400 hover:bg-gray-900/60"
+                  ? "border-cyan-500/50 bg-cyan-500/10 text-slate-100"
+                  : "border-slate-800/40 bg-slate-950/50 text-slate-400 hover:bg-slate-900/60"
               }`}
             >
               <p className="text-[10px] uppercase tracking-[0.18em]">Operacao</p>
@@ -1631,8 +1631,8 @@ export default function WorkforceOpsTab({ eventId }) {
               onClick={() => setOverviewTab("advanced")}
               className={`h-full rounded-2xl border px-4 py-4 text-left transition ${
                 activeOverviewTab === "advanced"
-                  ? "border-brand/50 bg-brand/10 text-white"
-                  : "border-gray-800 bg-gray-950/50 text-gray-400 hover:bg-gray-900/60"
+                  ? "border-cyan-500/50 bg-cyan-500/10 text-slate-100"
+                  : "border-slate-800/40 bg-slate-950/50 text-slate-400 hover:bg-slate-900/60"
               }`}
             >
               <div className="flex items-center justify-between gap-3">
@@ -1647,37 +1647,37 @@ export default function WorkforceOpsTab({ eventId }) {
         ) : null}
 
         {activeOverviewTab === "operation" && (
-          <div className="card p-4 border border-gray-800 bg-gray-900/40">
+          <div className="card p-4 border border-slate-800/40 bg-slate-900/40">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Resumo da equipe</p>
-                <p className="mt-1 text-sm text-gray-400">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Resumo da equipe</p>
+                <p className="mt-1 text-sm text-slate-400">
                   Veja quantas liderancas e pessoas ja estao ligadas corretamente na estrutura deste evento.
                 </p>
               </div>
               {canAccessAdvancedTab && (
-                <span className="rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400">
+                <span className="rounded-xl border border-slate-800/40 bg-slate-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-slate-400">
                   Diagnostico completo no card avancado
                 </span>
               )}
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Liderancas cadastradas</p>
-                <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.manager_roots_count || 0).toLocaleString("pt-BR")}</p>
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Liderancas cadastradas</p>
+                <p className="mt-2 text-lg font-black text-slate-100">{Number(treeStatus?.manager_roots_count || 0).toLocaleString("pt-BR")}</p>
               </div>
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Coordenacoes e supervisoes</p>
-                <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.managerial_child_roles_count || 0).toLocaleString("pt-BR")}</p>
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Coordenacoes e supervisoes</p>
+                <p className="mt-2 text-lg font-black text-slate-100">{Number(treeStatus?.managerial_child_roles_count || 0).toLocaleString("pt-BR")}</p>
               </div>
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Pessoas ligadas a lideranca</p>
-                <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.assignments_with_root_manager || 0).toLocaleString("pt-BR")}</p>
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Pessoas ligadas a lideranca</p>
+                <p className="mt-2 text-lg font-black text-slate-100">{Number(treeStatus?.assignments_with_root_manager || 0).toLocaleString("pt-BR")}</p>
               </div>
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Pessoas sem lideranca</p>
-                <p className="mt-2 text-lg font-black text-white">{Number(treeStatus?.assignments_missing_bindings || 0).toLocaleString("pt-BR")}</p>
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Pessoas sem lideranca</p>
+                <p className="mt-2 text-lg font-black text-slate-100">{Number(treeStatus?.assignments_missing_bindings || 0).toLocaleString("pt-BR")}</p>
               </div>
             </div>
 
@@ -1706,8 +1706,8 @@ export default function WorkforceOpsTab({ eventId }) {
             <div className={`card p-4 border ${operationalHealthStatus.cardClass}`}>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Avancado</p>
-                  <p className="mt-1 text-sm text-gray-400">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Avancado</p>
+                  <p className="mt-1 text-sm text-slate-400">
                     Diagnostico e manutencao do modulo. Use quando houver divergencia, falha de sincronizacao ou ajuste estrutural.
                   </p>
                 </div>
@@ -1717,21 +1717,21 @@ export default function WorkforceOpsTab({ eventId }) {
               </div>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Base usada na tela</p>
-                  <p className="mt-2 text-sm font-semibold text-white">{formatOperationalSourceLabel(treeStatus?.source_preference)}</p>
+                <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500">Base usada na tela</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-100">{formatOperationalSourceLabel(treeStatus?.source_preference)}</p>
                 </div>
-                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Cadastros antigos ainda ativos</p>
-                  <p className="mt-2 text-lg font-black text-white">{Number(legacyManagersCount).toLocaleString("pt-BR")}</p>
+                <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500">Cadastros antigos ainda ativos</p>
+                  <p className="mt-2 text-lg font-black text-slate-100">{Number(legacyManagersCount).toLocaleString("pt-BR")}</p>
                 </div>
-                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Estrutura pronta para uso</p>
-                  <p className="mt-2 text-sm font-semibold text-white">{treeStatus?.tree_ready ? "Sim" : "Parcial"}</p>
+                <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500">Estrutura pronta para uso</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-100">{treeStatus?.tree_ready ? "Sim" : "Parcial"}</p>
                 </div>
-                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Dados salvos neste dispositivo</p>
-                  <p className="mt-2 text-sm font-semibold text-white">{loadedFromSnapshot ? "Em uso" : "Atualizados"}</p>
+                <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500">Dados salvos neste dispositivo</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-100">{loadedFromSnapshot ? "Em uso" : "Atualizados"}</p>
                 </div>
               </div>
 
@@ -1754,17 +1754,17 @@ export default function WorkforceOpsTab({ eventId }) {
               )}
 
               {treeBlockers.length > 0 && (
-                <p className="mt-3 text-xs text-gray-400">
+                <p className="mt-3 text-xs text-slate-400">
                   Pendencias atuais: {treeBlockers.map((item) => item.replace(/_/g, " ")).join(", ")}.
                 </p>
               )}
             </div>
 
-            <div className={`card p-4 border border-gray-800 bg-gray-900/40 ${operationalHealthStatus.cardClass}`}>
+            <div className={`card p-4 border border-slate-800/40 bg-slate-900/40 ${operationalHealthStatus.cardClass}`}>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Situacao do sistema</p>
-                  <p className="mt-1 text-sm text-gray-400">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Situacao do sistema</p>
+                  <p className="mt-1 text-sm text-slate-400">
                     Resumo interno da tabela, da sincronizacao offline e dos dados salvos neste dispositivo.
                   </p>
                 </div>
@@ -1817,62 +1817,62 @@ export default function WorkforceOpsTab({ eventId }) {
               </div>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                  <div className="flex items-center gap-2 text-gray-500">
+                <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                  <div className="flex items-center gap-2 text-slate-500">
                     <Activity size={14} />
                     <p className="text-[10px] uppercase tracking-wider">Servicos acompanhados</p>
                   </div>
-                  <p className="mt-2 text-lg font-black text-white">
+                  <p className="mt-2 text-lg font-black text-slate-100">
                     {observedCriticalEndpoints.toLocaleString("pt-BR")}
-                    <span className="ml-2 text-xs font-medium text-gray-500">/ {Number(operationalHealth?.summary?.critical_endpoints_total || 0).toLocaleString("pt-BR")}</span>
+                    <span className="ml-2 text-xs font-medium text-slate-500">/ {Number(operationalHealth?.summary?.critical_endpoints_total || 0).toLocaleString("pt-BR")}</span>
                   </p>
                 </div>
-                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                  <div className="flex items-center gap-2 text-gray-500">
+                <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                  <div className="flex items-center gap-2 text-slate-500">
                     <ShieldAlert size={14} />
                     <p className="text-[10px] uppercase tracking-wider">Envio offline</p>
                   </div>
-                  <p className={`mt-2 text-lg font-black ${syncFailureRate > 0 ? "text-rose-300" : "text-white"}`}>
+                  <p className={`mt-2 text-lg font-black ${syncFailureRate > 0 ? "text-rose-300" : "text-slate-100"}`}>
                     {syncFailureRate.toLocaleString("pt-BR")}%
                   </p>
-                  <p className="mt-1 text-[11px] text-gray-500">
+                  <p className="mt-1 text-[11px] text-slate-500">
                     {Number(operationalHealth?.summary?.sync_failed_requests || 0).toLocaleString("pt-BR")} falha(s) em{" "}
                     {Number(operationalHealth?.summary?.sync_requests_total || 0).toLocaleString("pt-BR")} envio(s)
                   </p>
                 </div>
-                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                  <div className="flex items-center gap-2 text-gray-500">
+                <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                  <div className="flex items-center gap-2 text-slate-500">
                     <Clock3 size={14} />
                     <p className="text-[10px] uppercase tracking-wider">Falhas no cache local</p>
                   </div>
-                  <p className={`mt-2 text-lg font-black ${snapshotInvalidCount > 0 ? "text-rose-300" : "text-white"}`}>
+                  <p className={`mt-2 text-lg font-black ${snapshotInvalidCount > 0 ? "text-rose-300" : "text-slate-100"}`}>
                     {snapshotInvalidCount.toLocaleString("pt-BR")}
                   </p>
-                  <p className="mt-1 text-[11px] text-gray-500">
+                  <p className="mt-1 text-[11px] text-slate-500">
                     Dados salvos usados {snapshotFallbackUsed.toLocaleString("pt-BR")} vez(es) no periodo.
                   </p>
                 </div>
-                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Periodo analisado</p>
-                  <p className="mt-2 text-lg font-black text-white">
+                <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500">Periodo analisado</p>
+                  <p className="mt-2 text-lg font-black text-slate-100">
                     {Number(operationalHealth?.window_minutes || 60).toLocaleString("pt-BR")} min
                   </p>
-                  <p className="mt-1 text-[11px] text-gray-500">
+                  <p className="mt-1 text-[11px] text-slate-500">
                     Atualizado em {operationalHealth?.generated_at ? new Date(operationalHealth.generated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "--:--"}
                   </p>
                 </div>
               </div>
 
               <div className="mt-4 grid gap-3 xl:grid-cols-[1.15fr,0.85fr]">
-                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+                <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider text-gray-500">Servicos com alerta</p>
-                      <p className="mt-1 text-xs text-gray-500">
+                      <p className="text-[10px] uppercase tracking-wider text-slate-500">Servicos com alerta</p>
+                      <p className="mt-1 text-xs text-slate-500">
                         Aqui aparecem apenas leituras com alerta ou falha dentro do periodo analisado.
                       </p>
                     </div>
-                    <span className="rounded-lg border border-gray-800 bg-gray-900/70 px-2 py-1 text-[10px] uppercase tracking-wider text-gray-400">
+                    <span className="rounded-lg border border-slate-800/40 bg-slate-900/70 px-2 py-1 text-[10px] uppercase tracking-wider text-slate-400">
                       {endpointAlerts.length} alerta(s)
                     </span>
                   </div>
@@ -1886,17 +1886,17 @@ export default function WorkforceOpsTab({ eventId }) {
                       {endpointAlerts.slice(0, 5).map((row) => {
                         const rowStatus = operationalStatusMeta(row.status);
                         return (
-                          <div key={row.endpoint} className="rounded-xl border border-gray-800 bg-gray-900/60 p-3">
+                          <div key={row.endpoint} className="rounded-xl border border-slate-800/40 bg-slate-900/60 p-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div>
-                                <p className="text-sm font-semibold text-white">{formatOperationalEndpointLabel(row.endpoint)}</p>
-                                <p className="mt-1 text-[11px] font-mono text-gray-500">{row.endpoint}</p>
+                                <p className="text-sm font-semibold text-slate-100">{formatOperationalEndpointLabel(row.endpoint)}</p>
+                                <p className="mt-1 text-[11px] font-mono text-slate-500">{row.endpoint}</p>
                               </div>
                               <span className={`rounded-lg border px-2 py-1 text-[10px] uppercase tracking-wider ${rowStatus.badgeClass}`}>
                                 {rowStatus.label}
                               </span>
                             </div>
-                            <p className="mt-2 text-xs text-gray-400">
+                            <p className="mt-2 text-xs text-slate-400">
                               Falhas: {Number(row.failure_rate_pct || 0).toLocaleString("pt-BR")}% • Lentidao p95:{" "}
                               {Number(row.p95_latency_ms || 0).toLocaleString("pt-BR")}ms • Leituras:{" "}
                               {Number(row.total_requests || 0).toLocaleString("pt-BR")}
@@ -1908,30 +1908,30 @@ export default function WorkforceOpsTab({ eventId }) {
                   )}
                 </div>
 
-                <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Resumo rapido</p>
+                <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500">Resumo rapido</p>
                   <div className="mt-4 space-y-3 text-sm">
                     <div className="flex items-start justify-between gap-3">
-                      <span className="text-gray-400">Envio offline</span>
+                      <span className="text-slate-400">Envio offline</span>
                       <span className={syncFailureRate > 0 ? "font-semibold text-rose-300" : "font-semibold text-emerald-300"}>
                         {syncHealth ? `${Number(syncHealth.failed_requests || 0).toLocaleString("pt-BR")} falha(s)` : "Sem leitura"}
                       </span>
                     </div>
                     <div className="flex items-start justify-between gap-3">
-                      <span className="text-gray-400">Cache local com falha</span>
+                      <span className="text-slate-400">Cache local com falha</span>
                       <span className={snapshotInvalidCount > 0 ? "font-semibold text-rose-300" : "font-semibold text-emerald-300"}>
                         {snapshotInvalidCount.toLocaleString("pt-BR")}
                       </span>
                     </div>
                     <div className="flex items-start justify-between gap-3">
-                      <span className="text-gray-400">Uso de dados salvos</span>
+                      <span className="text-slate-400">Uso de dados salvos</span>
                       <span className={snapshotFallbackUsed > 0 ? "font-semibold text-amber-300" : "font-semibold text-emerald-300"}>
                         {snapshotFallbackUsed.toLocaleString("pt-BR")}
                       </span>
                     </div>
                     <div className="flex items-start justify-between gap-3">
-                      <span className="text-gray-400">Procedimento</span>
-                      <span className="font-mono text-xs text-white">docs/qa/workforce_incident_playbook.md</span>
+                      <span className="text-slate-400">Procedimento</span>
+                      <span className="font-mono text-xs text-slate-100">docs/qa/workforce_incident_playbook.md</span>
                     </div>
                   </div>
                 </div>
@@ -1941,9 +1941,9 @@ export default function WorkforceOpsTab({ eventId }) {
         )}
 
         {activeOverviewTab === "operation" && (
-          <div className="card overflow-hidden p-0 border border-gray-800">
-          <table className="w-full text-left text-sm text-gray-300">
-            <thead className="bg-gray-900/80 text-gray-500 uppercase text-[10px] tracking-wider border-b border-gray-800">
+          <div className="card overflow-hidden p-0 border border-slate-800/40">
+          <table className="w-full text-left text-sm text-slate-300">
+            <thead className="bg-slate-800/50 text-slate-500 uppercase text-[10px] tracking-wider border-b border-slate-800/40">
               <tr>
                 <th className="px-5 py-4">Gerente / Lider</th>
                 <th className="px-5 py-4">Cargo / Setor</th>
@@ -1951,22 +1951,22 @@ export default function WorkforceOpsTab({ eventId }) {
                 <th className="px-5 py-4 text-right">Acoes</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800/60">
+            <tbody className="divide-y divide-slate-800/40">
               {loading ? (
                 <tr><td colSpan="4" className="p-10 text-center"><div className="spinner mx-auto" /></td></tr>
               ) : managerRows.length === 0 ? (
-                <tr><td colSpan="4" className="p-10 text-center text-gray-500">Nenhum gerente ou cargo gerencial configurado neste evento.</td></tr>
+                <tr><td colSpan="4" className="p-10 text-center text-slate-500">Nenhum gerente ou cargo gerencial configurado neste evento.</td></tr>
               ) : (
                 managerRows.map((mgr) => (
-                  <tr key={mgr.manager_key || `${mgr.role_id}-${mgr.sector}`} className="hover:bg-gray-800/30">
+                  <tr key={mgr.manager_key || `${mgr.role_id}-${mgr.sector}`} className="hover:bg-slate-800/30">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-black">
+                        <div className="w-10 h-10 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-black">
                           {(mgr.person_name || mgr.role_name || "?").charAt(0).toUpperCase()}
                         </div>
                         <div>
-                           <p className="font-semibold text-white">{mgr.person_name || mgr.role_name}</p>
-                           <p className="text-xs text-gray-500">{mgr.phone || mgr.person_email || "Sem contato"}</p>
+                           <p className="font-semibold text-slate-100">{mgr.person_name || mgr.role_name}</p>
+                           <p className="text-xs text-slate-500">{mgr.phone || mgr.person_email || "Sem contato"}</p>
                            {!mgr.user_id && (
                              <p className="text-[10px] text-amber-400 uppercase tracking-wider mt-1">
                                Operando por setor/cargo
@@ -1976,15 +1976,15 @@ export default function WorkforceOpsTab({ eventId }) {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <p className="text-white font-medium">{mgr.role_name}</p>
-                      <p className="text-xs text-gray-400 mt-1 uppercase">Setor: {(mgr.sector || "geral").replace(/_/g, " ")}</p>
+                      <p className="text-slate-100 font-medium">{mgr.role_name}</p>
+                      <p className="text-xs text-slate-400 mt-1 uppercase">Setor: {(mgr.sector || "geral").replace(/_/g, " ")}</p>
                     </td>
-                     <td className="px-5 py-4 text-gray-300">
-                        <div className="font-medium text-white whitespace-nowrap">
-                          <Users size={14} className="inline mr-2 text-gray-500" />
+                     <td className="px-5 py-4 text-slate-300">
+                        <div className="font-medium text-slate-100 whitespace-nowrap">
+                          <Users size={14} className="inline mr-2 text-slate-500" />
                           {Number(mgr.planned_team_size || mgr.team_size || 0).toLocaleString("pt-BR")} posição(ões)
                         </div>
-                        <p className="mt-1 text-xs text-gray-500">
+                        <p className="mt-1 text-xs text-slate-500">
                           Preenchido: {Number(mgr.filled_team_size || 0).toLocaleString("pt-BR")} • Liderança:{" "}
                           {Number(mgr.leadership_positions_total || 0).toLocaleString("pt-BR")} • Operação:{" "}
                           {Number(mgr.operational_members_total || 0).toLocaleString("pt-BR")}
@@ -1995,7 +1995,7 @@ export default function WorkforceOpsTab({ eventId }) {
                               <button
                                 type="button"
                                 onClick={() => handleCopyLink(mgr.qr_token)}
-                                className="p-1 px-2 text-[10px] bg-gray-800 border border-gray-700 rounded-lg inline-flex items-center gap-1"
+                                className="p-1 px-2 text-[10px] bg-slate-800/50 border border-slate-700/50 rounded-lg inline-flex items-center gap-1"
                               >
                                 <Copy size={11} /> Copiar link
                               </button>
@@ -2003,7 +2003,7 @@ export default function WorkforceOpsTab({ eventId }) {
                                 href={`${window.location.origin}/invite?token=${mgr.qr_token}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="p-1 px-2 text-[10px] text-brand-light border border-brand/30 rounded-lg inline-flex items-center gap-1"
+                                className="p-1 px-2 text-[10px] text-cyan-400 border border-cyan-500/30 rounded-lg inline-flex items-center gap-1"
                               >
                                 <QrCode size={11} /> QR
                               </a>
@@ -2036,7 +2036,7 @@ export default function WorkforceOpsTab({ eventId }) {
                         <button
                           type="button"
                           onClick={() => handleEnterManager(mgr)}
-                          className="btn-secondary h-9 px-3 font-semibold border-brand/50 text-brand-light hover:bg-brand/10"
+                          className="btn-secondary h-9 px-3 font-semibold border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10"
                         >
                           Abrir equipe
                         </button>
@@ -2099,9 +2099,9 @@ export default function WorkforceOpsTab({ eventId }) {
           <ArrowLeft size={16} /> Voltar para Liderança
         </button>
         <div className="text-right">
-          <p className="text-xs uppercase text-gray-500 tracking-wider">Tabela do Gerente</p>
-          <p className="text-lg font-black text-white">{selectedManager.person_name || selectedManager.role_name}</p>
-          <p className="text-[10px] text-brand uppercase mt-1">{selectedManager.role_name} — Setor: {(selectedManagerSector || "geral").replace(/_/g, " ")}</p>
+          <p className="text-xs uppercase text-slate-500 tracking-wider">Tabela do Gerente</p>
+          <p className="text-lg font-black text-slate-100">{selectedManager.person_name || selectedManager.role_name}</p>
+          <p className="text-[10px] text-cyan-400 uppercase mt-1">{selectedManager.role_name} — Setor: {(selectedManagerSector || "geral").replace(/_/g, " ")}</p>
           {!hasDirectManagerBinding && (
             <p className="text-[10px] text-amber-400 uppercase mt-2">
               Gerente sem usuário vinculado. A operação segue pelo setor/cargo configurado.
@@ -2111,11 +2111,11 @@ export default function WorkforceOpsTab({ eventId }) {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr,1fr]">
-        <div className="card border border-gray-800 bg-gray-900/40 p-4">
+        <div className="card border border-slate-800/40 bg-slate-900/40 p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Painel do Gerente</p>
-              <p className="mt-1 text-sm text-gray-400">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Painel do Gerente</p>
+              <p className="mt-1 text-sm text-slate-400">
                 Recuperado no fluxo operacional do gerente: custos, configuração do cargo e dados-base da liderança.
               </p>
             </div>
@@ -2147,94 +2147,94 @@ export default function WorkforceOpsTab({ eventId }) {
             </div>
           ) : (
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Nome</p>
-                <p className="mt-2 text-sm font-semibold text-white">{managerRoleSettings?.leader_name || selectedManager?.person_name || selectedManager?.role_name || "Nao informado"}</p>
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Nome</p>
+                <p className="mt-2 text-sm font-semibold text-slate-100">{managerRoleSettings?.leader_name || selectedManager?.person_name || selectedManager?.role_name || "Nao informado"}</p>
               </div>
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">CPF</p>
-                <p className="mt-2 text-sm font-semibold text-white">{managerRoleSettings?.leader_cpf || "Nao informado"}</p>
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">CPF</p>
+                <p className="mt-2 text-sm font-semibold text-slate-100">{managerRoleSettings?.leader_cpf || "Nao informado"}</p>
               </div>
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Telefone</p>
-                <p className="mt-2 text-sm font-semibold text-white">{managerRoleSettings?.leader_phone || selectedManager?.phone || "Nao informado"}</p>
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Telefone</p>
+                <p className="mt-2 text-sm font-semibold text-slate-100">{managerRoleSettings?.leader_phone || selectedManager?.phone || "Nao informado"}</p>
               </div>
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Tipo de custo</p>
-                <p className="mt-2 text-sm font-semibold text-white">
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Tipo de custo</p>
+                <p className="mt-2 text-sm font-semibold text-slate-100">
                   {String(managerRoleSettings?.cost_bucket || selectedManager?.cost_bucket || "operational") === "managerial"
                     ? "Gerencial"
                     : "Operacional"}
                 </p>
               </div>
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Quantidade de turnos</p>
-                <p className="mt-2 text-sm font-semibold text-white">{Number(managerRoleSettings?.max_shifts_event ?? 1).toLocaleString("pt-BR")}</p>
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Quantidade de turnos</p>
+                <p className="mt-2 text-sm font-semibold text-slate-100">{Number(managerRoleSettings?.max_shifts_event ?? 1).toLocaleString("pt-BR")}</p>
               </div>
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Horas por turno</p>
-                <p className="mt-2 text-sm font-semibold text-white">{Number(managerRoleSettings?.shift_hours ?? 8).toLocaleString("pt-BR")}h</p>
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Horas por turno</p>
+                <p className="mt-2 text-sm font-semibold text-slate-100">{Number(managerRoleSettings?.shift_hours ?? 8).toLocaleString("pt-BR")}h</p>
               </div>
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Refeicoes</p>
-                <p className="mt-2 text-sm font-semibold text-white">{Number(managerRoleSettings?.meals_per_day ?? 4).toLocaleString("pt-BR")} por dia</p>
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Refeicoes</p>
+                <p className="mt-2 text-sm font-semibold text-slate-100">{Number(managerRoleSettings?.meals_per_day ?? 4).toLocaleString("pt-BR")} por dia</p>
               </div>
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Valor por turno</p>
-                <p className="mt-2 text-sm font-semibold text-white">R$ {Number(managerRoleSettings?.payment_amount ?? 0).toFixed(2)}</p>
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Valor por turno</p>
+                <p className="mt-2 text-sm font-semibold text-slate-100">R$ {Number(managerRoleSettings?.payment_amount ?? 0).toFixed(2)}</p>
               </div>
             </div>
           )}
         </div>
 
-        <div className="card border border-gray-800 bg-gray-900/40 p-4 space-y-4">
+        <div className="card border border-slate-800/40 bg-slate-900/40 p-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-gray-500">Total planejado</p>
-              <p className="mt-2 text-lg font-black text-white">{selectedManagerPlannedTeamSize.toLocaleString("pt-BR")}</p>
+            <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">Total planejado</p>
+              <p className="mt-2 text-lg font-black text-slate-100">{selectedManagerPlannedTeamSize.toLocaleString("pt-BR")}</p>
             </div>
-            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-gray-500">Preenchido</p>
-              <p className="mt-2 text-lg font-black text-white">{selectedManagerFilledTeamSize.toLocaleString("pt-BR")}</p>
+            <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">Preenchido</p>
+              <p className="mt-2 text-lg font-black text-slate-100">{selectedManagerFilledTeamSize.toLocaleString("pt-BR")}</p>
             </div>
-            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-gray-500">Liderança</p>
-              <p className="mt-2 text-lg font-black text-white">{selectedManagerLeadershipTotal.toLocaleString("pt-BR")}</p>
-              <p className="mt-1 text-[11px] text-gray-500">
+            <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">Liderança</p>
+              <p className="mt-2 text-lg font-black text-slate-100">{selectedManagerLeadershipTotal.toLocaleString("pt-BR")}</p>
+              <p className="mt-1 text-[11px] text-slate-500">
                 {selectedManagerLeadershipFilledTotal.toLocaleString("pt-BR")} preenchida(s)
               </p>
             </div>
-            <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-gray-500">Operação</p>
-              <p className="mt-2 text-lg font-black text-white">{selectedManagerOperationalTotal.toLocaleString("pt-BR")}</p>
+            <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">Operação</p>
+              <p className="mt-2 text-lg font-black text-slate-100">{selectedManagerOperationalTotal.toLocaleString("pt-BR")}</p>
             </div>
           </div>
 
           <div>
-            <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Estrutura operacional</p>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Estrutura operacional</p>
             <div className="mt-3 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Dias do evento</p>
-                <p className="mt-2 text-lg font-black text-white">{eventStructure.days}</p>
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Dias do evento</p>
+                <p className="mt-2 text-lg font-black text-slate-100">{eventStructure.days}</p>
               </div>
-              <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Turnos operacionais</p>
-                <p className="mt-2 text-lg font-black text-white">{eventStructure.shifts}</p>
-                <p className="mt-1 text-[11px] text-gray-500">
+              <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Turnos operacionais</p>
+                <p className="mt-2 text-lg font-black text-slate-100">{eventStructure.shifts}</p>
+                <p className="mt-1 text-[11px] text-slate-500">
                   {eventStructure.registeredShifts} janela(s) cadastrada(s) com base de {eventStructure.shiftHours}h por turno.
                 </p>
               </div>
             </div>
-            <p className="mt-3 text-xs text-gray-500">
+            <p className="mt-3 text-xs text-slate-500">
               A alocacao manual do gerente continua permitindo escolher dia e turno do evento para cada membro.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-gray-800 bg-gray-950/50 p-3">
+          <div className="rounded-2xl border border-slate-800/40 bg-slate-950/50 p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-gray-500">Criar cargo do setor</p>
-                <p className="mt-1 text-xs text-gray-500">Novo cargo no setor atual do gerente, incluindo coordenação ou supervisão.</p>
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Criar cargo do setor</p>
+                <p className="mt-1 text-xs text-slate-500">Novo cargo no setor atual do gerente, incluindo coordenação ou supervisão.</p>
               </div>
               <button
                 type="button"
@@ -2255,7 +2255,7 @@ export default function WorkforceOpsTab({ eventId }) {
                   onChange={(e) => setNewRoleName(e.target.value)}
                 />
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-500">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500">
                     Setor: {(selectedManagerSector || "geral").replace(/_/g, " ")}
                   </p>
                   <button
@@ -2273,19 +2273,19 @@ export default function WorkforceOpsTab({ eventId }) {
         </div>
       </div>
 
-      <div className="card border border-gray-800 bg-gray-900/40 p-4">
+      <div className="card border border-slate-800/40 bg-slate-900/40 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Situação atual</p>
-              <p className="mt-1 text-sm text-gray-400">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Situação atual</p>
+              <p className="mt-1 text-sm text-slate-400">
                 Esta tabela usa {eventTreeActive ? "os cargos configurados neste evento" : "o cadastro antigo"} como fonte principal.
               </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400">
+            <span className="rounded-xl border border-slate-800/40 bg-slate-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-slate-400">
               Gerentes: {Number(treeStatus?.manager_roots_count || 0).toLocaleString("pt-BR")}
             </span>
-            <span className="rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400">
+            <span className="rounded-xl border border-slate-800/40 bg-slate-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-slate-400">
               Sem gerente: {Number(treeStatus?.assignments_missing_bindings || 0).toLocaleString("pt-BR")}
             </span>
           </div>
@@ -2305,15 +2305,15 @@ export default function WorkforceOpsTab({ eventId }) {
       </div>
 
       {selectedManagerStructureRows.length > 0 && (
-        <div className="card border border-gray-800 bg-gray-900/40 p-4">
+        <div className="card border border-slate-800/40 bg-slate-900/40 p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Liderança e cargos do setor</p>
-              <p className="mt-1 text-sm text-gray-400">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Liderança e cargos do setor</p>
+              <p className="mt-1 text-sm text-slate-400">
                 Gerente, coordenação, supervisão e demais cargos do setor aparecem aqui antes da equipe operacional.
               </p>
             </div>
-            <div className="rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400">
+            <div className="rounded-xl border border-slate-800/40 bg-slate-950/60 px-3 py-2 text-[10px] uppercase tracking-wider text-slate-400">
                {selectedManagerStructureRows.length} cargo(s) no topo
             </div>
           </div>
@@ -2324,29 +2324,29 @@ export default function WorkforceOpsTab({ eventId }) {
               return (
                 <div
                   key={row.event_role_public_id || row.event_role_id || row.id}
-                  className="rounded-2xl border border-gray-800 bg-gray-950/60 p-4"
+                  className="rounded-2xl border border-slate-800/40 bg-slate-950/60 p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider text-gray-500">
+                      <p className="text-[10px] uppercase tracking-wider text-slate-500">
                         {formatRoleClassLabel(row.role_class)}
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-white">{row.role_name || "Cargo"}</p>
-                      <p className="mt-1 text-xs text-gray-500">
+                      <p className="mt-1 text-sm font-semibold text-slate-100">{row.role_name || "Cargo"}</p>
+                      <p className="mt-1 text-xs text-slate-500">
                         {row.linked_leader_name || "Sem liderança vinculada"}
                       </p>
                       {!row.leader_participant_name && !row.leader_name && row.linked_leader_name && (
-                        <p className="mt-1 text-[10px] uppercase tracking-wider text-brand">
+                        <p className="mt-1 text-[10px] uppercase tracking-wider text-cyan-400">
                           Liderança herdada da {formatRoleClassLabel(row.linked_leader_role_class || "manager").toLowerCase()}
                         </p>
                       )}
                     </div>
-                    <div className="rounded-xl border border-gray-800 bg-gray-900/80 px-2 py-1 text-[10px] uppercase tracking-wider text-gray-300">
+                    <div className="rounded-xl border border-slate-800/40 bg-slate-800/50 px-2 py-1 text-[10px] uppercase tracking-wider text-slate-300">
                       {Number(row.planned_members_count || row.members_count || 0).toLocaleString("pt-BR")} planejado(s)
                     </div>
                   </div>
 
-                  <div className="mt-3 space-y-1 text-[11px] text-gray-500">
+                  <div className="mt-3 space-y-1 text-[11px] text-slate-500">
                     <p>Setor: {(row.sector || selectedManagerSector || "geral").replace(/_/g, " ")}</p>
                     <p>
                       Preenchido: {Number(row.filled_members_count || 0).toLocaleString("pt-BR")} /{" "}
@@ -2369,7 +2369,7 @@ export default function WorkforceOpsTab({ eventId }) {
                           <button
                             type="button"
                             onClick={() => handleCopyLink(row.qr_token)}
-                            className="p-1 px-2 text-[10px] bg-gray-800 border border-gray-700 rounded-lg inline-flex items-center gap-1"
+                            className="p-1 px-2 text-[10px] bg-slate-800/50 border border-slate-700/50 rounded-lg inline-flex items-center gap-1"
                           >
                             <Copy size={11} /> Copiar link
                           </button>
@@ -2377,7 +2377,7 @@ export default function WorkforceOpsTab({ eventId }) {
                             href={`${window.location.origin}/invite?token=${row.qr_token}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 px-2 text-[10px] text-brand-light border border-brand/30 rounded-lg inline-flex items-center gap-1"
+                            className="p-1 px-2 text-[10px] text-cyan-400 border border-cyan-500/30 rounded-lg inline-flex items-center gap-1"
                           >
                             <QrCode size={11} /> QR
                           </a>
@@ -2403,7 +2403,7 @@ export default function WorkforceOpsTab({ eventId }) {
                           })
                         }
                         disabled={Number(row?.leader_participant_id || row?.participant_id || 0) <= 0}
-                        className="btn-secondary h-9 px-3 text-xs flex items-center gap-2 border-brand/40 text-brand-light hover:bg-brand/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="btn-secondary h-9 px-3 text-xs flex items-center gap-2 border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                         title={
                           Number(row?.leader_participant_id || row?.participant_id || 0) > 0
                             ? "Emitir cartao para este cargo diretivo"
@@ -2439,8 +2439,8 @@ export default function WorkforceOpsTab({ eventId }) {
       )}
 
       {selectedIds.length > 0 && (
-        <div className="bg-brand/10 border border-brand/20 p-4 rounded-2xl flex items-center justify-between">
-          <span className="text-brand font-semibold">{selectedIds.length} selecionados</span>
+        <div className="bg-cyan-500/10 border border-cyan-500/20 p-4 rounded-2xl flex items-center justify-between">
+          <span className="text-cyan-400 font-semibold">{selectedIds.length} selecionados</span>
           <div className="flex gap-2">
             {canIssueWorkforceCards && (
               <button
@@ -2453,7 +2453,7 @@ export default function WorkforceOpsTab({ eventId }) {
                   })
                 }
                 disabled={!canIssueSelectedParticipants}
-                className="btn-secondary h-9 px-3 text-xs flex items-center gap-2 border-brand/40 text-brand-light hover:bg-brand/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className="btn-secondary h-9 px-3 text-xs flex items-center gap-2 border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                 title={
                   canIssueSelectedParticipants
                     ? "Emitir cartoes para os participantes selecionados"
@@ -2486,7 +2486,7 @@ export default function WorkforceOpsTab({ eventId }) {
 
       <div className="flex flex-col lg:flex-row gap-3 items-center justify-between">
         <div className="relative w-full lg:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
           <input
             className="input pl-9 w-full"
             placeholder="Buscar membro..."
@@ -2512,9 +2512,9 @@ export default function WorkforceOpsTab({ eventId }) {
         </div>
       </div>
 
-      <div className="card overflow-hidden p-0 border border-gray-800">
-        <table className="w-full text-left text-sm text-gray-300">
-          <thead className="bg-gray-900/80 text-gray-500 uppercase text-[10px] tracking-wider border-b border-gray-800">
+      <div className="card overflow-hidden p-0 border border-slate-800/40">
+        <table className="w-full text-left text-sm text-slate-300">
+          <thead className="bg-slate-800/50 text-slate-500 uppercase text-[10px] tracking-wider border-b border-slate-800/40">
             <tr>
               <th className="px-5 py-4 w-10">
                 <input type="checkbox" className="checkbox" checked={teamMembers.length > 0 && selectedIds.length === teamMembers.length} onChange={toggleSelectAll} />
@@ -2524,26 +2524,26 @@ export default function WorkforceOpsTab({ eventId }) {
               <th className="px-5 py-4 text-right">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800/60">
+          <tbody className="divide-y divide-slate-800/40">
             {loading ? (
               <tr><td colSpan="4" className="p-10 text-center"><div className="spinner mx-auto" /></td></tr>
             ) : teamMembers.length === 0 ? (
-              <tr><td colSpan="4" className="p-10 text-center text-gray-500">Nenhum membro nesta equipe.</td></tr>
+              <tr><td colSpan="4" className="p-10 text-center text-slate-500">Nenhum membro nesta equipe.</td></tr>
             ) : (
               teamMembers.map((m) => (
-                <tr key={m.participant_id} className="hover:bg-gray-800/30">
+                <tr key={m.participant_id} className="hover:bg-slate-800/30">
                   <td className="px-5 py-4">
                     <input type="checkbox" className="checkbox" checked={selectedIds.includes(m.participant_id)} onChange={() => toggleSelect(m.participant_id)} />
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-black">
+                      <div className="w-10 h-10 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-black">
                         {(m.name || "?").charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-semibold text-white">{m.name}</p>
-                        <p className="text-xs text-gray-500">{m.phone || m.email || "Sem contato"}</p>
-                        <p className="text-[10px] text-gray-600 uppercase tracking-wider">REF #{m.participant_id}</p>
+                        <p className="font-semibold text-slate-100">{m.name}</p>
+                        <p className="text-xs text-slate-500">{m.phone || m.email || "Sem contato"}</p>
+                        <p className="text-[10px] text-slate-600 uppercase tracking-wider">REF #{m.participant_id}</p>
                         {(m.cost_bucket || "operational") === "managerial" ? (
                           <p className="text-[10px] text-amber-400 uppercase tracking-wider mt-1">Cargo gerencial/diretivo</p>
                         ) : (
@@ -2553,11 +2553,11 @@ export default function WorkforceOpsTab({ eventId }) {
                     </div>
                   </td>
                   <td className="px-5 py-4">
-                    <div className="text-xs text-gray-400 uppercase">{(m.sector || selectedManagerSector || "geral").replace(/_/g, " ")}</div>
+                    <div className="text-xs text-slate-400 uppercase">{(m.sector || selectedManagerSector || "geral").replace(/_/g, " ")}</div>
                     <div className="flex gap-1 mt-1">
                       <button
                         onClick={() => handleCopyLink(m.qr_token)}
-                        className="p-1 px-2 text-[10px] bg-gray-800 border border-gray-700 rounded-lg inline-flex items-center gap-1"
+                        className="p-1 px-2 text-[10px] bg-slate-800/50 border border-slate-700/50 rounded-lg inline-flex items-center gap-1"
                       >
                         <Copy size={11} /> Link
                       </button>
@@ -2565,12 +2565,12 @@ export default function WorkforceOpsTab({ eventId }) {
                         href={`${window.location.origin}/invite?token=${m.qr_token}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-1 px-2 text-[10px] text-brand-light border border-brand/30 rounded-lg inline-flex items-center gap-1"
+                        className="p-1 px-2 text-[10px] text-cyan-400 border border-cyan-500/30 rounded-lg inline-flex items-center gap-1"
                       >
                         <QrCode size={11} /> QR
                       </a>
                     </div>
-                    <div className="mt-2 text-[10px] text-gray-500">
+                    <div className="mt-2 text-[10px] text-slate-500">
                       Turnos: {m.max_shifts_event ?? 1} | Horas: {m.shift_hours ?? 8}h | Refeições/dia: {m.meals_per_day ?? 4} | Valor/turno: R$ {Number(m.payment_amount ?? 0).toFixed(2)}
                     </div>
                   </td>
@@ -2581,7 +2581,7 @@ export default function WorkforceOpsTab({ eventId }) {
                           setSettingsParticipant(m);
                           setIsSettingsModalOpen(true);
                         }}
-                        className="p-2 rounded-lg border border-gray-700 text-cyan-400 hover:bg-cyan-900/20"
+                        className="p-2 rounded-lg border border-slate-700/50 text-cyan-400 hover:bg-cyan-900/20"
                         title="Configuração operacional"
                       >
                         <Briefcase size={14} />
@@ -2591,14 +2591,14 @@ export default function WorkforceOpsTab({ eventId }) {
                           setEditingParticipant(m);
                           setIsEditModalOpen(true);
                         }}
-                        className="p-2 rounded-lg border border-gray-700 text-blue-400 hover:bg-blue-900/20"
+                        className="p-2 rounded-lg border border-slate-700/50 text-blue-400 hover:bg-blue-900/20"
                         title="Editar"
                       >
                         <Pencil size={14} />
                       </button>
                       <button
                         onClick={() => handleDeleteMember(m)}
-                        className="p-2 rounded-lg border border-gray-700 text-red-400 hover:bg-red-900/20"
+                        className="p-2 rounded-lg border border-slate-700/50 text-red-400 hover:bg-red-900/20"
                         title="Excluir participante"
                       >
                         <Trash2 size={14} />

@@ -40,20 +40,20 @@ export default function EditGuestModal({ isOpen, guest, onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-        <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Pencil size={18} className="text-brand" /> Editar Convidado
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+        <div className="p-6 border-b border-slate-800/40 flex justify-between items-center">
+          <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+            <Pencil size={18} className="text-cyan-400" /> Editar Convidado
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-slate-400 hover:text-red-400 transition-colors">
             <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSave} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-400 mb-1">Nome</label>
+            <label className="block text-xs text-slate-400 uppercase tracking-wider mb-1">Nome</label>
             <input
               type="text"
               className="input w-full"
@@ -63,7 +63,7 @@ export default function EditGuestModal({ isOpen, guest, onClose, onSaved }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-400 mb-1">E-mail</label>
+            <label className="block text-xs text-slate-400 uppercase tracking-wider mb-1">E-mail</label>
             <input
               type="email"
               className="input w-full"
@@ -73,7 +73,7 @@ export default function EditGuestModal({ isOpen, guest, onClose, onSaved }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-400 mb-1">Telefone</label>
+            <label className="block text-xs text-slate-400 uppercase tracking-wider mb-1">Telefone</label>
             <input
               type="text"
               className="input w-full"
@@ -83,10 +83,10 @@ export default function EditGuestModal({ isOpen, guest, onClose, onSaved }) {
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button type="button" className="btn-secondary flex-1" onClick={onClose}>
+            <button type="button" className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-semibold transition-colors flex-1" onClick={onClose}>
               Cancelar
             </button>
-            <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2" disabled={saving}>
+            <button type="submit" className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex-1 flex items-center justify-center gap-2" disabled={saving}>
               <Save size={16} /> {saving ? "Salvando..." : "Salvar"}
             </button>
           </div>

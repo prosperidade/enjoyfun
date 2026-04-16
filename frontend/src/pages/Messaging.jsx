@@ -9,7 +9,7 @@ const PAGE_SIZE = 25;
 
 const CHANNEL_TABS = [
   { id: 'wa',    icon: MessageCircle, label: 'WhatsApp',       color: 'text-green-400' },
-  { id: 'email', icon: Mail,          label: 'E-mail (Resend)', color: 'text-blue-400'  },
+  { id: 'email', icon: Mail,          label: 'E-mail (Resend)', color: 'text-cyan-400'  },
 ];
 
 export default function Messaging() {
@@ -96,20 +96,20 @@ export default function Messaging() {
   };
 
   const StatusBadge = ({ status }) => {
-    if (!status) return <span className="badge badge-yellow">Não configurado</span>;
+    if (!status) return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">Não configurado</span>;
     return status === 'ok'
-      ? <span className="badge badge-green flex items-center gap-1"><CheckCircle size={11}/> Ativo</span>
-      : <span className="badge badge-red flex items-center gap-1"><AlertCircle size={11}/> Erro</span>;
+      ? <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/30"><CheckCircle size={11}/> Ativo</span>
+      : <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30"><AlertCircle size={11}/> Erro</span>;
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="page-title flex items-center gap-2">
+        <h1 className="text-2xl font-bold font-headline text-slate-100 flex items-center gap-2">
           <MessageCircle size={22} className="text-green-400" /> Mensageria
         </h1>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="text-slate-500 text-sm mt-1">
           Disparo de WhatsApp e E-mail
         </p>
       </div>
@@ -117,15 +117,15 @@ export default function Messaging() {
       {/* Status cards */}
       <div className="grid grid-cols-2 gap-4 max-w-2xl">
         {[
-          { label: 'WhatsApp (Evolution)', status: waStatus, icon: MessageCircle, color: 'text-green-400' },
-          { label: 'E-mail (Resend)',      status: emailStatus, icon: Mail,       color: 'text-blue-400'  },
+          { label: 'WhatsApp (Evolution)', status: waStatus, icon: MessageCircle, color: 'text-green-400', borderActive: 'border-green-800/40 bg-green-900/10' },
+          { label: 'E-mail (Resend)',      status: emailStatus, icon: Mail,       color: 'text-cyan-400',  borderActive: 'border-cyan-800/40 bg-cyan-900/10'   },
         ].map((item) => (
-          <div key={item.label} className={`card flex items-center gap-3 border ${
-            item.status === 'ok' ? 'border-green-800/40 bg-green-900/10' : 'border-gray-800'
+          <div key={item.label} className={`bg-[#111827] rounded-2xl p-4 flex items-center gap-3 border ${
+            item.status === 'ok' ? item.borderActive : 'border-slate-800/40'
           }`}>
             <item.icon size={18} className={item.color} />
             <div>
-              <p className="text-sm font-semibold text-white">{item.label}</p>
+              <p className="text-sm font-semibold text-slate-100">{item.label}</p>
               <StatusBadge status={item.status} />
             </div>
           </div>
@@ -133,14 +133,14 @@ export default function Messaging() {
       </div>
 
       {/* Main tabs */}
-      <div className="flex gap-1 bg-gray-800 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-slate-800/50 p-1 rounded-xl w-fit">
         {[
           { id: 'send',    icon: Send,     label: 'Enviar' },
           { id: 'history', icon: History,  label: 'Histórico' },
         ].map(t => (
           <button key={t.id} onClick={() => setMainTab(t.id)}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-              mainTab === t.id ? 'bg-purple-700 text-white' : 'text-gray-400 hover:text-white'
+              mainTab === t.id ? 'bg-cyan-500 text-slate-950' : 'text-slate-400 hover:text-slate-100'
             }`}>
             <t.icon size={14}/>{t.label}
           </button>
@@ -149,43 +149,56 @@ export default function Messaging() {
 
       {/* ── Send ─────────────────────────────────────────────────── */}
       {mainTab === 'send' && (
-        <div className="card max-w-lg">
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-6 max-w-lg">
           {/* Channel sub-tabs */}
-          <div className="flex gap-1 bg-gray-900 p-1 rounded-xl w-fit mb-5">
-            {CHANNEL_TABS.map(c => (
-              <button key={c.id} onClick={() => setTab(c.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  tab === c.id ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'
-                }`}>
-                <c.icon size={13} className={tab === c.id ? c.color : ''}/>{c.label}
-              </button>
-            ))}
+          <div className="flex gap-1 bg-slate-800/50 p-1 rounded-xl w-fit mb-5">
+            {CHANNEL_TABS.map(c => {
+              const isWa = c.id === 'wa';
+              const isActive = tab === c.id;
+              const activeStyle = isWa
+                ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30';
+              return (
+                <button key={c.id} onClick={() => setTab(c.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    isActive ? activeStyle : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                  }`}>
+                  <c.icon size={13} className={isActive ? c.color : ''}/>{c.label}
+                </button>
+              );
+            })}
           </div>
 
           <form onSubmit={handleSend} className="space-y-4">
             {tab === 'wa' ? (
               <div>
-                <label className="input-label">Número WhatsApp *</label>
-                <input className="input" type="tel" placeholder="+5511999990000"
+                <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Número WhatsApp *</label>
+                <input className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none w-full transition-colors" type="tel" placeholder="+5511999990000"
                   value={phone} onChange={e => setPhone(e.target.value)} required />
-                <p className="text-xs text-gray-500 mt-1">Formato: +55 + DDD + número</p>
+                <p className="text-xs text-slate-500 mt-1">Formato: +55 + DDD + número</p>
               </div>
             ) : (
               <div>
-                <label className="input-label">Destinatário (e-mail) *</label>
-                <input className="input" type="email" placeholder="cliente@email.com"
+                <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Destinatário (e-mail) *</label>
+                <input className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none w-full transition-colors" type="email" placeholder="cliente@email.com"
                   value={emailTo} onChange={e => setEmailTo(e.target.value)} required />
               </div>
             )}
             <div>
-              <label className="input-label">Mensagem *</label>
-              <textarea className="input resize-none" rows={4} placeholder="Digite a mensagem..."
+              <label className="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Mensagem *</label>
+              <textarea className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none w-full resize-none transition-colors" rows={4} placeholder="Digite a mensagem..."
                 value={message} onChange={e => setMessage(e.target.value)} required />
-              <p className="text-xs text-gray-500 mt-1">{message.length} caracteres</p>
+              <p className="text-xs text-slate-500 mt-1">{message.length} caracteres</p>
             </div>
-            <button type="submit" disabled={sending} className="btn-primary w-full">
-              {sending ? <span className="spinner w-4 h-4"/> : <><Send size={14}/> Enviar via {tab === 'wa' ? 'WhatsApp' : 'E-mail'}</>}
-            </button>
+            {tab === 'wa' ? (
+              <button type="submit" disabled={sending} className="bg-green-500 hover:bg-green-400 text-white font-semibold rounded-xl px-4 py-2 w-full flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+                {sending ? <span className="spinner w-4 h-4"/> : <><Send size={14}/> Enviar via WhatsApp</>}
+              </button>
+            ) : (
+              <button type="submit" disabled={sending} className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 w-full flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+                {sending ? <span className="spinner w-4 h-4"/> : <><Send size={14}/> Enviar via E-mail</>}
+              </button>
+            )}
           </form>
         </div>
       )}
@@ -193,23 +206,34 @@ export default function Messaging() {
       {/* ── History ───────────────────────────────────────────────── */}
       {mainTab === 'history' && (
         <>
-          <div className="table-wrapper">
-            <table className="table">
-              <thead><tr>
-                <th>Canal</th><th>Destino</th><th>Mensagem</th><th>Status</th><th>Data</th>
+          <div className="overflow-x-auto rounded-2xl border border-slate-800/40 bg-[#111827]">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-slate-800/50">
+                <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Canal</th>
+                <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Destino</th>
+                <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Mensagem</th>
+                <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Status</th>
+                <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Data</th>
               </tr></thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-800/40">
                 {historyLoading
-                  ? <tr><td colSpan={5} className="text-center text-gray-500 py-8">Carregando histórico...</td></tr>
+                  ? <tr><td colSpan={5} className="text-center text-slate-500 py-8">Carregando histórico...</td></tr>
                   : history.length === 0
-                  ? <tr><td colSpan={5} className="text-center text-gray-500 py-8">Nenhuma mensagem no histórico</td></tr>
+                  ? <tr><td colSpan={5} className="text-center text-slate-500 py-8">Nenhuma mensagem no histórico</td></tr>
                   : history.map(msg => (
-                    <tr key={msg.id}>
-                      <td>{msg.direction === 'in' ? 'Recebida' : 'Enviada'}</td>
-                      <td className="font-mono text-xs">{msg.phone || msg.to || msg.email || '-'}</td>
-                      <td className="max-w-xs truncate">{msg.content || msg.message || '-'}</td>
-                      <td><span className={`badge ${msg.status === 'sent' || msg.status === 'read' ? 'badge-green' : msg.status === 'failed' ? 'badge-red' : 'badge-yellow'}`}>{msg.status}</span></td>
-                      <td className="text-xs text-gray-400">{msg.created_at ? new Date(msg.created_at).toLocaleString('pt-BR') : '-'}</td>
+                    <tr key={msg.id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="px-4 py-3 text-slate-300">{msg.direction === 'in' ? 'Recebida' : 'Enviada'}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-slate-400">{msg.phone || msg.to || msg.email || '-'}</td>
+                      <td className="px-4 py-3 max-w-xs truncate text-slate-300">{msg.content || msg.message || '-'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${
+                          msg.status === 'sent' ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                          : msg.status === 'read' ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                          : msg.status === 'failed' ? 'bg-red-500/15 text-red-400 border border-red-500/30'
+                          : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                        }`}>{msg.status}</span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-400">{msg.created_at ? new Date(msg.created_at).toLocaleString('pt-BR') : '-'}</td>
                     </tr>
                   ))
                 }

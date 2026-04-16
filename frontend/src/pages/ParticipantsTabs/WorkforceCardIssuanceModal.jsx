@@ -26,7 +26,7 @@ const PREVIEW_STATUS_META = {
   },
   out_of_scope: {
     label: "Fora do escopo",
-    badgeClass: "border-gray-700/60 bg-gray-500/10 text-gray-300",
+    badgeClass: "border-slate-700/60 bg-slate-500/10 text-slate-300",
   },
   error: {
     label: "Erro",
@@ -117,7 +117,7 @@ const resolveStatusMeta = (status = "", stage = "preview") => {
   const source = stage === "result" ? ISSUE_STATUS_META : PREVIEW_STATUS_META;
   return source[String(status || "").trim()] || {
     label: String(status || "desconhecido"),
-    badgeClass: "border-gray-700/60 bg-gray-500/10 text-gray-300",
+    badgeClass: "border-slate-700/60 bg-slate-500/10 text-slate-300",
   };
 };
 
@@ -129,7 +129,7 @@ const SummaryCard = ({ label, value, tone = "default" }) => {
         ? "border-amber-800/60 bg-amber-500/10 text-amber-200"
         : tone === "danger"
           ? "border-red-800/60 bg-red-500/10 text-red-200"
-          : "border-gray-800 bg-gray-950 text-white";
+          : "border-slate-800/40 bg-slate-950 text-slate-100";
 
   return (
     <div className={`flex min-h-[112px] min-w-0 flex-col items-center justify-center rounded-2xl border p-4 text-center ${toneClass}`}>
@@ -437,39 +437,39 @@ export default function WorkforceCardIssuanceModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[28px] border border-gray-800 bg-gray-950 shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-gray-800 px-5 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[28px] border border-slate-800/40 bg-slate-950 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800/40 px-5 py-4">
           <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-brand-light">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-400">
               <CreditCard size={12} />
               Workforce bulk cards
             </div>
-            <h3 className="mt-3 text-xl font-black text-white">Emitir cartoes para a equipe selecionada</h3>
-            <p className="mt-1 text-sm text-gray-400">
+            <h3 className="mt-3 text-xl font-black text-slate-100">Emitir cartoes para a equipe selecionada</h3>
+            <p className="mt-1 text-sm text-slate-400">
               Evento #{Number(eventId || 0)} • {participantIds.length} participante(s) selecionado(s)
             </p>
             {String(contextLabel || "").trim() && (
-              <p className="mt-1 break-words text-[11px] uppercase tracking-[0.14em] text-brand-light">{contextLabel}</p>
+              <p className="mt-1 break-words text-[11px] uppercase tracking-[0.14em] text-cyan-400">{contextLabel}</p>
             )}
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={closeDisabled}
-            className="rounded-xl p-2 text-gray-400 transition hover:bg-gray-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-800/50 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <X size={18} />
           </button>
         </div>
 
         <div className="max-h-[calc(92vh-148px)] overflow-y-auto px-5 py-5">
-          <div className="mb-4 rounded-2xl border border-gray-800 bg-gray-900/60 p-4 text-sm text-gray-300">
+          <div className="mb-4 rounded-2xl border border-slate-800/40 bg-slate-900/60 p-4 text-sm text-slate-300">
             <div className="flex items-start gap-3">
               <ShieldAlert size={18} className="mt-0.5 text-amber-300" />
               <div>
-                <p className="font-semibold text-white">Preview obrigatorio antes da emissao</p>
-                <p className="mt-1 text-gray-400">
+                <p className="font-semibold text-slate-100">Preview obrigatorio antes da emissao</p>
+                <p className="mt-1 text-slate-400">
                   O preview nao grava nada. A emissao so acontece na confirmacao e continua restrita ao evento atual.
                 </p>
               </div>
@@ -478,8 +478,8 @@ export default function WorkforceCardIssuanceModal({
 
           {previewLoading ? (
             <div className="flex min-h-[280px] items-center justify-center">
-              <div className="flex items-center gap-3 rounded-2xl border border-gray-800 bg-gray-900/60 px-5 py-4 text-sm text-gray-300">
-                <Loader2 size={18} className="animate-spin text-brand-light" />
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-800/40 bg-slate-900/60 px-5 py-4 text-sm text-slate-300">
+                <Loader2 size={18} className="animate-spin text-cyan-400" />
                 Gerando preview da emissao...
               </div>
             </div>
@@ -504,11 +504,11 @@ export default function WorkforceCardIssuanceModal({
               </div>
 
               {previewReady && (
-                <div className="mt-4 rounded-2xl border border-brand/40 bg-brand/10 p-4 text-sm text-brand-light">
+                <div className="mt-4 rounded-2xl border border-cyan-500/40 bg-cyan-500/10 p-4 text-sm text-cyan-400">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0">
-                      <p className="font-semibold text-white">Preview concluido, mas nada foi gravado ainda.</p>
-                      <p className="mt-1 text-brand-light/90">
+                      <p className="font-semibold text-slate-100">Preview concluido, mas nada foi gravado ainda.</p>
+                      <p className="mt-1 text-cyan-400/90">
                         A emissao real so acontece quando voce clicar em <strong>Confirmar emissao</strong>.
                       </p>
                     </div>
@@ -525,7 +525,7 @@ export default function WorkforceCardIssuanceModal({
                     </button>
                   </div>
                   {issueDisabledReason && (
-                    <p className="mt-2 text-xs text-brand-light/80">{issueDisabledReason}</p>
+                    <p className="mt-2 text-xs text-cyan-400/80">{issueDisabledReason}</p>
                   )}
                 </div>
               )}
@@ -544,7 +544,7 @@ export default function WorkforceCardIssuanceModal({
                       className={`mt-0.5 ${existingCreditCount > 0 ? "text-amber-300" : "text-sky-300"}`}
                     />
                     <div className="min-w-0">
-                      <p className="font-semibold text-white">
+                      <p className="font-semibold text-slate-100">
                         {existingCreditCount > 0
                           ? "Aviso: ja existem cartoes emitidos com saldo ativo."
                           : "Aviso: ja existem cartoes emitidos neste evento."}
@@ -568,10 +568,10 @@ export default function WorkforceCardIssuanceModal({
                 </div>
               )}
 
-              <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+              <div className="mt-4 rounded-2xl border border-slate-800/40 bg-slate-900/60 p-4">
                 <div className="grid gap-4 md:grid-cols-[240px_minmax(0,1fr)]">
                   <label className="block">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-gray-500">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
                       Saldo inicial por cartao
                     </span>
                     <input
@@ -586,21 +586,21 @@ export default function WorkforceCardIssuanceModal({
                           setInitialBalanceInput(formatMoneyInputValue(normalizedAmount));
                         }
                       }}
-                      className={`mt-2 h-11 w-full rounded-xl border bg-gray-950 px-3 text-sm text-white outline-none transition ${
+                      className={`mt-2 h-11 w-full rounded-xl border bg-slate-950 px-3 text-sm text-slate-100 outline-none transition ${
                         initialBalanceValid
-                          ? "border-gray-700 focus:border-brand"
+                          ? "border-slate-700/50 focus:border-cyan-500"
                           : "border-red-700/70 focus:border-red-500"
                       }`}
                       placeholder="0,00"
                     />
                   </label>
-                  <div className="rounded-2xl border border-gray-800 bg-gray-950/60 p-4 text-sm text-gray-300">
-                    <p className="font-semibold text-white">Carga inicial registrada no extrato</p>
-                    <p className="mt-1 text-gray-400">
+                  <div className="rounded-2xl border border-slate-800/40 bg-slate-950/60 p-4 text-sm text-slate-300">
+                    <p className="font-semibold text-slate-100">Carga inicial registrada no extrato</p>
+                    <p className="mt-1 text-slate-400">
                       Cada cartao novo nasce com o saldo configurado aqui. O valor entra como credito real no wallet do
                       participante.
                     </p>
-                    <p className="mt-3 text-xs uppercase tracking-[0.18em] text-brand-light">
+                    <p className="mt-3 text-xs uppercase tracking-[0.18em] text-cyan-400">
                       {result
                         ? `Credito aplicado no lote: ${formatCurrency(
                             Number(result.summary?.applied_initial_credit_total || 0)
@@ -628,13 +628,13 @@ export default function WorkforceCardIssuanceModal({
                 </div>
               )}
 
-              <div className="mt-5 rounded-[24px] border border-gray-800 bg-gray-950/60">
-                <div className="flex items-center justify-between gap-3 border-b border-gray-800 px-4 py-3">
+              <div className="mt-5 rounded-[24px] border border-slate-800/40 bg-slate-950/60">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-800/40 px-4 py-3">
                   <div>
-                    <h4 className="text-sm font-bold text-white">
+                    <h4 className="text-sm font-bold text-slate-100">
                       {currentStage === "result" ? "Resultado do lote" : "Preview por participante"}
                     </h4>
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-slate-500">
                       {currentStage === "result"
                         ? "Cada linha mostra o resultado final da tentativa de emissao."
                         : "Revise os bloqueios antes de confirmar a emissao."}
@@ -653,12 +653,12 @@ export default function WorkforceCardIssuanceModal({
 
                 <div className="max-h-[360px] overflow-auto">
                   {currentItems.length === 0 ? (
-                    <div className="px-4 py-10 text-center text-sm text-gray-500">
+                    <div className="px-4 py-10 text-center text-sm text-slate-500">
                       Nenhum participante selecionado para emissao.
                     </div>
                   ) : (
-                    <table className="w-full text-left text-sm text-gray-300">
-                      <thead className="bg-gray-950/80 text-[10px] uppercase tracking-[0.24em] text-gray-500">
+                    <table className="w-full text-left text-sm text-slate-300">
+                      <thead className="bg-slate-950/80 text-[10px] uppercase tracking-[0.24em] text-slate-500">
                         <tr>
                           <th className="px-4 py-3">Participante</th>
                           <th className="px-4 py-3">Setor</th>
@@ -666,7 +666,7 @@ export default function WorkforceCardIssuanceModal({
                           <th className="px-4 py-3">Detalhe</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-800/70">
+                      <tbody className="divide-y divide-slate-800/40">
                         {currentItems.map((item) => {
                           const participantId = Number(item?.participant_id || 0);
                           const participant = participantMap.get(participantId) || null;
@@ -691,17 +691,17 @@ export default function WorkforceCardIssuanceModal({
                           return (
                             <tr key={`${currentStage}-${participantId}-${item?.issued_card_id || item?.existing_card_id || "row"}`}>
                               <td className="px-4 py-4 align-top">
-                                <p className="font-semibold text-white">{displayName}</p>
-                                <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-gray-500">
+                                <p className="font-semibold text-slate-100">{displayName}</p>
+                                <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-slate-500">
                                   REF #{participantId || "n/d"}
                                 </p>
                                 {Number(item?.event_role_id || participant?.event_role_id || 0) > 0 && (
-                                  <p className="mt-2 text-xs text-gray-500">
+                                  <p className="mt-2 text-xs text-slate-500">
                                     Estrutura #{Number(item?.event_role_id || participant?.event_role_id || 0)}
                                   </p>
                                 )}
                               </td>
-                              <td className="px-4 py-4 align-top text-xs uppercase text-gray-400">
+                              <td className="px-4 py-4 align-top text-xs uppercase text-slate-400">
                                 {formatSector(item?.sector || participant?.sector || managerSector)}
                               </td>
                               <td className="px-4 py-4 align-top">
@@ -710,7 +710,7 @@ export default function WorkforceCardIssuanceModal({
                                 </span>
                               </td>
                               <td className="px-4 py-4 align-top">
-                                <p className="text-sm text-gray-300">{detailMessage}</p>
+                                <p className="text-sm text-slate-300">{detailMessage}</p>
                                 {item?.issued_card_id && (
                                   <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-emerald-400">
                                     Novo cartao: {shortenCardId(item.issued_card_id)}
@@ -744,8 +744,8 @@ export default function WorkforceCardIssuanceModal({
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-gray-800 px-5 py-4">
-          <div className="min-w-0 break-words text-xs text-gray-500">
+        <div className="flex items-center justify-between gap-3 border-t border-slate-800/40 px-5 py-4">
+          <div className="min-w-0 break-words text-xs text-slate-500">
             {result ? (
               <>Idempotency key: {result.idempotency_key || idempotencyKey}</>
             ) : (

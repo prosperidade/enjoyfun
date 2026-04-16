@@ -1,5 +1,5 @@
 const TONE_STYLES = {
-  neutral: "border-dashed border-gray-700 bg-gray-900/30 text-gray-300",
+  neutral: "border-dashed border-slate-700/50 bg-slate-900/30 text-slate-300",
   info: "border-sky-800/40 bg-sky-950/20 text-sky-100",
   warning: "border-amber-700/40 bg-amber-950/20 text-amber-100",
   danger: "border-rose-700/40 bg-rose-950/20 text-rose-100",

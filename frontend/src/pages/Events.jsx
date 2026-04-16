@@ -667,14 +667,14 @@ export default function Events() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="page-title flex items-center gap-2">
-            <CalendarDays size={22} className="text-purple-400" /> Eventos
+          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2 font-headline">
+            <CalendarDays size={22} className="text-cyan-400" /> Eventos
           </h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <p className="text-slate-500 text-sm mt-1">
             {events.length} evento(s) encontrado(s)
           </p>
         </div>
-        <button onClick={openCreateForm} className="btn-primary">
+        <button onClick={openCreateForm} className="an-btn an-btn-primary">
           <Plus size={16} /> Novo Evento
         </button>
       </div>
@@ -682,11 +682,11 @@ export default function Events() {
       <div className="relative">
         <Search
           size={16}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500"
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
         />
         <input
           name="events_search"
-          className="input pl-10"
+          className="an-input pl-10"
           placeholder="Buscar eventos..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -694,15 +694,15 @@ export default function Events() {
       </div>
 
       {showForm && (
-        <div className="card border-purple-800/40 space-y-6">
+        <div className="an-card border-cyan-500/20 space-y-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="section-title">{editingEventId ? "Editar Evento" : "Novo Evento"}</h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <h2 className="text-xl font-semibold text-slate-100">{editingEventId ? "Editar Evento" : "Novo Evento"}</h2>
+              <p className="text-sm text-slate-500 mt-1">
                 Configure o evento e toda a operação comercial na mesma interface.
               </p>
             </div>
-            <button type="button" className="btn-outline btn-sm" onClick={closeEventForm}>
+            <button type="button" className="an-btn an-btn-secondary text-xs" onClick={closeEventForm}>
               <X size={14} /> Fechar
             </button>
           </div>
@@ -728,10 +728,10 @@ export default function Events() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="input-label">Nome do Evento *</label>
+                  <label className="an-label">Nome do Evento *</label>
                   <input
                     name="event_name"
-                    className="input"
+                    className="an-input"
                     value={form.name}
                     onChange={set("name")}
                     required
@@ -739,20 +739,20 @@ export default function Events() {
                   />
                 </div>
                 <div>
-                  <label className="input-label">Local</label>
+                  <label className="an-label">Local</label>
                   <input
                     name="event_venue_name"
-                    className="input"
+                    className="an-input"
                     value={form.venue_name}
                     onChange={set("venue_name")}
                     placeholder="Nome do local"
                   />
                 </div>
                 <div>
-                  <label className="input-label">Capacidade</label>
+                  <label className="an-label">Capacidade</label>
                   <input
                     name="event_capacity"
-                    className="input"
+                    className="an-input"
                     type="number"
                     value={form.capacity}
                     onChange={set("capacity")}
@@ -760,10 +760,10 @@ export default function Events() {
                   />
                 </div>
                 <div>
-                  <label className="input-label">Início *</label>
+                  <label className="an-label">Início *</label>
                   <input
                     name="event_starts_at"
-                    className="input"
+                    className="an-input"
                     type="datetime-local"
                     value={form.starts_at}
                     onChange={set("starts_at")}
@@ -771,10 +771,10 @@ export default function Events() {
                   />
                 </div>
                 <div>
-                  <label className="input-label">Término *</label>
+                  <label className="an-label">Término *</label>
                   <input
                     name="event_ends_at"
-                    className="input"
+                    className="an-input"
                     type="datetime-local"
                     value={form.ends_at}
                     onChange={set("ends_at")}
@@ -782,31 +782,31 @@ export default function Events() {
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="input-label">Timezone Operacional *</label>
+                  <label className="an-label">Timezone Operacional *</label>
                   <input
                     name="event_timezone"
-                    className="input"
+                    className="an-input"
                     value={form.event_timezone}
                     onChange={set("event_timezone")}
                     placeholder="Ex: America/Sao_Paulo"
                     required
                   />
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-slate-500">
                     Usada para resolver calendário operacional e converter payloads com offset no Meals.
                   </p>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="input-label">Endereço</label>
+                  <label className="an-label">Endereço</label>
                   <input
                     name="event_address"
-                    className="input"
+                    className="an-input"
                     value={form.address}
                     onChange={set("address")}
                     placeholder="Rua, número, cidade"
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="input-label">Descrição</label>
+                  <label className="an-label">Descrição</label>
                   <textarea
                     name="event_description"
                     className="input resize-none"
@@ -817,10 +817,10 @@ export default function Events() {
                   />
                 </div>
                 <div>
-                  <label className="input-label">Status</label>
+                  <label className="an-label">Status</label>
                   <select
                     name="event_status"
-                    className="select"
+                    className="an-select"
                     value={form.status}
                     onChange={set("status")}
                   >
@@ -833,10 +833,10 @@ export default function Events() {
                 </div>
               </div>
 
-              {!['wedding', 'graduation'].includes(form.event_type) && (<div className="rounded-2xl border border-gray-800 bg-gray-950/40 p-4 space-y-4">
+              {!['wedding', 'graduation'].includes(form.event_type) && (<div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4 space-y-4">
                 <div>
-                  <h3 className="section-title">Tipos de Ingresso</h3>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <h3 className="text-lg font-semibold text-slate-200">Tipos de Ingresso</h3>
+                  <p className="text-xs text-slate-500 mt-1">
                     A emissão comercial depende de pelo menos um tipo de ingresso cadastrado no evento.
                   </p>
                 </div>
@@ -853,7 +853,7 @@ export default function Events() {
                     name="ticket_type_price"
                     type="number"
                     step="0.01"
-                    className="input"
+                    className="an-input"
                     placeholder="Preço base"
                     value={ticketTypeForm.price}
                     onChange={(e) => setTicketTypeForm((current) => ({ ...current, price: e.target.value }))}
@@ -872,11 +872,11 @@ export default function Events() {
                     </select>
                   ) : null}
                   <div className="sm:col-span-3 flex gap-3">
-                    <button type="button" className="btn-secondary flex-1" onClick={upsertTicketTypeDraft}>
+                    <button type="button" className="an-btn an-btn-secondary flex-1" onClick={upsertTicketTypeDraft}>
                       <Plus size={16} /> {ticketTypeForm.id || ticketTypeForm.client_key ? "Atualizar Tipo" : "Adicionar Tipo"}
                     </button>
                     {ticketTypeForm.id || ticketTypeForm.client_key ? (
-                      <button type="button" className="btn-outline flex-1" onClick={() => setTicketTypeForm(EMPTY_TICKET_TYPE_FORM)}>
+                      <button type="button" className="an-btn an-btn-secondary flex-1" onClick={() => setTicketTypeForm(EMPTY_TICKET_TYPE_FORM)}>
                         Cancelar edição
                       </button>
                     ) : null}
@@ -885,21 +885,21 @@ export default function Events() {
 
                 <div className="space-y-2 max-h-60 overflow-auto">
                   {ticketTypes.length === 0 ? (
-                    <p className="text-sm text-gray-500">Nenhum tipo de ingresso configurado.</p>
+                    <p className="text-sm text-slate-500">Nenhum tipo de ingresso configurado.</p>
                   ) : ticketTypes.map((ticketType) => (
-                    <div key={String(ticketType.id ?? ticketType.client_key)} className="rounded-xl border border-gray-800 p-3 flex items-start justify-between gap-3">
+                    <div key={String(ticketType.id ?? ticketType.client_key)} className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-3 flex items-start justify-between gap-3">
                       <div>
                         <p className="font-medium text-white">{ticketType.name}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-slate-500">
                           Preço base: R$ {Number(ticketType.price || 0).toFixed(2)}
                           {ticketType.sector ? ` • Setor: ${ticketType.sector}` : ""}
                         </p>
                       </div>
                       <div className="flex gap-2">
-                        <button type="button" className="p-2 rounded-lg text-gray-400 hover:text-purple-300 hover:bg-purple-500/10" onClick={() => editTicketTypeDraft(ticketType)}>
+                        <button type="button" className="p-2 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10" onClick={() => editTicketTypeDraft(ticketType)}>
                           <Pencil size={16} />
                         </button>
-                        <button type="button" className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10" onClick={() => removeTicketTypeDraft(ticketType)}>
+                        <button type="button" className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10" onClick={() => removeTicketTypeDraft(ticketType)}>
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -909,10 +909,10 @@ export default function Events() {
               </div>)}
 
               {!['wedding', 'graduation'].includes(form.event_type) && (<div className="grid xl:grid-cols-2 gap-6">
-                <div className="rounded-2xl border border-gray-800 bg-gray-950/40 p-4 space-y-4">
+                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4 space-y-4">
                   <div>
-                    <h3 className="section-title">Lotes Comerciais</h3>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <h3 className="text-lg font-semibold text-slate-200">Lotes Comerciais</h3>
+                    <p className="text-xs text-slate-500 mt-1">
                       Crie, edite e remova lotes vinculados ao evento.
                     </p>
                   </div>
@@ -927,7 +927,7 @@ export default function Events() {
                     />
                     <input
                       name="batch_code"
-                      className="input"
+                      className="an-input"
                       placeholder="Código"
                       value={batchForm.code}
                       onChange={(e) => setBatchForm((f) => ({ ...f, code: e.target.value }))}
@@ -936,7 +936,7 @@ export default function Events() {
                       name="batch_price"
                       type="number"
                       step="0.01"
-                      className="input"
+                      className="an-input"
                       placeholder="Preço"
                       value={batchForm.price}
                       onChange={(e) => setBatchForm((f) => ({ ...f, price: e.target.value }))}
@@ -944,7 +944,7 @@ export default function Events() {
                     <input
                       name="batch_quantity_total"
                       type="number"
-                      className="input"
+                      className="an-input"
                       placeholder="Qtd. total"
                       value={batchForm.quantity_total}
                       onChange={(e) => setBatchForm((f) => ({ ...f, quantity_total: e.target.value }))}
@@ -952,14 +952,14 @@ export default function Events() {
                     <input
                       name="batch_starts_at"
                       type="datetime-local"
-                      className="input"
+                      className="an-input"
                       value={batchForm.starts_at}
                       onChange={(e) => setBatchForm((f) => ({ ...f, starts_at: e.target.value }))}
                     />
                     <input
                       name="batch_ends_at"
                       type="datetime-local"
-                      className="input"
+                      className="an-input"
                       value={batchForm.ends_at}
                       onChange={(e) => setBatchForm((f) => ({ ...f, ends_at: e.target.value }))}
                     />
@@ -978,11 +978,11 @@ export default function Events() {
                         ))}
                       </select>
                     ) : (
-                      <p className="text-xs text-gray-500 col-span-2">
+                      <p className="text-xs text-slate-500 col-span-2">
                         O vínculo com tipo de ingresso pode ser definido quando o evento já possui tipos cadastrados.
                       </p>
                     )}
-                    <label className="col-span-2 flex items-center gap-2 text-sm text-gray-300">
+                    <label className="col-span-2 flex items-center gap-2 text-sm text-slate-300">
                       <input
                         name="batch_is_active"
                         type="checkbox"
@@ -992,11 +992,11 @@ export default function Events() {
                       Lote ativo
                     </label>
                     <div className="col-span-2 flex gap-3">
-                      <button type="button" className="btn-secondary flex-1" onClick={upsertBatchDraft}>
+                      <button type="button" className="an-btn an-btn-secondary flex-1" onClick={upsertBatchDraft}>
                         <Plus size={16} /> {batchForm.id ? "Atualizar Lote" : "Adicionar Lote"}
                       </button>
                       {batchForm.id ? (
-                        <button type="button" className="btn-outline flex-1" onClick={() => setBatchForm(EMPTY_BATCH_FORM)}>
+                        <button type="button" className="an-btn an-btn-secondary flex-1" onClick={() => setBatchForm(EMPTY_BATCH_FORM)}>
                           Cancelar edição
                         </button>
                       ) : null}
@@ -1005,23 +1005,23 @@ export default function Events() {
 
                   <div className="space-y-2 max-h-72 overflow-auto">
                     {draftBatches.length === 0 ? (
-                      <p className="text-sm text-gray-500">Nenhum lote configurado.</p>
+                      <p className="text-sm text-slate-500">Nenhum lote configurado.</p>
                     ) : draftBatches.map((batch) => (
-                      <div key={batch.id} className="rounded-xl border border-gray-800 p-3 flex items-start justify-between gap-3">
+                      <div key={batch.id} className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-3 flex items-start justify-between gap-3">
                         <div>
                           <p className="font-medium text-white">{batch.name}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-slate-500">
                             {batch.code || "Sem código"} • R$ {Number(batch.price || 0).toFixed(2)} • Qtd.: {batch.quantity_total || "Livre"}
                           </p>
-                          <p className="text-[11px] text-gray-500 mt-1">
+                          <p className="text-[11px] text-slate-500 mt-1">
                             {batch.ticket_type_name || (batch.ticket_type_id ? `Tipo #${batch.ticket_type_id}` : "Sem vínculo com tipo")} • {batch.is_active === false ? "Inativo" : "Ativo"}
                           </p>
                         </div>
                         <div className="flex gap-2">
-                          <button type="button" className="p-2 rounded-lg text-gray-400 hover:text-purple-300 hover:bg-purple-500/10" onClick={() => editBatchDraft(batch)}>
+                          <button type="button" className="p-2 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10" onClick={() => editBatchDraft(batch)}>
                             <Pencil size={16} />
                           </button>
-                          <button type="button" className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10" onClick={() => removeBatchDraft(batch.id)}>
+                          <button type="button" className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10" onClick={() => removeBatchDraft(batch.id)}>
                             <Trash2 size={16} />
                           </button>
                         </div>
@@ -1030,10 +1030,10 @@ export default function Events() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-gray-800 bg-gray-950/40 p-4 space-y-4">
+                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4 space-y-4">
                   <div>
-                    <h3 className="section-title">Comissários</h3>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <h3 className="text-lg font-semibold text-slate-200">Comissários</h3>
+                    <p className="text-xs text-slate-500 mt-1">
                       Cadastre, altere e remova comissários do evento.
                     </p>
                   </div>
@@ -1049,21 +1049,21 @@ export default function Events() {
                     <input
                       name="commissary_email"
                       type="email"
-                      className="input"
+                      className="an-input"
                       placeholder="E-mail"
                       value={commissaryForm.email}
                       onChange={(e) => setCommissaryForm((f) => ({ ...f, email: e.target.value }))}
                     />
                     <input
                       name="commissary_phone"
-                      className="input"
+                      className="an-input"
                       placeholder="Telefone"
                       value={commissaryForm.phone}
                       onChange={(e) => setCommissaryForm((f) => ({ ...f, phone: e.target.value }))}
                     />
                     <select
                       name="commissary_commission_mode"
-                      className="select"
+                      className="an-select"
                       value={commissaryForm.commission_mode}
                       onChange={(e) => setCommissaryForm((f) => ({ ...f, commission_mode: e.target.value }))}
                     >
@@ -1074,7 +1074,7 @@ export default function Events() {
                       name="commissary_commission_value"
                       type="number"
                       step="0.01"
-                      className="input"
+                      className="an-input"
                       placeholder="Valor da comissão"
                       value={commissaryForm.commission_value}
                       onChange={(e) => setCommissaryForm((f) => ({ ...f, commission_value: e.target.value }))}
@@ -1089,11 +1089,11 @@ export default function Events() {
                       <option value="inactive">Inativo</option>
                     </select>
                     <div className="col-span-2 flex gap-3">
-                      <button type="button" className="btn-secondary flex-1" onClick={upsertCommissaryDraft}>
+                      <button type="button" className="an-btn an-btn-secondary flex-1" onClick={upsertCommissaryDraft}>
                         <Plus size={16} /> {commissaryForm.id ? "Atualizar Comissário" : "Adicionar Comissário"}
                       </button>
                       {commissaryForm.id ? (
-                        <button type="button" className="btn-outline flex-1" onClick={() => setCommissaryForm(EMPTY_COMMISSARY_FORM)}>
+                        <button type="button" className="an-btn an-btn-secondary flex-1" onClick={() => setCommissaryForm(EMPTY_COMMISSARY_FORM)}>
                           Cancelar edição
                         </button>
                       ) : null}
@@ -1102,25 +1102,25 @@ export default function Events() {
 
                   <div className="space-y-2 max-h-72 overflow-auto">
                     {draftCommissaries.length === 0 ? (
-                      <p className="text-sm text-gray-500">Nenhum comissário configurado.</p>
+                      <p className="text-sm text-slate-500">Nenhum comissário configurado.</p>
                     ) : draftCommissaries.map((commissary) => (
-                      <div key={commissary.id} className="rounded-xl border border-gray-800 p-3 flex items-start justify-between gap-3">
+                      <div key={commissary.id} className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-3 flex items-start justify-between gap-3">
                         <div>
                           <p className="font-medium text-white">{commissary.name}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-slate-500">
                             {commissary.commission_mode === "percent"
                               ? `${Number(commissary.commission_value || 0)}%`
                               : `R$ ${Number(commissary.commission_value || 0).toFixed(2)}`}
                           </p>
-                          <p className="text-[11px] text-gray-500 mt-1">
+                          <p className="text-[11px] text-slate-500 mt-1">
                             {commissary.email || "Sem e-mail"} • {commissary.status === "inactive" ? "Inativo" : "Ativo"}
                           </p>
                         </div>
                         <div className="flex gap-2">
-                          <button type="button" className="p-2 rounded-lg text-gray-400 hover:text-purple-300 hover:bg-purple-500/10" onClick={() => editCommissaryDraft(commissary)}>
+                          <button type="button" className="p-2 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10" onClick={() => editCommissaryDraft(commissary)}>
                             <Pencil size={16} />
                           </button>
-                          <button type="button" className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10" onClick={() => removeCommissaryDraft(commissary.id)}>
+                          <button type="button" className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10" onClick={() => removeCommissaryDraft(commissary.id)}>
                             <Trash2 size={16} />
                           </button>
                         </div>
@@ -1192,14 +1192,14 @@ export default function Events() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="btn-primary flex-1"
+                  className="an-btn an-btn-primary flex-1"
                 >
                   {saving ? <span className="spinner w-4 h-4" /> : editingEventId ? "Salvar Evento e Configurações" : "Criar Evento com Configurações"}
                 </button>
                 <button
                   type="button"
                   onClick={closeEventForm}
-                  className="btn-outline flex-1"
+                  className="an-btn an-btn-secondary flex-1"
                 >
                   Cancelar
                 </button>
@@ -1215,11 +1215,11 @@ export default function Events() {
         </div>
       ) : events.length === 0 ? (
         <div className="empty-state">
-          <CalendarDays size={48} className="text-gray-700" />
+          <CalendarDays size={48} className="text-slate-700" />
           <p className="text-lg">Nenhum evento encontrado</p>
           <button
             onClick={openCreateForm}
-            className="btn-primary mt-2"
+            className="an-btn an-btn-primary mt-2"
           >
             <Plus size={16} /> Criar Primeiro Evento
           </button>
@@ -1227,13 +1227,13 @@ export default function Events() {
       ) : (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {events.map((ev) => (
-            <div key={ev.id} className="card-hover flex flex-col gap-3">
+            <div key={ev.id} className="an-card-hover flex flex-col gap-3">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-white truncate">
                     {ev.name}
                   </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     por {ev.organizer_name || "Enjoy Fun"}
                   </p>
                 </div>
@@ -1250,11 +1250,11 @@ export default function Events() {
               </div>
 
               {ev.venue_name && (
-                <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                <div className="flex items-center gap-1.5 text-xs text-slate-400">
                   <MapPin size={12} /> {ev.venue_name}
                 </div>
               )}
-              <div className="flex items-center gap-1.5 text-xs text-gray-400">
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
                 <Clock size={12} />
                 {new Date(ev.starts_at).toLocaleString("pt-BR", {
                   dateStyle: "short",
@@ -1262,18 +1262,18 @@ export default function Events() {
                 })}
               </div>
               {(ev.capacity || (ev.modules_enabled && ev.modules_enabled.length > 0)) ? (
-                <div className="flex items-center gap-3 text-xs text-gray-500">
+                <div className="flex items-center gap-3 text-xs text-slate-500">
                   {ev.capacity ? <span>Capacidade: {parseInt(ev.capacity, 10).toLocaleString()}</span> : null}
                   {ev.modules_enabled && ev.modules_enabled.length > 0 ? (
-                    <span className="text-gray-600">{ev.modules_enabled.length} modulos</span>
+                    <span className="text-slate-600">{ev.modules_enabled.length} modulos</span>
                   ) : null}
                 </div>
               ) : null}
 
-              <div className="flex gap-2 pt-2 border-t border-gray-800 mt-auto">
+              <div className="flex gap-2 pt-2 border-t border-slate-800/40 mt-auto">
                 <button
                   type="button"
-                  className="btn-outline btn-sm"
+                  className="an-btn an-btn-secondary text-xs py-1.5 px-3"
                   onClick={() => startEditEvent(ev.id)}
                   title="Editar evento"
                 >
@@ -1282,7 +1282,7 @@ export default function Events() {
                 {ev.can_delete ? (
                   <button
                     type="button"
-                    className="btn-outline btn-sm"
+                    className="an-btn an-btn-secondary text-xs py-1.5 px-3"
                     onClick={() => handleDeleteEvent(ev.id)}
                     title="Excluir evento"
                   >

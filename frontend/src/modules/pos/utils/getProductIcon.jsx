@@ -18,7 +18,7 @@ export function getProductIcon(name, sector) {
     ) : sector === "shop" ? (
       <Shirt size={defaultSize} className="text-blue-400" />
     ) : (
-      <Beer size={defaultSize} className="text-purple-400" />
+      <Beer size={defaultSize} className="text-cyan-400" />
     );
   }
 
@@ -67,6 +67,6 @@ export function getProductIcon(name, sector) {
   ) : sector === "shop" ? (
     <Shirt size={defaultSize} className="text-blue-400" />
   ) : (
-    <Beer size={defaultSize} className="text-purple-400" />
+    <Beer size={defaultSize} className="text-cyan-400" />
   );
 }

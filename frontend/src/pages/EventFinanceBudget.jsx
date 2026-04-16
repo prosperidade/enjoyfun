@@ -129,7 +129,7 @@ export default function EventFinanceBudget() {
           <h1 className="page-title flex items-center gap-2">
             <BarChart3 size={22} className="text-cyan-400" /> Orçamento
           </h1>
-          <p className="text-gray-500 text-sm">Previsto × comprometido × pago</p>
+          <p className="text-slate-400 text-sm">Previsto × comprometido × pago</p>
         </div>
         <select className="select w-auto" value={eventId} onChange={(e) => setEventId(e.target.value)}>
           <option value="">Selecionar evento...</option>
@@ -138,16 +138,16 @@ export default function EventFinanceBudget() {
       </div>
 
       {!eventId && (
-        <div className="card border-dashed border-white/10 text-center py-16 text-gray-500">
+        <div className="card border-dashed border-slate-700/50 text-center py-16 text-slate-400">
           Selecione um evento para ver o orçamento.
         </div>
       )}
 
-      {eventId && loading && <div className="text-center py-12 text-gray-500">Carregando...</div>}
+      {eventId && loading && <div className="text-center py-12 text-slate-400">Carregando...</div>}
 
       {eventId && !loading && !budget && (
-        <div className="card border-dashed border-white/10 text-center py-12 space-y-4">
-          <p className="text-gray-500">Nenhum orçamento encontrado para este evento.</p>
+        <div className="card border-dashed border-slate-700/50 text-center py-12 space-y-4">
+          <p className="text-slate-400">Nenhum orçamento encontrado para este evento.</p>
           {!showNewBudget && (
             <button onClick={() => setShowNewBudget(true)} className="btn-primary">
               <Plus size={16} /> Criar Orçamento
@@ -179,22 +179,22 @@ export default function EventFinanceBudget() {
           {/* Summary cards */}
           {summary && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="card border-white/5 text-center">
-                <p className="text-xs text-gray-500 uppercase">Orçamento</p>
-                <p className="text-xl font-bold text-white mt-1">{fmt(summary.total_budget)}</p>
+              <div className="card border-slate-800/40 text-center">
+                <p className="text-xs text-slate-400 uppercase">Orçamento</p>
+                <p className="text-xl font-bold text-slate-100 mt-1">{fmt(summary.total_budget)}</p>
               </div>
-              <div className="card border-white/5 text-center">
-                <p className="text-xs text-gray-500 uppercase">Comprometido</p>
+              <div className="card border-slate-800/40 text-center">
+                <p className="text-xs text-slate-400 uppercase">Comprometido</p>
                 <p className={`text-xl font-bold mt-1 ${summary.is_over_budget ? "text-red-400" : "text-yellow-400"}`}>
                   {fmt(summary.committed)}
                 </p>
               </div>
-              <div className="card border-white/5 text-center">
-                <p className="text-xs text-gray-500 uppercase">Pago</p>
+              <div className="card border-slate-800/40 text-center">
+                <p className="text-xs text-slate-400 uppercase">Pago</p>
                 <p className="text-xl font-bold text-green-400 mt-1">{fmt(summary.paid)}</p>
               </div>
-              <div className="card border-white/5 text-center">
-                <p className="text-xs text-gray-500 uppercase">Saldo Livre</p>
+              <div className="card border-slate-800/40 text-center">
+                <p className="text-xs text-slate-400 uppercase">Saldo Livre</p>
                 <p className={`text-xl font-bold mt-1 ${summary.is_over_budget ? "text-red-400" : "text-cyan-400"}`}>
                   {summary.is_over_budget ? "-" + fmt(summary.overage) : fmt(summary.budget_remaining)}
                 </p>
@@ -203,7 +203,7 @@ export default function EventFinanceBudget() {
           )}
 
           {/* Linhas do orçamento */}
-          <div className="card border-white/5">
+          <div className="card border-slate-800/40">
             <div className="flex items-center justify-between mb-4">
               <h2 className="section-title">Linhas do Orçamento</h2>
               <button onClick={() => setShowNewLine(!showNewLine)} className="btn-outline text-sm gap-1">
@@ -212,7 +212,7 @@ export default function EventFinanceBudget() {
             </div>
 
             {showNewLine && (
-              <form onSubmit={handleCreateLine} className="card border-cyan-800/30 grid grid-cols-2 gap-3 mb-4">
+              <form onSubmit={handleCreateLine} className="card border-cyan-500/30 grid grid-cols-2 gap-3 mb-4">
                 <div>
                   <label className="input-label">Categoria *</label>
                   <select className="select" value={newLine.category_id}
@@ -247,7 +247,7 @@ export default function EventFinanceBudget() {
             )}
 
             {lines.length === 0 ? (
-              <p className="text-gray-500 text-sm">Nenhuma linha cadastrada.</p>
+              <p className="text-slate-400 text-sm">Nenhuma linha cadastrada.</p>
             ) : (
               <div className="table-wrapper">
                 <table className="table">
@@ -266,8 +266,8 @@ export default function EventFinanceBudget() {
                     {lines.map((l) => (
                       <tr key={l.id} className={l.is_over ? "bg-red-900/5" : ""}>
                         <td className="text-sm">{l.category_name}</td>
-                        <td className="text-sm text-gray-400">{l.cost_center_name}</td>
-                        <td className="text-sm text-gray-400">{l.description || "—"}</td>
+                        <td className="text-sm text-slate-400">{l.cost_center_name}</td>
+                        <td className="text-sm text-slate-400">{l.description || "—"}</td>
                         <td className="text-right tabular-nums">{fmt(l.budgeted_amount)}</td>
                         <td className="text-right tabular-nums">{fmt(l.committed)}</td>
                         <td className="text-right tabular-nums">
@@ -278,7 +278,7 @@ export default function EventFinanceBudget() {
                         </td>
                         <td>
                           <button onClick={() => handleDeleteLine(l.id)}
-                            className="p-1 text-gray-600 hover:text-red-400 transition-colors">
+                            className="p-1 text-slate-500 hover:text-red-400 transition-colors">
                             <Trash2 size={13} />
                           </button>
                         </td>

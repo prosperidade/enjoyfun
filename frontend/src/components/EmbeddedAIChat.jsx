@@ -375,10 +375,10 @@ export default function EmbeddedAIChat({
               {title || 'Assistente EnjoyFun'}
             </h3>
             {description && (
-              <p className="text-[11px] text-gray-400 truncate">{description}</p>
+              <p className="text-[11px] text-slate-400 truncate">{description}</p>
             )}
             {!description && lastAgent && (
-              <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
                 <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
                 <span>{AGENT_LABELS[lastAgent] || lastAgent}</span>
               </div>
@@ -386,20 +386,20 @@ export default function EmbeddedAIChat({
           </div>
           <ChevronDown
             size={16}
-            className={`text-gray-500 transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`}
+            className={`text-slate-500 transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`}
           />
         </button>
         <div className="flex items-center gap-1 ml-2">
           <button
             onClick={(e) => { e.stopPropagation(); setShowHistory(!showHistory); if (!showHistory) loadPastSessions(); }}
-            className={`p-1.5 rounded-lg transition-colors ${showHistory ? accent.text : 'text-gray-500'} hover:text-white hover:bg-white/5`}
+            className={`p-1.5 rounded-lg transition-colors ${showHistory ? accent.text : 'text-slate-500'} hover:text-white hover:bg-white/5`}
             title="Conversas anteriores"
           >
             <History size={15} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); resetChat(); }}
-            className="p-1.5 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+            className="p-1.5 text-slate-500 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
             title="Nova conversa"
           >
             <RotateCcw size={15} />
@@ -409,15 +409,15 @@ export default function EmbeddedAIChat({
 
       {/* Session History Panel */}
       {showHistory && (
-        <div className="border-t border-gray-700/30 bg-gray-800/30 px-5 py-3 max-h-48 overflow-y-auto">
-          <div className="text-[11px] font-medium text-gray-500 mb-2">Conversas anteriores</div>
+        <div className="border-t border-slate-700/30 bg-slate-800/30 px-5 py-3 max-h-48 overflow-y-auto">
+          <div className="text-[11px] font-medium text-slate-500 mb-2">Conversas anteriores</div>
           {loadingHistory && (
-            <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
+            <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
               <Loader2 size={12} className="animate-spin" /> Carregando...
             </div>
           )}
           {!loadingHistory && pastSessions.length === 0 && (
-            <div className="text-xs text-gray-500 py-2">Nenhuma conversa nesta area.</div>
+            <div className="text-xs text-slate-500 py-2">Nenhuma conversa nesta area.</div>
           )}
           {pastSessions.map((s) => (
             <button
@@ -426,10 +426,10 @@ export default function EmbeddedAIChat({
               className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors mb-1 group"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-400 group-hover:text-white">
+                <span className="text-xs text-slate-400 group-hover:text-white">
                   {AGENT_LABELS[s.routed_agent_key] || s.routed_agent_key || 'Conversa'}
                 </span>
-                <span className="text-[10px] text-gray-600">
+                <span className="text-[10px] text-slate-600">
                   {new Date(s.updated_at || s.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
@@ -442,16 +442,16 @@ export default function EmbeddedAIChat({
       {expanded && (
         <>
           {/* Messages */}
-          <div className="border-t border-gray-700/30 max-h-[420px] overflow-y-auto px-5 py-4 space-y-3 scrollbar-thin scrollbar-thumb-gray-700">
+          <div className="border-t border-slate-700/30 max-h-[420px] overflow-y-auto px-5 py-4 space-y-3 scrollbar-thin scrollbar-thumb-slate-700">
             {messages.length === 0 && !showHistory && (
               <div className="text-center py-6 px-4">
-                <p className="text-xs text-gray-500 mb-3">Pergunte qualquer coisa sobre esta area.</p>
+                <p className="text-xs text-slate-500 mb-3">Pergunte qualquer coisa sobre esta area.</p>
                 <div className="space-y-1.5">
                   {defaultSuggestions.map((s) => (
                     <button
                       key={s}
                       onClick={() => sendMessage(s)}
-                      className={`w-full text-left text-xs text-gray-400 ${accent.bgMuted} ${accent.bgMutedHover} ${accent.textLight} border ${accent.border} rounded-lg px-3 py-2 transition-colors`}
+                      className={`w-full text-left text-xs text-slate-400 ${accent.bgMuted} ${accent.bgMutedHover} ${accent.textLight} border ${accent.border} rounded-lg px-3 py-2 transition-colors`}
                     >
                       {s}
                     </button>
@@ -465,7 +465,7 @@ export default function EmbeddedAIChat({
                 <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 ${
                   msg.role === 'user'
                     ? `${accent.bubble} text-white rounded-br-md`
-                    : 'bg-white/5 border border-gray-700/30 rounded-bl-md'
+                    : 'bg-white/5 border border-slate-700/30 rounded-bl-md'
                 }`}>
                   {msg.role === 'assistant' && msg.agentKey && (
                     <div className={`text-[10px] ${accent.text} font-medium mb-1`}>
@@ -489,7 +489,7 @@ export default function EmbeddedAIChat({
                       }}
                     />
                   )}
-                  <div className={`text-[9px] mt-1 ${msg.role === 'user' ? 'text-white/50' : 'text-gray-600'}`}>
+                  <div className={`text-[9px] mt-1 ${msg.role === 'user' ? 'text-white/50' : 'text-slate-600'}`}>
                     {msg.timestamp?.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
@@ -498,19 +498,19 @@ export default function EmbeddedAIChat({
 
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-white/5 border border-gray-700/30 rounded-2xl rounded-bl-md px-4 py-3">
+                <div className="bg-white/5 border border-slate-700/30 rounded-2xl rounded-bl-md px-4 py-3">
                   {deepAnalysisActive ? (
                     <div className="space-y-1.5">
                       <div className={`flex items-center gap-2 text-xs ${accent.text}`}>
                         <Loader2 size={14} className="animate-spin" />
                         Consultando motor de analise profunda...
                       </div>
-                      <p className="text-[10px] text-gray-500 leading-relaxed">
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
                         Isso pode levar alguns segundos para documentos longos.
                       </p>
                     </div>
                   ) : (
-                    <div className={`flex items-center gap-2 text-xs text-gray-400`}>
+                    <div className={`flex items-center gap-2 text-xs text-slate-400`}>
                       <Loader2 size={14} className={`animate-spin ${accent.text}`} />
                       Analisando...
                     </div>
@@ -535,7 +535,7 @@ export default function EmbeddedAIChat({
       )}
 
       {/* Input — always visible */}
-      <div className="border-t border-gray-700/30 px-4 py-3">
+      <div className="border-t border-slate-700/30 px-4 py-3">
         <div className="flex items-end gap-2">
           <textarea
             ref={inputRef}
@@ -545,14 +545,14 @@ export default function EmbeddedAIChat({
             onFocus={() => { if (!expanded) setExpanded(true); }}
             placeholder="Pergunte sobre esta area..."
             rows={1}
-            className="flex-1 bg-white/5 border border-gray-700/40 rounded-xl px-3.5 py-2.5 text-sm text-gray-200 placeholder-gray-500 resize-none focus:border-gray-600 focus:ring-0 outline-none max-h-20 overflow-y-auto"
+            className="flex-1 bg-white/5 border border-slate-700/40 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-500 resize-none focus:border-slate-600 focus:ring-0 outline-none max-h-20 overflow-y-auto"
             style={{ minHeight: '38px' }}
             disabled={loading}
           />
           <button
             onClick={sendMessage}
             disabled={!input.trim() || loading}
-            className={`p-2.5 ${accent.bg} ${accent.bgHover} disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex-shrink-0`}
+            className={`p-2.5 ${accent.bg} ${accent.bgHover} disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex-shrink-0`}
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
@@ -588,25 +588,25 @@ function FilePreviewPanel({ fileId, onClose, onNavigate, accent }) {
   }, [fileId]);
 
   return (
-    <div className="border-t border-gray-700/30 bg-gray-900/60 px-4 py-3 max-h-52 overflow-y-auto">
+    <div className="border-t border-slate-700/30 bg-slate-900/60 px-4 py-3 max-h-52 overflow-y-auto">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <FileText size={14} className={accent.text} />
-          <span className="text-xs font-semibold text-gray-200">
+          <span className="text-xs font-semibold text-slate-200">
             {data?.original_name || `Arquivo #${fileId}`}
           </span>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={onNavigate}
-            className="p-1 text-gray-500 hover:text-white transition-colors"
+            className="p-1 text-slate-500 hover:text-white transition-colors"
             title="Abrir pagina do arquivo"
           >
             <ExternalLink size={12} />
           </button>
           <button
             onClick={onClose}
-            className="p-1 text-gray-500 hover:text-white transition-colors"
+            className="p-1 text-slate-500 hover:text-white transition-colors"
             title="Fechar preview"
           >
             ×
@@ -615,7 +615,7 @@ function FilePreviewPanel({ fileId, onClose, onNavigate, accent }) {
       </div>
 
       {loading && (
-        <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
+        <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
           <Loader2 size={12} className="animate-spin" /> Carregando preview...
         </div>
       )}
@@ -624,26 +624,26 @@ function FilePreviewPanel({ fileId, onClose, onNavigate, accent }) {
 
       {!loading && data && (
         <div className="space-y-2">
-          <div className="flex gap-3 text-[10px] text-gray-500">
+          <div className="flex gap-3 text-[10px] text-slate-500">
             <span>Formato: {data.parsed_data?.format || data.file_type || '?'}</span>
             {data.parsed_data?.rows_count != null && <span>Linhas: {data.parsed_data.rows_count}</span>}
             <span>Status: {data.parsed_status}</span>
           </div>
           {data.parsed_data?.headers && (
-            <div className="max-h-28 overflow-auto rounded-lg border border-gray-800 bg-gray-950 text-[10px]">
+            <div className="max-h-28 overflow-auto rounded-lg border border-slate-800 bg-slate-950 text-[10px]">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-gray-800 bg-gray-900">
+                  <tr className="border-b border-slate-800 bg-slate-900">
                     {data.parsed_data.headers.slice(0, 6).map((h) => (
-                      <th key={h} className="px-2 py-1 text-gray-500">{h}</th>
+                      <th key={h} className="px-2 py-1 text-slate-500">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {(data.parsed_data.rows || []).slice(0, 5).map((row, i) => (
-                    <tr key={i} className="border-b border-gray-800/30">
+                    <tr key={i} className="border-b border-slate-800/30">
                       {data.parsed_data.headers.slice(0, 6).map((h) => (
-                        <td key={h} className="px-2 py-1 text-gray-400">{row[h] ?? ''}</td>
+                        <td key={h} className="px-2 py-1 text-slate-400">{row[h] ?? ''}</td>
                       ))}
                     </tr>
                   ))}
@@ -652,7 +652,7 @@ function FilePreviewPanel({ fileId, onClose, onNavigate, accent }) {
             </div>
           )}
           {!data.parsed_data?.headers && data.parsed_data && (
-            <pre className="max-h-28 overflow-auto rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-[10px] text-gray-400">
+            <pre className="max-h-28 overflow-auto rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-[10px] text-slate-400">
               {JSON.stringify(data.parsed_data, null, 2).slice(0, 600)}
             </pre>
           )}

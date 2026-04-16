@@ -277,39 +277,39 @@ export default function AIAgents() {
   const defaultProvider = providers.find((provider) => provider.is_default) || null;
 
   if (loading) {
-    return <div className="text-gray-500 animate-pulse">Carregando agentes de IA...</div>;
+    return <div className="text-slate-500 animate-pulse">Carregando agentes de IA...</div>;
   }
 
   return (
     <div className="space-y-8">
-      <div className="relative overflow-hidden rounded-[2rem] border border-fuchsia-900/30 bg-[radial-gradient(circle_at_top_left,_rgba(168,85,247,0.24),_transparent_30%),linear-gradient(135deg,_rgba(23,23,23,0.95),_rgba(17,24,39,0.98))] p-8">
-        <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_center,_rgba(244,114,182,0.18),_transparent_55%)] pointer-events-none" />
+      <div className="relative overflow-hidden rounded-[2rem] border border-purple-900/30 bg-[#111827] p-8">
+        <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_center,_rgba(168,85,247,0.18),_transparent_55%)] pointer-events-none" />
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-4xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-fuchsia-800/40 bg-fuchsia-950/30 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-fuchsia-200">
+            <span className="inline-flex items-center gap-2 rounded-full border border-purple-800/40 bg-purple-500/15 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-purple-400">
               <Bot size={13} /> EnjoyFun AI Hub
             </span>
-            <h1 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
+            <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-100 sm:text-5xl">
               Agentes, memoria, governanca e automacao do evento em um unico lugar.
             </h1>
-            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-gray-300">
+            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-300">
               Este hub virou a superficie principal da inteligencia do organizer: providers,
               politicas, roteamento por agente, trilha operacional, memoria viva e relatorio
               automatico de fim de evento.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[420px]">
-            <span className="rounded-2xl border border-gray-800 bg-gray-950/70 px-4 py-3 text-sm text-gray-300">
-              <span className="block text-[11px] uppercase tracking-[0.22em] text-gray-500">Agentes ativos</span>
-              <span className="mt-1 block text-2xl font-black text-white">{activeAgents}</span>
+            <span className="rounded-2xl border border-slate-800/40 bg-[#111827] px-4 py-3 text-sm text-slate-300">
+              <span className="block text-[11px] uppercase tracking-[0.22em] text-slate-500">Agentes ativos</span>
+              <span className="mt-1 block text-2xl font-black text-slate-100">{activeAgents}</span>
             </span>
-            <span className="rounded-2xl border border-gray-800 bg-gray-950/70 px-4 py-3 text-sm text-gray-300">
-              <span className="block text-[11px] uppercase tracking-[0.22em] text-gray-500">Providers</span>
-              <span className="mt-1 block text-2xl font-black text-white">{configuredProviders}</span>
+            <span className="rounded-2xl border border-slate-800/40 bg-[#111827] px-4 py-3 text-sm text-slate-300">
+              <span className="block text-[11px] uppercase tracking-[0.22em] text-slate-500">Providers</span>
+              <span className="mt-1 block text-2xl font-black text-slate-100">{configuredProviders}</span>
             </span>
-            <span className="rounded-2xl border border-gray-800 bg-gray-950/70 px-4 py-3 text-sm text-gray-300">
-              <span className="block text-[11px] uppercase tracking-[0.22em] text-gray-500">Default</span>
-              <span className="mt-1 block text-sm font-bold text-white">
+            <span className="rounded-2xl border border-slate-800/40 bg-[#111827] px-4 py-3 text-sm text-slate-300">
+              <span className="block text-[11px] uppercase tracking-[0.22em] text-slate-500">Default</span>
+              <span className="mt-1 block text-sm font-bold text-slate-100">
                 {defaultProvider?.label || "nao definido"}
               </span>
             </span>
@@ -317,13 +317,13 @@ export default function AIAgents() {
         </div>
       </div>
 
-      <div className="card bg-gradient-to-r from-purple-900/30 to-pink-900/30 border-purple-800/40 flex items-start gap-4">
-        <div className="w-10 h-10 rounded-xl bg-purple-700 flex items-center justify-center flex-shrink-0">
+      <div className="bg-[#111827] border border-purple-800/40 rounded-2xl p-5 flex items-start gap-4">
+        <div className="w-10 h-10 rounded-xl bg-purple-500 flex items-center justify-center flex-shrink-0">
           <Zap size={18} className="text-white" />
         </div>
         <div className="space-y-2">
-          <p className="font-medium text-white">Central de IA do organizer</p>
-          <p className="text-sm text-gray-400">
+          <p className="font-medium text-slate-100">Central de IA do organizer</p>
+          <p className="text-sm text-slate-400">
             Configure providers, runtime e agentes em um unico lugar.
           </p>
         </div>
@@ -374,7 +374,7 @@ function AgentCard({
   const runtimeReady = runtimeProvider ? runtimeProvider.is_configured : false;
 
   return (
-    <div className={`card-hover flex flex-col ${presentation.border || "border-gray-800"}`}>
+    <div className={`bg-[#111827] border rounded-2xl p-5 flex flex-col hover:border-purple-500/30 transition-colors ${presentation.border || "border-slate-800/40"}`}>
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-start gap-3">
           <div
@@ -385,8 +385,8 @@ function AgentCard({
             {presentation.emoji || "AI"}
           </div>
           <div>
-            <h3 className="font-bold text-white mb-1">{agent.label || agent.agent_key}</h3>
-            <p className="text-xs text-gray-400 leading-relaxed">
+            <h3 className="font-bold text-slate-100 mb-1">{agent.label || agent.agent_key}</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
               {agent.description || "Agente configuravel para operacao do organizer."}
             </p>
           </div>
@@ -396,12 +396,12 @@ function AgentCard({
 
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-2">
-            <p className="text-gray-500 mb-1">Provider efetivo</p>
-            <p className="text-gray-200">{runtimeProviderLabel}</p>
+          <div className="rounded-xl border border-slate-800/40 bg-slate-900/40 px-3 py-2">
+            <p className="text-slate-500 mb-1">Provider efetivo</p>
+            <p className="text-slate-200">{runtimeProviderLabel}</p>
           </div>
-          <div className="rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-2">
-            <p className="text-gray-500 mb-1">Runtime</p>
+          <div className="rounded-xl border border-slate-800/40 bg-slate-900/40 px-3 py-2">
+            <p className="text-slate-500 mb-1">Runtime</p>
             <p className={runtimeReady ? "text-green-400" : "text-amber-300"}>
               {runtimeReady ? "Configurado" : "Sem chave/modelo salvo"}
             </p>
@@ -409,29 +409,29 @@ function AgentCard({
         </div>
 
         <div>
-          <p className="text-xs text-gray-500 mb-2">Superficies alvo</p>
+          <p className="text-xs text-slate-500 mb-2">Superficies alvo</p>
           <div className="flex flex-wrap gap-2">
             {(agent.surfaces || []).length > 0 ? (
               agent.surfaces.map((surface) => (
                 <span
                   key={surface}
-                  className="px-2 py-1 rounded-full border border-gray-800 bg-gray-900 text-[11px] text-gray-300"
+                  className="px-2 py-1 rounded-full border border-slate-800/40 bg-slate-900/40 text-[11px] text-slate-300"
                 >
                   {surface}
                 </span>
               ))
             ) : (
-              <span className="px-2 py-1 rounded-full border border-gray-800 bg-gray-900 text-[11px] text-gray-500">
+              <span className="px-2 py-1 rounded-full border border-slate-800/40 bg-slate-900/40 text-[11px] text-slate-500">
                 Nenhuma superficie mapeada
               </span>
             )}
           </div>
         </div>
 
-        <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-3">
+        <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-800/40 bg-slate-900/40 px-3 py-3">
           <div>
-            <p className="text-sm text-gray-200">Agente habilitado</p>
-            <p className="text-xs text-gray-500">Liga ou desliga este agente no escopo do organizer.</p>
+            <p className="text-sm text-slate-200">Agente habilitado</p>
+            <p className="text-xs text-slate-500">Liga ou desliga este agente no escopo do organizer.</p>
           </div>
           <input
             type="checkbox"
@@ -476,15 +476,15 @@ function AgentCard({
               </option>
             ))}
           </select>
-          <p className="text-xs text-gray-500 mt-2">{approvalMeta.description}</p>
+          <p className="text-xs text-slate-500 mt-2">{approvalMeta.description}</p>
         </div>
 
-        <div className="rounded-xl border border-dashed border-gray-800 bg-gray-950/60 p-3">
-          <div className="flex items-center gap-2 text-gray-300 text-sm mb-2">
-            <Icon size={14} className="text-purple-300" />
+        <div className="rounded-xl border border-dashed border-slate-800/40 bg-slate-900/40 p-3">
+          <div className="flex items-center gap-2 text-slate-300 text-sm mb-2">
+            <Icon size={14} className="text-purple-400" />
             Exemplo de uso
           </div>
-          <p className="text-xs text-gray-400 italic">
+          <p className="text-xs text-slate-400 italic">
             "
             {presentation.example ||
               "Use este agente para orientar a operacao do evento com contexto real."}
@@ -493,8 +493,8 @@ function AgentCard({
         </div>
       </div>
 
-      <div className="mt-auto pt-4 border-t border-gray-800 flex items-center justify-between gap-3">
-        <div className="text-xs text-gray-500">
+      <div className="mt-auto pt-4 border-t border-slate-800/40 flex items-center justify-between gap-3">
+        <div className="text-xs text-slate-500">
           Atualizado: {formatUpdatedAt(agent.updated_at)}
         </div>
         <button

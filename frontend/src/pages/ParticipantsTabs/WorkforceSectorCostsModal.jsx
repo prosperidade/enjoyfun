@@ -126,16 +126,16 @@ export default function WorkforceSectorCostsModal({ isOpen, role, eventId, onClo
   if (!isOpen || !role) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-xl overflow-hidden">
-        <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl">
+        <div className="p-4 border-b border-slate-800/40 flex items-center justify-between">
           <div>
-            <h3 className="text-white font-bold">Custos Totais do Setor</h3>
-            <p className="text-xs text-gray-500 mt-1">
+            <h3 className="text-slate-100 font-bold">Custos Totais do Setor</h3>
+            <p className="text-xs text-slate-500 mt-1">
               Setor: {labelSector} | Cargo: {role.name}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800">
+          <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800/50">
             <X size={18} />
           </button>
         </div>
@@ -147,15 +147,15 @@ export default function WorkforceSectorCostsModal({ isOpen, role, eventId, onClo
             </div>
           ) : (
             <>
-              <div className="rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-3">
-                <p className="text-xs text-gray-400 uppercase tracking-wider">Operação do setor</p>
-                <p className="text-sm text-gray-500 mt-1">
+              <div className="rounded-xl border border-slate-800/40 bg-slate-950/60 px-3 py-3">
+                <p className="text-xs text-slate-400 uppercase tracking-wider">Operação do setor</p>
+                <p className="text-sm text-slate-500 mt-1">
                   {Number(data.workersCount || 0).toLocaleString("pt-BR")} pessoa(s) na equipe
                 </p>
-                <p className="text-sm text-gray-300 mt-2">
+                <p className="text-sm text-slate-300 mt-2">
                   Pagamento: R$ {Number(data.workersPaymentTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
-                <p className="text-sm text-gray-300">
+                <p className="text-sm text-slate-300">
                   Refeições: {Number(data.workersMealsTotal || 0).toLocaleString("pt-BR")} x R$ {Number(data.mealUnitCost || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
                 <p className="text-sm font-semibold text-cyan-400 mt-2">
@@ -163,9 +163,9 @@ export default function WorkforceSectorCostsModal({ isOpen, role, eventId, onClo
                 </p>
               </div>
 
-              <div className="rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-3">
-                <p className="text-xs text-gray-400 uppercase tracking-wider">Liderança do setor</p>
-                <p className="text-sm text-gray-500 mt-1">
+              <div className="rounded-xl border border-slate-800/40 bg-slate-950/60 px-3 py-3">
+                <p className="text-xs text-slate-400 uppercase tracking-wider">Liderança do setor</p>
+                <p className="text-sm text-slate-500 mt-1">
                   {Number(data.leadershipPositionsTotal || 0).toLocaleString("pt-BR")} cargo(s) de liderança •{" "}
                   {Number(data.leadershipFilledTotal || 0).toLocaleString("pt-BR")} com responsável
                 </p>
@@ -174,10 +174,10 @@ export default function WorkforceSectorCostsModal({ isOpen, role, eventId, onClo
                     {Number(data.leadershipPlaceholderTotal || 0).toLocaleString("pt-BR")} liderança(s) ainda sem nome e CPF
                   </p>
                 )}
-                <p className="text-sm text-gray-300 mt-2">
+                <p className="text-sm text-slate-300 mt-2">
                   Pagamento: R$ {Number(data.leadershipPaymentTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
-                <p className="text-sm text-gray-300">
+                <p className="text-sm text-slate-300">
                   Refeições: {Number(data.leadershipMealsTotal || 0).toLocaleString("pt-BR")} x R$ {Number(data.mealUnitCost || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
                 <p className="text-sm font-semibold text-amber-400 mt-2">
@@ -185,7 +185,7 @@ export default function WorkforceSectorCostsModal({ isOpen, role, eventId, onClo
                 </p>
               </div>
 
-              <div className="rounded-xl border border-emerald-700/50 bg-emerald-900/10 px-3 py-3">
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-3">
                 <p className="text-xs text-emerald-400 uppercase tracking-wider">Total do Setor</p>
                 <p className="text-sm text-emerald-200 mt-1">
                   {Number(data.plannedMembersTotal || 0).toLocaleString("pt-BR")} planejado(s) •{" "}
@@ -200,7 +200,7 @@ export default function WorkforceSectorCostsModal({ isOpen, role, eventId, onClo
           )}
 
           <div className="flex justify-end pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary">
+            <button type="button" onClick={onClose} className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-semibold transition-colors">
               Fechar
             </button>
           </div>

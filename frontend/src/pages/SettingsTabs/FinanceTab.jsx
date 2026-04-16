@@ -212,39 +212,39 @@ export default function FinanceTab() {
         }
     };
 
-    if (loading) return <div className="text-gray-500 animate-pulse">Carregando painel financeiro...</div>;
+    if (loading) return <div className="text-slate-500 animate-pulse">Carregando painel financeiro...</div>;
 
     return (
         <div className="space-y-8 fade-in">
             {/* Cabecalho e Infos Globais */}
-            <div className="card max-w-5xl p-6 border-l-4 border-l-brand">
+            <div className="bg-[#111827] border border-slate-800/40 rounded-2xl max-w-5xl p-6 border-l-2 border-l-cyan-400">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
-                        <h2 className="section-title flex items-center gap-2 mb-2">
-                            <Zap size={20} className="text-brand" /> Financial Layer
+                        <h2 className="text-lg font-semibold text-slate-200 flex items-center gap-2 mb-2">
+                            <Zap size={20} className="text-cyan-400" /> Financial Layer
                         </h2>
-                        <p className="text-sm text-gray-400 max-w-2xl">
-                            Gerencie seus provedores de pagamento para App Tótens, Bilheteria e Recarga Web. 
-                            Apenas um provedor pode ser o <strong className="text-brand">Principal</strong> em operação simultânea.
+                        <p className="text-sm text-slate-400 max-w-2xl">
+                            Gerencie seus provedores de pagamento para App Tótens, Bilheteria e Recarga Web.
+                            Apenas um provedor pode ser o <strong className="text-cyan-400">Principal</strong> em operação simultânea.
                         </p>
                     </div>
-                    
-                    <div className="flex gap-6 bg-gray-900/50 p-4 rounded-xl border border-gray-800">
+
+                    <div className="flex gap-6 bg-slate-900/50 p-4 rounded-xl border border-slate-800/40">
                         <div>
-                            <p className="text-xs text-gray-500 uppercase font-semibold">Moeda Base</p>
-                            <p className="text-lg font-bold text-gray-200">{currency}</p>
+                            <p className="text-xs text-slate-500 uppercase font-semibold">Moeda Base</p>
+                            <p className="text-lg font-bold text-slate-200">{currency}</p>
                         </div>
-                        <div className="w-px bg-gray-800"></div>
+                        <div className="w-px bg-slate-800"></div>
                         <div>
-                            <p className="text-xs text-gray-500 uppercase font-semibold">Taxa EnjoyFun</p>
-                            <p className="text-lg font-bold text-gray-200">{taxRate}%</p>
+                            <p className="text-xs text-slate-500 uppercase font-semibold">Taxa EnjoyFun</p>
+                            <p className="text-lg font-bold text-slate-200">{taxRate}%</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             {fetchError && (
-                <div className="card max-w-5xl p-4 border border-yellow-700/40 bg-yellow-900/10 text-yellow-300 text-sm">
+                <div className="bg-[#111827] border border-yellow-700/40 rounded-2xl max-w-5xl p-4 bg-yellow-900/10 text-yellow-300 text-sm">
                     {fetchError}
                 </div>
             )}
@@ -261,25 +261,25 @@ export default function FinanceTab() {
                     const isTestingThisGateway = testingProvider === gw.provider;
 
                     return (
-                        <div key={gw.provider} className={`card p-5 relative overflow-hidden transition-all duration-300 ${isConfiguring ? 'ring-2 ring-brand' : ''} ${isPrincipal ? 'bg-brand/5 border-brand/30' : 'hover:border-gray-700'}`}>
-                            
+                        <div key={gw.provider} className={`bg-[#111827] border border-slate-800/40 rounded-2xl p-5 relative overflow-hidden transition-all duration-300 ${isConfiguring ? 'ring-2 ring-cyan-400' : ''} ${isPrincipal ? 'bg-cyan-500/5 border-cyan-500/20' : 'hover:border-slate-700/50'}`}>
+
                             {/* Header do Card */}
                             <div className="flex items-start justify-between mb-6 relative z-10">
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg ${isActive ? 'bg-gradient-to-br from-brand to-purple-600 text-white' : 'bg-gray-800 text-gray-500'}`}>
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg ${isActive ? 'bg-gradient-to-br from-cyan-500 to-cyan-400 text-slate-950' : 'bg-slate-800/50 text-slate-500'}`}>
                                         {configDef.icon}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-gray-200">{configDef.name}</h3>
+                                        <h3 className="font-bold text-slate-200">{configDef.name}</h3>
                                         <div className="flex items-center gap-2 mt-1">
-                                            <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-600'}`}></div>
-                                            <span className="text-xs text-gray-400">{isActive ? 'Ativo' : 'Inativo'}</span>
+                                            <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-slate-600'}`}></div>
+                                            <span className="text-xs text-slate-400">{isActive ? 'Ativo' : 'Inativo'}</span>
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 {isPrincipal && (
-                                    <div className="flex items-center gap-1 bg-brand/20 text-brand px-2 py-1 rounded text-xs font-semibold">
+                                    <div className="flex items-center gap-1 bg-amber-500/15 text-amber-400 px-2 py-1 rounded text-xs font-semibold">
                                         <Star size={12} fill="currentColor" /> Principal
                                     </div>
                                 )}
@@ -289,7 +289,7 @@ export default function FinanceTab() {
                             {!isConfiguring && (
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-500">Credenciais</span>
+                                        <span className="text-slate-500">Credenciais</span>
                                         {gw.credentials.has_token ? (
                                             <span className="flex items-center gap-1 text-green-400"><CheckCircle2 size={14}/> Configurado</span>
                                         ) : (
@@ -297,19 +297,19 @@ export default function FinanceTab() {
                                         )}
                                     </div>
 
-                                    <div className="pt-4 border-t border-gray-800/60 flex items-center justify-between gap-2">
-                                        <button 
+                                    <div className="pt-4 border-t border-slate-800/40 flex items-center justify-between gap-2">
+                                        <button
                                             onClick={() => openEditor(gw)}
-                                            className="btn-secondary flex-1 py-2 text-sm"
+                                            className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl flex-1 py-2 text-sm transition-colors"
                                         >
                                             Configurar
                                         </button>
-                                        
+
                                         {!isPrincipal && isActive && (
-                                            <button 
+                                            <button
                                                 onClick={() => togglePrincipal(gw)}
                                                 disabled={isSavingThisGateway}
-                                                className="btn-ghost p-2 text-gray-400 hover:text-brand"
+                                                className="p-2 text-slate-400 hover:text-cyan-400 transition-colors"
                                                 title="Tornar Principal"
                                             >
                                                 <Star size={16} />
@@ -323,61 +323,61 @@ export default function FinanceTab() {
                             {isConfiguring && (
                                 <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
                                     <div>
-                                        <label className="text-xs text-gray-400 mb-1 block">Status de Operação</label>
+                                        <label className="text-xs text-slate-400 mb-1 block">Status de Operação</label>
                                         <label className="relative inline-flex items-center cursor-pointer">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={editingGateway.is_active} 
-                                                onChange={(e) => setEditingGateway({...editingGateway, is_active: e.target.checked})} 
-                                                className="sr-only peer" 
+                                            <input
+                                                type="checkbox"
+                                                checked={editingGateway.is_active}
+                                                onChange={(e) => setEditingGateway({...editingGateway, is_active: e.target.checked})}
+                                                className="sr-only peer"
                                             />
-                                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                                            <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                                         </label>
                                     </div>
 
                                     <div>
-                                        <label className="text-xs text-gray-400 mb-1 block">{schema.label}</label>
-                                        <input 
-                                            type="password" 
+                                        <label className="text-xs text-slate-400 mb-1 block">{schema.label}</label>
+                                        <input
+                                            type="password"
                                             placeholder={gw.credentials.has_token ? "•••••••••• (Configurado)" : "Insira a credencial..."}
                                             value={editingGateway.credential_value || ''}
                                             onChange={(e) => setEditingGateway({...editingGateway, credential_value: e.target.value})}
-                                            className="input text-sm py-2"
+                                            className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-4 py-2 text-sm text-slate-100 outline-none transition-colors"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="text-xs text-gray-400 mb-1 block">Public Key (Opcional)</label>
-                                        <input 
-                                            type="text" 
+                                        <label className="text-xs text-slate-400 mb-1 block">Public Key (Opcional)</label>
+                                        <input
+                                            type="text"
                                             placeholder="APP_USR-..."
                                             value={editingGateway.public_key_input || ''}
                                             onChange={(e) => setEditingGateway({...editingGateway, public_key_input: e.target.value})}
-                                            className="input text-sm py-2"
+                                            className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-4 py-2 text-sm text-slate-100 outline-none transition-colors"
                                         />
                                     </div>
 
                                     <div className="flex items-center gap-2 pt-2">
-                                        <button 
+                                        <button
                                             onClick={() => handleSaveGateway(editingGateway)}
                                             disabled={isSavingThisGateway}
-                                            className="btn-primary flex-1 py-2 text-sm"
+                                            className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl flex-1 py-2 text-sm transition-all"
                                         >
                                             {isSavingThisGateway ? 'Salvando...' : 'Salvar'}
                                         </button>
-                                        
-                                        <button 
+
+                                        <button
                                             onClick={() => handleTestConnection(editingGateway)}
                                             disabled={isTestingThisGateway || (!editingGateway.credential_value && !gw.credentials.has_token)}
-                                            className="btn-secondary p-2 text-gray-400 disabled:opacity-50"
+                                            className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl p-2 disabled:opacity-50 transition-colors"
                                             title="Testar Conexão"
                                         >
                                             {isTestingThisGateway ? <Loader2 size={16} className="animate-spin" /> : <Link2 size={16} />}
                                         </button>
 
-                                        <button 
+                                        <button
                                             onClick={() => setEditingGateway(null)}
-                                            className="btn-ghost text-sm py-2 text-gray-400"
+                                            className="text-sm py-2 text-slate-400 hover:text-slate-200 transition-colors"
                                         >
                                             Voltar
                                         </button>

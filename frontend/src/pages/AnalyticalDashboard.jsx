@@ -39,7 +39,7 @@ export default function AnalyticalDashboard() {
           <BarChart3 size={22} className="text-brand" />
           Dashboard Analitico
         </h1>
-        <p className="max-w-3xl text-sm text-gray-400">
+        <p className="max-w-3xl text-sm text-slate-400">
           Leitura pos-evento focada em performance comercial e aprendizado para proximas operacoes.
         </p>
       </div>

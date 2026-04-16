@@ -719,25 +719,25 @@ export default function Scanner() {
         <button
           type="button"
           onClick={handleExitScanner}
-          className="inline-flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-700"
+          className="inline-flex items-center gap-2 bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-2 text-sm font-semibold text-slate-300 transition-colors hover:border-cyan-500/30 hover:text-slate-100"
         >
           <ArrowLeft size={16} /> Voltar
         </button>
 
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white flex items-center justify-center gap-2">
-            <Camera className="text-brand" /> Scanner Operacional
+          <h1 className="text-2xl font-bold font-headline text-slate-100 flex items-center justify-center gap-2">
+            <Camera className="text-cyan-400" /> Scanner Operacional
           </h1>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1">
             Portaria fixa para guest e setores dinâmicos vindos do Workforce.
           </p>
         </div>
       </div>
 
       {(eventsFromCache || sectorsFromCache) && (
-        <div className="card border border-amber-900/60 bg-amber-950/30 p-4 text-sm text-amber-100">
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-sm text-amber-100">
           <div className="flex items-center gap-2 font-semibold">
-            <WifiOff size={16} /> Operação com cache local
+            <WifiOff size={16} className="text-amber-400" /> Operação com cache local
           </div>
           <p className="mt-1 text-xs text-amber-100/90">
             O scanner carregou {eventsFromCache ? "eventos" : "setores"} do dispositivo para manter a operação sem internet.
@@ -746,15 +746,15 @@ export default function Scanner() {
       )}
 
       {!operationMode ? (
-        <div className="card p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-white text-center">Evento e setor do scanner</h2>
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-6 space-y-4">
+          <h2 className="text-lg font-semibold font-headline text-slate-100 text-center">Evento e setor do scanner</h2>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               Evento
             </label>
             <select
-              className="input"
+              className="w-full bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-slate-100 outline-none transition-colors"
               value={eventId}
               onChange={(e) => handleEventChange(e.target.value)}
               disabled={catalogLoading || modeLocked}
@@ -772,9 +772,9 @@ export default function Scanner() {
             <button
               type="button"
               onClick={() => handleSelectMode("portaria")}
-              className="btn-secondary justify-start"
+              className="flex items-center gap-2 justify-start bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 text-slate-300 transition-all hover:border-cyan-500/30 hover:bg-cyan-500/5 hover:text-slate-100 group"
             >
-              <MapPin size={18} /> Portaria (guest e ingressos)
+              <MapPin size={18} className="text-slate-400 group-hover:text-cyan-400 transition-colors" /> Portaria (guest e ingressos)
             </button>
 
             {sectorModes.map((mode) => (
@@ -782,52 +782,52 @@ export default function Scanner() {
                 key={mode.id}
                 type="button"
                 onClick={() => handleSelectMode(mode.id)}
-                className="btn-secondary justify-between"
+                className="flex items-center justify-between bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 text-slate-300 transition-all hover:border-cyan-500/30 hover:bg-cyan-500/5 hover:text-slate-100 group"
                 disabled={!eventId}
               >
                 <span className="inline-flex items-center gap-2">
-                  <MapPin size={18} /> {mode.label}
+                  <MapPin size={18} className="text-slate-400 group-hover:text-cyan-400 transition-colors" /> {mode.label}
                 </span>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-slate-500">
                   {mode.members} pessoa(s)
                 </span>
               </button>
             ))}
           </div>
 
-                    {eventId && (
-             <div className="card p-4 mt-6 border-brand/40 bg-brand/5">
-                <div className="flex items-center justify-between">
-                   <div className="space-y-1">
-                      <h4 className="font-semibold text-white flex items-center gap-2"><Database size={16} className="text-brand"/> Cofre Offline</h4>
-                      <p className="text-xs text-gray-400">{offlineCount} ingressos baixados para contorno de crise.</p>
-                   </div>
-                   <button onClick={handleSyncScanners} disabled={isSyncing} className="btn-secondary py-1 text-xs">
-                     {isSyncing ? <Loader2 size={14} className="animate-spin" /> : <CloudDownload size={14} />} Sincronizar
-                   </button>
+          {eventId && (
+            <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-4 mt-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-slate-100 flex items-center gap-2"><Database size={16} className="text-cyan-400"/> Cofre Offline</h4>
+                  <p className="text-xs text-slate-400">{offlineCount} ingressos baixados para contorno de crise.</p>
                 </div>
-             </div>
+                <button onClick={handleSyncScanners} disabled={isSyncing} className="inline-flex items-center gap-1.5 border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-lg py-1.5 px-3 text-xs transition-colors">
+                  {isSyncing ? <Loader2 size={14} className="animate-spin" /> : <CloudDownload size={14} />} Sincronizar
+                </button>
+              </div>
+            </div>
           )}
           {catalogLoading ? (
-            <p className="text-sm text-gray-500 text-center">Carregando catálogo operacional...</p>
+            <p className="text-sm text-slate-500 text-center">Carregando catálogo operacional...</p>
           ) : eventId && sectorModes.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center">
+            <p className="text-sm text-slate-500 text-center">
               Nenhum setor operacional com assignments visíveis foi encontrado neste evento.
             </p>
           ) : null}
         </div>
       ) : (
         <>
-          <div className="card p-4 flex items-center justify-between gap-4">
+          <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4 flex items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-3">
-                <MapPin className="text-brand" size={20} />
-                <span className="font-semibold text-white">
+                <MapPin className="text-cyan-400" size={20} />
+                <span className="font-semibold text-slate-100">
                   Setor: {operationMode === "portaria" ? "Portaria" : formatSectorLabel(operationMode)}
                 </span>
               </div>
               {selectedEvent ? (
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-slate-400">
                   Evento: {selectedEvent.name}
                 </p>
               ) : null}
@@ -835,16 +835,16 @@ export default function Scanner() {
             {!modeLocked ? (
               <button
                 onClick={handleChangeSector}
-                className="bg-gray-800 hover:bg-gray-700 text-white text-sm py-1.5 px-4 rounded-lg transition-colors font-medium"
+                className="bg-slate-800/50 border border-slate-700/50 text-slate-300 text-sm py-1.5 px-4 rounded-lg transition-colors font-medium hover:border-cyan-500/30 hover:text-slate-100"
               >
                 Trocar Setor
               </button>
             ) : null}
           </div>
 
-          <div className="relative rounded-2xl overflow-hidden bg-black border-2 border-gray-800 shadow-2xl aspect-square flex items-center justify-center">
+          <div className="relative rounded-2xl overflow-hidden bg-slate-950 border-2 border-cyan-500/30 shadow-[0_0_20px_rgba(0,240,255,0.1)] aspect-square flex items-center justify-center">
             {!isScanning && !scanResult && (
-              <button onClick={startScanner} className="btn-primary flex items-center gap-2">
+              <button onClick={startScanner} className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-6 py-3 transition-all hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] active:scale-95">
                 <Camera size={20} /> Ligar Câmera
               </button>
             )}
@@ -852,15 +852,15 @@ export default function Scanner() {
             <div id={qrCodeRegionId} className={`w-full h-full ${scanResult ? "hidden" : "block"}`} />
 
             {cameraError && (
-              <div className="absolute inset-0 bg-gray-900 flex items-center justify-center p-6 text-center text-red-400">
+              <div className="absolute inset-0 bg-slate-950 flex items-center justify-center p-6 text-center text-red-400">
                 {cameraError}
               </div>
             )}
 
             {isProcessing && (
-              <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 text-center z-10 animate-fade-in backdrop-blur-sm">
-                <Loader2 size={64} className="text-brand animate-spin mb-4" />
-                <h2 className="text-2xl font-bold text-white tracking-widest uppercase">Processando</h2>
+              <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-10 animate-fade-in">
+                <Loader2 size={64} className="text-cyan-400 animate-spin mb-4" />
+                <h2 className="text-2xl font-bold font-headline text-slate-100 tracking-widest uppercase">Processando</h2>
               </div>
             )}
 
@@ -898,7 +898,7 @@ export default function Scanner() {
 
                 <button
                   onClick={resetScanner}
-                  className="mt-8 px-10 py-4 bg-white text-black font-black rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.3)] hover:bg-gray-100 active:scale-95 transition-all w-full max-w-[280px] text-lg uppercase tracking-wider"
+                  className="mt-8 px-10 py-4 bg-white text-black font-black rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.3)] hover:bg-slate-100 active:scale-95 transition-all w-full max-w-[280px] text-lg uppercase tracking-wider"
                 >
                   Ler Próximo
                 </button>
@@ -906,8 +906,8 @@ export default function Scanner() {
             )}
           </div>
 
-          <form onSubmit={handleManualSubmit} className="card p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-gray-400 flex items-center gap-2">
+          <form onSubmit={handleManualSubmit} className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-400 flex items-center gap-2">
               <Keyboard size={16} /> Digitar Código Manualmente
             </h3>
             <div className="flex gap-2">
@@ -915,7 +915,7 @@ export default function Scanner() {
                 ref={manualInputRef}
                 type="text"
                 placeholder="Ex: EF-IMP-1234ABCD"
-                className="input flex-1"
+                className="flex-1 bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-slate-100 font-mono outline-none transition-colors placeholder:text-slate-600"
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
                 disabled={!!scanResult}
@@ -925,7 +925,7 @@ export default function Scanner() {
               />
               <button
                 type="submit"
-                className="btn-primary whitespace-nowrap"
+                className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-5 py-2.5 whitespace-nowrap transition-all hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] active:scale-95 disabled:opacity-50"
                 disabled={!manualCode.trim() || !!scanResult}
               >
                 Validar

@@ -15,23 +15,23 @@ export default function StatCard({
 }) {
   const { buildScopedPath } = useEventScope();
   const baseClassName = compact
-    ? "stat-card group relative overflow-hidden min-h-[170px]"
-    : "stat-card group relative overflow-hidden";
+    ? "an-stat-card group relative overflow-hidden min-h-[170px]"
+    : "an-stat-card group relative overflow-hidden";
   const target = to ? buildScopedPath(to, scopeEventId) : null;
 
   const content = (
     <>
-      <div className={`absolute top-0 right-0 h-24 w-24 rounded-full mix-blend-overlay opacity-10 blur-2xl ${color} -mr-8 -mt-8`} />
-      <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-        {Icon && <Icon size={20} className="text-white" />}
+      <div className={`absolute top-0 right-0 h-24 w-24 rounded-full mix-blend-overlay opacity-5 blur-2xl ${color} -mr-8 -mt-8`} />
+      <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${color}/15`}>
+        {Icon && <Icon size={20} className={`${color.replace('bg-', 'text-').replace('-600', '-400').replace('-700', '-400')}`} />}
       </div>
-      <div className="stat-value">{loading ? "—" : value}</div>
-      <div className="stat-label">{label}</div>
-      {subtitle && <div className="mt-1 text-[10px] text-gray-500">{subtitle}</div>}
+      <div className="text-2xl font-bold text-slate-100">{loading ? "—" : value}</div>
+      <div className="text-sm text-slate-400">{label}</div>
+      {subtitle && <div className="mt-1 text-[10px] text-slate-500">{subtitle}</div>}
       {target && (
         <ArrowUpRight
           size={14}
-          className="mt-auto self-end text-gray-600 transition-colors group-hover:text-white"
+          className="mt-auto self-end text-slate-600 transition-colors group-hover:text-cyan-400"
         />
       )}
     </>

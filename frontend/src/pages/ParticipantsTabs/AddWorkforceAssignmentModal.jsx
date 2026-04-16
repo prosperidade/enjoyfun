@@ -221,15 +221,15 @@ export default function AddWorkforceAssignmentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      
-      <div className="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-md relative z-10 shadow-2xl animate-fade-in flex flex-col max-h-[90vh] overflow-hidden">
-        <div className="p-5 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
+      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
+
+      <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl w-full max-w-md relative z-10 shadow-2xl animate-fade-in flex flex-col max-h-[90vh] overflow-hidden">
+        <div className="p-5 border-b border-slate-800/40 flex justify-between items-center">
             <div>
-                <h2 className="text-lg font-black text-white leading-none">Nova Alocação</h2>
-                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Vínculo Operacional de Staff</p>
+                <h2 className="text-lg font-black text-slate-100 leading-none">Nova Alocação</h2>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Vínculo Operacional de Staff</p>
             </div>
-            <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors p-2 rounded-xl hover:bg-gray-800">
+            <button onClick={onClose} className="text-slate-500 hover:text-red-400 transition-colors p-2 rounded-xl hover:bg-slate-800/50">
                 <X size={20} />
             </button>
         </div>
@@ -239,9 +239,9 @@ export default function AddWorkforceAssignmentModal({
             
             {/* Escolha do Membro */}
             <div>
-              <label className="text-[10px] font-black text-gray-500 mb-1.5 block uppercase tracking-[0.15em]">Participante Integramte *</label>
+              <label className="text-[10px] font-black text-slate-500 mb-1.5 block uppercase tracking-[0.15em]">Participante Integramte *</label>
               <div className="relative mb-2">
-                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                 <input
                   type="text"
                   className="input w-full pl-9"
@@ -251,7 +251,7 @@ export default function AddWorkforceAssignmentModal({
                 />
               </div>
               <select 
-                className="select w-full block bg-gray-800 border-gray-700 h-12 text-sm font-medium focus:border-brand/40" 
+                className="select w-full block bg-slate-800/50 border-slate-700/50 h-12 text-sm font-medium focus:border-cyan-500" 
                 required
                 value={formData.participant_id}
                 onChange={e => setFormData({...formData, participant_id: e.target.value})}
@@ -265,7 +265,7 @@ export default function AddWorkforceAssignmentModal({
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-[11px] text-gray-500">
+              <p className="mt-1 text-[11px] text-slate-500">
                 Busca remota limitada a 50 resultados por vez para não truncar eventos grandes.
               </p>
             </div>
@@ -273,15 +273,15 @@ export default function AddWorkforceAssignmentModal({
              {/* Cargo com Sugestões e Criação */}
              <div>
                {managerScopedMode && (
-                  <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 mb-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-light">Fluxo manager-first</p>
-                    <p className="mt-2 text-sm text-gray-300">
+                  <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-3 mb-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.15em] text-cyan-400-light">Fluxo manager-first</p>
+                    <p className="mt-2 text-sm text-slate-300">
                       {managerUserId
                         ? "Esta alocação será vinculada ao gerente atual. Se nenhum cargo operacional for escolhido, o cargo padrão do setor será aplicado automaticamente."
                         : "Esta alocação está operando pelo setor/cargo do gerente. Se nenhum cargo operacional for escolhido, o cargo padrão do setor será aplicado automaticamente."}
                     </p>
                     {formData.sector && (
-                      <p className="mt-2 text-[10px] uppercase tracking-wider text-gray-500">
+                      <p className="mt-2 text-[10px] uppercase tracking-wider text-slate-500">
                        Setor vinculado: {formData.sector}
                      </p>
                    )}
@@ -289,14 +289,14 @@ export default function AddWorkforceAssignmentModal({
                )}
 
                <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.15em]">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">
                     {managerScopedMode ? "Cargo Operacional (opcional)" : "Cargo Atribuído *"}
                   </label>
                  {!lockRole && (
                    <button
                      type="button"
                      onClick={() => setIsCreatingRole(!isCreatingRole)}
-                     className="text-[10px] text-brand hover:text-brand-light font-black uppercase tracking-widest flex items-center gap-1.5 bg-brand/5 px-2.5 py-1 rounded-lg border border-brand/20 transition-all active:scale-95"
+                     className="text-[10px] text-cyan-400 hover:text-cyan-400-light font-black uppercase tracking-widest flex items-center gap-1.5 bg-cyan-500/5 px-2.5 py-1 rounded-lg border border-cyan-500/20 transition-all active:scale-95"
                    >
                      <Plus size={10} /> {isCreatingRole ? "Visualizar Lista" : "Criar Novo Cargo"}
                    </button>
@@ -308,18 +308,18 @@ export default function AddWorkforceAssignmentModal({
                      <input
                        type="text"
                        placeholder="Ex: Coordenador de Equipe, Brigadista..."
-                       className="input w-full bg-brand/5 border-brand/30 h-12 text-sm font-semibold shadow-inner placeholder:text-gray-600 focus:border-brand"
+                       className="input w-full bg-cyan-500/5 border-cyan-500/30 h-12 text-sm font-semibold shadow-inner placeholder:text-slate-600 focus:border-cyan-500"
                        autoFocus
                        value={newRoleName}
                        onChange={e => setNewRoleName(e.target.value)}
                      />
-                     <p className="text-[9px] text-gray-600 font-bold uppercase italic">
+                     <p className="text-[9px] text-slate-600 font-bold uppercase italic">
                        O novo cargo será salvo no setor atual{formData.sector ? ` (${formData.sector})` : ""}.
                      </p>
                  </div>
                ) : (
                  <select
-                    className="select w-full block bg-gray-800 border-gray-700 h-12 text-sm font-medium focus:border-brand/40"
+                    className="select w-full block bg-slate-800/50 border-slate-700/50 h-12 text-sm font-medium focus:border-cyan-500"
                     required={!managerScopedMode && !isCreatingRole}
                     disabled={lockRole}
                     value={formData.role_id}
@@ -346,27 +346,27 @@ export default function AddWorkforceAssignmentModal({
 
             {/* Local de Trabalho / Setor */}
             <div>
-              <label className="text-[10px] font-black text-gray-500 mb-1.5 block uppercase tracking-[0.15em]">Setor / Área de Atuação</label>
+              <label className="text-[10px] font-black text-slate-500 mb-1.5 block uppercase tracking-[0.15em]">Setor / Área de Atuação</label>
               <input 
                 type="text" 
                 placeholder="Ex: Bar Alpha, Palco Principal, Acessos..."
-                className="input w-full bg-gray-800 border-gray-700 h-12 text-sm font-medium focus:border-brand/40" 
+                className="input w-full bg-slate-800/50 border-slate-700/50 h-12 text-sm font-medium focus:border-cyan-500" 
                 value={formData.sector}
                 disabled={lockSector}
                 onChange={e => setFormData({...formData, sector: e.target.value})}
               />
             </div>
 
-            <div className="h-px bg-gray-800/50 my-2" />
+            <div className="h-px bg-slate-800/40 my-2" />
 
             {/* Escala: Dia e Turno */}
              <div className="grid grid-cols-2 gap-4">
                 <div>
-                   <label className="text-[10px] font-black text-gray-500 mb-1.5 block uppercase tracking-[0.15em] flex items-center gap-1.5">
-                     <Calendar size={12} className="text-brand" /> Dia do Evento
+                   <label className="text-[10px] font-black text-slate-500 mb-1.5 block uppercase tracking-[0.15em] flex items-center gap-1.5">
+                     <Calendar size={12} className="text-cyan-400" /> Dia do Evento
                    </label>
                    <select 
-                    className="select w-full block bg-gray-800 border-gray-700 h-12 text-sm font-medium focus:border-brand/40" 
+                    className="select w-full block bg-slate-800/50 border-slate-700/50 h-12 text-sm font-medium focus:border-cyan-500" 
                     value={formData.event_day_id}
                     onChange={e => setFormData({...formData, event_day_id: e.target.value})}
                   >
@@ -377,9 +377,9 @@ export default function AddWorkforceAssignmentModal({
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-gray-500 mb-1.5 block uppercase tracking-[0.15em]">Turno / Escala</label>
+                  <label className="text-[10px] font-black text-slate-500 mb-1.5 block uppercase tracking-[0.15em]">Turno / Escala</label>
                    <select 
-                    className="select w-full block bg-gray-800 border-gray-700 h-12 text-sm font-medium focus:border-brand/40" 
+                    className="select w-full block bg-slate-800/50 border-slate-700/50 h-12 text-sm font-medium focus:border-cyan-500" 
                     value={formData.event_shift_id}
                     onChange={e => setFormData({...formData, event_shift_id: e.target.value})}
                     disabled={filteredShifts.length === 0}
@@ -395,15 +395,15 @@ export default function AddWorkforceAssignmentModal({
           </form>
         </div>
 
-        <div className="p-5 border-t border-gray-800 flex justify-end gap-3 bg-gray-950/30">
-          <button type="button" onClick={onClose} className="px-5 py-2 rounded-xl font-bold text-gray-500 hover:text-white hover:bg-gray-800 transition-all text-xs uppercase tracking-widest">
+        <div className="p-5 border-t border-slate-800/40 flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-5 py-2 font-semibold transition-colors text-xs uppercase tracking-widest">
             Cancelar
           </button>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             form="assignment-form"
             disabled={loading}
-            className="btn-primary h-12 px-8 text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-brand/20 active:scale-95 transition-all"
+            className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl h-12 px-8 text-xs uppercase tracking-[0.2em] shadow-xl shadow-cyan-500/20 active:scale-95 transition-all"
           >
              {loading ? <div className="spinner w-4 h-4" /> : <Save size={18} className="mr-2" />}
              Salvar Alocação

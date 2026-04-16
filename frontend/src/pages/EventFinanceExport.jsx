@@ -96,11 +96,11 @@ export default function EventFinanceExport() {
         <h1 className="page-title flex items-center gap-2">
           <Download size={22} className="text-cyan-400" /> Exportações
         </h1>
-        <p className="text-gray-500 text-sm">Gere arquivos CSV para análise externa</p>
+        <p className="text-slate-400 text-sm">Gere arquivos CSV para análise externa</p>
       </div>
 
       {/* Seletor de evento */}
-      <div className="card border-white/5 flex items-center gap-4 flex-wrap">
+      <div className="card border-slate-800/40 flex items-center gap-4 flex-wrap">
         <div className="flex-1">
           <label className="input-label">Evento</label>
           <select className="select" value={eventId} onChange={(e) => setEventId(e.target.value)}>
@@ -127,13 +127,13 @@ export default function EventFinanceExport() {
           const Icon = et.icon;
           const isRunning = exporting === et.value;
           return (
-            <div key={et.value} className="card border-white/5 flex items-start gap-4">
+            <div key={et.value} className="card border-slate-800/40 flex items-start gap-4">
               <div className="p-2 bg-cyan-400/10 rounded-lg">
                 <Icon size={20} className="text-cyan-400" />
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-white">{et.label}</p>
-                <p className="text-sm text-gray-400 mt-0.5">{et.description}</p>
+                <p className="font-semibold text-slate-100">{et.label}</p>
+                <p className="text-sm text-slate-400 mt-0.5">{et.description}</p>
               </div>
               <button
                 onClick={() => handleExport(et.value)}
@@ -152,7 +152,7 @@ export default function EventFinanceExport() {
       </div>
 
       {!eventId && (
-        <div className="text-center py-4 text-gray-600 text-sm">
+        <div className="text-center py-4 text-slate-500 text-sm">
           Selecione um evento para habilitar as exportações.
         </div>
       )}

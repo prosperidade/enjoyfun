@@ -629,12 +629,12 @@ function getConfigSourceLabel(source) {
 
 function getConfigSourceBadgeClass(source) {
   const labels = {
-    member_override: "badge badge-green",
-    role_settings: "badge badge-blue",
-    default: "badge badge-yellow",
-    ambiguous: "badge badge-red",
+    member_override: "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-500/15 text-green-400",
+    role_settings: "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-cyan-500/15 text-cyan-400",
+    default: "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-400",
+    ambiguous: "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-500/15 text-red-400",
   };
-  return labels[source] || "badge badge-gray";
+  return labels[source] || "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-700/50 text-slate-400";
 }
 
 function getConfigSourceBadgeLabel(source) {
@@ -2215,7 +2215,7 @@ export default function MealsControl() {
           sourceDescription: item.assignmentsInScope > 1
             ? `Base complementar consolidada em ${item.assignmentsInScope} assignments do evento selecionado.`
             : "Base real complementar do evento selecionado.",
-          sourceBadgeClass: "badge badge-gray",
+          sourceBadgeClass: "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-700/50 text-slate-400",
         };
       });
     }
@@ -2266,7 +2266,7 @@ export default function MealsControl() {
           : assignmentsInScope > 1
             ? `Saldo real por participante com ${assignmentsInScope} assignments no recorte.`
             : "Saldo real Meals com contexto complementar consolidado do Workforce.",
-        sourceBadgeClass: "badge badge-green",
+        sourceBadgeClass: "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-500/15 text-green-400",
       };
     });
   }, [
@@ -2497,36 +2497,36 @@ export default function MealsControl() {
         {
           label: "Pessoas no Workforce",
           value: workforceSummary.members,
-          valueClassName: "text-white",
+          valueClassName: "text-slate-100",
           helper: workforceSummary.assignmentRows > workforceSummary.members
             ? `Base complementar com ${workforceSummary.assignmentRows} assignments reais para ${workforceSummary.members} pessoa(s) do staff.${workforceSummary.externalMembers > 0 ? ` Externos com QR fora desta contagem: ${workforceSummary.externalMembers}.` : ""}`
             : `Base complementar do evento enquanto o saldo diário ainda não pode ser lido.${workforceSummary.externalMembers > 0 ? ` Externos com QR fora desta contagem: ${workforceSummary.externalMembers}.` : ""}`,
           badge: "Base Workforce",
-          badgeClassName: "badge badge-gray",
+          badgeClassName: "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400",
         },
         {
           label: "Assignments visíveis",
           value: workforceSummary.assignmentRows,
-          valueClassName: "text-white",
+          valueClassName: "text-slate-100",
           helper: "Medida explicitamente em assignments para não fingir consolidação diária inexistente.",
           badge: "Assignment-level",
-          badgeClassName: "badge badge-blue",
+          badgeClassName: "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/15 text-cyan-400",
         },
         {
           label: "Setores visíveis",
           value: workforceSummary.sectorsCount,
-          valueClassName: "text-blue-400",
+          valueClassName: "text-cyan-400",
           helper: "Setores vindos da base real do Workforce para este evento.",
           badge: "Workspace real",
-          badgeClassName: "badge badge-gray",
+          badgeClassName: "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400",
         },
         {
           label: "Lideranças visíveis",
           value: roleComposition.leadershipMembers,
-          valueClassName: roleComposition.leadershipMembers > 0 ? "text-cyan-400" : "text-white",
+          valueClassName: roleComposition.leadershipMembers > 0 ? "text-cyan-400" : "text-slate-100",
           helper: `${roleComposition.directors} diretivo(s) · ${roleComposition.managers} gerente(s) · ${roleComposition.coordinators} coordenador(es) · ${roleComposition.supervisors} supervisor(es).`,
           badge: roleComposition.leadershipMembers > 0 ? "Somadas" : "Sem liderança",
-          badgeClassName: roleComposition.leadershipMembers > 0 ? "badge badge-blue" : "badge badge-gray",
+          badgeClassName: roleComposition.leadershipMembers > 0 ? "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/15 text-cyan-400" : "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400",
         },
       ];
     }
@@ -2535,24 +2535,24 @@ export default function MealsControl() {
         {
           label: "Membros",
           value: authoritativeOperationalSummary.members,
-          valueClassName: "text-white",
+          valueClassName: "text-slate-100",
           helper: roleComposition.leadershipMembers > 0
             ? `Saldo real de Meals carregado para o dia selecionado. Inclui ${roleComposition.leadershipMembers} liderança(s) com assignment no recorte.${externalTableRows.length > 0 ? ` Externos com QR fora desta contagem principal: ${externalTableRows.length}.` : ""}`
           : `Saldo real de Meals carregado para o dia selecionado.${externalTableRows.length > 0 ? ` Externos com QR fora desta contagem principal: ${externalTableRows.length}.` : ""}`,
         badge: "Saldo real Meals",
-        badgeClassName: "badge badge-green",
+        badgeClassName: "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/15 text-green-400",
       },
         {
           label: "Cota dia",
           value: authoritativeOperationalSummary.meals_per_day_total,
-          valueClassName: "text-white",
+          valueClassName: "text-slate-100",
           helper: staffConfigBreakdown.members_with_ambiguous_baseline > 0
             ? "Parte da equipe segue com baseline ambíguo e fica fora da cota derivada confiável."
           : staffConfigBreakdown.members_using_default_fallback > 0
             ? `Parte da equipe (${staffConfigBreakdown.members_using_default_fallback}) ainda usa fallback default neste recorte.`
             : "Cota diária consolidada para o recorte operacional do dia.",
         badge: staffConfigBreakdown.members_with_ambiguous_baseline > 0 ? "Origem parcial" : "Origem visível",
-        badgeClassName: staffConfigBreakdown.members_with_ambiguous_baseline > 0 ? "badge badge-yellow" : "badge badge-blue",
+        badgeClassName: staffConfigBreakdown.members_with_ambiguous_baseline > 0 ? "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400" : "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/15 text-cyan-400",
       },
         {
           label: "Consumidas dia",
@@ -2560,7 +2560,7 @@ export default function MealsControl() {
           valueClassName: "text-amber-400",
           helper: `${authoritativeTableHighlights.consumedMembers} participante(s) ja consumiram no dia.`,
           badge: authoritativeTableHighlights.consumedMembers > 0 ? "Com consumo" : "Sem consumo",
-          badgeClassName: authoritativeTableHighlights.consumedMembers > 0 ? "badge badge-blue" : "badge badge-gray",
+          badgeClassName: authoritativeTableHighlights.consumedMembers > 0 ? "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/15 text-cyan-400" : "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400",
         },
         {
           label: "Saldo dia",
@@ -2568,23 +2568,23 @@ export default function MealsControl() {
           valueClassName: authoritativeTableHighlights.exhaustedMembers > 0 ? "text-red-400" : "text-green-400",
           helper: `${authoritativeTableHighlights.exhaustedMembers} participante(s) sem saldo restante.`,
           badge: authoritativeTableHighlights.exhaustedMembers > 0 ? "Sem saldo" : "Saldo ok",
-          badgeClassName: authoritativeTableHighlights.exhaustedMembers > 0 ? "badge badge-red" : "badge badge-green",
+          badgeClassName: authoritativeTableHighlights.exhaustedMembers > 0 ? "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/15 text-red-400" : "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/15 text-green-400",
         },
         {
           label: "Consumidas refeição",
           value: authoritativeOperationalSummary.consumed_service_total,
-          valueClassName: "text-blue-400",
+          valueClassName: "text-cyan-400",
           helper: `${selectedMealServiceLabel}.${hasSelectedShift ? " Turno aplicado como filtro complementar." : " Sem turno, o recorte continua diário."}`,
           badge: hasSelectedShift ? "Refeição + turno" : "Refeição ativa",
-        badgeClassName: hasSelectedShift ? "badge badge-blue" : "badge badge-gray",
+        badgeClassName: hasSelectedShift ? "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/15 text-cyan-400" : "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400",
       },
       {
         label: "Lideranças",
         value: roleComposition.leadershipMembers,
-        valueClassName: roleComposition.leadershipMembers > 0 ? "text-cyan-400" : "text-white",
+        valueClassName: roleComposition.leadershipMembers > 0 ? "text-cyan-400" : "text-slate-100",
         helper: `${roleComposition.directors} diretivo(s) · ${roleComposition.managers} gerente(s) · ${roleComposition.coordinators} coordenador(es) · ${roleComposition.supervisors} supervisor(es).`,
         badge: roleComposition.leadershipMembers > 0 ? "Somadas" : "Sem liderança",
-        badgeClassName: roleComposition.leadershipMembers > 0 ? "badge badge-blue" : "badge badge-gray",
+        badgeClassName: roleComposition.leadershipMembers > 0 ? "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/15 text-cyan-400" : "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400",
       },
     ];
   }, [
@@ -2617,27 +2617,27 @@ export default function MealsControl() {
         title: "Selecione um evento",
         body: "O Meals precisa de um evento para definir se a tela vai operar com saldo real do dia ou com a base complementar do Workforce.",
         badge: "Aguardando contexto",
-        badgeClassName: "badge badge-gray",
+        badgeClassName: "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400",
       }
     : showWorkforceFallback
       ? {
           title: "Base complementar do Workforce",
           body: "Este evento ainda não possui `event_days`. A tela mostra equipe, setor e cota configurada a partir da base real do Workforce. Saldo real por dia, recorte útil de turno e registro de refeição ficam indisponíveis neste modo.",
           badge: "Base Workforce",
-          badgeClassName: "badge badge-gray",
+          badgeClassName: "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400",
         }
       : !eventDayId
         ? {
             title: "Aguardando dia operacional",
             body: "Os dias deste evento já existem, mas o saldo real do Meals só pode ser carregado quando um `event_day` for selecionado.",
             badge: "Selecione o dia",
-            badgeClassName: "badge badge-yellow",
+            badgeClassName: "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400",
           }
       : {
             title: "Saldo real do Meals ativo",
             body: `A tela está lendo saldo e consumo reais do dia por serviço de refeição. Serviço selecionado: ${selectedMealServiceLabel}.${hasSelectedShift ? " O turno continua como filtro complementar do Workforce." : ""}`,
             badge: "Saldo real Meals",
-            badgeClassName: "badge badge-green",
+            badgeClassName: "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/15 text-green-400",
           };
 
   const registerMealMessage = showWorkforceFallback
@@ -2731,9 +2731,9 @@ export default function MealsControl() {
   };
 
   const bannerClassByTone = {
-    neutral: "border-gray-800 bg-gray-900/70 text-gray-200",
-    info: "border-blue-900/60 bg-blue-950/30 text-blue-100",
-    warn: "border-amber-900/60 bg-amber-950/30 text-amber-100",
+    neutral: "border-slate-800/40 bg-[#111827] text-slate-200",
+    info: "border-cyan-500/20 bg-cyan-500/10 backdrop-blur-md text-cyan-100",
+    warn: "border-amber-500/20 bg-amber-500/10 backdrop-blur-md text-amber-300",
   };
 
   const saveMealServices = async (e) => {
@@ -2808,22 +2808,22 @@ export default function MealsControl() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="page-title flex items-center gap-2">
-            <UtensilsCrossed size={22} className="text-brand" /> Meals Control
+          <h1 className="text-2xl font-bold font-headline text-slate-100 flex items-center gap-2">
+            <UtensilsCrossed size={22} className="text-amber-400" /> Meals Control
           </h1>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1">
             Baixa por QR e monitoramento de saldo operacional de refeições.
           </p>
         </div>
         <button
-          className="btn-secondary flex items-center gap-2"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:text-slate-100 transition-colors disabled:opacity-50"
           onClick={handleRefresh}
           disabled={loading || !eventId}
         >
           <RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Atualizar
         </button>
         <button
-          className="btn-secondary flex items-center gap-2"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:text-slate-100 transition-colors disabled:opacity-50"
           onClick={() => {
             const sourceDrafts = mealServiceDraftTemplates.length > 0 ? mealServiceDraftTemplates : mealServices;
             setMealServiceDrafts(sourceDrafts.map((service) => ({ ...service })));
@@ -2840,7 +2840,7 @@ export default function MealsControl() {
           {notices.map((notice) => (
             <div
               key={`${notice.title}-${notice.body}`}
-              className={`card border p-4 ${bannerClassByTone[notice.tone] || bannerClassByTone.neutral}`}
+              className={`rounded-2xl border p-4 ${bannerClassByTone[notice.tone] || bannerClassByTone.neutral}`}
             >
               <p className="text-sm font-semibold">{notice.title}</p>
               <p className="text-sm mt-1 opacity-90">{notice.body}</p>
@@ -2849,8 +2849,8 @@ export default function MealsControl() {
         </div>
       )}
 
-      <div className="card p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-        <select className="input" value={eventId} onChange={(e) => setEventId(e.target.value)}>
+      <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <select className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-200 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-colors" value={eventId} onChange={(e) => setEventId(e.target.value)}>
           <option value="">Selecione o evento...</option>
           {events.map((ev) => (
             <option key={ev.id} value={ev.id}>
@@ -2860,7 +2860,7 @@ export default function MealsControl() {
         </select>
 
         <select
-          className="input"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-200 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-colors disabled:opacity-50"
           value={displayedEventDayId}
           onChange={(e) => setEventDayId(e.target.value)}
           disabled={!eventId || availableEventDayOptions.length <= 0}
@@ -2881,7 +2881,7 @@ export default function MealsControl() {
 
         {/* Seletor de refeição (principal) */}
         <select
-          className="input"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-200 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-colors disabled:opacity-50"
           value={mealServiceId}
           onChange={(e) => setMealServiceId(e.target.value)}
           disabled={!eventId || !eventDayId || mealServices.length === 0}
@@ -2904,7 +2904,7 @@ export default function MealsControl() {
           ))}
         </select>
 
-        <select className="input" value={sector} onChange={(e) => setSector(e.target.value)}>
+        <select className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-200 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-colors" value={sector} onChange={(e) => setSector(e.target.value)}>
           <option value="">Todos os setores</option>
           {availableSectors.map((sectorOption) => (
             <option key={sectorOption} value={sectorOption}>
@@ -2914,48 +2914,48 @@ export default function MealsControl() {
         </select>
       </div>
 
-      <form onSubmit={handleRegisterMeal} className="card p-4">
+      <form onSubmit={handleRegisterMeal} className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="relative flex-1">
-            <QrCode size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <QrCode size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
-              className="input pl-9"
+              className="w-full pl-9 px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-200 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-colors placeholder:text-slate-500 disabled:opacity-50"
               placeholder="Cole o token QR (ou link /invite?token=...)"
               value={qrInput}
               onChange={(e) => setQrInput(e.target.value)}
               disabled={registering || !canRegisterMeal}
             />
           </div>
-          <button className="btn-primary whitespace-nowrap" disabled={registering || !canRegisterMeal}>
+          <button className="whitespace-nowrap px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold text-sm hover:from-cyan-400 hover:to-cyan-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled={registering || !canRegisterMeal}>
             {registering ? "Registrando..." : "Registrar Refeição"}
           </button>
         </div>
-        <p className="mt-3 text-xs text-gray-500">{registerMealMessage}</p>
+        <p className="mt-3 text-xs text-slate-500">{registerMealMessage}</p>
         {registrationOperationalContextLabel ? (
-          <p className="mt-2 text-xs text-blue-300">
+          <p className="mt-2 text-xs text-cyan-400">
             Contexto automático de baixa: {registrationOperationalContextLabel}.
           </p>
         ) : null}
       </form>
 
-      <div className="card p-4 space-y-4">
+      <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4 space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-sm font-semibold text-white">Operação offline do Meals</p>
-            <p className="mt-1 text-xs text-gray-500">{pendingOfflineMealsMessage}</p>
+            <p className="text-sm font-semibold text-slate-100">Operação offline do Meals</p>
+            <p className="mt-1 text-xs text-slate-500">{pendingOfflineMealsMessage}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className={isDeviceOnline ? "badge badge-green" : "badge badge-yellow"}>
+            <span className={isDeviceOnline ? "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/15 text-green-400" : "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400"}>
               {isDeviceOnline ? "Conectado" : "Offline"}
             </span>
-            <span className="badge badge-blue">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/15 text-cyan-400">
               {pendingOfflineMealsForCurrentEvent.length} pendente(s) {eventId ? "no evento" : "Meals"}
             </span>
-            <span className="badge badge-red">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/15 text-red-400">
               {failedOfflineMealsForCurrentEvent.length} falha(s) local(is) {eventId ? "no evento" : "Meals"}
             </span>
             {eventId && pendingOfflineMealsOutsideCurrentEventCount > 0 && (
-              <span className="badge badge-gray">
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400">
                 +{pendingOfflineMealsOutsideCurrentEventCount} outro(s) evento(s)
               </span>
             )}
@@ -2963,27 +2963,27 @@ export default function MealsControl() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
-            <p className="text-xs text-gray-500">Pendentes Meals</p>
-            <p className="text-lg font-bold text-white">{pendingOfflineMeals.length}</p>
-            <p className="mt-1 text-[11px] text-gray-500">Fila local total neste dispositivo.</p>
+          <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-3">
+            <p className="text-xs text-slate-500">Pendentes Meals</p>
+            <p className="text-lg font-bold text-slate-100">{pendingOfflineMeals.length}</p>
+            <p className="mt-1 text-[11px] text-slate-500">Fila local total neste dispositivo.</p>
           </div>
-          <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
-            <p className="text-xs text-gray-500">Falhas locais</p>
-            <p className="text-lg font-bold text-white">{failedOfflineMeals.length}</p>
-            <p className="mt-1 text-[11px] text-gray-500">Itens rejeitados pelo backend e mantidos para reconciliação.</p>
+          <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-3">
+            <p className="text-xs text-slate-500">Falhas locais</p>
+            <p className="text-lg font-bold text-slate-100">{failedOfflineMeals.length}</p>
+            <p className="mt-1 text-[11px] text-slate-500">Itens rejeitados pelo backend e mantidos para reconciliação.</p>
           </div>
-          <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
-            <p className="text-xs text-gray-500">Neste recorte</p>
-            <p className="text-lg font-bold text-white">{scopedPendingOfflineMeals.length + scopedFailedOfflineMeals.length}</p>
-            <p className="mt-1 text-[11px] text-gray-500">Pendências e falhas visíveis no recorte atual.</p>
+          <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-3">
+            <p className="text-xs text-slate-500">Neste recorte</p>
+            <p className="text-lg font-bold text-slate-100">{scopedPendingOfflineMeals.length + scopedFailedOfflineMeals.length}</p>
+            <p className="mt-1 text-[11px] text-slate-500">Pendências e falhas visíveis no recorte atual.</p>
           </div>
-          <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
-            <p className="text-xs text-gray-500">Sincronização</p>
-            <p className={`text-lg font-bold ${syncingOfflineMeals ? "text-blue-400" : isDeviceOnline ? "text-green-400" : "text-amber-400"}`}>
+          <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-3">
+            <p className="text-xs text-slate-500">Sincronização</p>
+            <p className={`text-lg font-bold ${syncingOfflineMeals ? "text-cyan-400" : isDeviceOnline ? "text-green-400" : "text-amber-400"}`}>
               {syncingOfflineMeals ? "Em andamento" : isDeviceOnline ? "Pronta" : "Aguardando rede"}
             </p>
-            <p className="mt-1 text-[11px] text-gray-500">
+            <p className="mt-1 text-[11px] text-slate-500">
               A fila local também tenta sincronizar automaticamente quando a conexão volta.
             </p>
           </div>
@@ -2992,14 +2992,14 @@ export default function MealsControl() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="btn-secondary inline-flex items-center gap-2"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-700/50 bg-slate-800/50 text-slate-300 text-sm hover:bg-slate-700/50 hover:text-slate-100 transition-colors"
             onClick={loadPendingOfflineMeals}
           >
             <RefreshCw size={14} /> Atualizar fila
           </button>
           <button
             type="button"
-            className="btn-primary inline-flex items-center gap-2"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold text-sm hover:from-cyan-400 hover:to-cyan-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={syncPendingOfflineMeals}
             disabled={syncingOfflineMeals || !isDeviceOnline || pendingOfflineMeals.length === 0}
           >
@@ -3008,7 +3008,7 @@ export default function MealsControl() {
           </button>
           <button
             type="button"
-            className="btn-secondary inline-flex items-center gap-2"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-700/50 bg-slate-800/50 text-slate-300 text-sm hover:bg-slate-700/50 hover:text-slate-100 transition-colors disabled:opacity-50"
             onClick={() => handleRetryOfflineMeals(visibleFailedOfflineMealIds)}
             disabled={visibleFailedOfflineMealIds.length === 0}
           >
@@ -3017,22 +3017,22 @@ export default function MealsControl() {
         </div>
 
         {visibleOfflineMeals.length === 0 ? (
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-slate-400">
             Nenhuma refeição offline pendente ou falha neste recorte.
           </p>
         ) : (
-          <div className="table-wrapper">
-            <table className="table">
+          <div className="overflow-x-auto rounded-xl border border-slate-800/40">
+            <table className="w-full text-left">
               <thead>
-                <tr>
-                  <th>Captura</th>
-                  <th>Pessoa / QR</th>
-                  <th>Refeição</th>
-                  <th>Contexto</th>
-                  <th>Status</th>
+                <tr className="bg-slate-800/50">
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Captura</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Pessoa / QR</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Refeição</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Contexto</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-800/40">
                 {visibleOfflineMeals.map((record) => {
                   const payloadItem = record?.payload ?? {};
                   const qrToken = String(payloadItem?.qr_token || "").trim();
@@ -3044,40 +3044,40 @@ export default function MealsControl() {
                   const isFailedRecord = String(record?.status || "").trim() === "failed";
 
                   return (
-                    <tr key={`offline-meal-${record.offline_id}`}>
-                      <td className="text-sm text-gray-300">
+                    <tr key={`offline-meal-${record.offline_id}`} className="hover:bg-slate-800/20 transition-colors">
+                      <td className="px-4 py-3 text-sm text-slate-300">
                         {formatDateTimeLabel(record.last_error_at || record.created_offline_at || payloadItem.consumed_at)}
                       </td>
-                      <td>
+                      <td className="px-4 py-3">
                         <div className="space-y-1">
-                          <p className="font-medium text-white">
+                          <p className="font-medium text-slate-100">
                             {participantName || "Participante ainda não resolvido"}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-slate-500">
                             QR {formatQrTokenSnippet(qrToken)}
                           </p>
                         </div>
                       </td>
-                      <td className="text-sm text-gray-300">
+                      <td className="px-4 py-3 text-sm text-slate-300">
                         {resolveQueuedMealServiceLabel(record, mealServices)}
                       </td>
-                      <td className="text-sm text-gray-300">
+                      <td className="px-4 py-3 text-sm text-slate-300">
                         {sectorLabel || "Sem setor"}{shiftName ? ` · ${shiftName}` : " · Sem turno"}
                       </td>
-                      <td>
+                      <td className="px-4 py-3">
                         <div className="space-y-2">
-                          <span className={isFailedRecord ? "badge badge-red" : "badge badge-yellow"}>
+                          <span className={isFailedRecord ? "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/15 text-red-400" : "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400"}>
                             {isFailedRecord ? "Falha local" : "Pendente local"}
                           </span>
                           {isFailedRecord && record?.last_error ? (
-                            <p className="max-w-xs text-xs text-red-200">
+                            <p className="max-w-xs text-xs text-red-300">
                               {record.last_error}
                             </p>
                           ) : null}
                           {isFailedRecord ? (
                             <button
                               type="button"
-                              className="text-xs text-blue-300 hover:text-blue-200"
+                              className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
                               onClick={() => handleRetryOfflineMeals([record.offline_id])}
                             >
                               Reenfileirar
@@ -3095,28 +3095,28 @@ export default function MealsControl() {
       </div>
 
       {eventId && (
-        <div className="card p-4 space-y-4">
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4 space-y-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
-              <p className="text-sm font-semibold text-white">QR para colaborador externo</p>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="text-sm font-semibold text-slate-100">QR para colaborador externo</p>
+              <p className="mt-1 text-xs text-slate-500">
                 Gera um QR de refeição para colaboradores que não estão cadastrados no Workforce.
                 O gerente informa nome + contato, o sistema cria o acesso e gera o link para enviar pelo WhatsApp.
               </p>
             </div>
-            <span className="badge badge-blue">{visibleGeneratedExternalQrs.length} gerado(s)</span>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/15 text-cyan-400">{visibleGeneratedExternalQrs.length} gerado(s)</span>
           </div>
 
           <form onSubmit={handleGenerateExternalQr} className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <input
-              className="input"
+              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-200 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-colors placeholder:text-slate-500 disabled:opacity-50"
               placeholder="Nome completo *"
               value={externalQrForm.name}
               onChange={(e) => setExternalQrForm((f) => ({ ...f, name: e.target.value }))}
               disabled={generatingExternalQr}
             />
             <input
-              className="input"
+              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-200 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-colors placeholder:text-slate-500 disabled:opacity-50"
               placeholder="Telefone (WhatsApp)"
               value={externalQrForm.phone}
               onChange={(e) => setExternalQrForm((f) => ({ ...f, phone: e.target.value }))}
@@ -3125,7 +3125,7 @@ export default function MealsControl() {
             <div className="flex gap-2">
               <div className="flex-1">
                 <select
-                  className="input w-full"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-200 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-colors disabled:opacity-50"
                   value={externalQrForm.meals_per_day}
                   onChange={(e) => setExternalQrForm((f) => ({ ...f, meals_per_day: Number(e.target.value) }))}
                   disabled={generatingExternalQr}
@@ -3141,33 +3141,33 @@ export default function MealsControl() {
                     type="number"
                     min="1"
                     max="30"
-                    className="input w-full pr-12"
+                    className="w-full px-3 py-2 pr-12 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-200 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-colors disabled:opacity-50"
                     placeholder="Dias"
                     value={externalQrForm.valid_days || 1}
                     onChange={(e) => setExternalQrForm((f) => ({ ...f, valid_days: Math.max(1, Number(e.target.value)) }))}
                     disabled={generatingExternalQr}
                   />
                   <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                    <span className="text-gray-400 text-sm">{externalQrForm.valid_days === 1 ? 'dia' : 'dias'}</span>
+                    <span className="text-slate-400 text-sm">{externalQrForm.valid_days === 1 ? 'dia' : 'dias'}</span>
                   </div>
                 </div>
               </div>
               <button
                 type="submit"
-                className="btn-primary whitespace-nowrap"
+                className="whitespace-nowrap px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold text-sm hover:from-cyan-400 hover:to-cyan-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={generatingExternalQr || !externalQrForm.name.trim()}
               >
                 {generatingExternalQr ? "Gerando..." : "Gerar QR"}
               </button>
             </div>
           </form>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-slate-500">
             O link para compartilhar aparece logo abaixo, com botões para copiar ou abrir direto no WhatsApp.
           </p>
 
           {visibleGeneratedExternalQrs.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs text-gray-500 font-semibold">QRs gerados nesta sessão:</p>
+              <p className="text-xs text-slate-500 font-semibold">QRs gerados nesta sessão:</p>
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                 {visibleGeneratedExternalQrs.map((item, i) => {
                   const inviteLink = buildInviteLink(item.qr_token);
@@ -3175,20 +3175,20 @@ export default function MealsControl() {
                     ? `https://wa.me/${item.phone.replace(/\D/g, "")}?text=${encodeURIComponent("Acesse seu QR de refeição: " + inviteLink)}`
                     : null;
                   return (
-                    <div key={i} className="rounded-2xl border border-gray-800 bg-gray-950/60 p-3 space-y-2">
+                    <div key={i} className="rounded-2xl border border-slate-700/50 bg-slate-800/40 p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="font-semibold text-white text-sm">{item.name}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="font-semibold text-slate-100 text-sm">{item.name}</p>
+                          <p className="text-xs text-slate-500">
                             {item.phone || "Sem telefone"} · {item.meals_per_day} refeições/dia · {item.valid_days || 1} dia(s)
                           </p>
                         </div>
-                        <span className="badge badge-green">Ativo</span>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/15 text-green-400">Ativo</span>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          className="btn-secondary inline-flex items-center gap-2 text-xs"
+                          className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:text-slate-100 transition-colors"
                           onClick={() => handleCopyStandaloneInvite(item.qr_token)}
                         >
                           <Copy size={13} /> Copiar link
@@ -3198,7 +3198,7 @@ export default function MealsControl() {
                             href={waLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="btn-secondary inline-flex items-center gap-2 text-xs"
+                            className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:text-slate-100 transition-colors"
                           >
                             <QrCode size={13} /> WhatsApp
                           </a>
@@ -3215,27 +3215,27 @@ export default function MealsControl() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
         {operationalCards.map((card) => (
-          <div key={card.label} className="card p-3 space-y-3">
+          <div key={card.label} className="bg-[#111827] border border-slate-800/40 rounded-2xl p-3 space-y-3">
             <div className="flex items-start justify-between gap-3">
-              <p className="text-xs text-gray-500">{card.label}</p>
+              <p className="text-xs text-slate-500">{card.label}</p>
               <span className={card.badgeClassName}>{card.badge}</span>
             </div>
             <p className={`text-xl font-bold ${card.valueClassName}`}>{card.value}</p>
-            <p className="text-xs text-gray-500">{card.helper}</p>
+            <p className="text-xs text-slate-500">{card.helper}</p>
           </div>
         ))}
       </div>
 
       {canUseRealMeals && (
-        <div className="card p-4 space-y-4">
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4 space-y-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
-              <p className="text-sm font-semibold text-white">Camada financeira complementar</p>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="text-sm font-semibold text-slate-100">Camada financeira complementar</p>
+              <p className="mt-1 text-xs text-slate-500">
                 Projecao de custos com base no valor unitario da refeicao configurado.
               </p>
               {!projectionEnabled && (
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-slate-500">
                   {financialDiagnosticsIssues.includes("meal_unit_cost_schema_unavailable")
                     ? "A leitura operacional do Meals continua ativa. Apenas a projeção financeira está indisponível neste ambiente."
                     : financialDiagnosticsIssues.includes("meal_unit_cost_not_configured")
@@ -3244,15 +3244,15 @@ export default function MealsControl() {
                 </p>
               )}
             </div>
-            <span className={projectionEnabled ? "badge badge-gray" : "badge badge-yellow"}>
+            <span className={projectionEnabled ? "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400" : "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400"}>
               {projectionEnabled ? "Leitura condicional" : "Projeção indisponível"}
             </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
-              <p className="text-xs text-gray-500">Valor unitário refeição</p>
-              <p className="text-lg font-bold text-white">{projectionEnabled ? formatCurrency(currentMealUnitCost) : "Indisponível"}</p>
-              <p className="mt-1 text-[11px] text-gray-500">
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-3">
+              <p className="text-xs text-slate-500">Valor unitário refeição</p>
+              <p className="text-lg font-bold text-slate-100">{projectionEnabled ? formatCurrency(currentMealUnitCost) : "Indisponível"}</p>
+              <p className="mt-1 text-[11px] text-slate-500">
                 {mealServiceId && pricedMealServiceData
                   ? `Valor exibido pela refeição selecionada: ${formatMealServiceLabel(pricedMealServiceData)}`
                   : pricedMealServiceData
@@ -3260,20 +3260,20 @@ export default function MealsControl() {
                     : "Valor dinâmico pela janela de horário configurada."}
               </p>
             </div>
-            <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
-              <p className="text-xs text-gray-500">Custo estimado (dia)</p>
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-3">
+              <p className="text-xs text-slate-500">Custo estimado (dia)</p>
               <p className="text-lg font-bold text-emerald-400">
                 {projectionEnabled ? formatCurrency(projectionSummary.estimated_day_cost_total) : "Indisponível"}
               </p>
             </div>
-            <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
-              <p className="text-xs text-gray-500">Custo consumido (dia)</p>
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-3">
+              <p className="text-xs text-slate-500">Custo consumido (dia)</p>
               <p className="text-lg font-bold text-amber-400">
                 {projectionEnabled ? formatCurrency(projectionSummary.consumed_day_cost_total) : "Indisponível"}
               </p>
             </div>
-            <div className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
-              <p className="text-xs text-gray-500">Custo saldo (dia)</p>
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-3">
+              <p className="text-xs text-slate-500">Custo saldo (dia)</p>
               <p className="text-lg font-bold text-cyan-400">
                 {projectionEnabled ? formatCurrency(projectionSummary.remaining_day_cost_total) : "Indisponível"}
               </p>
@@ -3283,9 +3283,9 @@ export default function MealsControl() {
       )}
 
       {operationalDiagnosticsIssues.length > 0 && (
-        <div className="card p-4">
-          <p className="text-sm font-semibold text-white">Leitura operacional do recorte</p>
-          <ul className="mt-2 space-y-1 text-sm text-gray-300">
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4">
+          <p className="text-sm font-semibold text-slate-100">Leitura operacional do recorte</p>
+          <ul className="mt-2 space-y-1 text-sm text-slate-300">
             {operationalDiagnosticsIssues.map((issue) => (
               <li key={issue}>- {getIssueLabel(issue)}</li>
             ))}
@@ -3293,42 +3293,42 @@ export default function MealsControl() {
         </div>
       )}
 
-      <div className="card p-4 space-y-3">
+      <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4 space-y-3">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-sm font-semibold text-white">{readingContext.title}</p>
-            <p className="mt-1 text-xs text-gray-500">{readingContext.body}</p>
+            <p className="text-sm font-semibold text-slate-100">{readingContext.title}</p>
+            <p className="mt-1 text-xs text-slate-500">{readingContext.body}</p>
           </div>
           <span className={readingContext.badgeClassName}>{readingContext.badge}</span>
         </div>
         <div className="flex flex-wrap gap-2">
           {!showWorkforceFallback && roleComposition.leadershipMembers > 0 && (
-            <span className="badge badge-blue">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/15 text-cyan-400">
               Liderança {roleComposition.leadershipMembers}
             </span>
           )}
           {!showWorkforceFallback && staffConfigBreakdown.members_using_default_fallback > 0 && (
-            <span className="badge badge-yellow">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400">
               Default {staffConfigBreakdown.members_using_default_fallback}
             </span>
           )}
           {!showWorkforceFallback && staffConfigBreakdown.members_with_ambiguous_baseline > 0 && (
-            <span className="badge badge-red">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/15 text-red-400">
               Ambígua {staffConfigBreakdown.members_with_ambiguous_baseline}
             </span>
           )}
           {!showWorkforceFallback && externalTableRows.length > 0 && (
-            <span className="badge badge-gray">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400">
               Externos {externalTableRows.length}
             </span>
           )}
           {!showWorkforceFallback && authoritativeTableHighlights.exhaustedMembers > 0 && (
-            <span className="badge badge-red">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/15 text-red-400">
               Sem saldo {authoritativeTableHighlights.exhaustedMembers}
             </span>
           )}
           {!showWorkforceFallback && tableHighlights.multiAssignmentMembers > 0 && (
-            <span className="badge badge-gray">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400">
               Multi-assignment {tableHighlights.multiAssignmentMembers}
             </span>
           )}
@@ -3336,19 +3336,19 @@ export default function MealsControl() {
       </div>
 
       {!showWorkforceFallback && eventId && (
-        <div className="card p-4 space-y-3">
+        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4 space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-white">Histórico recente de refeições</p>
-              <p className="mt-1 text-xs text-gray-500">{mealHistoryMessage}</p>
+              <p className="text-sm font-semibold text-slate-100">Histórico recente de refeições</p>
+              <p className="mt-1 text-xs text-slate-500">{mealHistoryMessage}</p>
             </div>
-            <span className={mealHistoryLoading ? "badge badge-blue" : "badge badge-gray"}>
+            <span className={mealHistoryLoading ? "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/15 text-cyan-400" : "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400"}>
               {mealHistoryLoading ? "Carregando..." : `${mealHistoryMeta.total} registro(s)`}
             </span>
           </div>
 
           {!eventDayId ? (
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-slate-400">
               O histórico fica disponível assim que um dia operacional for selecionado.
             </p>
           ) : mealHistoryLoading && visibleMealHistoryItems.length === 0 ? (
@@ -3356,41 +3356,41 @@ export default function MealsControl() {
               <div className="spinner w-6 h-6 mx-auto" />
             </div>
           ) : visibleMealHistoryItems.length === 0 ? (
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-slate-400">
               Nenhuma baixa recente foi encontrada para este recorte.
             </p>
           ) : (
             <>
-              <div className="table-wrapper">
-                <table className="table">
+              <div className="overflow-x-auto rounded-xl border border-slate-800/40">
+                <table className="w-full text-left">
                   <thead>
-                    <tr>
-                      <th>Horário</th>
-                      <th>Pessoa</th>
-                      <th>Refeição</th>
-                      <th>Turno</th>
-                      <th>Valor</th>
+                    <tr className="bg-slate-800/50">
+                      <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Horário</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Pessoa</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Refeição</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Turno</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Valor</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-800/40">
                     {visibleMealHistoryItems.map((item) => (
-                      <tr key={`meal-history-${item.id}`}>
-                        <td className="text-sm text-gray-300">
+                      <tr key={`meal-history-${item.id}`} className="hover:bg-slate-800/20 transition-colors">
+                        <td className="px-4 py-3 text-sm text-slate-300">
                           {formatDateTimeLabel(item.consumed_at)}
                         </td>
-                        <td>
+                        <td className="px-4 py-3">
                           <div className="space-y-1">
-                            <p className="font-medium text-white">{item.person_name || `Participante #${item.participant_id}`}</p>
-                            <p className="text-xs text-gray-500">{formatEventDayLabel(item.event_date)}</p>
+                            <p className="font-medium text-slate-100">{item.person_name || `Participante #${item.participant_id}`}</p>
+                            <p className="text-xs text-slate-500">{formatEventDayLabel(item.event_date)}</p>
                           </div>
                         </td>
-                        <td className="text-sm text-gray-300">
+                        <td className="px-4 py-3 text-sm text-slate-300">
                           {item.meal_service_label || item.meal_service_code || "Sem serviço"}
                         </td>
-                        <td className="text-sm text-gray-300">
+                        <td className="px-4 py-3 text-sm text-slate-300">
                           {item.shift_name || "Sem turno"}
                         </td>
-                        <td className="text-sm text-gray-300">
+                        <td className="px-4 py-3 text-sm text-slate-300">
                           {formatCurrency(item.unit_cost_applied)}
                         </td>
                       </tr>
@@ -3411,10 +3411,10 @@ export default function MealsControl() {
         </div>
       )}
 
-      <div className="card p-4 space-y-3">
+      <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4 space-y-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold text-white">Membros por Setor (Breakdown)</p>
-          <span className="badge badge-blue">
+          <p className="text-sm font-semibold text-slate-100">Membros por Setor (Breakdown)</p>
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/15 text-cyan-400">
             {staffTableRows.length} membros na leitura atual
           </span>
         </div>
@@ -3422,12 +3422,12 @@ export default function MealsControl() {
           {breakdownEntries.map((entry) => (
             <div
               key={entry.key}
-              className="rounded-lg border border-gray-800 bg-gray-950/40 px-3 py-2 flex items-center justify-between gap-3 min-w-0 lg:min-w-max lg:flex-none lg:py-1.5"
+              className="rounded-xl border border-slate-700/50 bg-slate-800/40 px-3 py-2 flex items-center justify-between gap-3 min-w-0 lg:min-w-max lg:flex-none lg:py-1.5"
             >
-              <span className={`text-xs text-gray-400 font-medium ${entry.capitalize ? "capitalize" : ""}`}>
+              <span className={`text-xs text-slate-400 font-medium ${entry.capitalize ? "capitalize" : ""}`}>
                 {entry.label}
               </span>
-              <span className="text-xs text-white bg-gray-800 px-1.5 py-0.5 rounded shrink-0">
+              <span className="text-xs text-slate-100 bg-slate-700/50 px-1.5 py-0.5 rounded shrink-0">
                 {entry.count}
               </span>
             </div>
@@ -3435,18 +3435,18 @@ export default function MealsControl() {
         </div>
       </div>
 
-      <div className="table-wrapper">
-        <table className="table">
+      <div className="overflow-x-auto bg-[#111827] border border-slate-800/40 rounded-2xl">
+        <table className="w-full text-left">
           <thead>
-            <tr>
-              <th>Pessoa</th>
-              <th>Cota</th>
-              <th>Leitura operacional</th>
-              <th>Refeições</th>
-              <th>Base / QR</th>
+            <tr className="bg-slate-800/50">
+              <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Pessoa</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Cota</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Leitura operacional</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Refeições</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Base / QR</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-800/40">
             {loading ? (
               <tr>
                 <td colSpan={5} className="py-8 text-center">
@@ -3455,7 +3455,7 @@ export default function MealsControl() {
               </tr>
             ) : (showWorkforceFallback ? tableRows.length === 0 : eventScopedPayloadItems.length === 0) ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-sm text-gray-500">
+                <td colSpan={5} className="py-8 text-center text-sm text-slate-500">
                   {emptyTableMessage}
                 </td>
               </tr>
@@ -3463,7 +3463,7 @@ export default function MealsControl() {
               tableRows.map((row) => (
                 <tr
                   key={row.key}
-                  className={
+                  className={`hover:bg-slate-800/20 transition-colors ${
                     row.hasAmbiguousBaseline
                       ? "bg-red-950/10"
                       : row.remainingDay !== null && row.remainingDay <= 0
@@ -3475,66 +3475,66 @@ export default function MealsControl() {
                           : Number(row.consumedDay || 0) > 0
                             ? "bg-emerald-950/10"
                             : ""
-                  }
+                  }`}
                 >
-                  <td className="align-top">
+                  <td className="px-4 py-3 align-top">
                     <div className="space-y-2">
                       <div>
-                        <p className="font-medium text-white">{row.name}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="font-medium text-slate-100">{row.name}</p>
+                        <p className="text-xs text-slate-500">
                           {row.roleName} · {capitalizeSectorLabel(row.sector) || "Geral"}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {!showWorkforceFallback && Number(row.assignmentsInScope || 0) > 1 && (
-                          <span className="badge badge-gray">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-700/50 text-slate-400">
                             {row.assignmentsInScope} assignments
                           </span>
                         )}
                         {!showWorkforceFallback && row.hasAmbiguousBaseline && (
-                          <span className="badge badge-red">Baseline ambíguo</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-500/15 text-red-400">Baseline ambíguo</span>
                         )}
                         {row.roleClass && row.roleClass !== "operational" && (
-                          <span className="badge badge-blue">{getRoleClassLabel(row.roleClass)}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-cyan-500/15 text-cyan-400">{getRoleClassLabel(row.roleClass)}</span>
                         )}
                         {!showWorkforceFallback && (row.hasMultipleRoles || row.hasMultipleSectors || row.hasMultipleShifts) && (
-                          <span className="badge badge-gray">Contexto múltiplo</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-700/50 text-slate-400">Contexto múltiplo</span>
                         )}
                         {!showWorkforceFallback && Number(row.consumedDay || 0) > 0 && (
-                          <span className="badge badge-blue">Consumiu {row.consumedDay}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-cyan-500/15 text-cyan-400">Consumiu {row.consumedDay}</span>
                         )}
                         {!showWorkforceFallback && row.remainingDay !== null && row.remainingDay <= 0 && (
-                          <span className="badge badge-red">Sem saldo</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-500/15 text-red-400">Sem saldo</span>
                         )}
                       </div>
                     </div>
                   </td>
-                  <td className="align-top">
+                  <td className="px-4 py-3 align-top">
                     <div className="space-y-2">
-                      <p className="text-lg font-semibold text-white">{row.mealsPerDay ?? "N/D"}</p>
+                      <p className="text-lg font-semibold text-slate-100">{row.mealsPerDay ?? "N/D"}</p>
                       {!showWorkforceFallback && row.configSource ? (
                         <>
                           <span className={getConfigSourceBadgeClass(row.configSource)}>
                             {getConfigSourceBadgeLabel(row.configSource)}
                           </span>
-                          <p className="text-[11px] text-gray-500">
+                          <p className="text-[11px] text-slate-500">
                             {row.hasAmbiguousBaseline
                               ? "Conflito real entre assignments/cargos neste recorte."
                               : getConfigSourceLabel(row.configSource)}
                           </p>
                         </>
                       ) : (
-                        <p className="text-[11px] text-gray-500">
+                        <p className="text-[11px] text-slate-500">
                           Configuracao resolvida no Workforce.
                         </p>
                       )}
                     </div>
                   </td>
-                  <td className="align-top">
+                  <td className="px-4 py-3 align-top">
                     {showWorkforceFallback ? (
                       <div className="space-y-1 text-sm">
-                        <p className="font-semibold text-gray-200">Sem saldo real do Meals</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="font-semibold text-slate-300">Sem saldo real do Meals</p>
+                        <p className="text-xs text-slate-500">
                           A leitura atual mostra apenas a cota configurada no Workforce.
                         </p>
                       </div>
@@ -3550,12 +3550,12 @@ export default function MealsControl() {
                           {row.remainingDay === null ? "Saldo derivado indisponível" : `Saldo restante: ${row.remainingDay}`}
                         </p>
                         {row.mealsPerDay !== null ? (
-                          <p className="text-xs text-gray-400">Permitidas: {row.mealsPerDay}</p>
+                          <p className="text-xs text-slate-400">Permitidas: {row.mealsPerDay}</p>
                         ) : (
-                          <p className="text-xs text-gray-400">Cota não confiável neste recorte.</p>
+                          <p className="text-xs text-slate-400">Cota não confiável neste recorte.</p>
                         )}
-                        <p className="text-xs text-gray-400">Consumidas dia: {row.consumedDay}</p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-slate-400">Consumidas dia: {row.consumedDay}</p>
+                        <p className="text-xs text-slate-400">
                           {hasSelectedShift
                             ? `Consumidas turno: ${row.consumedShift}`
                             : `Consumo no recorte: ${row.consumedShift} (agregado do dia)`}
@@ -3563,14 +3563,14 @@ export default function MealsControl() {
                       </div>
                     )}
                   </td>
-                  <td className="align-top">
+                  <td className="px-4 py-3 align-top">
                     <div className="space-y-2">
                       {row.consumedDay > 0 ? (
-                        <span className="badge badge-blue">Consumiu {row.consumedDay} hoje</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-cyan-500/15 text-cyan-400">Consumiu {row.consumedDay} hoje</span>
                       ) : (
-                        <span className="badge badge-gray">Nenhuma hoje</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-700/50 text-slate-400">Nenhuma hoje</span>
                       )}
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-slate-500">
                         {row.remainingDay !== null
                           ? `${row.remainingDay} restante${row.remainingDay === 1 ? "" : "s"} de ${row.mealsPerDay}`
                           : row.configSource === "default"
@@ -3578,22 +3578,22 @@ export default function MealsControl() {
                             : "Cota não resolvida"}
                       </p>
                         {row.shiftId ? (
-                          <p className="text-xs text-gray-400">
+                          <p className="text-xs text-slate-400">
                             Turno no Workforce: {row.shiftName || `#${row.shiftId}`}
                           </p>
                         ) : null}
                     </div>
                   </td>
-                  <td className="align-top">
+                  <td className="px-4 py-3 align-top">
                     <div className="space-y-2">
                       <span className={row.sourceBadgeClass}>{row.sourceLabel}</span>
-                      <p className="text-xs text-gray-500">{row.sourceDescription}</p>
+                      <p className="text-xs text-slate-500">{row.sourceDescription}</p>
                       {!showWorkforceFallback && (
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-slate-500">
                           Assignments no recorte: {row.assignmentsInScope}
                         </p>
                       )}
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-slate-500">
                         QR: {(row.qrToken || "").slice(-10) || "-"}
                       </p>
                     </div>
@@ -3607,26 +3607,26 @@ export default function MealsControl() {
 
       {mealCostModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg overflow-hidden">
-            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl w-full max-w-lg overflow-hidden">
+            <div className="p-4 border-b border-slate-700/50 flex items-center justify-between">
               <div>
-                <h3 className="text-white font-bold">Configuração de Refeições</h3>
-                <p className="text-xs text-gray-500 mt-1">Defina o valor e os horários de cada tipo de refeição do evento.</p>
+                <h3 className="text-slate-100 font-bold font-headline">Configuração de Refeições</h3>
+                <p className="text-xs text-slate-500 mt-1">Defina o valor e os horários de cada tipo de refeição do evento.</p>
               </div>
-              <button onClick={() => setMealCostModalOpen(false)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800">
+              <button onClick={() => setMealCostModalOpen(false)} className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors">
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={saveMealServices} className="p-5 space-y-4">
               {mealServiceDrafts.length === 0 ? (
-                <p className="text-sm text-gray-500">Nenhum serviço de refeição disponível para configuração neste evento.</p>
+                <p className="text-sm text-slate-500">Nenhum serviço de refeição disponível para configuração neste evento.</p>
               ) : (
                 <div className="space-y-3">
                   {mealServiceGridAnalysis.errors.length > 0 && (
-                    <div className="rounded-xl border border-red-900/60 bg-red-950/30 p-3 text-sm text-red-100">
-                      <p className="font-semibold text-red-200">A grade precisa ser corrigida antes de salvar.</p>
-                      <ul className="mt-2 space-y-1 text-xs text-red-100">
+                    <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">
+                      <p className="font-semibold text-red-300">A grade precisa ser corrigida antes de salvar.</p>
+                      <ul className="mt-2 space-y-1 text-xs text-red-300">
                         {mealServiceGridAnalysis.errors.map((message) => (
                           <li key={`meal-grid-error-${message}`}>{message}</li>
                         ))}
@@ -3634,9 +3634,9 @@ export default function MealsControl() {
                     </div>
                   )}
                   {mealServiceGridAnalysis.warnings.length > 0 && (
-                    <div className="rounded-xl border border-amber-900/60 bg-amber-950/30 p-3 text-sm text-amber-100">
-                      <p className="font-semibold text-amber-200">Avisos da grade operacional</p>
-                      <ul className="mt-2 space-y-1 text-xs text-amber-100">
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-300">
+                      <p className="font-semibold text-amber-300">Avisos da grade operacional</p>
+                      <ul className="mt-2 space-y-1 text-xs text-amber-300">
                         {mealServiceGridAnalysis.warnings.map((message) => (
                           <li key={`meal-grid-warning-${message}`}>{message}</li>
                         ))}
@@ -3644,10 +3644,10 @@ export default function MealsControl() {
                     </div>
                   )}
                   {mealServiceDrafts.map((svc, idx) => (
-                    <div key={getMealServiceDraftKey(svc, idx)} className="rounded-xl border border-gray-800 bg-gray-950/60 p-3 space-y-2">
+                    <div key={getMealServiceDraftKey(svc, idx)} className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-3 space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-white">{svc.label}</p>
-                        <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                        <p className="text-sm font-semibold text-slate-100">{svc.label}</p>
+                        <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={svc.is_active !== false}
@@ -3660,10 +3660,10 @@ export default function MealsControl() {
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <label className="text-[11px] text-gray-500 block">Início</label>
+                          <label className="text-[11px] text-slate-500 block">Início</label>
                           <input
                             type="time"
-                            className="input w-full text-xs"
+                            className="w-full px-3 py-1.5 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-200 text-xs focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-colors"
                             value={(svc.starts_at || "").slice(0, 5)}
                             onChange={(e) => setMealServiceDrafts((prev) =>
                               prev.map((s, i) => i === idx ? { ...s, starts_at: e.target.value } : s)
@@ -3671,10 +3671,10 @@ export default function MealsControl() {
                           />
                         </div>
                         <div>
-                          <label className="text-[11px] text-gray-500 block">Fim</label>
+                          <label className="text-[11px] text-slate-500 block">Fim</label>
                           <input
                             type="time"
-                            className="input w-full text-xs"
+                            className="w-full px-3 py-1.5 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-200 text-xs focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-colors"
                             value={(svc.ends_at || "").slice(0, 5)}
                             onChange={(e) => setMealServiceDrafts((prev) =>
                               prev.map((s, i) => i === idx ? { ...s, ends_at: e.target.value } : s)
@@ -3682,12 +3682,12 @@ export default function MealsControl() {
                           />
                         </div>
                         <div>
-                          <label className="text-[11px] text-gray-500 block">Valor (R$)</label>
+                          <label className="text-[11px] text-slate-500 block">Valor (R$)</label>
                           <input
                             type="number"
                             min="0"
                             step="0.01"
-                            className="input w-full text-xs"
+                            className="w-full px-3 py-1.5 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-200 text-xs focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-colors"
                             value={svc.unit_cost ?? 0}
                             onChange={(e) => setMealServiceDrafts((prev) =>
                               prev.map((s, i) => i === idx ? { ...s, unit_cost: Number(e.target.value) } : s)
@@ -3701,13 +3701,13 @@ export default function MealsControl() {
               )}
 
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setMealCostModalOpen(false)} className="btn-secondary">
+                <button type="button" onClick={() => setMealCostModalOpen(false)} className="px-4 py-2 rounded-xl border border-slate-700/50 bg-slate-800/50 text-slate-300 text-sm hover:bg-slate-700/50 hover:text-slate-100 transition-colors">
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={savingMealCost || mealServiceDrafts.length === 0 || mealServiceGridAnalysis.errors.length > 0}
-                  className="btn-primary flex items-center gap-2"
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold text-sm hover:from-cyan-400 hover:to-cyan-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save size={16} /> Salvar
                 </button>

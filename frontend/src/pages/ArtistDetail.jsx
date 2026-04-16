@@ -98,10 +98,10 @@ function EmptyState({ icon, title, description, action }) {
   const IconComponent = icon;
 
   return (
-    <div className="card border-dashed border-white/10 py-12 text-center">
-      <IconComponent size={36} className="mx-auto text-gray-700" />
-      <h3 className="mt-4 text-lg font-semibold text-white">{title}</h3>
-      <p className="mx-auto mt-2 max-w-2xl text-sm text-gray-500">{description}</p>
+    <div className="card border-dashed border-slate-700/50 py-12 text-center">
+      <IconComponent size={36} className="mx-auto text-slate-500" />
+      <h3 className="mt-4 text-lg font-semibold text-slate-100">{title}</h3>
+      <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-400">{description}</p>
       {action && <div className="mt-5">{action}</div>}
     </div>
   );
@@ -113,22 +113,22 @@ function StatCard({ label, value, helper, tone = "default" }) {
       ? "border-red-500/20 bg-red-500/5"
       : tone === "warning"
         ? "border-yellow-500/20 bg-yellow-500/5"
-        : "border-white/5";
+        : "border-slate-800/40";
 
   return (
     <div className={`card ${toneClass}`}>
-      <p className="text-xs uppercase tracking-[0.18em] text-gray-500">{label}</p>
-      <p className="mt-3 text-2xl font-semibold text-white">{value}</p>
-      <p className="mt-2 text-sm text-gray-500">{helper}</p>
+      <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{label}</p>
+      <p className="mt-3 text-2xl font-semibold text-slate-100">{value}</p>
+      <p className="mt-2 text-sm text-slate-400">{helper}</p>
     </div>
   );
 }
 
 function DetailRow({ label, value }) {
   return (
-    <div className="space-y-1 rounded-xl border border-white/5 bg-black/10 p-3">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-gray-600">{label}</p>
-      <p className="text-sm text-gray-300">{value || "—"}</p>
+    <div className="space-y-1 rounded-xl border border-slate-800/40 bg-slate-900/40 p-3">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="text-sm text-slate-300">{value || "—"}</p>
     </div>
   );
 }
@@ -192,18 +192,18 @@ function downloadBase64File(base64Content, filename, mimeType) {
 
 function ActionModal({ title, description, onClose, children, wide = false }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
       <div
-        className={`card max-h-[90vh] w-full overflow-y-auto border-white/10 ${
+        className={`card max-h-[90vh] w-full overflow-y-auto border-slate-700/50 ${
           wide ? "max-w-6xl" : "max-w-3xl"
         }`}
       >
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <h2 className="section-title">{title}</h2>
-            {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
+            {description && <p className="mt-1 text-sm text-slate-400">{description}</p>}
           </div>
-          <button type="button" onClick={onClose} className="text-gray-500 transition-colors hover:text-white">
+          <button type="button" onClick={onClose} className="text-slate-400 transition-colors hover:text-slate-100">
             <X size={20} />
           </button>
         </div>
@@ -1158,7 +1158,7 @@ export default function ArtistDetail() {
   }
 
   if (loading) {
-    return <div className="py-16 text-center text-gray-500">Carregando artista...</div>;
+    return <div className="py-16 text-center text-slate-400">Carregando artista...</div>;
   }
 
   if (error) {
@@ -1286,7 +1286,7 @@ export default function ArtistDetail() {
                   onChange={(event) => setEditorField("notes", event.target.value)}
                 />
               </label>
-              <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-gray-300">
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
                 <input
                   type="checkbox"
                   className="checkbox"
@@ -1402,12 +1402,12 @@ export default function ArtistDetail() {
 
           {editor.type === "operation" && (
             <div className="space-y-6">
-              <div className="rounded-3xl border border-white/10 bg-black/10 p-5">
+              <div className="rounded-3xl border border-slate-700/50 bg-slate-900/40 p-5">
                 <div className="mb-4 space-y-1">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-400">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
                     Contratacao
                   </h3>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-slate-400">
                     Ajuste palco, horarios e valor da contratacao no mesmo fluxo operacional.
                   </p>
                 </div>
@@ -1495,12 +1495,12 @@ export default function ArtistDetail() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-white/10 bg-black/10 p-5">
+              <div className="rounded-3xl border border-slate-700/50 bg-slate-900/40 p-5">
                 <div className="mb-4 space-y-1">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-400">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
                     Logistica e chegada
                   </h3>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-slate-400">
                     Registre origem, voo, horario de chegada, hotel e deslocamento do artista.
                   </p>
                 </div>
@@ -1647,13 +1647,13 @@ export default function ArtistDetail() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-white/10 bg-black/10 p-5">
+              <div className="rounded-3xl border border-slate-700/50 bg-slate-900/40 p-5">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div className="space-y-1">
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-400">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
                       Custos logísticos
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-slate-400">
                       Lance passagens, transfer, hospedagem, equipe e demais custos do artista.
                     </p>
                   </div>
@@ -1669,7 +1669,7 @@ export default function ArtistDetail() {
 
                 <div className="space-y-3">
                   {(editor.form.items || []).map((item, index) => (
-                    <div key={item.id || `item-${index}`} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div key={item.id || `item-${index}`} className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-4">
                       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
                         <label className="space-y-2">
                           <span className="input-label">Tipo</span>
@@ -1773,13 +1773,13 @@ export default function ArtistDetail() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-white/10 bg-black/10 p-5">
+              <div className="rounded-3xl border border-slate-700/50 bg-slate-900/40 p-5">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div className="space-y-1">
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-400">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
                       Equipe do artista
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-slate-400">
                       Cadastre nomes, funcoes e necessidades da equipe que acompanha o artista.
                     </p>
                   </div>
@@ -1797,7 +1797,7 @@ export default function ArtistDetail() {
                   {(editor.form.team_members || []).map((member, index) => (
                     <div
                       key={member.id || `member-${index}`}
-                      className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                      className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-4"
                     >
                       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                         <label className="space-y-2">
@@ -1840,7 +1840,7 @@ export default function ArtistDetail() {
                             onChange={(event) => setEditorArrayField("team_members", index, "notes", event.target.value)}
                           />
                         </label>
-                        <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-gray-300">
+                        <label className="flex items-center gap-3 rounded-2xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
                           <input
                             type="checkbox"
                             className="checkbox"
@@ -1851,7 +1851,7 @@ export default function ArtistDetail() {
                           />
                           Precisa de hotel
                         </label>
-                        <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-gray-300">
+                        <label className="flex items-center gap-3 rounded-2xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
                           <input
                             type="checkbox"
                             className="checkbox"
@@ -1865,7 +1865,7 @@ export default function ArtistDetail() {
                       </div>
 
                       <div className="mt-3 flex justify-between gap-3">
-                        <label className="flex items-center gap-3 text-sm text-gray-300">
+                        <label className="flex items-center gap-3 text-sm text-slate-300">
                           <input
                             type="checkbox"
                             className="checkbox"
@@ -1976,7 +1976,7 @@ export default function ArtistDetail() {
                   />
                 </label>
               </div>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-slate-400">
                 Ao salvar, a timeline operacional e os alertas desta contratacao sao recalculados automaticamente.
               </p>
             </>
@@ -2028,7 +2028,7 @@ export default function ArtistDetail() {
                 />
               </label>
               <div className="grid gap-3 md:grid-cols-3">
-                <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-gray-300">
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
                   <input
                     type="checkbox"
                     className="checkbox"
@@ -2037,7 +2037,7 @@ export default function ArtistDetail() {
                   />
                   Precisa de hotel
                 </label>
-                <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-gray-300">
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
                   <input
                     type="checkbox"
                     className="checkbox"
@@ -2046,7 +2046,7 @@ export default function ArtistDetail() {
                   />
                   Precisa de transfer
                 </label>
-                <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-gray-300">
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
                   <input
                     type="checkbox"
                     className="checkbox"
@@ -2156,15 +2156,15 @@ export default function ArtistDetail() {
 
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="page-title">
-                <MicVocal size={22} className="text-brand" />
+              <h1 className="page-title font-headline">
+                <MicVocal size={22} className="text-cyan-400" />
                 {artist.stage_name}
               </h1>
               <span className={artist.is_active ? "badge-green" : "badge-gray"}>
                 {artist.is_active ? "Ativo" : "Inativo"}
               </span>
             </div>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-slate-400">
               {artist.legal_name || "Sem nome juridico"} · {artist.artist_type || "Tipo nao definido"}
             </p>
           </div>
@@ -2247,7 +2247,7 @@ export default function ArtistDetail() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
-        <div className="card border-white/5">
+        <div className="card border-slate-800/40">
           <div className="flex items-center justify-between gap-3">
             <h2 className="section-title">Cadastro base</h2>
             {canManage && (
@@ -2267,10 +2267,10 @@ export default function ArtistDetail() {
             <DetailRow label="Criado em" value={formatDateTime(artist.created_at)} />
             <DetailRow label="Atualizado em" value={formatDateTime(artist.updated_at)} />
           </div>
-          {artist.notes && <p className="mt-4 text-sm text-gray-400">{artist.notes}</p>}
+          {artist.notes && <p className="mt-4 text-sm text-slate-400">{artist.notes}</p>}
         </div>
 
-        <div className="card border-white/5">
+        <div className="card border-slate-800/40">
           <div className="flex items-center justify-between gap-3">
             <h2 className="section-title">Operacao atual</h2>
             <div className="flex flex-wrap items-center gap-2">
@@ -2325,18 +2325,18 @@ export default function ArtistDetail() {
               </div>
             </div>
           ) : (
-            <p className="mt-4 text-sm text-gray-500">
+            <p className="mt-4 text-sm text-slate-400">
               Selecione uma contratacao para abrir o contexto operacional.
             </p>
           )}
         </div>
       </div>
 
-      <div className="card border-white/5">
+      <div className="card border-slate-800/40">
         <div className="flex items-center justify-between gap-3">
           <h2 className="section-title">Eventos deste artista</h2>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-slate-400">
               {formatNumber(bookings.length)} contratacao(oes)
             </span>
             {canManage && (
@@ -2349,7 +2349,7 @@ export default function ArtistDetail() {
         </div>
 
         {bookings.length === 0 ? (
-          <p className="mt-4 text-sm text-gray-500">Nenhuma contratacao vinculada ainda.</p>
+          <p className="mt-4 text-sm text-slate-400">Nenhuma contratacao vinculada ainda.</p>
         ) : (
           <div className="mt-4 flex flex-wrap gap-2">
             {bookings.map((booking) => (
@@ -2364,8 +2364,8 @@ export default function ArtistDetail() {
                 }
                 className={`rounded-full border px-4 py-2 text-sm transition-colors ${
                   String(booking.event_id) === String(selectedEventId)
-                    ? "border-brand/40 bg-brand/10 text-brand"
-                    : "border-white/10 text-gray-400 hover:border-white/20 hover:text-white"
+                    ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-400"
+                    : "border-slate-700/50 text-slate-400 hover:border-slate-600/50 hover:text-slate-100"
                 }`}
               >
                 {booking.event_name || `Evento ${booking.event_id}`}
@@ -2375,7 +2375,7 @@ export default function ArtistDetail() {
         )}
       </div>
 
-      <div className="card border-white/5">
+      <div className="card border-slate-800/40">
         <div className="flex flex-wrap gap-2">
           {TABS.map((tab) => (
             <button
@@ -2384,8 +2384,8 @@ export default function ArtistDetail() {
               onClick={() => updateRouteState({ tab: tab.id })}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? "bg-brand/15 text-brand"
-                  : "text-gray-400 hover:bg-white/5 hover:text-white"
+                  ? "bg-cyan-500/15 text-cyan-400"
+                  : "text-slate-400 hover:bg-slate-800/30 hover:text-slate-100"
               }`}
             >
               {tab.label}
@@ -2413,11 +2413,11 @@ export default function ArtistDetail() {
       )}
 
       {activeTab === "bookings" && (
-        <div className="card border-white/5">
+        <div className="card border-slate-800/40">
           <div className="flex items-center justify-between gap-3">
             <h2 className="section-title">Contratacoes do artista</h2>
             <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-slate-400">
                 {formatNumber(bookings.length)} registro(s)
               </span>
               {canManage && (
@@ -2430,7 +2430,7 @@ export default function ArtistDetail() {
           </div>
 
           {bookings.length === 0 ? (
-            <p className="mt-4 text-sm text-gray-500">Nenhuma contratacao encontrada.</p>
+            <p className="mt-4 text-sm text-slate-400">Nenhuma contratacao encontrada.</p>
           ) : (
             <div className="table-wrapper mt-4">
               <table className="table">
@@ -2450,17 +2450,17 @@ export default function ArtistDetail() {
                     const meta = resolveMeta(BOOKING_STATUS_META, booking.booking_status);
                     return (
                       <tr key={booking.id}>
-                        <td className="font-medium text-white">{booking.event_name || `Evento ${booking.event_id}`}</td>
+                        <td className="font-medium text-slate-100">{booking.event_name || `Evento ${booking.event_id}`}</td>
                         <td>
                           <span className={meta.className}>{meta.label}</span>
                         </td>
-                        <td className="text-sm text-gray-400">
+                        <td className="text-sm text-slate-400">
                           {formatDateTime(booking.performance_start_at)}
                         </td>
-                        <td className="text-sm text-gray-400">
+                        <td className="text-sm text-slate-400">
                           {booking.stage_name || "—"}
                         </td>
-                        <td className="text-right tabular-nums text-white">
+                        <td className="text-right tabular-nums text-slate-100">
                           {formatCurrency(booking.cache_amount)}
                         </td>
                         <td className="text-right tabular-nums text-cyan-300">
@@ -2471,7 +2471,7 @@ export default function ArtistDetail() {
                             <button
                               type="button"
                               onClick={() => openBookingEditor(booking)}
-                              className="rounded-full border border-white/10 px-3 py-1 text-xs text-gray-300 transition-colors hover:border-white/20 hover:text-white"
+                              className="rounded-full border border-slate-700/50 px-3 py-1 text-xs text-slate-300 transition-colors hover:border-slate-600/50 hover:text-slate-100"
                             >
                               Editar
                             </button>
@@ -2483,7 +2483,7 @@ export default function ArtistDetail() {
                                   tab: "logistics",
                                 })
                               }
-                              className="rounded-full border border-white/10 px-3 py-1 text-xs text-gray-300 transition-colors hover:border-white/20 hover:text-white"
+                              className="rounded-full border border-slate-700/50 px-3 py-1 text-xs text-slate-300 transition-colors hover:border-slate-600/50 hover:text-slate-100"
                             >
                               Logistica
                             </button>
@@ -2517,7 +2517,7 @@ export default function ArtistDetail() {
               description="A logistica depende de um contexto de evento. Escolha uma contratacao no seletor superior ou na aba de contratacoes."
             />
           ) : relatedLoading ? (
-            <div className="py-12 text-center text-gray-500">Carregando logistica...</div>
+            <div className="py-12 text-center text-slate-400">Carregando logistica...</div>
           ) : (
             <div className="space-y-6">
               {relatedError && (
@@ -2526,7 +2526,7 @@ export default function ArtistDetail() {
                 </div>
               )}
 
-              <div className="card border-white/5">
+              <div className="card border-slate-800/40">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="section-title">Logistica consolidada</h2>
                   {canManage && (
@@ -2554,16 +2554,16 @@ export default function ArtistDetail() {
                     </div>
 
                     {(logistics.hospitality_notes || logistics.transport_notes) && (
-                      <div className="rounded-xl border border-white/5 bg-black/10 p-4 text-sm text-gray-400">
+                      <div className="rounded-xl border border-slate-800/40 bg-slate-900/40 p-4 text-sm text-slate-400">
                         {logistics.hospitality_notes && (
                           <p>
-                            <span className="font-medium text-white">Hospitalidade:</span>{" "}
+                            <span className="font-medium text-slate-100">Hospitalidade:</span>{" "}
                             {logistics.hospitality_notes}
                           </p>
                         )}
                         {logistics.transport_notes && (
                           <p className="mt-2">
-                            <span className="font-medium text-white">Transporte:</span>{" "}
+                            <span className="font-medium text-slate-100">Transporte:</span>{" "}
                             {logistics.transport_notes}
                           </p>
                         )}
@@ -2571,21 +2571,21 @@ export default function ArtistDetail() {
                     )}
                   </div>
                 ) : (
-                  <p className="mt-4 text-sm text-gray-500">
+                  <p className="mt-4 text-sm text-slate-400">
                     Nenhuma logistica consolidada cadastrada para esta contratacao.
                   </p>
                 )}
               </div>
 
-              <div className="card border-white/5">
+              <div className="card border-slate-800/40">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="section-title">Custos logísticos</h2>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-slate-400">
                     {formatNumber(logisticsItems.length)} item(ns) • {formatCurrency(currentLogisticsCost)}
                   </span>
                 </div>
                 {logisticsItems.length === 0 ? (
-                  <p className="mt-4 text-sm text-gray-500">
+                  <p className="mt-4 text-sm text-slate-400">
                     Nenhum custo logístico cadastrado para esta contratacao.
                   </p>
                 ) : (
@@ -2604,16 +2604,16 @@ export default function ArtistDetail() {
                       <tbody>
                         {logisticsItems.map((item) => (
                           <tr key={item.id}>
-                            <td className="text-sm text-gray-300">{item.item_type || "—"}</td>
+                            <td className="text-sm text-slate-300">{item.item_type || "—"}</td>
                             <td>
                               <div className="space-y-1">
-                                <p className="font-medium text-white">{item.description}</p>
-                                {item.notes && <p className="text-xs text-gray-500">{item.notes}</p>}
+                                <p className="font-medium text-slate-100">{item.description}</p>
+                                {item.notes && <p className="text-xs text-slate-400">{item.notes}</p>}
                               </div>
                             </td>
-                            <td className="text-sm text-gray-400">{item.supplier_name || "—"}</td>
-                            <td className="text-right tabular-nums text-white">{formatNumber(item.quantity)}</td>
-                            <td className="text-right tabular-nums text-white">{formatCurrency(item.unit_amount)}</td>
+                            <td className="text-sm text-slate-400">{item.supplier_name || "—"}</td>
+                            <td className="text-right tabular-nums text-slate-100">{formatNumber(item.quantity)}</td>
+                            <td className="text-right tabular-nums text-slate-100">{formatCurrency(item.unit_amount)}</td>
                             <td className="text-right tabular-nums font-semibold text-cyan-300">
                               {formatCurrency(item.total_amount)}
                             </td>
@@ -2638,7 +2638,7 @@ export default function ArtistDetail() {
               description="A timeline depende de um contexto de evento. Escolha uma contratacao no seletor superior ou na aba de contratacoes."
             />
           ) : relatedLoading ? (
-            <div className="py-12 text-center text-gray-500">Carregando timeline...</div>
+            <div className="py-12 text-center text-slate-400">Carregando timeline...</div>
           ) : (
             <div className="space-y-6">
               {relatedError && (
@@ -2707,7 +2707,7 @@ export default function ArtistDetail() {
               </div>
 
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.95fr)]">
-                <div className="card border-white/5">
+                <div className="card border-slate-800/40">
                   <h2 className="section-title">Checkpoint operacional</h2>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     {timelineEvents.map((eventItem) => (
@@ -2720,7 +2720,7 @@ export default function ArtistDetail() {
                   </div>
                 </div>
 
-                <div className="card border-white/5">
+                <div className="card border-slate-800/40">
                   <h2 className="section-title">Janelas calculadas</h2>
                   <div className="mt-4 space-y-3">
                     {[
@@ -2740,14 +2740,14 @@ export default function ArtistDetail() {
                         value: computedWindows.departure_deadline,
                       },
                     ].map((windowItem) => (
-                      <div key={windowItem.id} className="rounded-xl border border-white/5 bg-black/10 p-4">
+                      <div key={windowItem.id} className="rounded-xl border border-slate-800/40 bg-slate-900/40 p-4">
                         <div className="flex items-center justify-between gap-3">
-                          <p className="font-medium text-white">{windowItem.label}</p>
-                          <span className="text-sm text-gray-500">
+                          <p className="font-medium text-slate-100">{windowItem.label}</p>
+                          <span className="text-sm text-slate-400">
                             ETA {formatMinutes(windowItem.value?.planned_eta_minutes)}
                           </span>
                         </div>
-                        <div className="mt-3 grid gap-3 text-sm text-gray-400 md:grid-cols-2">
+                        <div className="mt-3 grid gap-3 text-sm text-slate-400 md:grid-cols-2">
                           <p>Previsto: {formatDateTime(windowItem.value?.predicted_at)}</p>
                           <p>Alvo: {formatDateTime(windowItem.value?.target_at)}</p>
                           <p>Margem: {windowItem.value?.margin_minutes != null ? `${windowItem.value.margin_minutes} min` : "—"}</p>
@@ -2759,10 +2759,10 @@ export default function ArtistDetail() {
                 </div>
               </div>
 
-              <div className="card border-white/5">
+              <div className="card border-slate-800/40">
                 <h2 className="section-title">Transfers</h2>
                 {transfers.length === 0 ? (
-                  <p className="mt-4 text-sm text-gray-500">Nenhum transfer cadastrado.</p>
+                  <p className="mt-4 text-sm text-slate-400">Nenhum transfer cadastrado.</p>
                 ) : (
                   <div className="table-wrapper mt-4">
                     <table className="table">
@@ -2778,18 +2778,18 @@ export default function ArtistDetail() {
                           <tr key={transfer.id}>
                             <td>
                               <div className="space-y-1">
-                                <p className="font-medium text-white">
+                                <p className="font-medium text-slate-100">
                                   {transfer.route_code || "Rota sem codigo"}
                                 </p>
-                                <p className="text-xs uppercase tracking-[0.18em] text-gray-600">
+                                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
                                   {transfer.route_phase || "other"}
                                 </p>
                               </div>
                             </td>
-                            <td className="text-sm text-gray-400">
+                            <td className="text-sm text-slate-400">
                               {transfer.origin_label || "Origem"} → {transfer.destination_label || "Destino"}
                             </td>
-                            <td className="text-right tabular-nums text-white">
+                            <td className="text-right tabular-nums text-slate-100">
                               {formatMinutes(transfer.planned_eta_minutes)}
                             </td>
                           </tr>
@@ -2813,7 +2813,7 @@ export default function ArtistDetail() {
               description="Os alertas operacionais dependem de um contexto de evento."
             />
           ) : relatedLoading ? (
-            <div className="py-12 text-center text-gray-500">Carregando alertas...</div>
+            <div className="py-12 text-center text-slate-400">Carregando alertas...</div>
           ) : (
             <div className="space-y-6">
               {relatedError && (
@@ -2822,7 +2822,7 @@ export default function ArtistDetail() {
                 </div>
               )}
 
-              <div className="card border-white/5">
+              <div className="card border-slate-800/40">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="section-title">Alertas operacionais</h2>
                   {canManage && (
@@ -2833,27 +2833,27 @@ export default function ArtistDetail() {
                   )}
                 </div>
                 {alerts.length === 0 ? (
-                  <p className="mt-4 text-sm text-gray-500">Nenhum alerta registrado nesta timeline.</p>
+                  <p className="mt-4 text-sm text-slate-400">Nenhum alerta registrado nesta timeline.</p>
                 ) : (
                   <div className="mt-4 space-y-3">
                     {alerts.map((alert) => {
                       const severity = resolveMeta(ALERT_SEVERITY_META, alert.severity);
                       const status = resolveMeta(ALERT_STATUS_META, alert.status);
                       return (
-                        <div key={alert.id} className="rounded-2xl border border-white/5 bg-black/10 p-4">
+                        <div key={alert.id} className="rounded-2xl border border-slate-800/40 bg-slate-900/40 p-4">
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="space-y-2">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className={severity.className}>{severity.label}</span>
                                 <span className={status.className}>{status.label}</span>
                               </div>
-                              <h3 className="font-semibold text-white">{alert.title}</h3>
+                              <h3 className="font-semibold text-slate-100">{alert.title}</h3>
                             </div>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-slate-400">
                               {formatDateTime(alert.triggered_at)}
                             </p>
                           </div>
-                          <p className="mt-3 text-sm text-gray-400">{alert.message}</p>
+                          <p className="mt-3 text-sm text-slate-400">{alert.message}</p>
                           {alert.recommended_action && (
                             <p className="mt-3 text-sm text-cyan-300">
                               Acao sugerida: {alert.recommended_action}
@@ -2865,7 +2865,7 @@ export default function ArtistDetail() {
                                 <button
                                   type="button"
                                   onClick={() => handleAlertAction(alert, "acknowledge")}
-                                  className="rounded-full border border-white/10 px-3 py-1 text-xs text-gray-300 transition-colors hover:border-white/20 hover:text-white"
+                                  className="rounded-full border border-slate-700/50 px-3 py-1 text-xs text-slate-300 transition-colors hover:border-slate-600/50 hover:text-slate-100"
                                 >
                                   Reconhecer
                                 </button>
@@ -2910,13 +2910,13 @@ export default function ArtistDetail() {
               description="A equipe do artista e vinculada a uma contratacao especifica do evento."
             />
           ) : relatedLoading ? (
-            <div className="py-12 text-center text-gray-500">Carregando equipe...</div>
+            <div className="py-12 text-center text-slate-400">Carregando equipe...</div>
           ) : (
-            <div className="card border-white/5">
+            <div className="card border-slate-800/40">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="section-title">Equipe vinculada</h2>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-500">{formatNumber(teamMembers.length)} pessoa(s)</span>
+                  <span className="text-sm text-slate-400">{formatNumber(teamMembers.length)} pessoa(s)</span>
                   {canManage && (
                     <button type="button" onClick={() => openTeamEditor()} className="btn-outline">
                       <Plus size={14} />
@@ -2927,7 +2927,7 @@ export default function ArtistDetail() {
               </div>
 
               {teamMembers.length === 0 ? (
-                <p className="mt-4 text-sm text-gray-500">
+                <p className="mt-4 text-sm text-slate-400">
                   Nenhum membro de equipe cadastrado para esta contratacao.
                 </p>
               ) : (
@@ -2948,18 +2948,18 @@ export default function ArtistDetail() {
                         <tr key={member.id}>
                           <td>
                             <div className="space-y-1">
-                              <p className="font-medium text-white">{member.full_name}</p>
-                              <p className="text-xs text-gray-500">{member.document_number || "Sem documento"}</p>
+                              <p className="font-medium text-slate-100">{member.full_name}</p>
+                              <p className="text-xs text-slate-400">{member.document_number || "Sem documento"}</p>
                             </div>
                           </td>
-                          <td className="text-sm text-gray-400">{member.role_name || "Sem funcao"}</td>
-                          <td className="text-sm text-gray-400">{member.phone || "Sem telefone"}</td>
+                          <td className="text-sm text-slate-400">{member.role_name || "Sem funcao"}</td>
+                          <td className="text-sm text-slate-400">{member.phone || "Sem telefone"}</td>
                           <td>
                             <div className="flex flex-wrap gap-2">
                               {member.needs_hotel && <span className="badge-gray">Hotel</span>}
                               {member.needs_transfer && <span className="badge-gray">Transfer</span>}
                               {!member.needs_hotel && !member.needs_transfer && (
-                                <span className="text-xs text-gray-600">Sem flags</span>
+                                <span className="text-xs text-slate-500">Sem flags</span>
                               )}
                             </div>
                           </td>
@@ -2974,7 +2974,7 @@ export default function ArtistDetail() {
                                 <button
                                   type="button"
                                   onClick={() => openTeamEditor(member)}
-                                  className="rounded-full border border-white/10 px-3 py-1 text-xs text-gray-300 transition-colors hover:border-white/20 hover:text-white"
+                                  className="rounded-full border border-slate-700/50 px-3 py-1 text-xs text-slate-300 transition-colors hover:border-slate-600/50 hover:text-slate-100"
                                 >
                                   Editar
                                 </button>
@@ -3008,13 +3008,13 @@ export default function ArtistDetail() {
               description="Arquivos ficam vinculados a contratacao do evento."
             />
           ) : relatedLoading ? (
-            <div className="py-12 text-center text-gray-500">Carregando arquivos...</div>
+            <div className="py-12 text-center text-slate-400">Carregando arquivos...</div>
           ) : (
-            <div className="card border-white/5">
+            <div className="card border-slate-800/40">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="section-title">Arquivos da contratacao</h2>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-500">{formatNumber(files.length)} item(ns)</span>
+                  <span className="text-sm text-slate-400">{formatNumber(files.length)} item(ns)</span>
                   {canManage && (
                     <button type="button" onClick={openFileEditor} className="btn-outline">
                       <Plus size={14} />
@@ -3025,7 +3025,7 @@ export default function ArtistDetail() {
               </div>
 
               {files.length === 0 ? (
-                <p className="mt-4 text-sm text-gray-500">Nenhum arquivo registrado para esta contratacao.</p>
+                <p className="mt-4 text-sm text-slate-400">Nenhum arquivo registrado para esta contratacao.</p>
               ) : (
                 <div className="table-wrapper mt-4">
                   <table className="table">
@@ -3044,16 +3044,16 @@ export default function ArtistDetail() {
                         <tr key={file.id}>
                           <td>
                             <div className="space-y-1">
-                              <p className="font-medium text-white">{file.original_name}</p>
-                              <p className="max-w-[320px] truncate text-xs text-gray-600">
+                              <p className="font-medium text-slate-100">{file.original_name}</p>
+                              <p className="max-w-[320px] truncate text-xs text-slate-500">
                                 {file.storage_path}
                               </p>
                             </div>
                           </td>
-                          <td className="text-sm text-gray-400">{file.file_type || "—"}</td>
-                          <td className="text-sm text-gray-400">{file.mime_type || "—"}</td>
-                          <td className="text-sm text-gray-400">{formatFileSize(file.file_size_bytes)}</td>
-                          <td className="text-sm text-gray-400">{formatDateTime(file.created_at)}</td>
+                          <td className="text-sm text-slate-400">{file.file_type || "—"}</td>
+                          <td className="text-sm text-slate-400">{file.mime_type || "—"}</td>
+                          <td className="text-sm text-slate-400">{formatFileSize(file.file_size_bytes)}</td>
+                          <td className="text-sm text-slate-400">{formatDateTime(file.created_at)}</td>
                           <td className="text-right">
                             {canManage && (
                               <button

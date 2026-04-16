@@ -8,16 +8,20 @@ export default function SectionHeader({
 }) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 border-b border-gray-800 pb-2">
-        {Icon && <Icon size={20} className={iconClassName} />}
-        <h2 className="text-lg font-semibold text-white">{title}</h2>
+      <div className="flex items-center gap-2 border-b border-slate-800/40 pb-2">
+        {Icon && (
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10">
+            <Icon size={18} className={iconClassName} />
+          </div>
+        )}
+        <h2 className="text-lg font-semibold text-slate-200">{title}</h2>
         {badge && (
-          <span className={`ml-2 rounded px-2 py-1 text-xs font-medium ${badgeClassName}`}>
+          <span className={`ml-2 rounded-full px-3 py-1 text-xs font-medium ${badgeClassName}`}>
             {badge}
           </span>
         )}
       </div>
-      {description && <p className="text-sm text-gray-400">{description}</p>}
+      {description && <p className="text-sm text-slate-400">{description}</p>}
     </div>
   );
 }

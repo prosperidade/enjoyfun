@@ -179,25 +179,25 @@ export default function CsvImportModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md max-h-[90vh] relative z-10 shadow-2xl animate-fade-in flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-gray-800 flex justify-between items-center">
-          <h2 className="text-lg font-bold text-white">Importação em Lote (CSV)</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-800">
+      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
+
+      <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl w-full max-w-md max-h-[90vh] relative z-10 shadow-2xl animate-fade-in flex flex-col overflow-hidden">
+        <div className="p-4 border-b border-slate-800/40 flex justify-between items-center">
+          <h2 className="text-lg font-bold text-slate-100">Importação em Lote (CSV)</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-slate-800/50">
             <X size={20} />
           </button>
         </div>
 
         <div className="p-6 space-y-6 overflow-y-auto">
-            <div className="card bg-gray-800/50 border border-blue-900/30 p-4">
-                <div className="flex gap-3 text-blue-400">
+            <div className="bg-slate-800/50 border border-cyan-500/20 rounded-xl p-4">
+                <div className="flex gap-3 text-cyan-400">
                     <AlertCircle size={20} className="flex-shrink-0" />
                     <div className="text-sm">
                         <strong className="block mb-1">Formato Exigido do CSV</strong>
                         {mode === "workforce" && (
                           <>
-                            <p className="text-blue-300 mb-2">
+                            <p className="text-cyan-300 mb-2">
                               {managerFirstMode
                                 ? `Importação vinculada automaticamente ao gerente atual. O setor desta tabela será respeitado e a equipe já entra na árvore correta.`
                                 : `Importação vinculada ao cargo selecionado.`}
@@ -209,16 +209,16 @@ export default function CsvImportModal({
                             )}
                           </>
                         )}
-                        <p className="text-gray-400 leading-relaxed">
+                        <p className="text-slate-400 leading-relaxed">
                             A primeira linha deve ser o cabeçalho. As colunas devem estar separadas por vírgula nesta ordem: <br/>
-                            <code className="text-gray-300 bg-gray-900 px-1 py-0.5 rounded mt-2 inline-block shadow-inner">name, email, document, phone, category_id</code>
+                            <code className="text-slate-300 bg-slate-900/40 px-1 py-0.5 rounded mt-2 inline-block shadow-inner">name, email, document, phone, category_id</code>
                         </p>
                     </div>
                 </div>
             </div>
 
             <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-400 block">
+                <label className="text-xs font-medium text-slate-400 block">
                   {mode === "workforce" ? "Categoria Workforce" : "Categoria Padrão"} (utilizada se a coluna CSV estiver vazia)
                 </label>
                 <select 
@@ -238,7 +238,7 @@ export default function CsvImportModal({
                 )}
             </div>
 
-            <div className="border-2 border-dashed border-gray-700 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-gray-800/30 transition-colors">
+            <div className="border-2 border-dashed border-slate-700/50 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-800/30 transition-colors">
                 <input 
                     type="file" 
                     id="csv-upload" 
@@ -248,32 +248,32 @@ export default function CsvImportModal({
                 />
                 
                 <label htmlFor="csv-upload" className="cursor-pointer flex flex-col items-center">
-                    <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center text-gray-400 mb-3 hover:text-brand hover:scale-110 transition-all">
+                    <div className="w-12 h-12 bg-slate-800/50 rounded-full flex items-center justify-center text-slate-400 mb-3 hover:text-cyan-400 hover:scale-110 transition-all">
                         <UploadCloud size={24} />
                     </div>
                     {file ? (
                         <div>
-                            <span className="text-brand font-medium block">{file.name}</span>
-                            <span className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</span>
+                            <span className="text-cyan-400 font-medium block">{file.name}</span>
+                            <span className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</span>
                         </div>
                     ) : (
                          <div>
-                            <span className="text-white font-medium block mb-1">Clique para procurar CSV</span>
-                            <span className="text-xs text-gray-500">Ou arraste e solte o arquivo aqui</span>
+                            <span className="text-slate-100 font-medium block mb-1">Clique para procurar CSV</span>
+                            <span className="text-xs text-slate-500">Ou arraste e solte o arquivo aqui</span>
                         </div>
                     )}
                 </label>
             </div>
         </div>
 
-        <div className="p-4 border-t border-gray-800 flex justify-end gap-3 bg-gray-900/50 rounded-b-2xl flex-shrink-0">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg font-medium text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
+        <div className="p-4 border-t border-slate-800/40 flex justify-end gap-3 bg-slate-900/50 rounded-b-2xl flex-shrink-0">
+          <button onClick={onClose} className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-semibold transition-colors">
             Cancelar
           </button>
-          <button 
+          <button
             onClick={handleImport}
             disabled={loading || !file}
-            className="btn-primary"
+            className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold rounded-xl px-4 py-2 flex items-center gap-2"
           >
              {loading ? <div className="spinner" /> : <UploadCloud size={18} />}
              Confirmar Importação
