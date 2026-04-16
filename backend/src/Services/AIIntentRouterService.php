@@ -75,6 +75,7 @@ final class AIIntentRouterService
             'artists'    => 'artists',
             'documents'  => 'documents',
             'finance'    => 'management',
+            'b2c'        => 'b2c_concierge',
         ];
         if ($explicitSurface !== '' && isset($surfaceLockedAgents[$explicitSurface])) {
             return [

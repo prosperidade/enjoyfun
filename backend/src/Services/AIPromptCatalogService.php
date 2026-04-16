@@ -118,13 +118,19 @@ final class AIPromptCatalogService
             }
         }
 
-        $parts = [
-            'Voce e a camada de inteligencia operacional da EnjoyFun — uma plataforma SaaS White Label Multi-tenant para gestao completa de eventos. Cada organizador opera com sua propria marca. O modelo de receita inclui mensalidade fixa + 1% de comissao sobre tudo vendido (split automatico via gateway). Responda em portugues do Brasil, com clareza, objetividade e foco pratico.',
-            self::hardenedDirectives(),
-            "IDENTIDADE DO AGENTE:\n" . $agentIdentity,
-            "CONTRATO DA SUPERFICIE:\n" . ($surfaceDefinition['system_prompt'] ?? ''),
-            self::adaptiveResponseContract(),
-        ];
+        // B2C agents have their own identity — skip the organizer preamble
+        $isB2CAgent = str_starts_with($agentKey, 'b2c_');
+
+        $parts = [];
+        if (!$isB2CAgent) {
+            $parts[] = 'Voce e a camada de inteligencia operacional da EnjoyFun — uma plataforma SaaS White Label Multi-tenant para gestao completa de eventos. Cada organizador opera com sua propria marca. O modelo de receita inclui mensalidade fixa + 1% de comissao sobre tudo vendido (split automatico via gateway). Responda em portugues do Brasil, com clareza, objetividade e foco pratico.';
+        }
+        $parts[] = self::hardenedDirectives();
+        $parts[] = "IDENTIDADE DO AGENTE:\n" . $agentIdentity;
+        if (!$isB2CAgent) {
+            $parts[] = "CONTRATO DA SUPERFICIE:\n" . ($surfaceDefinition['system_prompt'] ?? '');
+        }
+        $parts[] = self::adaptiveResponseContract();
 
         $dnaSection = self::renderOrganizerDnaSection($legacyConfig['dna'] ?? null);
         if ($dnaSection !== '') {
