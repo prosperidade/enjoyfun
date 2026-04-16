@@ -260,36 +260,47 @@ export default function SuperAdminPanel() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-[#111827] border border-slate-800/40 p-6 rounded-2xl md:col-span-1 h-fit">
-                    <h2 className="text-xl font-semibold mb-4 text-slate-100">Novo Organizador</h2>
-                    <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-400">Nome da Empresa</label>
-                            <input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} required autoComplete="new-name" className="mt-1 w-full p-2.5 border border-slate-700/50 rounded-xl bg-slate-800/50 text-slate-100 focus:border-cyan-500 focus:outline-none placeholder-slate-500 transition-colors" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-400">E-mail de Acesso</label>
-                            <input type="email" name="email" value={formData.email || ''} onChange={handleInputChange} required autoComplete="new-email" className="mt-1 w-full p-2.5 border border-slate-700/50 rounded-xl bg-slate-800/50 text-slate-100 focus:border-cyan-500 focus:outline-none placeholder-slate-500 transition-colors" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-400">Senha Inicial</label>
-                            <input type="password" name="password" value={formData.password || ''} onChange={handleInputChange} required minLength="6" autoComplete="new-password" className="mt-1 w-full p-2.5 border border-slate-700/50 rounded-xl bg-slate-800/50 text-slate-100 focus:border-cyan-500 focus:outline-none placeholder-slate-500 transition-colors" />
-                        </div>
-                        <button type="submit" disabled={isSubmitting} className={`w-full p-2.5 rounded-xl font-semibold transition-all ${isSubmitting ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 hover:shadow-lg hover:shadow-cyan-500/20'}`}>
-                            {isSubmitting ? 'Criando...' : 'Criar Organizador'}
-                        </button>
-                    </form>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Form: Stitch style com glow blob */}
+                <div className="lg:col-span-1">
+                    <div className="bg-[#111827] border border-slate-800/60 p-8 rounded-2xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 blur-3xl -mr-16 -mt-16 pointer-events-none" />
+                        <h3 className="text-xl font-bold font-headline text-slate-100 mb-6 flex items-center gap-2">
+                            <Users size={20} className="text-cyan-400" />
+                            Novo Organizador
+                        </h3>
+                        <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Empresa</label>
+                                <input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} required autoComplete="new-name" className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg text-slate-200 focus:ring-cyan-500 focus:border-cyan-500 transition-all px-4 py-3 placeholder-slate-500" placeholder="Nome Fantasia" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">E-mail Administrativo</label>
+                                <input type="email" name="email" value={formData.email || ''} onChange={handleInputChange} required autoComplete="new-email" className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg text-slate-200 focus:ring-cyan-500 focus:border-cyan-500 transition-all px-4 py-3 placeholder-slate-500" placeholder="admin@empresa.com" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Senha Temporária</label>
+                                <input type="password" name="password" value={formData.password || ''} onChange={handleInputChange} required minLength="6" autoComplete="new-password" className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg text-slate-200 focus:ring-cyan-500 focus:border-cyan-500 transition-all px-4 py-3 placeholder-slate-500" placeholder="••••••••" />
+                            </div>
+                            <button type="submit" disabled={isSubmitting} className={`w-full py-4 rounded-lg font-bold mt-4 transition-all ${isSubmitting ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 shadow-[0_0_20px_rgba(0,240,255,0.2)] hover:scale-[1.02] active:scale-95'}`}>
+                                {isSubmitting ? 'Criando...' : 'Cadastrar Organizador'}
+                            </button>
+                        </form>
+                    </div>
                 </div>
 
-                <div className="bg-[#111827] border border-slate-800/40 p-6 rounded-2xl md:col-span-2">
-                    <h2 className="text-xl font-semibold mb-4 text-slate-100">Organizadores</h2>
+                {/* Table: Stitch style com header styled */}
+                <div className="lg:col-span-2">
+                    <div className="bg-[#111827] border border-slate-800/60 rounded-2xl overflow-hidden">
+                        <div className="p-6 border-b border-slate-800/60 flex justify-between items-center">
+                            <h3 className="font-bold font-headline text-slate-100">Organizadores Recentes</h3>
+                        </div>
                     {loading ? (
-                        <p className="text-slate-400">Carregando dados...</p>
+                        <p className="text-slate-400 p-6">Carregando dados...</p>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-slate-800/40">
-                                <thead className="bg-slate-800/50">
+                            <table className="w-full text-left">
+                                <thead className="text-slate-500 text-[10px] uppercase tracking-widest font-bold">
                                     <tr>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">ID</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Nome</th>
@@ -352,6 +363,7 @@ export default function SuperAdminPanel() {
                             </table>
                         </div>
                     )}
+                    </div>
                 </div>
             </div>
         </>
@@ -425,9 +437,11 @@ export default function SuperAdminPanel() {
             };
             return (
                 <div className="bg-[#111827] border border-slate-800/40 rounded-xl p-5 hover:border-cyan-500/30 transition-all">
-                    <div className="flex items-center gap-3 mb-2">
-                        <span className={`w-3 h-3 rounded-full ${statusColors[status] || statusColors.gray}`} />
-                        <span className="text-sm font-medium text-slate-400">{label}</span>
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-2.5 h-2.5 rounded-full ${statusColors[status] || statusColors.gray} ${status === 'green' ? 'animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]' : status === 'amber' ? 'shadow-[0_0_8px_rgba(234,179,8,0.6)]' : status === 'red' ? 'shadow-[0_0_8px_rgba(239,68,68,0.6)]' : ''}`} />
+                            <span className="text-sm font-medium text-slate-300">{label}</span>
+                        </div>
                     </div>
                     <p className="text-xl font-bold text-slate-100">{value}</p>
                 </div>
@@ -623,14 +637,22 @@ export default function SuperAdminPanel() {
     };
 
     return (
-        <div className="p-6 max-w-6xl mx-auto">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold font-headline text-slate-100">Painel Super Admin</h1>
-                <p className="text-slate-400 mt-1">Gestao White Label: Crie e gerencie os donos de eventos (Tenants).</p>
-            </div>
+        <div className="space-y-12">
+            {/* ── Header Stitch ── */}
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 glass-card rounded-xl flex items-center justify-center text-purple-400 shadow-lg">
+                        <Activity size={24} />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight text-slate-100 font-headline">Painel Super Admin</h1>
+                        <p className="text-slate-400 mt-1">Gestão White Label: Gerencie organizadores e tenants</p>
+                    </div>
+                </div>
+            </header>
 
-            {/* Tab Navigation */}
-            <div className="flex gap-1 mb-8 bg-[#111827] border border-slate-800/40 rounded-xl p-1 overflow-x-auto">
+            {/* ── Pill Navigation Stitch: rounded-full ── */}
+            <div className="flex p-1.5 gap-2 bg-[#111827] border border-slate-800/60 rounded-full w-fit overflow-x-auto">
                 {TAB_ITEMS.map((tab) => {
                     const TabIcon = tab.icon;
                     const isActive = activeTab === tab.key;
@@ -638,10 +660,10 @@ export default function SuperAdminPanel() {
                         <button
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key)}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                            className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
                                 isActive
-                                    ? 'bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold shadow-sm'
-                                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                                    ? 'bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold shadow-[0_0_15px_rgba(0,240,255,0.25)]'
+                                    : 'text-slate-400 hover:text-slate-200 transition-colors'
                             }`}
                         >
                             <TabIcon className="w-4 h-4" />

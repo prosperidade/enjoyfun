@@ -19,6 +19,7 @@ const Cards = lazy(() => import("./pages/Cards"));
 const SuperAdminPanel = lazy(() => import("./pages/SuperAdminPanel"));
 const Guests = lazy(() => import("./pages/Guests"));
 const GuestTicket = lazy(() => import("./pages/GuestTicket"));
+const PosHub = lazy(() => import("./pages/PosHub"));
 const Bar = lazy(() => import("./pages/Bar"));
 const Food = lazy(() => import("./pages/Food"));
 const Shop = lazy(() => import("./pages/Shop"));
@@ -130,7 +131,8 @@ export default function App() {
                 <Route path="/superadmin" element={<SuperAdminPanel />} />
 
 
-                {/* PDVs Independentes */}
+                {/* PDVs */}
+                <Route path="/pos" element={<PosHub />} />
                 <Route path="/bar" element={<Bar />} />
                 <Route path="/food" element={<Food />} />
                 <Route path="/shop" element={<Shop />} />

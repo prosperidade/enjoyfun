@@ -403,9 +403,7 @@ body {
 }
 
 .glass-card {
-  background: rgba(15, 19, 29, 0.60);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: #111827;
   border: 1px solid var(--an-border);
   border-radius: 1rem;
 }

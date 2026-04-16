@@ -10,6 +10,7 @@ import {
   Ticket,
   TrendingUp,
   Users,
+  ChevronDown,
 } from "lucide-react";
 import CriticalStockPanel from "../modules/dashboard/CriticalStockPanel";
 import { useAuth } from "../context/AuthContext";
@@ -20,18 +21,95 @@ import OperationalNoticePanel from "../modules/dashboard/OperationalNoticePanel"
 import ParticipantsByCategoryPanel from "../modules/dashboard/ParticipantsByCategoryPanel";
 import QuickLinksPanel from "../modules/dashboard/QuickLinksPanel";
 import RevenueBySectorPanel from "../modules/dashboard/RevenueBySectorPanel";
-import SectionHeader from "../modules/dashboard/SectionHeader";
-import StatCard from "../modules/dashboard/StatCard";
 import TopProductsPanel from "../modules/dashboard/TopProductsPanel";
 import WorkforceCostConnector from "../modules/dashboard/WorkforceCostConnector";
 import FinancialHealthConnector from "../modules/dashboard/FinancialHealthConnector";
 import ArtistAlertBadge from "../modules/dashboard/ArtistAlertBadge";
 import { toast } from "react-hot-toast";
 import EmbeddedAIChat from "../components/EmbeddedAIChat";
+import { Link } from "react-router-dom";
+
+const fmtBRL = (v) => `R$ ${Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+
+/* ── Stat Card Stitch-style: barra colorida no topo, ícone em container, label + valor ── */
+function GlassStatCard({ icon: Icon, label, value, subtitle, color, to, loading }) {
+  const colorMap = {
+    green:   { bar: "bg-green-500/50",   iconBg: "bg-green-500/10",   iconText: "text-green-500" },
+    purple:  { bar: "bg-purple-500/50",  iconBg: "bg-purple-500/10",  iconText: "text-purple-500" },
+    amber:   { bar: "bg-amber-500/50",   iconBg: "bg-amber-500/10",   iconText: "text-amber-500" },
+    emerald: { bar: "bg-emerald-500/50", iconBg: "bg-emerald-500/10", iconText: "text-emerald-500" },
+    indigo:  { bar: "bg-indigo-500/50",  iconBg: "bg-indigo-500/10",  iconText: "text-indigo-500" },
+    cyan:    { bar: "bg-cyan-500/50",    iconBg: "bg-cyan-500/10",    iconText: "text-cyan-400" },
+    rose:    { bar: "bg-rose-500/50",    iconBg: "bg-rose-500/10",    iconText: "text-rose-500" },
+    blue:    { bar: "bg-blue-500/50",    iconBg: "bg-blue-500/10",    iconText: "text-blue-500" },
+  };
+  const c = colorMap[color] || colorMap.cyan;
+
+  const content = (
+    <div className="glass-card p-6 rounded-2xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+      <div className={`absolute top-0 left-0 w-full h-1 ${c.bar}`} />
+      {loading ? (
+        <div className="h-24 flex items-center justify-center">
+          <div className={`w-5 h-5 border-2 border-slate-700 ${c.iconText.replace("text-", "border-t-")} rounded-full animate-spin`} />
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start justify-between mb-4">
+            <div className={`p-3 ${c.iconBg} rounded-xl`}>
+              <Icon size={20} className={c.iconText} />
+            </div>
+          </div>
+          <p className="text-slate-400 text-sm font-medium mb-1">{label}</p>
+          <h3 className="text-2xl font-bold text-slate-100 font-headline">{value}</h3>
+          {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
+        </>
+      )}
+    </div>
+  );
+
+  if (to) return <Link to={to}>{content}</Link>;
+  return content;
+}
+
+/* ── Operation Card Stitch-style: layout horizontal, ícone grande ao lado ── */
+function OperationCard({ icon: Icon, label, value, detail, color, to, loading }) {
+  const colorMap = {
+    cyan:  { iconBg: "bg-cyan-500/10",  iconText: "text-cyan-400",  border: "border-cyan-500/30" },
+    rose:  { iconBg: "bg-rose-500/10",  iconText: "text-rose-500",  border: "border-rose-500/30", valueText: "text-rose-400" },
+    amber: { iconBg: "bg-amber-500/10", iconText: "text-amber-500", border: "border-amber-500/30", valueText: "text-amber-400" },
+  };
+  const c = colorMap[color] || colorMap.cyan;
+
+  const content = (
+    <div className={`glass-card p-6 rounded-2xl flex items-center gap-6 group ${c.border ? `border ${c.border}` : ""}`}>
+      <div className={`w-16 h-16 rounded-2xl ${c.iconBg} flex items-center justify-center ${c.iconText} group-hover:scale-110 transition-transform shrink-0`}>
+        <Icon size={28} />
+      </div>
+      <div>
+        {loading ? (
+          <div className="h-10 flex items-center">
+            <div className={`w-5 h-5 border-2 border-slate-700 ${c.iconText.replace("text-", "border-t-")} rounded-full animate-spin`} />
+          </div>
+        ) : (
+          <>
+            <p className="text-slate-400 text-sm">{label}</p>
+            <h3 className={`text-3xl font-bold font-headline ${c.valueText || "text-slate-100"}`}>
+              {value}
+            </h3>
+            {detail && <p className="text-xs text-slate-500 mt-0.5">{detail}</p>}
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  if (to) return <Link to={to}>{content}</Link>;
+  return content;
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { eventId, setEventId } = useEventScope();
+  const { eventId, setEventId, buildScopedPath } = useEventScope();
   const [stats, setStats] = useState(null);
   const [workforceCosts, setWorkforceCosts] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -118,367 +196,245 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="animate-fade-in space-y-12 pb-16">
-      {/* ── Header Aether Neon ── */}
-      <div className="text-center space-y-4">
-        <div className="inline-flex items-center justify-center gap-3">
-          <div className="p-2.5 bg-slate-800/50 rounded-xl">
-            <LayoutDashboard size={26} className="text-cyan-400" />
-          </div>
-          <h1 className="text-4xl font-bold font-headline text-slate-100 tracking-tight">
-            Painel de{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
-              Controle
-            </span>
-          </h1>
-        </div>
-        <p className="text-sm text-slate-400 max-w-md mx-auto">
-          Seja bem-vindo(a),{" "}
-          <span className="font-semibold text-slate-200">{user?.name || "Usuário"}</span>.
-          Acompanhe vendas, operacao e gestao em tempo real.
-        </p>
-      </div>
+    <div className="space-y-12 pb-16">
 
-      {/* ── Event Selector ── */}
-      <div className="flex justify-center">
-        <div className="relative">
-          <select
-            name="dashboard_event_id"
-            className="appearance-none min-w-[320px] w-auto px-5 py-3 pr-10 bg-slate-800/40 border border-slate-700/50 rounded-xl text-sm font-medium text-slate-200 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all backdrop-blur-sm cursor-pointer"
-            value={eventId}
-            onChange={handleEventChange}
-          >
-            <option value="">Todas as Operacoes globais</option>
-            {events.map((dashboardEvent) => (
-              <option key={dashboardEvent.id} value={dashboardEvent.id}>
-                {dashboardEvent.name}
-              </option>
-            ))}
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-            <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      {/* ══════════════════════════════════════════════
+          HEADER — Stitch: ícone glass + título + seletor
+      ══════════════════════════════════════════════ */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 glass-card rounded-xl flex items-center justify-center text-cyan-400 shadow-lg">
+            <LayoutDashboard size={24} />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-100 font-headline">Dashboard</h1>
+            <p className="text-slate-400">
+              Olá, {user?.name || "Administrador"} •{" "}
+              <span className="text-cyan-400/80">Gestão em tempo real</span>
+            </p>
           </div>
         </div>
-      </div>
 
-      {eventsFromCache ? (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 backdrop-blur-sm px-5 py-3.5 text-xs text-amber-300">
-          Operacoes globais carregadas do cache local. O evento selecionado permanece disponivel mesmo sem internet.
-        </div>
-      ) : null}
-
-      {/* ── Secao: Resumo Geral ── */}
-      <section className="space-y-8">
-        <SectionHeader
-          icon={BarChart3}
-          title="Resumo Geral"
-          badge="Painel Principal"
-          iconClassName="text-cyan-400"
-          badgeClassName="bg-cyan-500/10 text-cyan-400"
-          description="Visao consolidada das vendas, participantes e saldos do evento no recorte selecionado."
-        />
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {/* Card principal — Vendas do Evento (col-span-2) */}
-          <div className="group relative md:col-span-2 bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-7 transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(0,240,255,0.08)] overflow-hidden">
-            <div className="absolute -top-12 -right-12 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-            {loading ? (
-              <div className="h-24 flex items-center justify-center">
-                <div className="w-6 h-6 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
-              </div>
-            ) : (
-              <a href="/pos" className="block relative z-10">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="p-2.5 bg-slate-800/50 rounded-lg">
-                    <TrendingUp size={22} className="text-cyan-400" />
-                  </div>
-                  <span className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold">Vendas do Evento</span>
-                </div>
-                <p className="text-4xl font-black font-headline text-slate-100 tracking-tight mb-1">
-                  R$ {(stats?.summary?.sales_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-xs text-slate-500">Total vendido nos pontos de venda</p>
-                {/* Barra de progresso visual */}
-                <div className="mt-5 w-full bg-slate-800/60 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 rounded-full transition-all duration-700"
-                    style={{ width: `${Math.min(100, ((stats?.summary?.sales_total || 0) / Math.max(stats?.summary?.sales_total || 1, 1)) * 100)}%` }}
-                  />
-                </div>
-              </a>
-            )}
-          </div>
-
-          {/* Card Tickets Vendidos */}
-          <div className="group relative bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_15px_rgba(0,240,255,0.08)] overflow-hidden">
-            <div className="absolute -bottom-8 -right-8 w-28 h-28 bg-purple-500/8 rounded-full blur-2xl pointer-events-none" />
-            {loading ? (
-              <div className="h-20 flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
-              </div>
-            ) : (
-              <a href="/tickets" className="block relative z-10">
-                <div className="p-2 bg-slate-800/50 rounded-lg w-fit mb-4">
-                  <Ticket size={18} className="text-purple-400" />
-                </div>
-                <span className="text-[10px] uppercase tracking-widest text-purple-400 font-bold">Tickets Vendidos</span>
-                <p className="text-3xl font-black font-headline text-slate-100 mt-1">
-                  {stats?.summary?.tickets_sold?.toLocaleString() ?? 0}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">Apenas ingressos com status Pago</p>
-              </a>
-            )}
-          </div>
-
-          {/* Card Saldo em Cartoes */}
-          <div className="group relative bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_15px_rgba(0,240,255,0.08)] overflow-hidden">
-            <div className="absolute -bottom-8 -left-8 w-28 h-28 bg-amber-500/8 rounded-full blur-2xl pointer-events-none" />
-            {loading ? (
-              <div className="h-20 flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
-              </div>
-            ) : (
-              <a href="/cards" className="block relative z-10">
-                <div className="p-2 bg-slate-800/50 rounded-lg w-fit mb-4">
-                  <CreditCard size={18} className="text-amber-400" />
-                </div>
-                <span className="text-[10px] uppercase tracking-widest text-amber-400 font-bold">Saldo em Cartoes Ativos</span>
-                <p className="text-3xl font-black font-headline text-slate-100 mt-1">
-                  R$ {(stats?.summary?.credits_float || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">Valor disponivel nos cartoes em uso</p>
-              </a>
-            )}
-          </div>
-
-          {/* Card Saldo Disponivel por Evento */}
-          <div className="group relative bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_15px_rgba(0,240,255,0.08)] overflow-hidden">
-            <div className="absolute -top-8 -right-8 w-28 h-28 bg-emerald-500/8 rounded-full blur-2xl pointer-events-none" />
-            {loading ? (
-              <div className="h-20 flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
-              </div>
-            ) : (
-              <a href="/cards" className="block relative z-10">
-                <div className="p-2 bg-slate-800/50 rounded-lg w-fit mb-4">
-                  <CreditCard size={18} className="text-emerald-400" />
-                </div>
-                <span className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold">Saldo Disponivel por Evento</span>
-                <p className="text-3xl font-black font-headline text-slate-100 mt-1">
-                  R$ {Number(stats?.cashless?.remaining_balance_global || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">Saldo global de cartoes do organizador</p>
-              </a>
-            )}
-          </div>
-
-          {/* Card Participantes Presentes */}
-          <div className="group relative bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_15px_rgba(0,240,255,0.08)] overflow-hidden">
-            <div className="absolute -bottom-8 -right-8 w-28 h-28 bg-indigo-500/8 rounded-full blur-2xl pointer-events-none" />
-            {loading ? (
-              <div className="h-20 flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
-              </div>
-            ) : (
-              <div className="relative z-10">
-                <div className="p-2 bg-slate-800/50 rounded-lg w-fit mb-4">
-                  <Users size={18} className="text-indigo-400" />
-                </div>
-                <span className="text-[10px] uppercase tracking-widest text-indigo-400 font-bold">Participantes Presentes</span>
-                <p className="text-3xl font-black font-headline text-slate-100 mt-1">
-                  {Number(stats?.participants?.participants_present || 0).toLocaleString("pt-BR")}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">Convidados e participantes com presenca confirmada</p>
-              </div>
-            )}
-          </div>
-
-          {/* Card AI Insights */}
-          <div className="group relative md:col-span-2 bg-gradient-to-br from-purple-900/20 to-slate-900/40 border border-purple-500/20 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-purple-500/40 hover:shadow-[0_0_20px_rgba(138,43,226,0.1)] overflow-hidden">
-            <div className="absolute -top-10 -left-10 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="relative z-10 flex items-start gap-4">
-              <div className="p-2.5 bg-purple-500/20 rounded-lg shrink-0">
-                <Activity size={20} className="text-purple-400" />
-              </div>
-              <div>
-                <span className="text-[10px] uppercase tracking-widest text-purple-400 font-bold">AI Insights</span>
-                <p className="text-sm text-slate-300 mt-2 leading-relaxed">
-                  Use o assistente abaixo para perguntar sobre a operacao, tendencias de vendas e pontos de atencao do evento.
-                </p>
-              </div>
+        <div className="flex flex-wrap items-center gap-4">
+          {eventsFromCache && (
+            <div className="bg-amber-400/10 text-amber-400 border border-amber-400/20 px-4 py-2 rounded-full text-sm flex items-center gap-2">
+              <Activity size={14} />
+              Dados do cache local
             </div>
+          )}
+          <div className="glass-card px-4 py-2 rounded-xl flex items-center gap-3 cursor-pointer hover:border-cyan-500/30 transition-colors">
+            <select
+              name="dashboard_event_id"
+              className="bg-transparent border-none text-sm font-medium text-slate-200 focus:outline-none cursor-pointer appearance-none pr-6"
+              value={eventId}
+              onChange={handleEventChange}
+            >
+              <option value="">Todas as Operações</option>
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>{ev.name}</option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="text-slate-400 -ml-4" />
           </div>
         </div>
+      </header>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-          <div className="bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-cyan-500/20">
+      {/* ══════════════════════════════════════════════
+          SEÇÃO 1 — RESUMO GERAL
+          Stitch: título + badge inline, grid 5 colunas
+      ══════════════════════════════════════════════ */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold font-headline text-slate-100">Resumo Geral</h2>
+          <span className="bg-cyan-500/10 text-cyan-400 text-xs font-bold px-3 py-1 rounded-full border border-cyan-500/20">
+            Ativo
+          </span>
+        </div>
+
+        {/* Stat Grid — Stitch: 5 colunas com barra colorida no topo */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          <GlassStatCard
+            icon={TrendingUp} color="green" loading={loading}
+            label="Vendas Total"
+            value={fmtBRL(stats?.summary?.sales_total)}
+            to={buildScopedPath("/pos")}
+          />
+          <GlassStatCard
+            icon={Ticket} color="purple" loading={loading}
+            label="Ingressos Vendidos"
+            value={stats?.summary?.tickets_sold?.toLocaleString() ?? "0"}
+            to={buildScopedPath("/tickets")}
+          />
+          <GlassStatCard
+            icon={CreditCard} color="amber" loading={loading}
+            label="Saldo Cartões"
+            value={fmtBRL(stats?.summary?.credits_float)}
+            to={buildScopedPath("/cards")}
+          />
+          <GlassStatCard
+            icon={CreditCard} color="emerald" loading={loading}
+            label="Saldo Global"
+            value={fmtBRL(stats?.cashless?.remaining_balance_global)}
+            to={buildScopedPath("/cards")}
+          />
+          <GlassStatCard
+            icon={Users} color="indigo" loading={loading}
+            label="Presentes"
+            value={Number(stats?.participants?.participants_present || 0).toLocaleString("pt-BR")}
+            subtitle="Convidados com presença confirmada"
+          />
+        </div>
+
+        {/* Painéis — Stitch: rounded-3xl, p-8 */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-4 glass-card p-8 rounded-3xl">
             <RevenueBySectorPanel
               loading={loading}
               salesSectorTotals={stats?.sales_sector_totals}
             />
           </div>
-          <div className="bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-cyan-500/20">
+          <div className="lg:col-span-4 glass-card p-8 rounded-3xl">
             <ParticipantsByCategoryPanel
               loading={loading}
               categories={stats?.participants?.by_category}
             />
           </div>
-        </div>
-      </section>
-
-      {/* ── AI Chat ── */}
-      <EmbeddedAIChat
-        surface="dashboard"
-        title="Assistente do Painel"
-        description="Visao geral do evento e operacao"
-        accentColor="purple"
-        suggestions={[
-          'Como esta a operacao do evento agora?',
-          'Quais setores vendem mais?',
-          'Tem algo critico que preciso resolver?',
-        ]}
-      />
-
-      {/* ── Secao: Operacao do Evento ── */}
-      <section className="space-y-8 pt-2">
-        <SectionHeader
-          icon={Activity}
-          title="Operacao do Evento"
-          badge="Acompanhamento"
-          iconClassName="text-cyan-400"
-          badgeClassName="bg-cyan-500/10 text-cyan-400"
-          description="Acompanhamento rapido da operacao em andamento."
-        />
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {/* Carros Dentro Agora */}
-          <div className="group relative bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_15px_rgba(0,240,255,0.08)] overflow-hidden">
-            <div className="absolute -top-8 -right-8 w-28 h-28 bg-cyan-500/8 rounded-full blur-2xl pointer-events-none" />
-            {loading ? (
-              <div className="h-20 flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
-              </div>
-            ) : (
-              <a href="/parking" className="block relative z-10">
-                <div className="p-2 bg-slate-800/50 rounded-lg w-fit mb-4">
-                  <ParkingSquare size={18} className="text-cyan-400" />
-                </div>
-                <span className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold">Carros Dentro Agora</span>
-                <p className="text-3xl font-black font-headline text-slate-100 mt-1">
-                  {stats?.summary?.cars_inside ?? 0}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">Registros sem saida no estacionamento</p>
-              </a>
-            )}
-          </div>
-
-          {/* Terminais Sem Internet */}
-          <div className="group relative bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-rose-500/30 hover:shadow-[0_0_15px_rgba(244,63,94,0.08)] overflow-hidden">
-            <div className="absolute -bottom-8 -left-8 w-28 h-28 bg-rose-500/8 rounded-full blur-2xl pointer-events-none" />
-            {loading ? (
-              <div className="h-20 flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-rose-400/30 border-t-rose-400 rounded-full animate-spin" />
-              </div>
-            ) : (
-              <div className="relative z-10">
-                <div className="p-2 bg-slate-800/50 rounded-lg w-fit mb-4">
-                  <Activity size={18} className="text-rose-400" />
-                </div>
-                <span className="text-[10px] uppercase tracking-widest text-rose-400 font-bold">Terminais Sem Internet</span>
-                <p className="text-3xl font-black font-headline text-slate-100 mt-1">
-                  {Number(stats?.operations?.offline_terminals_count || 0).toLocaleString("pt-BR")}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {Number(stats?.operations?.offline_pending_operations || 0).toLocaleString("pt-BR")} operacoes pendentes
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Estoque Critico */}
-          <div className="group relative bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-amber-500/30 hover:shadow-[0_0_15px_rgba(245,158,11,0.08)] overflow-hidden">
-            <div className="absolute -top-8 -left-8 w-28 h-28 bg-amber-500/8 rounded-full blur-2xl pointer-events-none" />
-            {loading ? (
-              <div className="h-20 flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
-              </div>
-            ) : (
-              <div className="relative z-10">
-                <div className="p-2 bg-slate-800/50 rounded-lg w-fit mb-4">
-                  <Package size={18} className="text-amber-400" />
-                </div>
-                <span className="text-[10px] uppercase tracking-widest text-amber-400 font-bold">Estoque Critico</span>
-                <p className="text-3xl font-black font-headline text-slate-100 mt-1">
-                  {Number(stats?.operations?.critical_stock_products_count || 0).toLocaleString("pt-BR")}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">Produtos abaixo ou no limite minimo</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-cyan-500/20">
-            <OperationalNoticePanel />
-          </div>
-          <div className="bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-cyan-500/20">
-            <CriticalStockPanel
-              loading={loading}
-              products={stats?.operations?.critical_stock_products}
-              stockByPdvPoint={stats?.operations?.critical_stock_by_pdv_point}
+          <div className="lg:col-span-4 glass-card p-6 rounded-3xl border-purple-500/20 relative overflow-hidden flex flex-col">
+            <div className="absolute -top-12 -right-12 w-32 h-32 bg-purple-500/10 blur-3xl pointer-events-none" />
+            <EmbeddedAIChat
+              surface="dashboard"
+              title="Assistente do Painel"
+              description="Visão geral do evento e operação"
+              accentColor="purple"
+              suggestions={[
+                'Como está a operação do evento agora?',
+                'Quais setores vendem mais?',
+                'Tem algo crítico que preciso resolver?',
+              ]}
             />
           </div>
         </div>
       </section>
 
-      {/* ── Secao: Apoio a Gestao ── */}
-      <section className="space-y-8 pt-2">
-        <SectionHeader
-          icon={Layers3}
-          title="Apoio a Gestao"
-          badge="Apoio"
-          iconClassName="text-amber-400"
-          badgeClassName="bg-amber-500/10 text-amber-400"
-          description="Informacoes complementares para navegacao e apoio a operacao."
-        />
+      {/* ══════════════════════════════════════════════
+          SEÇÃO 2 — OPERAÇÃO DO EVENTO
+          Stitch: cards HORIZONTAIS com ícone grande
+      ══════════════════════════════════════════════ */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold font-headline text-slate-100">Operação do Evento</h2>
+          <span className="bg-cyan-500/10 text-cyan-400 text-xs font-bold px-3 py-1 rounded-full border border-cyan-500/20">
+            Acompanhamento
+          </span>
+        </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-cyan-500/20">
+        {/* Operation Cards — Stitch: layout horizontal com ícone w-16 h-16 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <OperationCard
+            icon={ParkingSquare} color="cyan" loading={loading}
+            label="Carros Dentro"
+            value={`${stats?.summary?.cars_inside ?? 0}`}
+            detail="Registros sem saída"
+            to={buildScopedPath("/parking")}
+          />
+          <OperationCard
+            icon={Activity} color="rose" loading={loading}
+            label="Terminais Offline"
+            value={`${Number(stats?.operations?.offline_terminals_count || 0).toLocaleString("pt-BR")}`}
+            detail={`${Number(stats?.operations?.offline_pending_operations || 0)} ops pendentes`}
+          />
+          <OperationCard
+            icon={Package} color="amber" loading={loading}
+            label="Estoque Crítico"
+            value={`${Number(stats?.operations?.critical_stock_products_count || 0)}`}
+            detail="Produtos abaixo do limite"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="glass-card rounded-3xl overflow-hidden">
+            <div className="p-6 border-b border-slate-800/40 flex justify-between items-center">
+              <h4 className="font-bold text-slate-100">Avisos Operacionais</h4>
+              <span className="text-xs text-cyan-400 uppercase tracking-widest">Live</span>
+            </div>
+            <div className="p-6">
+              <OperationalNoticePanel />
+            </div>
+          </div>
+          <div className="glass-card rounded-3xl overflow-hidden">
+            <div className="p-6 border-b border-slate-800/40 flex justify-between items-center">
+              <h4 className="font-bold text-slate-100">Estoque Crítico</h4>
+              <span className="text-xs text-amber-400 uppercase tracking-widest">Alerta</span>
+            </div>
+            <div className="p-6">
+              <CriticalStockPanel
+                loading={loading}
+                products={stats?.operations?.critical_stock_products}
+                stockByPdvPoint={stats?.operations?.critical_stock_by_pdv_point}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════
+          SEÇÃO 3 — APOIO À GESTÃO
+      ══════════════════════════════════════════════ */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold font-headline text-slate-100">Apoio à Gestão</h2>
+          <span className="bg-amber-500/10 text-amber-400 text-xs font-bold px-3 py-1 rounded-full border border-amber-500/20">
+            Apoio
+          </span>
+        </div>
+
+        {/* Top Products + Acesso Rápido lado a lado */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 glass-card rounded-3xl p-8">
             <TopProductsPanel loading={loading} products={stats?.top_products} />
           </div>
-          {/* Card Usuarios do Organizador */}
-          <div className="group relative bg-slate-900/40 border border-slate-800/40 backdrop-blur-md rounded-2xl p-6 transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_15px_rgba(0,240,255,0.08)] overflow-hidden">
-            <div className="absolute -bottom-8 -right-8 w-28 h-28 bg-blue-500/8 rounded-full blur-2xl pointer-events-none" />
-            {loading ? (
-              <div className="h-20 flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-              </div>
-            ) : (
-              <a href="/users" className="block relative z-10">
-                <div className="p-2 bg-slate-800/50 rounded-lg w-fit mb-4">
-                  <Users size={18} className="text-blue-400" />
-                </div>
-                <span className="text-[10px] uppercase tracking-widest text-blue-400 font-bold">Usuarios do Organizador</span>
-                <p className="text-3xl font-black font-headline text-slate-100 mt-1">
+
+          {/* Users Card */}
+          <div className="glass-card rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <Users size={64} />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-100 mb-1">Usuários Online</h4>
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-slate-700 border-t-cyan-400 rounded-full animate-spin mt-2" />
+              ) : (
+                <p className="text-3xl font-black font-headline text-cyan-500">
                   {stats?.summary?.users_total ?? 0}
                 </p>
-                <p className="text-xs text-slate-500 mt-1">Pessoas com acesso administrativo</p>
-              </a>
-            )}
+              )}
+            </div>
+            <Link to={buildScopedPath("/users")} className="text-xs text-cyan-400 font-bold uppercase tracking-widest hover:underline mt-4">
+              Ver equipe →
+            </Link>
           </div>
         </div>
 
-        <QuickLinksPanel />
+        {/* Acesso Rápido aos PDVs — full width abaixo de Top Products */}
+        <div className="glass-card rounded-3xl p-6">
+          <QuickLinksPanel />
+        </div>
 
-        <WorkforceCostConnector
-          loading={loadingWorkforceCosts}
-          workforceCosts={workforceCosts}
-        />
+        {/* Custos da Equipe — full width */}
+        <div className="glass-card p-8 rounded-3xl">
+          <WorkforceCostConnector
+            loading={loadingWorkforceCosts}
+            workforceCosts={workforceCosts}
+          />
+        </div>
 
-        <FinancialHealthConnector eventId={eventId} />
+        {/* Saúde Financeira do Evento — full width abaixo */}
+        <div className="glass-card p-8 rounded-3xl">
+          <FinancialHealthConnector eventId={eventId} />
+        </div>
+
         <ArtistAlertBadge eventId={eventId} />
       </section>
-
     </div>
   );
 }

@@ -438,48 +438,56 @@ export default function AIAssistants() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-900/30">
-            <Sparkles size={20} className="text-white" />
-          </div>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold font-headline text-slate-100">Assistente IA</h1>
-            <p className="text-sm text-slate-400">
-              Seus assistentes inteligentes para o evento.
-              {activeCount > 0 && <span className="text-purple-400 ml-1">{activeCount} ativos</span>}
+    <div className="space-y-12">
+      {/* ── Hero Banner Stitch ── */}
+      <section className="relative w-full rounded-2xl overflow-hidden border border-purple-500/20 p-12 bg-gradient-to-br from-purple-950/80 via-slate-900/50 to-purple-950/80">
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/10 blur-[100px] rounded-full pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-500/10 blur-[100px] rounded-full pointer-events-none" />
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+          <div>
+            <h2 className="text-4xl md:text-5xl font-headline font-bold text-white mb-4 tracking-tight">Hub de IA EnjoyFun</h2>
+            <p className="text-lg text-slate-300 max-w-2xl font-light">
+              Gerencie a inteligência dos seus agentes com processamento em tempo real.
+              {activeCount > 0 && <span className="text-purple-400 ml-2 font-semibold">{activeCount} agentes ativos</span>}
             </p>
           </div>
           <button
             onClick={openDnaModal}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 hover:from-purple-600/30 hover:to-pink-600/30 border border-purple-700/40 hover:border-purple-600 text-purple-200 text-sm font-medium rounded-lg transition-colors"
-            title="Definir o DNA do negocio que guia todos os assistentes"
+            className="px-8 py-4 bg-purple-500 text-white rounded-xl font-bold flex items-center gap-2 shadow-[0_0_25px_rgba(168,85,247,0.5)] hover:scale-105 transition-all whitespace-nowrap"
           >
-            <Brain size={16} />
-            Definir DNA do Negocio
+            <Brain size={20} />
+            Configurar DNA
           </button>
         </div>
-      </div>
+      </section>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4">
-          <div className="text-xs text-slate-400 mb-1">Assistentes ativos</div>
-          <div className="text-2xl font-bold text-slate-100">{activeCount} <span className="text-sm text-slate-500 font-normal">de {agents.length}</span></div>
+      {/* ── Stats Bento Stitch: horizontal com ícone grande ── */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-[#111827] border border-slate-700/30 p-6 rounded-2xl flex items-center gap-6">
+          <div className="w-16 h-16 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-400 shrink-0">
+            <Bot size={32} />
+          </div>
+          <div>
+            <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">Agentes Ativos</p>
+            <h3 className="text-3xl font-headline font-bold text-purple-400">{activeCount} <span className="text-base text-slate-500 font-normal">/ {agents.length}</span></h3>
+          </div>
         </div>
-        <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4">
-          <div className="text-xs text-slate-400 mb-1">Motor de IA</div>
-          <div className="text-lg font-bold text-slate-100">
-            {defaultProvider
-              ? <span className="capitalize">{defaultProvider.provider}</span>
-              : <span className="text-amber-400 text-sm">Nenhum configurado</span>
-            }
+        <div className="bg-[#111827] border border-slate-700/30 p-6 rounded-2xl flex items-center gap-6">
+          <div className="w-16 h-16 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400 shrink-0">
+            <Cpu size={32} />
+          </div>
+          <div>
+            <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">Motor de IA</p>
+            <h3 className="text-3xl font-headline font-bold text-purple-400">
+              {defaultProvider
+                ? <span className="capitalize">{defaultProvider.provider}</span>
+                : <span className="text-amber-400 text-xl">Nenhum</span>
+              }
+            </h3>
           </div>
         </div>
         <AIUsageSummary />
-      </div>
+      </section>
 
       {/* Provider picker modal */}
       {pickerAgent && (() => {
@@ -606,12 +614,16 @@ export default function AIAssistants() {
         );
       })()}
 
-      {/* Agent cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {/* ── Agent Cards Header ── */}
+      <div className="flex justify-between items-end mb-2">
+        <h3 className="text-2xl font-headline font-bold text-slate-100">Ecossistema de Agentes</h3>
+      </div>
+
+      {/* ── Agent Cards Grid Stitch: 4 colunas ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {agents.map((agent) => {
           const key = agent.agent_key;
           const Icon = AGENT_ICONS[key] || Bot;
-          const gradient = AGENT_GRADIENTS[key] || 'from-gray-600 to-gray-700';
           const friendlyLabel = agent.label_friendly || FRIENDLY_LABELS[key] || agent.label;
           const example = EXAMPLE_PROMPTS[key] || '';
           const isSaving = saving[key];
@@ -619,39 +631,54 @@ export default function AIAssistants() {
           return (
             <div
               key={key}
-              className={`bg-[#111827] border rounded-2xl overflow-hidden transition-all ${
+              className={`bg-[#111827] border rounded-2xl p-6 flex flex-col gap-4 transition-all ${
                 agent.is_enabled
-                  ? 'border-slate-800/40 hover:border-purple-500/30'
-                  : 'border-slate-800/40 opacity-60'
+                  ? 'border-slate-800/60 hover:border-purple-500/30'
+                  : 'border-slate-800/60 opacity-60'
               }`}
             >
-              {/* Card header */}
-              <div className="p-4 pb-3">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${gradient} flex items-center justify-center shadow-md`}>
-                      <Icon size={18} className="text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-100 leading-tight">{friendlyLabel}</h3>
-                      <p className="text-[11px] text-slate-400 leading-tight mt-0.5">{agent.description || ''}</p>
-                    </div>
-                  </div>
-
-                  {/* Toggle */}
-                  <button
-                    onClick={() => handleToggle(key, agent.is_enabled)}
-                    disabled={isSaving}
-                    className="flex-shrink-0 ml-2"
-                    title={agent.is_enabled ? 'Desligar' : 'Ligar'}
-                  >
-                    {agent.is_enabled ? (
-                      <ToggleRight size={28} className="text-purple-400 hover:text-purple-300 transition-colors" />
-                    ) : (
-                      <ToggleLeft size={28} className="text-slate-600 hover:text-slate-400 transition-colors" />
-                    )}
-                  </button>
+              {/* Icon + Toggle */}
+              <div className="flex justify-between items-start">
+                <div className={`w-12 h-12 rounded-full ${agent.is_enabled ? 'bg-purple-500/15' : 'bg-slate-700/15'} flex items-center justify-center ${agent.is_enabled ? 'text-purple-400' : 'text-slate-500'}`}>
+                  <Icon size={22} />
                 </div>
+                <button
+                  onClick={() => handleToggle(key, agent.is_enabled)}
+                  disabled={isSaving}
+                  title={agent.is_enabled ? 'Desligar' : 'Ligar'}
+                >
+                  {agent.is_enabled ? (
+                    <div className="w-10 h-5 bg-purple-500 rounded-full relative cursor-pointer">
+                      <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-5 bg-slate-700 rounded-full relative cursor-pointer">
+                      <div className="absolute left-1 top-1 w-3 h-3 bg-slate-400 rounded-full" />
+                    </div>
+                  )}
+                </button>
+              </div>
+
+              {/* Name + Status + Description */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <h4 className="font-bold text-slate-100">{friendlyLabel}</h4>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${agent.is_enabled ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'}`}>
+                    {agent.is_enabled ? 'Ativo' : 'Desativado'}
+                  </span>
+                </div>
+                <p className="text-sm text-slate-400 leading-relaxed">{agent.description || ''}</p>
+              </div>
+
+              {/* Example quote — Stitch border-l-4 */}
+              {example && (
+                <div className={`border-l-4 ${agent.is_enabled ? 'border-purple-500/30' : 'border-slate-700/30'} pl-4 py-2`}>
+                  <p className="text-xs italic text-slate-400">"{example}"</p>
+                </div>
+              )}
+
+              {/* Card inner controls */}
+              <div className="mt-auto space-y-3">
 
                 {/* Permissions dropdown */}
                 {agent.is_enabled && (
@@ -726,17 +753,15 @@ export default function AIAssistants() {
                 )}
               </div>
 
-              {/* Card footer */}
+              {/* Card footer: Conversar */}
               {agent.is_enabled && (
-                <div className="px-4 py-2.5 bg-slate-800/30 border-t border-slate-700/30">
-                  <button
-                    onClick={() => openChat(key)}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 hover:text-purple-200 text-xs font-medium rounded-lg transition-colors"
-                  >
-                    <MessageCircle size={14} />
-                    Conversar
-                  </button>
-                </div>
+                <button
+                  onClick={() => openChat(key)}
+                  className="w-full py-2 rounded-lg border border-purple-500/30 text-purple-400 text-sm font-bold hover:bg-purple-500 hover:text-white transition-all"
+                >
+                  <MessageCircle size={14} className="inline -mt-0.5 mr-1" />
+                  Conversar
+                </button>
               )}
             </div>
           );

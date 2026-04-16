@@ -39,6 +39,15 @@ function SupplierRow({ supplier, events, onUpdated, scopedEventId, onScopedEvent
     ));
   }, [scopedEventId]);
 
+  const loadContracts = useCallback((eid) => {
+    if (!eid) return;
+    setLoadingContracts(true);
+    api.get("/event-finance/contracts", { params: { event_id: eid } })
+      .then((r) => setContracts((r.data.data || []).filter(c => c.supplier_id === supplier.id)))
+      .catch(() => {})
+      .finally(() => setLoadingContracts(false));
+  }, [supplier.id]);
+
   useEffect(() => {
     if (!open) {
       return;
@@ -51,15 +60,6 @@ function SupplierRow({ supplier, events, onUpdated, scopedEventId, onScopedEvent
 
     loadContracts(eventId);
   }, [eventId, loadContracts, open]);
-
-  const loadContracts = useCallback((eid) => {
-    if (!eid) return;
-    setLoadingContracts(true);
-    api.get("/event-finance/contracts", { params: { event_id: eid } })
-      .then((r) => setContracts((r.data.data || []).filter(c => c.supplier_id === supplier.id)))
-      .catch(() => {})
-      .finally(() => setLoadingContracts(false));
-  }, [supplier.id]);
 
   const handleContractSave = async (e) => {
     e.preventDefault();

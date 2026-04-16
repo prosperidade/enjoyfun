@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import api from "../lib/api";
 import EventTemplateSelector from "../components/EventTemplateSelector";
 import EventModulesSelector, { MODULE_PRESETS } from "../components/EventModulesSelector";
@@ -15,6 +15,7 @@ import {
   Search,
   Trash2,
   Pencil,
+  Users,
   X,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -294,10 +295,14 @@ export default function Events() {
     setDraftCommissaries([]);
   }, []);
 
+  const closingRef = useRef(false);
+
   const closeEventForm = useCallback(() => {
+    closingRef.current = true;
     setShowForm(false);
     resetEventFormState();
     updateEditQuery(null);
+    setTimeout(() => { closingRef.current = false; }, 100);
   }, [resetEventFormState, updateEditQuery]);
 
   const openCreateForm = () => {
@@ -350,6 +355,7 @@ export default function Events() {
   }, [closeEventForm, updateEditQuery]);
 
   useEffect(() => {
+    if (closingRef.current) return;
     const editId = searchParams.get("edit");
     if (!editId) return;
     if (editingEventId === Number(editId) && showForm) return;
@@ -664,34 +670,37 @@ export default function Events() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2 font-headline">
-            <CalendarDays size={22} className="text-cyan-400" /> Eventos
-          </h1>
-          <p className="text-slate-500 text-sm mt-1">
-            {events.length} evento(s) encontrado(s)
-          </p>
+    <div className="space-y-10">
+      {/* ── Header Stitch ── */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 glass-card rounded-xl flex items-center justify-center text-cyan-400 shadow-lg">
+            <CalendarDays size={24} />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-100 font-headline">Eventos</h1>
+            <p className="text-slate-400 text-sm">Gerencie e monitore suas experiências em tempo real.</p>
+          </div>
         </div>
-        <button onClick={openCreateForm} className="an-btn an-btn-primary">
-          <Plus size={16} /> Novo Evento
-        </button>
-      </div>
-
-      <div className="relative">
-        <Search
-          size={16}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
-        />
-        <input
-          name="events_search"
-          className="an-input pl-10"
-          placeholder="Buscar eventos..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+        <div className="flex items-center gap-4 flex-1 max-w-xl">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              name="events_search"
+              className="w-full bg-slate-800/50 border-none rounded-xl pl-10 pr-4 py-3 text-slate-200 focus:ring-2 focus:ring-cyan-500/50 transition-all placeholder:text-slate-500"
+              placeholder="Buscar eventos..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={openCreateForm}
+            className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold px-6 py-3 rounded-xl hover:scale-[1.02] transition-all shadow-[0_0_20px_rgba(0,240,255,0.2)] whitespace-nowrap"
+          >
+            <Plus size={16} className="inline -mt-0.5 mr-1" /> Novo Evento
+          </button>
+        </div>
+      </header>
 
       {showForm && (
         <div className="an-card border-cyan-500/20 space-y-6">
@@ -1225,76 +1234,87 @@ export default function Events() {
           </button>
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {events.map((ev) => (
-            <div key={ev.id} className="an-card-hover flex flex-col gap-3">
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-white truncate">
-                    {ev.name}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    por {ev.organizer_name || "Enjoy Fun"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
+            <div key={ev.id} className="bg-[#111827] border border-slate-800/60 rounded-2xl overflow-hidden flex flex-col group hover:border-cyan-500/40 transition-all duration-300">
+              {/* Banner */}
+              <div className="h-32 relative bg-gradient-to-br from-slate-800 to-slate-900">
+                {ev.banner_url && (
+                  <img src={ev.banner_url} alt={ev.name} className="w-full h-full object-cover" />
+                )}
+                {/* Banner vazio — sem ícone fantasma */}
+                <div className="absolute top-4 left-4 flex gap-2">
                   {ev.event_type && EVENT_TYPE_LABELS[ev.event_type] && (
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    <span className="px-2 py-1 bg-indigo-500/20 text-indigo-300 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider rounded border border-indigo-500/30">
                       {EVENT_TYPE_LABELS[ev.event_type]}
                     </span>
                   )}
-                  <span className={statusBadge[ev.status] || "badge-gray"}>
+                  <span className={`px-2 py-1 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider rounded border flex items-center gap-1 ${
+                    ev.status === 'ongoing' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                    ev.status === 'published' ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' :
+                    ev.status === 'cancelled' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                    'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                  }`}>
+                    {ev.status === 'ongoing' && <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />}
                     {statusLabel[ev.status] || ev.status}
                   </span>
                 </div>
               </div>
 
-              {ev.venue_name && (
-                <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                  <MapPin size={12} /> {ev.venue_name}
+              {/* Content */}
+              <div className="p-6 flex flex-col flex-1">
+                <div className="mb-4">
+                  <h3 className="text-xl font-bold text-slate-100 group-hover:text-cyan-400 transition-colors truncate">
+                    {ev.name}
+                  </h3>
+                  <p className="text-slate-500 text-sm">por {ev.organizer_name || "Enjoy Fun"}</p>
                 </div>
-              )}
-              <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                <Clock size={12} />
-                {new Date(ev.starts_at).toLocaleString("pt-BR", {
-                  dateStyle: "short",
-                  timeStyle: "short",
-                })}
-              </div>
-              {(ev.capacity || (ev.modules_enabled && ev.modules_enabled.length > 0)) ? (
-                <div className="flex items-center gap-3 text-xs text-slate-500">
-                  {ev.capacity ? <span>Capacidade: {parseInt(ev.capacity, 10).toLocaleString()}</span> : null}
-                  {ev.modules_enabled && ev.modules_enabled.length > 0 ? (
-                    <span className="text-slate-600">{ev.modules_enabled.length} modulos</span>
-                  ) : null}
+                <div className="space-y-3 mb-6">
+                  {ev.venue_name && (
+                    <div className="flex items-center gap-3 text-slate-400 text-sm">
+                      <MapPin size={16} className="text-cyan-400/60 shrink-0" />
+                      <span>{ev.venue_name}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 text-slate-400 text-sm">
+                    <Clock size={16} className="text-cyan-400/60 shrink-0" />
+                    <span>{new Date(ev.starts_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</span>
+                  </div>
+                  {(ev.capacity || (ev.modules_enabled && ev.modules_enabled.length > 0)) && (
+                    <div className="flex items-center gap-3 text-slate-400 text-sm">
+                      <Users size={16} className="text-cyan-400/60 shrink-0" />
+                      <span>
+                        {ev.capacity ? `${parseInt(ev.capacity, 10).toLocaleString()}` : ""}
+                        {ev.capacity && ev.modules_enabled?.length > 0 ? " / " : ""}
+                        {ev.modules_enabled?.length > 0 ? `${ev.modules_enabled.length} módulos` : ""}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              ) : null}
-
-              <div className="flex gap-2 pt-2 border-t border-slate-800/40 mt-auto">
-                <button
-                  type="button"
-                  className="an-btn an-btn-secondary text-xs py-1.5 px-3"
-                  onClick={() => startEditEvent(ev.id)}
-                  title="Editar evento"
-                >
-                  <Pencil size={14} />
-                </button>
-                {ev.can_delete ? (
+                <div className="mt-auto pt-6 border-t border-slate-800/50 flex gap-2">
                   <button
                     type="button"
-                    className="an-btn an-btn-secondary text-xs py-1.5 px-3"
-                    onClick={() => handleDeleteEvent(ev.id)}
-                    title="Excluir evento"
+                    className="flex-1 py-2 bg-slate-800/50 text-slate-100 text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors"
+                    onClick={() => startEditEvent(ev.id)}
                   >
-                    <Trash2 size={14} />
+                    Editar
                   </button>
-                ) : null}
-                <Link
-                  to={`/events/${ev.id}`}
-                  className="btn-outline btn-sm flex-1"
-                >
-                  Ver Detalhes <ChevronRight size={14} />
-                </Link>
+                  {ev.can_delete && (
+                    <button
+                      type="button"
+                      className="p-2 text-red-400/70 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+                      onClick={() => handleDeleteEvent(ev.id)}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  )}
+                  <Link
+                    to={`/events/${ev.id}`}
+                    className="p-2 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 rounded-lg transition-all"
+                  >
+                    <ChevronRight size={18} />
+                  </Link>
+                </div>
               </div>
             </div>
           ))}

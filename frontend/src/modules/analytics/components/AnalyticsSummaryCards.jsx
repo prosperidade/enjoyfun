@@ -3,40 +3,51 @@ import {
   Ticket,
   Wallet,
   TrendingUp,
+  Users,
+  Zap,
 } from "lucide-react";
 import AnalyticsStateBox from "./AnalyticsStateBox";
 
 const SUMMARY_ITEMS = [
   {
-    key: "tickets_sold",
-    label: "Tickets Vendidos",
-    icon: Ticket,
-    color: "bg-purple-600",
-    format: (value) => Number(value || 0).toLocaleString("pt-BR"),
-  },
-  {
     key: "gross_revenue",
-    label: "Receita Bruta",
+    label: "Receita Total",
     icon: CircleDollarSign,
-    color: "bg-green-600",
-    format: (value) =>
-      `R$ ${Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+    iconBg: "bg-cyan-400/10",
+    iconColor: "text-cyan-400",
+    barColor: "bg-cyan-400",
+    format: (value) => `R$ ${Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}`,
+    barPercent: 75,
   },
   {
     key: "average_ticket",
-    label: "Ticket Medio",
-    icon: TrendingUp,
-    color: "bg-cyan-600",
-    format: (value) =>
-      `R$ ${Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+    label: "Ticket Médio",
+    icon: Ticket,
+    iconBg: "bg-purple-500/15",
+    iconColor: "text-purple-400",
+    barColor: "bg-purple-500",
+    format: (value) => `R$ ${Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+    barPercent: 60,
+  },
+  {
+    key: "tickets_sold",
+    label: "Conversão / Vendas",
+    icon: Zap,
+    iconBg: "bg-yellow-400/10",
+    iconColor: "text-yellow-400",
+    barColor: "bg-yellow-400",
+    format: (value) => Number(value || 0).toLocaleString("pt-BR"),
+    barPercent: 42,
   },
   {
     key: "remaining_balance",
     label: "Saldo Remanescente",
     icon: Wallet,
-    color: "bg-emerald-700",
-    format: (value) =>
-      `R$ ${Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+    iconBg: "bg-green-400/10",
+    iconColor: "text-green-400",
+    barColor: "bg-green-400",
+    format: (value) => `R$ ${Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+    barPercent: 85,
   },
 ];
 
@@ -44,36 +55,31 @@ export default function AnalyticsSummaryCards({ loading, summary }) {
   if (!loading && !summary) {
     return (
       <AnalyticsStateBox
-        title="Resumo indisponivel"
-        description="A leitura analitica nao retornou o resumo principal para este recorte."
+        title="Resumo indisponível"
+        description="A leitura analítica não retornou o resumo principal para este recorte."
       />
     );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
       {SUMMARY_ITEMS.map((item) => {
         const Icon = item.icon;
 
         return (
-          <div key={item.key} className="stat-card relative overflow-hidden">
-            <div
-              className={`absolute right-0 top-0 h-20 w-20 -translate-y-6 translate-x-6 rounded-full opacity-10 blur-2xl ${item.color}`}
-            />
-            <div
-              className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${item.color}`}
-            >
-              <Icon size={20} className="text-white" />
-            </div>
-            <div className="stat-value">
-              {loading ? "—" : item.format(summary?.[item.key])}
-            </div>
-            <div className="stat-label">{item.label}</div>
-            {item.key === "remaining_balance" && !loading ? (
-              <div className="mt-1 text-[10px] text-slate-500">
-                Base confiavel atual de cartoes ativos
+          <div key={item.key} className="bg-[#111827] border border-slate-700/30 p-6 rounded-2xl group hover:border-cyan-500/30 transition-all">
+            <div className="flex justify-between items-start mb-4">
+              <div className={`p-2 ${item.iconBg} rounded-lg`}>
+                <Icon size={20} className={item.iconColor} />
               </div>
-            ) : null}
+            </div>
+            <p className="text-slate-400 text-sm">{item.label}</p>
+            <h3 className="text-2xl font-bold text-cyan-400 mt-1 font-headline">
+              {loading ? "—" : item.format(summary?.[item.key])}
+            </h3>
+            <div className="w-full bg-slate-800 h-1 mt-4 rounded-full overflow-hidden">
+              <div className={`${item.barColor} h-full rounded-full transition-all duration-700`} style={{ width: loading ? '0%' : `${item.barPercent}%` }} />
+            </div>
           </div>
         );
       })}

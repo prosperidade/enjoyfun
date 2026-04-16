@@ -179,128 +179,132 @@ export default function Guests() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="space-y-10">
+      {/* ── Header Stitch ── */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-bold font-headline text-slate-100 flex items-center gap-2">
-            <Users size={22} className="text-cyan-400" /> Convidados
-          </h1>
-          <p className="text-sm text-slate-500">{pagination.total} convidado(s) • {activeEventName}</p>
+          <div className="flex items-center gap-3 mb-2">
+            <Users size={28} className="text-cyan-400" />
+            <h1 className="font-headline text-3xl md:text-4xl font-bold tracking-tight text-slate-100">Convidados</h1>
+          </div>
+          <p className="text-slate-400 font-medium">{pagination.total} participantes registrados no sistema.</p>
         </div>
-
-        <button
-          className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 rounded-xl px-4 py-2 font-semibold flex items-center gap-2 transition-colors"
-          onClick={() => {
-            setUploadEvent(selectedEvent || '');
-            setShowUploadModal(true);
-          }}
-        >
-          <Upload size={16} /> Importar CSV
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            className="px-5 py-2.5 border border-slate-700 text-slate-300 rounded-lg font-medium hover:border-cyan-500/50 transition-all flex items-center gap-2 active:scale-95"
+            onClick={() => {
+              setUploadEvent(selectedEvent || '');
+              setShowUploadModal(true);
+            }}
+          >
+            <Upload size={16} /> Importar CSV
+          </button>
+        </div>
       </div>
 
-      {/* Filtros */}
-      <div className="bg-[#111827] border border-slate-800/40 rounded-2xl p-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <input
-          className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none w-full lg:col-span-2 transition-colors"
-          placeholder="Buscar por nome ou e-mail"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-        />
-        <select
-          className="bg-slate-800/50 border border-slate-700/50 focus:border-cyan-500 rounded-xl px-3 py-2 text-slate-100 outline-none w-full transition-colors"
-          value={selectedEvent}
-          onChange={(e) => { setSelectedEvent(e.target.value); setPage(1); }}
-        >
-          <option value="">Todos os eventos</option>
-          {events.map((ev) => (
-            <option key={ev.id} value={ev.id}>{ev.name}</option>
-          ))}
-        </select>
+      {/* ── Filtros Stitch: grid 12-col ── */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <div className="md:col-span-8 relative">
+          <input
+            className="w-full pl-4 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all"
+            placeholder="Buscar convidados por nome, e-mail ou código..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </div>
+        <div className="md:col-span-4">
+          <select
+            className="w-full py-3 px-4 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-cyan-500 appearance-none transition-all"
+            value={selectedEvent}
+            onChange={(e) => { setSelectedEvent(e.target.value); setPage(1); }}
+          >
+            <option value="">Todos os Eventos</option>
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>{ev.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* Tabela */}
-      <div className="overflow-x-auto rounded-2xl border border-slate-800/40 bg-[#111827]">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-800/50">
-              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Nome</th>
-              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">E-mail</th>
-              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Telefone</th>
-              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Status</th>
-              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Evento</th>
-              <th className="text-left px-4 py-3 text-slate-400 uppercase text-xs tracking-wider font-semibold">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/40">
-            {loading ? (
-              <tr><td colSpan={6} className="py-10 text-center"><div className="spinner w-6 h-6 mx-auto" /></td></tr>
-            ) : guests.length === 0 ? (
-              <tr><td colSpan={6} className="py-10 text-center text-sm text-slate-500">Nenhum convidado encontrado para esse filtro.</td></tr>
-            ) : (
-              guests.map((guest) => (
-                <tr key={guest.id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="px-4 py-3 text-slate-100 font-medium">{guest.name}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 text-slate-300">
-                      <Mail size={14} className="text-slate-500" />
-                      {guest.email}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-400">{guest.phone || '—'}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                      guest.status === 'used'
-                        ? 'bg-green-500/15 text-green-400 border border-green-500/30'
-                        : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                    }`}>
-                      {guest.status === 'used' ? 'Presente' : guest.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-400">{guest.event_name || `#${guest.event_id}`}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      {/* Copiar link */}
-                      <button
-                        type="button"
-                        className="border border-slate-700/50 text-slate-300 hover:border-cyan-500/30 hover:text-cyan-400 rounded-xl px-2 py-1 inline-flex items-center gap-1 text-xs transition-colors"
-                        onClick={() => copyInviteLink(guest.qr_code_token)}
-                        title="Copiar link do convite"
-                      >
-                        <Link2 size={13} />
-                      </button>
-
-                      {/* Editar */}
-                      <button
-                        type="button"
-                        className="border border-slate-700/50 text-cyan-400 hover:border-cyan-500/30 hover:text-cyan-300 rounded-xl px-2 py-1 inline-flex items-center gap-1 text-xs transition-colors"
-                        onClick={() => openEdit(guest)}
-                        title="Editar convidado"
-                      >
-                        <Pencil size={13} />
-                      </button>
-
-                      {/* Excluir */}
-                      <button
-                        type="button"
-                        className="border border-slate-700/50 text-red-400 hover:border-red-500/30 hover:text-red-300 rounded-xl px-2 py-1 inline-flex items-center gap-1 text-xs disabled:opacity-40 transition-colors"
-                        onClick={() => handleDelete(guest)}
-                        disabled={deleting === guest.id}
-                        title="Remover convidado"
-                      >
-                        {deleting === guest.id
-                          ? <span className="spinner w-3 h-3" />
-                          : <Trash2 size={13} />
-                        }
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      {/* ── Tabela Stitch ── */}
+      <div className="bg-[#111827] border border-slate-700/30 rounded-2xl overflow-hidden shadow-2xl">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-800/50">
+              <tr>
+                <th className="px-6 py-4 text-slate-400 font-headline font-semibold text-xs uppercase tracking-wider">Nome</th>
+                <th className="px-6 py-4 text-slate-400 font-headline font-semibold text-xs uppercase tracking-wider">E-mail</th>
+                <th className="px-6 py-4 text-slate-400 font-headline font-semibold text-xs uppercase tracking-wider">Telefone</th>
+                <th className="px-6 py-4 text-slate-400 font-headline font-semibold text-xs uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-slate-400 font-headline font-semibold text-xs uppercase tracking-wider">Evento</th>
+                <th className="px-6 py-4 text-slate-400 font-headline font-semibold text-xs uppercase tracking-wider text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/50">
+              {loading ? (
+                <tr><td colSpan={6} className="py-10 text-center"><div className="spinner w-6 h-6 mx-auto" /></td></tr>
+              ) : guests.length === 0 ? (
+                <tr><td colSpan={6} className="py-10 text-center text-sm text-slate-500">Nenhum convidado encontrado para esse filtro.</td></tr>
+              ) : (
+                guests.map((guest, idx) => {
+                  const initials = (guest.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+                  const avatarColor = idx % 2 === 0 ? "bg-cyan-500/10 text-cyan-400" : "bg-purple-500/10 text-purple-400";
+                  return (
+                    <tr key={guest.id} className="hover:bg-slate-800/30 transition-colors group">
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center font-bold text-sm`}>{initials}</div>
+                          <span className="text-slate-200 font-medium">{guest.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 text-slate-400">{guest.email}</td>
+                      <td className="px-6 py-5 text-slate-400">{guest.phone || '—'}</td>
+                      <td className="px-6 py-5">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                          guest.status === 'used'
+                            ? 'bg-green-500/15 text-green-400 border-green-500/20'
+                            : 'bg-amber-500/15 text-amber-400 border-amber-500/20'
+                        }`}>
+                          {guest.status === 'used' ? 'Utilizado' : 'Pendente'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5 text-slate-400">{guest.event_name || `#${guest.event_id}`}</td>
+                      <td className="px-6 py-5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            className="p-2 text-slate-400 hover:text-cyan-400 transition-colors"
+                            onClick={() => copyInviteLink(guest.qr_code_token)}
+                            title="Copiar Link"
+                          >
+                            <Link2 size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            className="p-2 text-slate-400 hover:text-cyan-400 transition-colors"
+                            onClick={() => openEdit(guest)}
+                            title="Editar"
+                          >
+                            <Pencil size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            className="p-2 text-slate-400 hover:text-red-400 transition-colors disabled:opacity-40"
+                            onClick={() => handleDelete(guest)}
+                            disabled={deleting === guest.id}
+                            title="Excluir"
+                          >
+                            {deleting === guest.id ? <span className="spinner w-4 h-4" /> : <Trash2 size={18} />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Paginação */}

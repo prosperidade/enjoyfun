@@ -114,16 +114,10 @@ const nav = [
   },
   { to: "/cards", icon: CreditCard, label: "Cashless", roles: [] },
   {
-    label: "Vendas no Local",
+    to: "/pos",
     icon: ShoppingCart,
+    label: "Vendas no Local",
     roles: ["admin", "organizer", "bartender", "staff"],
-    isParent: true,
-    groupKey: "pdv",
-    subItems: [
-      { to: "/bar",   label: "Bar",         icon: Zap            },
-      { to: "/food",  label: "Alimentação", icon: UtensilsCrossed },
-      { to: "/shop",  label: "Loja",        icon: Store           },
-    ],
   },
   {
     to: "/parking",

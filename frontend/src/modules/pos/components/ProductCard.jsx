@@ -1,3 +1,5 @@
+import { Plus } from "lucide-react";
+
 export default function ProductCard({
   fallbackIcon,
   onAddToCart,
@@ -10,23 +12,37 @@ export default function ProductCard({
     <button
       onClick={() => onAddToCart(product)}
       disabled={isOutOfStock}
-      className={`p-4 rounded-2xl border flex flex-col items-center justify-center gap-3 transition-all active:scale-95 ${product.stock_qty > 0 ? (isLowStock ? "bg-red-900/20 border-red-500/50 hover:border-red-400" : "hover:border-purple-500 bg-slate-800/40/40 border-slate-700/50/50") : "opacity-40 cursor-not-allowed bg-slate-900/60 border-slate-800/40"}`}
+      className={`group bg-slate-800/40 border border-slate-700/50 p-4 rounded-xl transition-all duration-300 cursor-pointer flex flex-col gap-3 text-left ${
+        isOutOfStock
+          ? "opacity-40 cursor-not-allowed"
+          : isLowStock
+            ? "border-amber-500/30 hover:border-amber-400/50"
+            : "hover:bg-slate-800/60 hover:shadow-[0_0_15px_rgba(0,240,255,0.15)]"
+      }`}
     >
-      <div className="flex items-center justify-center w-12 h-12 bg-slate-900/60/50 rounded-full mb-1">
-        {product.icon || fallbackIcon}
+      {/* Icon area */}
+      <div className="h-20 w-full flex items-center justify-center rounded-lg bg-slate-900/60">
+        <div className="w-12 h-12 flex items-center justify-center">
+          {product.icon || fallbackIcon}
+        </div>
       </div>
-      <div className="text-center w-full">
-        <p className="text-slate-100 font-semibold text-sm leading-tight truncate">
+
+      {/* Info */}
+      <div className="flex flex-col gap-1 w-full">
+        <span className={`text-[10px] font-bold uppercase tracking-widest ${isLowStock ? "text-amber-400" : "text-cyan-400"}`}>
+          {isOutOfStock ? "Esgotado" : isLowStock ? `${product.stock_qty} un. — Baixo` : `${product.stock_qty} un.`}
+        </span>
+        <h3 className="font-headline font-bold text-slate-200 text-base truncate">
           {product.name}
-        </p>
-        <p className="text-purple-300 font-bold mt-1">
-          R$ {product.price.toFixed(2)}
-        </p>
-        <p
-          className={`text-xs mt-1 font-bold ${isLowStock ? "text-red-500" : "text-slate-500"}`}
-        >
-          {product.stock_qty > 0 ? `${product.stock_qty} un.` : "Esgotado"}
-        </p>
+        </h3>
+        <div className="flex justify-between items-center mt-1">
+          <span className="text-cyan-400 font-headline font-black text-xl">
+            R$ {product.price.toFixed(2)}
+          </span>
+          {!isOutOfStock && (
+            <Plus size={20} className="text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+        </div>
       </div>
     </button>
   );
