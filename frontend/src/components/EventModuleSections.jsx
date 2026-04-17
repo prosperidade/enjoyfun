@@ -22,7 +22,9 @@ import {
   Upload,
   ExternalLink,
   X,
+  Image as ImageIcon,
 } from "lucide-react";
+import MediaUpload from "./MediaUpload";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -62,6 +64,85 @@ function NoEventNotice() {
   );
 }
 
+/**
+ * ItemRow — linha de um item de lista com botao de editar midia.
+ * Quando clicado, expande um painel de upload com 1+ campos de MediaUpload.
+ *
+ * Props:
+ * - item: objeto com os dados
+ * - label: texto a exibir
+ * - mediaFields: array de { key, label, description, mediaType, category }
+ * - onDelete: () => void
+ * - onSave: (partialItem) => Promise<void>
+ * - eventId: ID do evento
+ * - updateEndpoint: ex "/event-stages"  (monta PUT {updateEndpoint}/{id})
+ * - extraBadges: JSX extra pra mostrar antes do trash
+ */
+function ItemRow({ item, label, mediaFields = [], onDelete, updateEndpoint, eventId, extraBadges }) {
+  const [editing, setEditing] = useState(false);
+  const [localItem, setLocalItem] = useState(item);
+
+  // Sync localItem quando item de fora muda (evitar stale)
+  useEffect(() => { setLocalItem(item); }, [item]);
+
+  const mediaCount = mediaFields.reduce((acc, f) => acc + (localItem[f.key] ? 1 : 0), 0);
+
+  const handleUpdateField = async (key, value) => {
+    const updated = { ...localItem, [key]: value };
+    setLocalItem(updated);
+    try {
+      await api.put(`${updateEndpoint}/${item.id}`, updated);
+    } catch {
+      toast.error("Erro ao salvar midia");
+    }
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-lg">
+      <div className="flex items-center justify-between px-3 py-2 text-sm text-gray-200">
+        <span className="flex-1">
+          {label}
+          {mediaCount > 0 && (
+            <span className="ml-2 text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">
+              {mediaCount} midia{mediaCount > 1 ? "s" : ""}
+            </span>
+          )}
+          {extraBadges}
+        </span>
+        {mediaFields.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setEditing((v) => !v)}
+            className="text-gray-400 hover:text-purple-400 mr-2"
+            title="Editar midia"
+          >
+            <ImageIcon className="w-4 h-4" />
+          </button>
+        )}
+        <button type="button" className={btnDel} onClick={onDelete}>
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+      {editing && mediaFields.length > 0 && (
+        <div className={`grid grid-cols-1 sm:grid-cols-${Math.min(mediaFields.length, 3)} gap-2 p-3 border-t border-gray-700`}>
+          {mediaFields.map((f) => (
+            <MediaUpload
+              key={f.key}
+              label={f.label}
+              description={f.description}
+              value={localItem[f.key] || ""}
+              onChange={(v) => handleUpdateField(f.key, v)}
+              mediaType={f.mediaType || "image"}
+              category={f.category || "event_media"}
+              eventId={eventId}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const inputCls =
   "w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500";
 const btnAdd =
@@ -75,24 +156,32 @@ const btnDel =
 
 const STAGE_TYPES = ["main", "secondary", "alternative", "auditorium", "room"];
 
+const STAGE_MEDIA_FIELDS = [
+  { key: "image_url", label: "Imagem", description: "Foto ou render do palco", mediaType: "image", category: "stage_image" },
+  { key: "video_url", label: "Video", description: "Show-off do palco", mediaType: "video", category: "stage_video" },
+  { key: "video_360_url", label: "Video 360", description: "Tour imersivo", mediaType: "video_360", category: "stage_360" },
+];
+
 export function StagesSection({ eventId }) {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState({ name: "", stage_type: "main", capacity: "" });
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(true);
 
-  useEffect(() => {
+  const refresh = () => {
     if (!eventId) return;
     api.get(`/event-stages?event_id=${eventId}`).then((r) => setItems(r.data?.data || []));
-  }, [eventId]);
+  };
+
+  useEffect(refresh, [eventId]);
 
   const handleAdd = async () => {
     if (!form.name.trim()) return toast.error("Nome obrigatorio");
     if (!eventId) return;
     setLoading(true);
     try {
-      const res = await api.post("/event-stages", { ...form, event_id: eventId, capacity: form.capacity ? Number(form.capacity) : null });
-      setItems((prev) => [...prev, res.data?.data || res.data]);
+      await api.post("/event-stages", { ...form, event_id: eventId, capacity: form.capacity ? Number(form.capacity) : null });
+      refresh();
       setForm({ name: "", stage_type: "main", capacity: "" });
       toast.success("Palco adicionado");
     } catch { toast.error("Erro ao adicionar palco"); }
@@ -121,10 +210,20 @@ export function StagesSection({ eventId }) {
         <Plus className="w-3 h-3" /> Adicionar palco
       </button>
       {items.map((item) => (
-        <div key={item.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
-          <span>{item.name} <span className="text-gray-500">({item.stage_type})</span>{item.capacity ? ` - ${item.capacity} lug.` : ""}</span>
-          <button type="button" className={btnDel} onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
-        </div>
+        <ItemRow
+          key={item.id}
+          item={item}
+          label={
+            <>
+              {item.name} <span className="text-gray-500">({item.stage_type})</span>
+              {item.capacity ? ` - ${item.capacity} lug.` : ""}
+            </>
+          }
+          mediaFields={STAGE_MEDIA_FIELDS}
+          onDelete={() => handleDelete(item.id)}
+          updateEndpoint="/event-stages"
+          eventId={eventId}
+        />
       ))}
     </SectionShell>
   );
@@ -187,10 +286,24 @@ export function SectorsSection({ eventId }) {
         <Plus className="w-3 h-3" /> Adicionar setor
       </button>
       {items.map((item) => (
-        <div key={item.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
-          <span>{item.name} <span className="text-gray-500">({item.sector_type})</span>{item.capacity ? ` - ${item.capacity} lug.` : ""}{item.price_modifier ? ` +R$${item.price_modifier}` : ""}</span>
-          <button type="button" className={btnDel} onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
-        </div>
+        <ItemRow
+          key={item.id}
+          item={item}
+          label={
+            <>
+              {item.name} <span className="text-gray-500">({item.sector_type})</span>
+              {item.capacity ? ` - ${item.capacity} lug.` : ""}
+              {item.price_modifier ? ` +R$${item.price_modifier}` : ""}
+            </>
+          }
+          mediaFields={[
+            { key: "image_url", label: "Imagem", description: "Foto do setor", mediaType: "image", category: "sector_image" },
+            { key: "video_url", label: "Video", description: "Tour do setor", mediaType: "video", category: "sector_video" },
+          ]}
+          onDelete={() => handleDelete(item.id)}
+          updateEndpoint="/event-sectors"
+          eventId={eventId}
+        />
       ))}
     </SectionShell>
   );
@@ -258,10 +371,24 @@ export function ParkingConfigSection({ eventId }) {
         <Plus className="w-3 h-3" /> Adicionar tipo de veiculo
       </button>
       {items.map((item) => (
-        <div key={item.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
-          <span>{VEHICLE_LABELS[item.vehicle_type] || item.vehicle_type} - R${item.price || 0}{item.total_spots ? ` | ${item.total_spots} vagas` : ""}{item.vip_spots ? ` (${item.vip_spots} VIP)` : ""}</span>
-          <button type="button" className={btnDel} onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
-        </div>
+        <ItemRow
+          key={item.id}
+          item={item}
+          label={
+            <>
+              {VEHICLE_LABELS[item.vehicle_type] || item.vehicle_type} - R${item.price || 0}
+              {item.total_spots ? ` | ${item.total_spots} vagas` : ""}
+              {item.vip_spots ? ` (${item.vip_spots} VIP)` : ""}
+            </>
+          }
+          mediaFields={[
+            { key: "map_image_url", label: "Mapa do estacionamento", description: "Layout das vagas", mediaType: "image", category: "parking_map" },
+            { key: "video_url", label: "Video tour", description: "Tour do estacionamento", mediaType: "video", category: "parking_video" },
+          ]}
+          onDelete={() => handleDelete(item.id)}
+          updateEndpoint="/event-parking-config"
+          eventId={eventId}
+        />
       ))}
     </SectionShell>
   );
@@ -334,10 +461,22 @@ export function PdvPointsSection({ eventId }) {
         <Plus className="w-3 h-3" /> Adicionar PDV
       </button>
       {items.map((item) => (
-        <div key={item.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
-          <span>{item.name} <span className="text-gray-500">({PDV_LABELS[item.pdv_type] || item.pdv_type})</span>{stageName(item.stage_id) ? ` @ ${stageName(item.stage_id)}` : ""}</span>
-          <button type="button" className={btnDel} onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
-        </div>
+        <ItemRow
+          key={item.id}
+          item={item}
+          label={
+            <>
+              {item.name} <span className="text-gray-500">({PDV_LABELS[item.pdv_type] || item.pdv_type})</span>
+              {stageName(item.stage_id) ? ` @ ${stageName(item.stage_id)}` : ""}
+            </>
+          }
+          mediaFields={[
+            { key: "image_url", label: "Foto do PDV", description: "Bar, food truck, loja", mediaType: "image", category: "pdv_image" },
+          ]}
+          onDelete={() => handleDelete(item.id)}
+          updateEndpoint="/event-pdv-points"
+          eventId={eventId}
+        />
       ))}
     </SectionShell>
   );
@@ -450,10 +589,22 @@ export function SeatingSection({ eventId }) {
         <Plus className="w-3 h-3" /> Adicionar mesa
       </button>
       {items.map((item) => (
-        <div key={item.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
-          <span>Mesa {item.table_number}{item.table_name ? ` — ${item.table_name}` : ""} <span className="text-gray-500">({TABLE_LABELS[item.table_type] || item.table_type})</span> - {item.capacity || 8} lug.</span>
-          <button type="button" className={btnDel} onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
-        </div>
+        <ItemRow
+          key={item.id}
+          item={item}
+          label={
+            <>
+              Mesa {item.table_number}{item.table_name ? ` — ${item.table_name}` : ""}{" "}
+              <span className="text-gray-500">({TABLE_LABELS[item.table_type] || item.table_type})</span> - {item.capacity || 8} lug.
+            </>
+          }
+          mediaFields={[
+            { key: "layout_image_url", label: "Layout da mesa", description: "Arranjo dos lugares", mediaType: "image", category: "table_layout" },
+          ]}
+          onDelete={() => handleDelete(item.id)}
+          updateEndpoint="/event-tables"
+          eventId={eventId}
+        />
       ))}
     </SectionShell>
   );
@@ -621,10 +772,26 @@ export function ExhibitorsSection({ eventId }) {
         <Plus className="w-3 h-3" /> Adicionar expositor
       </button>
       {items.map((item) => (
-        <div key={item.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
-          <span>{item.company_name}{item.stand_number ? ` — Stand ${item.stand_number}` : ""} <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_COLORS[item.status] || "bg-gray-700"} text-white`}>{STATUS_LABELS[item.status] || item.status}</span></span>
-          <button type="button" className={btnDel} onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
-        </div>
+        <ItemRow
+          key={item.id}
+          item={item}
+          label={
+            <>
+              {item.company_name}{item.stand_number ? ` — Stand ${item.stand_number}` : ""}{" "}
+              <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_COLORS[item.status] || "bg-gray-700"} text-white`}>
+                {STATUS_LABELS[item.status] || item.status}
+              </span>
+            </>
+          }
+          mediaFields={[
+            { key: "logo_url", label: "Logo", description: "Marca da empresa", mediaType: "image", category: "exhibitor_logo" },
+            { key: "booth_photo_url", label: "Foto do stand", description: "Imagem do estande", mediaType: "image", category: "exhibitor_booth" },
+            { key: "presentation_video_url", label: "Video", description: "Apresentacao", mediaType: "video", category: "exhibitor_video" },
+          ]}
+          onDelete={() => handleDelete(item.id)}
+          updateEndpoint="/event-exhibitors"
+          eventId={eventId}
+        />
       ))}
     </SectionShell>
   );
@@ -776,10 +943,24 @@ export function CeremonySection({ eventId }) {
         <Plus className="w-3 h-3" /> Adicionar momento
       </button>
       {items.map((item) => (
-        <div key={item.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
-          <span>{item.moment_time && <span className="text-purple-400 mr-2">{item.moment_time}</span>}{item.name}{item.responsible ? ` — ${item.responsible}` : ""}{item.notes ? <span className="text-gray-500 ml-2">({item.notes})</span> : ""}</span>
-          <button type="button" className={btnDel} onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
-        </div>
+        <ItemRow
+          key={item.id}
+          item={item}
+          label={
+            <>
+              {item.moment_time && <span className="text-purple-400 mr-2">{item.moment_time}</span>}
+              {item.name}
+              {item.responsible ? ` — ${item.responsible}` : ""}
+              {item.notes ? <span className="text-gray-500 ml-2">({item.notes})</span> : null}
+            </>
+          }
+          mediaFields={[
+            { key: "image_url", label: "Imagem", description: "Foto ilustrativa do momento", mediaType: "image", category: "ceremony_image" },
+          ]}
+          onDelete={() => handleDelete(item.id)}
+          updateEndpoint="/event-ceremony-moments"
+          eventId={eventId}
+        />
       ))}
     </SectionShell>
   );
@@ -861,10 +1042,25 @@ export function SubEventsSection({ eventId }) {
         <Plus className="w-3 h-3" /> Adicionar sub-evento
       </button>
       {items.map((item) => (
-        <div key={item.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200">
-          <span>{item.name}{item.event_date ? <span className="text-gray-500 ml-2">{item.event_date}</span> : ""}{item.venue ? ` @ ${item.venue}` : ""}{item.description ? <span className="text-gray-500 ml-2">({item.description})</span> : ""}</span>
-          <button type="button" className={btnDel} onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></button>
-        </div>
+        <ItemRow
+          key={item.id}
+          item={item}
+          label={
+            <>
+              {item.name}
+              {item.event_date ? <span className="text-gray-500 ml-2">{item.event_date}</span> : null}
+              {item.venue ? ` @ ${item.venue}` : ""}
+              {item.description ? <span className="text-gray-500 ml-2">({item.description})</span> : null}
+            </>
+          }
+          mediaFields={[
+            { key: "image_url", label: "Imagem", description: "Foto do sub-evento", mediaType: "image", category: "sub_event_image" },
+            { key: "video_url", label: "Video", description: "Video promocional", mediaType: "video", category: "sub_event_video" },
+          ]}
+          onDelete={() => handleDelete(item.id)}
+          updateEndpoint="/event-sub-events"
+          eventId={eventId}
+        />
       ))}
     </SectionShell>
   );
@@ -875,47 +1071,16 @@ export function SubEventsSection({ eventId }) {
 // ---------------------------------------------------------------------------
 
 const MAP_SLOTS = [
-  { field: "map_3d_url", label: "Planta 3D do Local", description: "Palcos, bares, lojas, banheiros, entradas" },
-  { field: "map_image_url", label: "Mapa Geral do Evento", description: "Visao geral do evento (PNG/PDF)" },
-  { field: "map_seating_url", label: "Mapa de Assentos", description: "Poltronas ou mesas numeradas" },
-  { field: "map_parking_url", label: "Mapa de Estacionamento", description: "Vagas por setor" },
+  { field: "map_3d_url", label: "Planta 3D do Local", description: "Palcos, bares, lojas, banheiros, entradas", mediaType: "document", category: "map_3d" },
+  { field: "map_image_url", label: "Mapa Geral do Evento", description: "Visao geral do evento (PNG/PDF)", mediaType: "document", category: "map_image" },
+  { field: "map_seating_url", label: "Mapa de Assentos", description: "Poltronas ou mesas numeradas", mediaType: "document", category: "map_seating" },
+  { field: "map_parking_url", label: "Mapa de Estacionamento", description: "Vagas por setor", mediaType: "document", category: "map_parking" },
+  { field: "tour_video_url", label: "Video Tour do Evento", description: "MP4 com walk-through pelo venue", mediaType: "video", category: "tour_video" },
+  { field: "tour_video_360_url", label: "Video Tour 360", description: "Video imersivo 360 graus", mediaType: "video_360", category: "tour_video_360" },
 ];
 
 export function MapsSection({ eventId, form, setForm }) {
   const [expanded, setExpanded] = useState(true);
-  const [uploading, setUploading] = useState(null);
-  const [selectedFiles, setSelectedFiles] = useState({});
-
-  const handleUpload = async (file, field) => {
-    setUploading(field);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("category", "event_map");
-      if (eventId) formData.append("event_id", eventId);
-      const res = await api.post("/organizer-files", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      const fileData = res.data?.data || {};
-      const fileId = fileData.id;
-      const fileName = fileData.original_name || file.name;
-      // Store as "file:{id}:{name}" — backend serves via /organizer-files/{id}/download
-      const ref = fileId ? `file:${fileId}:${fileName}` : fileName;
-      setForm((prev) => ({ ...prev, [field]: ref }));
-      setSelectedFiles((prev) => ({ ...prev, [field]: null }));
-      toast.success(`"${fileName}" enviado com sucesso!`);
-    } catch {
-      toast.error("Erro ao enviar arquivo");
-    }
-    setUploading(null);
-  };
-
-  const handleRemove = (field) => {
-    setForm((prev) => ({ ...prev, [field]: "" }));
-    setSelectedFiles((prev) => ({ ...prev, [field]: null }));
-    toast.success("Mapa removido");
-  };
-
   const activeCount = MAP_SLOTS.filter((s) => form[s.field]).length;
 
   return (
@@ -927,93 +1092,18 @@ export function MapsSection({ eventId, form, setForm }) {
       toggle={() => setExpanded(!expanded)}
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {MAP_SLOTS.map((slot) => {
-          const currentUrl = form[slot.field] || "";
-          const file = selectedFiles[slot.field];
-          const isUploading = uploading === slot.field;
-
-          return (
-            <div
-              key={slot.field}
-              className="border border-gray-700 rounded-lg p-3 bg-gray-800/60 space-y-2"
-            >
-              <div>
-                <p className="text-sm font-medium text-gray-200">
-                  {slot.label}
-                </p>
-                <p className="text-[10px] text-gray-500">{slot.description}</p>
-              </div>
-
-              {currentUrl ? (
-                <div className="flex items-center gap-2 bg-gray-900 rounded-lg px-3 py-2">
-                  <span className="text-xs text-green-400 truncate flex-1" title={currentUrl}>
-                    {currentUrl.startsWith("file:") ? currentUrl.split(":").slice(2).join(":") : currentUrl.split("/").pop() || currentUrl}
-                  </span>
-                  {currentUrl.startsWith("file:") && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const fileId = currentUrl.split(":")[1];
-                        try {
-                          const res = await api.get(`/organizer-files/${fileId}/download`, { responseType: "blob" });
-                          const url = URL.createObjectURL(res.data);
-                          window.open(url, "_blank");
-                        } catch { toast.error("Erro ao abrir arquivo"); }
-                      }}
-                      className="text-gray-400 hover:text-purple-400"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(slot.field)}
-                    className="text-red-400 hover:text-red-300"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      accept="image/*,.pdf,.glb,.gltf"
-                      id={`map-upload-${slot.field}`}
-                      className="sr-only"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) {
-                          setSelectedFiles((prev) => ({
-                            ...prev,
-                            [slot.field]: f,
-                          }));
-                        }
-                      }}
-                    />
-                    <label
-                      htmlFor={`map-upload-${slot.field}`}
-                      className="flex items-center gap-1.5 cursor-pointer bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs px-3 py-2 rounded-lg transition-colors flex-1"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      {file ? file.name : "Escolher arquivo"}
-                    </label>
-                    {file && (
-                      <button
-                        type="button"
-                        disabled={isUploading}
-                        onClick={() => handleUpload(file, slot.field)}
-                        className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium px-3 py-2 rounded-lg disabled:opacity-40"
-                      >
-                        {isUploading ? "Enviando..." : "Enviar"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {MAP_SLOTS.map((slot) => (
+          <MediaUpload
+            key={slot.field}
+            label={slot.label}
+            description={slot.description}
+            value={form[slot.field] || ""}
+            onChange={(v) => setForm((prev) => ({ ...prev, [slot.field]: v }))}
+            mediaType={slot.mediaType}
+            category={slot.category}
+            eventId={eventId}
+          />
+        ))}
       </div>
     </SectionShell>
   );

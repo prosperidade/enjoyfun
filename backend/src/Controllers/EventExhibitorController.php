@@ -43,17 +43,20 @@ function createEventExhibitor(array $body): void
     $db = Database::getInstance();
     $organizerId = eventExhibitorResolveOrganizerId($user);
 
-    $eventId      = $body['event_id'] ?? null;
-    $companyName  = trim((string)($body['company_name'] ?? ''));
-    $cnpj         = trim((string)($body['cnpj'] ?? ''));
-    $contactName  = trim((string)($body['contact_name'] ?? ''));
-    $contactEmail = trim((string)($body['contact_email'] ?? ''));
-    $contactPhone = trim((string)($body['contact_phone'] ?? ''));
-    $standNumber  = trim((string)($body['stand_number'] ?? ''));
-    $standType    = trim((string)($body['stand_type'] ?? ''));
-    $standSizeM2  = isset($body['stand_size_m2']) ? (float)$body['stand_size_m2'] : null;
-    $status       = trim((string)($body['status'] ?? 'pending'));
-    $notes        = trim((string)($body['notes'] ?? ''));
+    $eventId               = $body['event_id'] ?? null;
+    $companyName           = trim((string)($body['company_name'] ?? ''));
+    $cnpj                  = trim((string)($body['cnpj'] ?? ''));
+    $contactName           = trim((string)($body['contact_name'] ?? ''));
+    $contactEmail          = trim((string)($body['contact_email'] ?? ''));
+    $contactPhone          = trim((string)($body['contact_phone'] ?? ''));
+    $standNumber           = trim((string)($body['stand_number'] ?? ''));
+    $standType             = trim((string)($body['stand_type'] ?? ''));
+    $standSizeM2           = isset($body['stand_size_m2']) ? (float)$body['stand_size_m2'] : null;
+    $status                = trim((string)($body['status'] ?? 'pending'));
+    $notes                 = trim((string)($body['notes'] ?? ''));
+    $logoUrl               = trim((string)($body['logo_url'] ?? ''));
+    $boothPhotoUrl         = trim((string)($body['booth_photo_url'] ?? ''));
+    $presentationVideoUrl  = trim((string)($body['presentation_video_url'] ?? ''));
 
     if (!$eventId || $companyName === '') {
         jsonError('Dados incompletos (event_id, company_name).', 400);
@@ -76,12 +79,13 @@ function createEventExhibitor(array $body): void
     }
 
     $stmt = $db->prepare("
-        INSERT INTO event_exhibitors (event_id, company_name, cnpj, contact_name, contact_email, contact_phone, stand_number, stand_type, stand_size_m2, status, notes, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO event_exhibitors (event_id, organizer_id, company_name, cnpj, contact_name, contact_email, contact_phone, stand_number, stand_type, stand_size_m2, status, notes, logo_url, booth_photo_url, presentation_video_url, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         RETURNING id
     ");
     $stmt->execute([
         $eventId,
+        $organizerId,
         $companyName,
         $cnpj ?: null,
         $contactName ?: null,
@@ -92,6 +96,9 @@ function createEventExhibitor(array $body): void
         $standSizeM2,
         $status,
         $notes ?: null,
+        $logoUrl ?: null,
+        $boothPhotoUrl ?: null,
+        $presentationVideoUrl ?: null,
     ]);
 
     jsonSuccess(['id' => $stmt->fetchColumn()], 'Expositor criado com sucesso.', 201);
@@ -113,16 +120,19 @@ function updateEventExhibitor(int $id, array $body): void
         jsonError('Expositor nao encontrado.', 404);
     }
 
-    $companyName  = trim((string)($body['company_name'] ?? ''));
-    $cnpj         = trim((string)($body['cnpj'] ?? ''));
-    $contactName  = trim((string)($body['contact_name'] ?? ''));
-    $contactEmail = trim((string)($body['contact_email'] ?? ''));
-    $contactPhone = trim((string)($body['contact_phone'] ?? ''));
-    $standNumber  = trim((string)($body['stand_number'] ?? ''));
-    $standType    = trim((string)($body['stand_type'] ?? ''));
-    $standSizeM2  = isset($body['stand_size_m2']) ? (float)$body['stand_size_m2'] : null;
-    $status       = trim((string)($body['status'] ?? 'pending'));
-    $notes        = trim((string)($body['notes'] ?? ''));
+    $companyName           = trim((string)($body['company_name'] ?? ''));
+    $cnpj                  = trim((string)($body['cnpj'] ?? ''));
+    $contactName           = trim((string)($body['contact_name'] ?? ''));
+    $contactEmail          = trim((string)($body['contact_email'] ?? ''));
+    $contactPhone          = trim((string)($body['contact_phone'] ?? ''));
+    $standNumber           = trim((string)($body['stand_number'] ?? ''));
+    $standType             = trim((string)($body['stand_type'] ?? ''));
+    $standSizeM2           = isset($body['stand_size_m2']) ? (float)$body['stand_size_m2'] : null;
+    $status                = trim((string)($body['status'] ?? 'pending'));
+    $notes                 = trim((string)($body['notes'] ?? ''));
+    $logoUrl               = trim((string)($body['logo_url'] ?? ''));
+    $boothPhotoUrl         = trim((string)($body['booth_photo_url'] ?? ''));
+    $presentationVideoUrl  = trim((string)($body['presentation_video_url'] ?? ''));
 
     if ($companyName === '') {
         jsonError('Nome da empresa e obrigatorio.', 400);
@@ -140,7 +150,7 @@ function updateEventExhibitor(int $id, array $body): void
 
     $stmt = $db->prepare("
         UPDATE event_exhibitors
-        SET company_name = ?, cnpj = ?, contact_name = ?, contact_email = ?, contact_phone = ?, stand_number = ?, stand_type = ?, stand_size_m2 = ?, status = ?, notes = ?
+        SET company_name = ?, cnpj = ?, contact_name = ?, contact_email = ?, contact_phone = ?, stand_number = ?, stand_type = ?, stand_size_m2 = ?, status = ?, notes = ?, logo_url = ?, booth_photo_url = ?, presentation_video_url = ?
         WHERE id = ?
     ");
     $stmt->execute([
@@ -154,6 +164,9 @@ function updateEventExhibitor(int $id, array $body): void
         $standSizeM2,
         $status,
         $notes ?: null,
+        $logoUrl ?: null,
+        $boothPhotoUrl ?: null,
+        $presentationVideoUrl ?: null,
         $id,
     ]);
 

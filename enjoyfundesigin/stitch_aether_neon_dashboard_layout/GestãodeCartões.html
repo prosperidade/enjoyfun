@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aether Cashless - Gestão de Cartões</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-container": "#fed639",
+                      "surface-container-high": "#262a35",
+                      "on-secondary": "#480081",
+                      "surface-tint": "#00dbe9",
+                      "tertiary": "#fff5de",
+                      "on-primary-fixed": "#002022",
+                      "inverse-on-surface": "#2c303b",
+                      "on-surface": "#dfe2f1",
+                      "on-primary": "#00363a",
+                      "secondary-container": "#7701d0",
+                      "primary-fixed": "#7df4ff",
+                      "surface-variant": "#313540",
+                      "secondary": "#dcb8ff",
+                      "background": "#0f131d",
+                      "on-background": "#dfe2f1",
+                      "surface-container-lowest": "#0a0e18",
+                      "primary-container": "#00f0ff",
+                      "surface": "#0f131d",
+                      "surface-container-low": "#171b26",
+                      "primary-fixed-dim": "#00dbe9",
+              },
+              "fontFamily": {
+                      "headline": ["Space Grotesk"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0a0e18;
+            color: #dfe2f1;
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(15, 19, 29, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-surface-container-lowest min-h-screen">
+<!-- TopNavBar Shell -->
+<header class="fixed top-0 w-full flex justify-between items-center px-8 h-20 bg-slate-950/80 backdrop-blur-md z-50 shadow-[0_0_15px_rgba(0,240,255,0.1)]">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500 font-['Space_Grotesk'] tracking-tight">Aether Cashless</span>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-['Space_Grotesk'] tracking-tight" href="#">Dashboard</a>
+<a class="text-cyan-400 border-b-2 border-cyan-500 pb-1 font-['Space_Grotesk'] tracking-tight" href="#">Transações</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-['Space_Grotesk'] tracking-tight" href="#">Terminais</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-['Space_Grotesk'] tracking-tight" href="#">Relatórios</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-400 hover:bg-slate-800/40 hover:scale-[1.02] transition-all rounded-full">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-slate-400 hover:bg-slate-800/40 hover:scale-[1.02] transition-all rounded-full">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full bg-slate-800 overflow-hidden">
+<img alt="Avatar do Organizador" class="w-full h-full object-cover" data-alt="close-up portrait of a professional manager in a tech setting with soft neon ambient lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBy9dcN1WbWUuFXYzh-UE4TM1DsTAoGYy7V5VF7dANn0bZGM1y8pBNPnc8D9pp3H3yNJkZ3cWbEbP4-jdx5P_Gf2Ss4juFLRD2BS9DOuXStGz6N3BUf0hauLiVwRFbsgYV_MqD-RAADuEFHiL1gmsfSSutrpq10db37F1a2W4GsjVcVHV5Ai5L5HoaGhbj_aacWDrPYMzNQS6BDan_M7_6mMbORhYnvNowusq8s-QdmdTjlbL5iK6t_qxv0g93FcYTZl21JC6Ee9RP0"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar Shell -->
+<aside class="fixed left-0 top-20 h-[calc(100vh-5rem)] w-64 bg-slate-900/50 backdrop-blur-xl flex flex-col py-6 z-40">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3 p-3 bg-slate-800/30 rounded-xl">
+<span class="material-symbols-outlined text-cyan-400" data-icon="event">event</span>
+<div>
+<p class="text-[10px] text-slate-400 uppercase tracking-widest">Evento Atual</p>
+<p class="text-sm font-semibold text-slate-200">Festival Neon 2024</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-1">
+<a class="text-slate-400 px-6 py-4 flex items-center gap-3 hover:bg-slate-800/50 hover:text-slate-100 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-['Inter'] font-medium text-sm">Visão Geral</span>
+</a>
+<a class="bg-cyan-500/10 text-cyan-400 border-r-4 border-cyan-500 px-6 py-4 flex items-center gap-3" href="#">
+<span class="material-symbols-outlined" data-icon="credit_card">credit_card</span>
+<span class="font-['Inter'] font-medium text-sm">Cartões Ativos</span>
+</a>
+<a class="text-slate-400 px-6 py-4 flex items-center gap-3 hover:bg-slate-800/50 hover:text-slate-100 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-['Inter'] font-medium text-sm">Recargas</span>
+</a>
+<a class="text-slate-400 px-6 py-4 flex items-center gap-3 hover:bg-slate-800/50 hover:text-slate-100 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="history_toggle_off">history_toggle_off</span>
+<span class="font-['Inter'] font-medium text-sm">Estornos</span>
+</a>
+<a class="text-slate-400 px-6 py-4 flex items-center gap-3 hover:bg-slate-800/50 hover:text-slate-100 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+<span class="font-['Inter'] font-medium text-sm">Configurações</span>
+</a>
+</nav>
+<div class="px-6 mt-auto flex flex-col gap-4">
+<button class="w-full py-3 bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 rounded-lg font-bold text-sm shadow-[0_0_15px_rgba(0,240,255,0.2)] hover:scale-[1.05] transition-all">
+                Novo Cartão
+            </button>
+<div class="flex flex-col border-t border-slate-800 pt-4">
+<a class="text-slate-400 py-2 flex items-center gap-3 hover:text-slate-200" href="#">
+<span class="material-symbols-outlined text-sm" data-icon="help_outline">help_outline</span>
+<span class="text-xs">Suporte</span>
+</a>
+<a class="text-slate-400 py-2 flex items-center gap-3 hover:text-red-400" href="#">
+<span class="material-symbols-outlined text-sm" data-icon="logout">logout</span>
+<span class="text-xs">Sair</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 mt-20 p-8 grid grid-cols-12 gap-8 min-h-[calc(100vh-5rem)]">
+<!-- Left Column: Card List -->
+<section class="col-span-12 lg:col-span-5 flex flex-col gap-6">
+<div class="flex flex-col gap-2">
+<h1 class="text-3xl font-bold font-['Space_Grotesk'] text-slate-100 tracking-tight">Gestão de Cartões</h1>
+<p class="text-slate-400 text-sm">Gerencie os terminais e créditos ativos do evento.</p>
+</div>
+<!-- Search & Filter Area -->
+<div class="relative group">
+<input class="w-full bg-slate-800/40 border-none rounded-xl py-4 pl-12 pr-4 text-slate-200 placeholder:text-slate-500 focus:ring-2 focus:ring-cyan-500/50 transition-all" placeholder="Buscar por ID, CPF ou Nome..." type="text"/>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400" data-icon="search">search</span>
+</div>
+<!-- Card List Container -->
+<div class="flex flex-col gap-4 overflow-y-auto max-h-[600px] pr-2">
+<!-- Selected Card -->
+<div class="glass-panel border-2 border-cyan-500 p-5 rounded-2xl flex items-center justify-between cursor-pointer group hover:bg-slate-800/40 transition-all shadow-[0_0_15px_rgba(0,240,255,0.1)]">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-400" data-icon="credit_card">credit_card</span>
+</div>
+<div>
+<p class="text-slate-100 font-semibold">Lucas Oliveira</p>
+<p class="text-xs text-slate-500 font-mono tracking-wider">#4492-3301-8822</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-cyan-400 font-bold">R$ 450,00</p>
+<span class="text-[10px] bg-green-400/10 text-green-400 px-2 py-0.5 rounded-full uppercase tracking-tighter">Ativo</span>
+</div>
+</div>
+<!-- Card Item -->
+<div class="glass-panel border border-slate-800/50 p-5 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-slate-800/30 transition-all">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-slate-800/50 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-500" data-icon="credit_card">credit_card</span>
+</div>
+<div>
+<p class="text-slate-300 font-semibold">Mariana Souza</p>
+<p class="text-xs text-slate-500 font-mono tracking-wider">#1102-3981-4472</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-slate-300 font-bold">R$ 12,50</p>
+<span class="text-[10px] bg-green-400/10 text-green-400 px-2 py-0.5 rounded-full uppercase tracking-tighter">Ativo</span>
+</div>
+</div>
+<!-- Card Item (Low Balance) -->
+<div class="glass-panel border border-slate-800/50 p-5 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-slate-800/30 transition-all">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-slate-800/50 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-500" data-icon="credit_card">credit_card</span>
+</div>
+<div>
+<p class="text-slate-300 font-semibold">Felipe Mendes</p>
+<p class="text-xs text-slate-500 font-mono tracking-wider">#8821-2291-5501</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-slate-300 font-bold">R$ 0,00</p>
+<span class="text-[10px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded-full uppercase tracking-tighter">Sem Saldo</span>
+</div>
+</div>
+<!-- Pagination -->
+<div class="flex justify-center items-center gap-4 mt-4">
+<button class="p-2 rounded-lg bg-slate-800/50 text-slate-400 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined" data-icon="chevron_left">chevron_left</span>
+</button>
+<span class="text-sm font-['Space_Grotesk'] text-slate-400">Página <span class="text-slate-100">1</span> de 12</span>
+<button class="p-2 rounded-lg bg-slate-800/50 text-slate-400 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Right Column: Card Details -->
+<section class="col-span-12 lg:col-span-7 flex flex-col gap-6">
+<!-- Balance Hero Card -->
+<div class="relative overflow-hidden rounded-[2rem] p-8 bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800/50 shadow-2xl">
+<!-- Abstract Background Light -->
+<div class="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/10 blur-[80px] rounded-full"></div>
+<div class="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-500/10 blur-[80px] rounded-full"></div>
+<div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+<div class="flex flex-col gap-1">
+<span class="text-xs text-cyan-400/80 font-bold uppercase tracking-[0.2em] mb-2">Saldo Disponível</span>
+<h2 class="text-6xl font-bold font-['Space_Grotesk'] text-cyan-400 tracking-tighter">R$ 450,00</h2>
+<div class="flex items-center gap-3 mt-4 text-slate-400">
+<span class="material-symbols-outlined text-sm" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="text-sm">Última recarga: 12 Out, 14:30</span>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-3 rounded-xl border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition-all text-sm font-semibold">
+<span class="material-symbols-outlined text-lg" data-icon="block">block</span>
+                            Bloquear
+                        </button>
+<button class="flex items-center gap-2 px-4 py-3 rounded-xl border border-red-500/30 text-red-500 hover:bg-red-500/10 transition-all text-sm font-semibold">
+<span class="material-symbols-outlined text-lg" data-icon="delete">delete</span>
+                            Excluir
+                        </button>
+</div>
+</div>
+</div>
+<!-- Dashboard Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Recharge Form -->
+<div class="glass-panel p-6 rounded-2xl border border-slate-800/50 flex flex-col gap-5">
+<h3 class="text-lg font-bold font-['Space_Grotesk'] text-slate-100">Recarga Rápida</h3>
+<div class="flex flex-col gap-4">
+<div class="flex flex-col gap-2">
+<label class="text-xs text-slate-500 font-medium">Valor da Recarga</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
+<input class="w-full bg-slate-900/50 border-slate-800 rounded-xl py-3 pl-12 pr-4 text-cyan-400 font-bold text-xl focus:ring-cyan-500/30" placeholder="0,00" type="number"/>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-2">
+<button class="py-2 rounded-lg bg-slate-800/50 text-slate-300 text-sm hover:bg-slate-700 transition-colors">20,00</button>
+<button class="py-2 rounded-lg bg-slate-800/50 text-slate-300 text-sm hover:bg-slate-700 transition-colors">50,00</button>
+<button class="py-2 rounded-lg bg-slate-800/50 text-slate-300 text-sm hover:bg-slate-700 transition-colors">100,00</button>
+</div>
+<button class="w-full py-4 bg-cyan-500 text-slate-950 rounded-xl font-bold hover:bg-cyan-400 shadow-[0_0_20px_rgba(0,240,255,0.2)] transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" data-icon="add_card">add_card</span>
+                            Confirmar Recarga
+                        </button>
+</div>
+</div>
+<!-- Transaction History -->
+<div class="glass-panel p-6 rounded-2xl border border-slate-800/50 flex flex-col gap-5">
+<div class="flex justify-between items-center">
+<h3 class="text-lg font-bold font-['Space_Grotesk'] text-slate-100">Histórico</h3>
+<a class="text-xs text-cyan-400 hover:underline" href="#">Ver todos</a>
+</div>
+<div class="flex flex-col gap-4">
+<!-- Transaction Row -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-red-400/10 flex items-center justify-center text-red-400">
+<span class="material-symbols-outlined text-xl" data-icon="restaurant">restaurant</span>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Burger Master</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-tighter">Hoje, 19:42</p>
+</div>
+</div>
+<span class="text-slate-300 font-semibold">- R$ 42,00</span>
+</div>
+<!-- Transaction Row -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-green-400/10 flex items-center justify-center text-green-400">
+<span class="material-symbols-outlined text-xl" data-icon="add_circle">add_circle</span>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Recarga Manual</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-tighter">Hoje, 14:30</p>
+</div>
+</div>
+<span class="text-green-400 font-semibold">+ R$ 200,00</span>
+</div>
+<!-- Transaction Row -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-red-400/10 flex items-center justify-center text-red-400">
+<span class="material-symbols-outlined text-xl" data-icon="local_bar">local_bar</span>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Bar Central</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-tighter">Ontem, 23:15</p>
+</div>
+</div>
+<span class="text-slate-300 font-semibold">- R$ 18,00</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Profile Summary Card -->
+<div class="glass-panel p-8 rounded-2xl border border-slate-800/50 flex flex-col md:flex-row gap-8">
+<div class="flex-1 space-y-6">
+<h3 class="text-lg font-bold font-['Space_Grotesk'] text-slate-100 flex items-center gap-2">
+<span class="material-symbols-outlined text-purple-400" data-icon="badge">badge</span>
+                        Dados do Titular
+                    </h3>
+<div class="grid grid-cols-2 gap-y-4 gap-x-8">
+<div>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Status do Vínculo</p>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+<span class="text-sm text-slate-200">Verificado via App</span>
+</div>
+</div>
+<div>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Membro Desde</p>
+<span class="text-sm text-slate-200 font-medium">Outubro 2024</span>
+</div>
+<div>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Limite Diário</p>
+<span class="text-sm text-slate-200 font-medium">R$ 1.200,00</span>
+</div>
+<div>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Categoria</p>
+<span class="text-sm text-purple-400 font-bold">VIP Platinum</span>
+</div>
+</div>
+</div>
+<div class="w-full md:w-1/3 flex flex-col gap-3">
+<div class="p-4 bg-slate-900/40 rounded-xl border border-slate-800/50">
+<p class="text-[10px] text-slate-500 uppercase tracking-widest mb-2">Mapa de Gastos</p>
+<div class="h-24 w-full bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-transparent rounded-lg flex items-center justify-center border border-slate-800">
+<span class="material-symbols-outlined text-slate-600 text-4xl" data-icon="bar_chart">bar_chart</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action Button (FAB) - Suppressed as per context rules for details screens, but showing 'Add' intent if on list -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-cyan-500 text-slate-950 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(0,240,255,0.4)] hover:scale-110 transition-transform md:hidden">
+<span class="material-symbols-outlined font-bold" data-icon="add">add</span>
+</button>
+</body></html>

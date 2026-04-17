@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AETHER POS | ENJOYFUN</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-fixed-dim": "#eac324",
+                      "on-tertiary-fixed-variant": "#554500",
+                      "primary-fixed-dim": "#00dbe9",
+                      "primary": "#dbfcff",
+                      "inverse-on-surface": "#2c303b",
+                      "surface": "#0f131d",
+                      "surface-container-highest": "#313540",
+                      "surface-dim": "#0f131d",
+                      "outline-variant": "#3b494b",
+                      "error-container": "#93000a",
+                      "on-error-container": "#ffdad6",
+                      "surface-bright": "#353944",
+                      "secondary-fixed": "#efdbff",
+                      "on-primary-container": "#006970",
+                      "secondary-fixed-dim": "#dcb8ff",
+                      "on-surface": "#dfe2f1",
+                      "tertiary-container": "#fed639",
+                      "surface-tint": "#00dbe9",
+                      "secondary-container": "#7701d0",
+                      "primary-container": "#00f0ff",
+                      "on-background": "#dfe2f1",
+                      "background": "#0f131d",
+                      "surface-variant": "#313540",
+                      "on-surface-variant": "#b9cacb",
+                      "outline": "#849495",
+                      "on-secondary-fixed-variant": "#6700b5",
+                      "surface-container-lowest": "#0a0e18",
+                      "on-primary-fixed-variant": "#004f54",
+                      "on-secondary-container": "#dcb7ff",
+                      "tertiary": "#fff5de",
+                      "on-primary-fixed": "#002022",
+                      "inverse-surface": "#dfe2f1",
+                      "surface-container": "#1c1f2a",
+                      "primary-fixed": "#7df4ff",
+                      "on-tertiary-fixed": "#231b00",
+                      "on-tertiary-container": "#715d00",
+                      "on-tertiary": "#3b2f00",
+                      "inverse-primary": "#006970",
+                      "surface-container-low": "#171b26",
+                      "surface-container-high": "#262a35",
+                      "on-primary": "#00363a",
+                      "error": "#ffb4ab",
+                      "secondary": "#dcb8ff",
+                      "on-secondary-fixed": "#2c0051",
+                      "tertiary-fixed": "#ffe179",
+                      "on-secondary": "#480081",
+                      "on-error": "#690005"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Space Grotesk"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0a0e18;
+            color: #dfe2f1;
+            font-family: 'Inter', sans-serif;
+        }
+        .font-headline { font-family: 'Space Grotesk', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .neon-glow:hover {
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3b494b; border-radius: 10px; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+<!-- SideNavBar (Execution from JSON) -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] flex flex-col p-4 bg-slate-900/50 backdrop-blur-md shadow-2xl z-40 hidden md:flex w-64">
+<div class="mb-8">
+<h2 class="font-headline text-primary-container font-bold text-lg leading-tight uppercase tracking-widest">Event Control</h2>
+<p class="text-slate-400 text-xs font-medium">Bar &amp; Food Sector</p>
+</div>
+<nav class="flex-1 space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-primary-container/20 to-transparent text-primary-container border-l-4 border-primary-container transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined">point_of_sale</span>
+<span class="font-headline font-bold">Terminal</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 opacity-70 hover:bg-slate-800/50 hover:text-slate-200 transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-headline">Stock</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 opacity-70 hover:bg-slate-800/50 hover:text-slate-200 transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-headline">Analytics</span>
+</a>
+</nav>
+<div class="mt-auto space-y-2 pt-6 border-t border-slate-800/50">
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-primary-container transition-all duration-300" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-primary-container transition-all duration-300" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="text-sm">Support</span>
+</a>
+<button class="w-full mt-4 bg-slate-800/50 border border-slate-700/50 py-2 rounded-lg text-error text-xs font-bold uppercase tracking-tighter hover:bg-error/10 transition-colors">
+                Lock Terminal
+            </button>
+</div>
+</aside>
+<!-- TopAppBar (Execution from JSON) -->
+<header class="fixed top-0 left-0 right-0 h-16 bg-slate-950/80 backdrop-blur-md flex justify-between items-center px-8 z-50 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+<div class="flex items-center gap-8">
+<div class="text-2xl font-black text-primary-container tracking-tighter shadow-[0_0_10px_rgba(0,240,255,0.3)] font-headline">AETHER POS</div>
+<div class="flex items-center gap-2 px-3 py-1 bg-primary-container/10 border border-primary-container/20 rounded-full">
+<span class="w-2 h-2 bg-primary-container rounded-full animate-pulse"></span>
+<span class="text-primary-container text-[10px] font-bold tracking-widest uppercase">BAR SECTOR LIVE</span>
+</div>
+</div>
+<div class="hidden md:flex items-center gap-6">
+<div class="flex items-center bg-slate-900/50 border border-slate-700/50 rounded-lg px-3 py-1.5 w-64">
+<span class="material-symbols-outlined text-slate-500 text-sm">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm text-slate-200 placeholder-slate-500 w-full" placeholder="Search menu..." type="text"/>
+</div>
+<div class="flex items-center gap-4 text-slate-400">
+<span class="material-symbols-outlined hover:text-primary-container cursor-pointer transition-all">wifi</span>
+<span class="material-symbols-outlined hover:text-primary-container cursor-pointer transition-all">battery_full</span>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-primary-container/30">
+<img class="w-full h-full object-cover" data-alt="Portrait of professional service manager in soft ambient lighting, high contrast photography style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFd76pPjTWHyKfZMfCqNdyDrO2L0AVkEcl6CG5-TfMWycSPZwRZ9t3bFlqVYoOaIOrSU3a4dGSqJqV-_FFbiw2dzbZxz3gl4JtziMnNfePJYowKwKwaSDHsP05cCC1okZ1Wm3mAPlLtaT-fTl8k5k1imNpaj899PhCIfjuNiASLFcnWfCQdpKM24qUKwVJJY11jLYK8qlnvUDyDZ4GlQgKaB4y6qaxxmrKVg5_i14Baw-PpBnfpyKamvI3jgKxX82sjc0lxuRIJjqA"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col md:pl-64 pt-16 h-full bg-surface-container-lowest">
+<!-- Tab Navigation (Editorial Style) -->
+<div class="px-8 pt-8 flex items-center justify-between">
+<div class="flex items-end gap-12">
+<button class="pb-4 border-b-2 border-primary-container text-primary-container font-headline font-bold text-xl tracking-tight">POS</button>
+<button class="pb-4 border-b-2 border-transparent text-slate-500 hover:text-slate-300 font-headline font-medium text-xl tracking-tight transition-all">Inventory</button>
+<button class="pb-4 border-b-2 border-transparent text-slate-500 hover:text-slate-300 font-headline font-medium text-xl tracking-tight transition-all">Reports</button>
+</div>
+<div class="flex gap-4">
+<div class="text-right">
+<p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Current Shift</p>
+<p class="text-slate-200 font-headline">Night Ops 22:00 - 04:00</p>
+</div>
+</div>
+</div>
+<div class="flex-1 flex overflow-hidden p-8 gap-8">
+<!-- Product Grid -->
+<section class="flex-1 overflow-y-auto custom-scrollbar pr-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+<!-- Product Card 1 -->
+<div class="group bg-slate-800/40 border border-slate-700/50 p-4 rounded-xl transition-all duration-300 neon-glow cursor-pointer hover:bg-slate-800/60 flex flex-col gap-4">
+<div class="h-32 w-full overflow-hidden rounded-lg">
+<img class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" data-alt="Vibrant glowing neon cocktail with smoke effect and high contrast lighting against dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBB6mxUw4k1U_wh2IV8rvu47DBbS9yx5qAZSAe0NjplQDIztsEaq8QgrWCJB5-mpXwzbG-iY7oE0yA4ubuooyxqxuwm3dig0R28niyHc2ytl15XNukffCOpi0HKHz5eMMa2VoHrJsLWoG04jSJU7rP7lFOj2Xcq8JzWOecKo2Oh0i2oz53DWev_t1_tDm1LoKUNKVNzI6rM1O1Dw5irup9liUIrheK5t2f-gUBb-khLRT391uHc5NziTf4O5BJOIlot2fhUB4z7qWoG"/>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[10px] text-primary-container font-bold uppercase tracking-widest">Beverage</span>
+<h3 class="font-headline font-bold text-slate-200 text-lg">Cyber Punch</h3>
+<div class="flex justify-between items-center mt-2">
+<span class="text-primary-container font-headline font-black text-xl">$18.00</span>
+<span class="material-symbols-outlined text-primary-container opacity-0 group-hover:opacity-100 transition-opacity">add_circle</span>
+</div>
+</div>
+</div>
+<!-- Product Card 2 -->
+<div class="group bg-slate-800/40 border border-slate-700/50 p-4 rounded-xl transition-all duration-300 neon-glow cursor-pointer hover:bg-slate-800/60 flex flex-col gap-4">
+<div class="h-32 w-full overflow-hidden rounded-lg">
+<img class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" data-alt="Ultra premium frosted vodka bottle with blue atmospheric lighting and condensation droplets" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTCv9RqcaRN9nAyGAFj7bQdQhTfcVkGMPKEiTBU49aYx8ONWUgI5Uezn826FB2KQ3HQwJ_qExV1FcjHF-6d8gHXrMqRUzRCu55tQTlOyiVvlXILlr-f7jyl1vbdZr8bGIzivvgtoqPmQJXHBg-kBE5I73r79iffk350ckh0aDfgZwRynKG70f4_TUXjV3Gu3l7oLplCguuKJfE0hPoJ6vtQaTDCfhhcJRFLNPF4FWtFBYDxTuPbETwnjovpVXsrz1x6Jw5OcWudLcU"/>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[10px] text-primary-container font-bold uppercase tracking-widest">Spirits</span>
+<h3 class="font-headline font-bold text-slate-200 text-lg">Aether Vodka Shot</h3>
+<div class="flex justify-between items-center mt-2">
+<span class="text-primary-container font-headline font-black text-xl">$12.00</span>
+<span class="material-symbols-outlined text-primary-container opacity-0 group-hover:opacity-100 transition-opacity">add_circle</span>
+</div>
+</div>
+</div>
+<!-- Product Card 3 -->
+<div class="group bg-slate-800/40 border border-slate-700/50 p-4 rounded-xl transition-all duration-300 neon-glow cursor-pointer hover:bg-slate-800/60 flex flex-col gap-4">
+<div class="h-32 w-full overflow-hidden rounded-lg">
+<img class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" data-alt="Close-up of a premium craft beer glass with thick foam head and golden backlighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRIkn4pLkwfXzIFZ3ZbKYjvBdnWcwhEXw8UrPjz_x_Z5qDsnXE-Kw_S5zSRHr1TJ657rtDM5wrlGPetVYVjSkF1tgpLuwZEdjcnUbOVOOHVYXW5DJxik4oyDGmZw1fSLPSfPeWp-qK4SfLMl3mm3j4t5r3blz9h1E3K0Xq0a-djBMxcMqI4xRLyY84YDW9ynWsdT1L7G9C4vhIJhOXSzundTRGHWE21J-I9DTADYeLf8V8SiCFJ4ZLCbJSoLfcvyJrIxDTOJo_KaFa"/>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[10px] text-primary-container font-bold uppercase tracking-widest">Beer</span>
+<h3 class="font-headline font-bold text-slate-200 text-lg">Binary Lager</h3>
+<div class="flex justify-between items-center mt-2">
+<span class="text-primary-container font-headline font-black text-xl">$9.50</span>
+<span class="material-symbols-outlined text-primary-container opacity-0 group-hover:opacity-100 transition-opacity">add_circle</span>
+</div>
+</div>
+</div>
+<!-- Product Card 4 -->
+<div class="group bg-slate-800/40 border border-slate-700/50 p-4 rounded-xl transition-all duration-300 neon-glow cursor-pointer hover:bg-slate-800/60 flex flex-col gap-4">
+<div class="h-32 w-full overflow-hidden rounded-lg">
+<img class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" data-alt="Gourmet slider burgers on dark wood slate with dramatic shadows and warm highlights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDj61rqfKCpg8rNyxu25HKFVyKI_JikLUX66jZ3UhL-YDW9pH1MQMNe6bKYmswgt7BvZNNAREGDzbcwRs3Kni9K2E76mLcG47LCykONl6jrwx5Yow7WxXsmWyAQmF8jqbgP3mKndeR9miJTzSX9iW_y8m5VwWk0E_7bhxS1pb2NAStKokzS6kbaAXfNKg-4R3__cGieHbqyuIXaL1tXSvciQd4DDlXVDjLjUdag7X2wjtJUGSsm6NqNtkwoq4g8jS8LcceuBYTJkyx2"/>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[10px] text-primary-container font-bold uppercase tracking-widest">Food</span>
+<h3 class="font-headline font-bold text-slate-200 text-lg">Neon Sliders</h3>
+<div class="flex justify-between items-center mt-2">
+<span class="text-primary-container font-headline font-black text-xl">$15.00</span>
+<span class="material-symbols-outlined text-primary-container opacity-0 group-hover:opacity-100 transition-opacity">add_circle</span>
+</div>
+</div>
+</div>
+<!-- Product Card 5 -->
+<div class="group bg-slate-800/40 border border-slate-700/50 p-4 rounded-xl transition-all duration-300 neon-glow cursor-pointer hover:bg-slate-800/60 flex flex-col gap-4">
+<div class="h-32 w-full overflow-hidden rounded-lg">
+<img class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" data-alt="Classic cocktail martini with neon green olive garnish and sharp cold reflection" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7HTs5Q91QktWelhdUTRBbm-bs-f65XSm3MB8hOJggNsPRwjHzCiO7EveaPe723EueEQp7LFCAdz0ocztT5lOUPmJmmdggziObJKE_61DUIOu_7LmzI6OqJNk38S3xA-ZEcB7vAoOiGHtr-aXmmIqI1DajXPNEOxs5neK7Sx1wpe1VakZFQDsRi3Sqkl4F1177kQnEkR88INqRJKhzBldJjIMTi1HohYm4X5qrJHVQtrvuU848dtxOooR28F8Prw0tZJBsugkh-FYt"/>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[10px] text-primary-container font-bold uppercase tracking-widest">Beverage</span>
+<h3 class="font-headline font-bold text-slate-200 text-lg">Circuit Martini</h3>
+<div class="flex justify-between items-center mt-2">
+<span class="text-primary-container font-headline font-black text-xl">$22.00</span>
+<span class="material-symbols-outlined text-primary-container opacity-0 group-hover:opacity-100 transition-opacity">add_circle</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Cart Panel (Right Sidebar) -->
+<section class="w-96 flex flex-col bg-slate-900/50 backdrop-blur-md rounded-2xl p-6 border border-slate-800/60 shadow-2xl">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-headline font-bold text-xl text-slate-200">Order Summary</h2>
+<span class="px-2 py-1 bg-slate-800 text-[10px] text-slate-400 rounded font-bold uppercase tracking-widest">Table 12</span>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar space-y-4 mb-6 pr-2">
+<!-- Cart Item -->
+<div class="flex justify-between items-center pb-4 border-b border-slate-800/40">
+<div class="flex flex-col">
+<span class="text-slate-200 font-medium">Cyber Punch</span>
+<span class="text-xs text-slate-500">x2 unit</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-slate-800 rounded-lg">
+<button class="p-1 text-slate-400 hover:text-primary-container transition-all">
+<span class="material-symbols-outlined text-sm">remove</span>
+</button>
+<span class="px-2 text-xs font-bold text-slate-200">2</span>
+<button class="p-1 text-slate-400 hover:text-primary-container transition-all">
+<span class="material-symbols-outlined text-sm">add</span>
+</button>
+</div>
+<span class="text-primary-container font-headline font-bold">$36.00</span>
+</div>
+</div>
+<div class="flex justify-between items-center pb-4 border-b border-slate-800/40">
+<div class="flex flex-col">
+<span class="text-slate-200 font-medium">Neon Sliders</span>
+<span class="text-xs text-slate-500">x1 unit</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-slate-800 rounded-lg">
+<button class="p-1 text-slate-400 hover:text-primary-container transition-all">
+<span class="material-symbols-outlined text-sm">remove</span>
+</button>
+<span class="px-2 text-xs font-bold text-slate-200">1</span>
+<button class="p-1 text-slate-400 hover:text-primary-container transition-all">
+<span class="material-symbols-outlined text-sm">add</span>
+</button>
+</div>
+<span class="text-primary-container font-headline font-bold">$15.00</span>
+</div>
+</div>
+</div>
+<div class="space-y-3 pt-4 border-t border-slate-700/30">
+<div class="flex justify-between text-slate-400 text-sm">
+<span>Subtotal</span>
+<span>$51.00</span>
+</div>
+<div class="flex justify-between text-slate-400 text-sm">
+<span>Tax (10%)</span>
+<span>$5.10</span>
+</div>
+<div class="flex justify-between items-end pt-2">
+<span class="text-slate-200 font-headline font-bold uppercase tracking-widest text-xs">Total Amount</span>
+<span class="text-primary-container font-headline font-black text-4xl leading-none">$56.10</span>
+</div>
+<div class="pt-6">
+<button class="w-full h-14 bg-gradient-to-r from-primary-container to-primary-fixed-dim rounded-xl text-slate-950 font-headline font-black text-lg tracking-widest uppercase hover:scale-[1.02] transition-transform shadow-[0_0_20px_rgba(0,240,255,0.2)]">
+                            Checkout
+                        </button>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Embedded AI Chat Widget -->
+<div class="fixed bottom-8 right-8 z-[60]">
+<div class="group relative">
+<button class="w-16 h-16 bg-secondary-container/80 backdrop-blur-md rounded-full flex items-center justify-center border border-secondary/30 shadow-[0_0_20px_rgba(138,43,226,0.3)] animate-pulse hover:animate-none hover:scale-110 transition-all cursor-pointer">
+<span class="material-symbols-outlined text-secondary text-3xl" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</button>
+<!-- Expanded State Mockup (Absolute positioned popover) -->
+<div class="absolute bottom-20 right-0 w-80 bg-slate-900 border border-secondary/20 rounded-2xl shadow-2xl opacity-0 translate-y-4 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-300 overflow-hidden">
+<div class="p-4 bg-secondary-container/20 border-b border-secondary/10 flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">smart_toy</span>
+<div>
+<h4 class="text-secondary font-headline font-bold text-sm">Aether Intelligence</h4>
+<p class="text-[10px] text-secondary/70 uppercase font-bold tracking-tighter">Inventory &amp; Trend Monitor</p>
+</div>
+</div>
+<div class="p-4 space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
+<div class="bg-slate-800/50 p-2 rounded-lg text-xs text-slate-300">
+                        "Cyber Punch" stock is low (8 items remaining). Suggesting reorder for weekend surge.
+                    </div>
+<div class="bg-secondary-container/10 p-2 rounded-lg text-xs text-secondary-fixed">
+                        Inventory alert: 3 new cases of "Binary Lager" logged at 21:45.
+                    </div>
+</div>
+<div class="p-4 pt-0">
+<div class="flex bg-slate-800 rounded-lg p-2 items-center">
+<input class="bg-transparent border-none focus:ring-0 text-xs text-slate-200 placeholder-slate-500 flex-1" placeholder="Ask AI assistant..." type="text"/>
+<span class="material-symbols-outlined text-secondary text-lg">send</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- BottomNavBar (Execution from JSON - Mobile Only) -->
+<nav class="fixed bottom-0 w-full flex justify-around items-center p-3 bg-slate-900/90 backdrop-blur-lg z-50 md:hidden shadow-[0_-4px_15px_rgba(0,240,255,0.1)]">
+<a class="flex flex-col items-center justify-center bg-primary-container/10 text-primary-container rounded-xl px-4 py-2 transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="text-[10px] uppercase font-bold tracking-widest font-headline">POS</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-primary-container transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined">widgets</span>
+<span class="text-[10px] uppercase font-bold tracking-widest font-headline">Inventory</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-primary-container transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined">insights</span>
+<span class="text-[10px] uppercase font-bold tracking-widest font-headline">Reports</span>
+</a>
+</nav>
+</body></html>

@@ -620,6 +620,10 @@ function buildEventHubBlock(\PDO $db, array $event, int $userId): array
         'access_level' => !empty($zones) ? implode(' + ', $zones) : 'GENERAL',
         'zones' => $zones ?: ['General Access'],
         'attendee_count' => $attendees,
+        'banner_url' => b2cResolveFileUrl($event['banner_url'] ?? null),
+        'tour_video_url' => b2cResolveFileUrl($event['tour_video_url'] ?? null),
+        'tour_video_360_url' => b2cResolveFileUrl($event['tour_video_360_url'] ?? null),
+        'map_3d_url' => b2cResolveFileUrl($event['map_3d_url'] ?? null),
     ];
 }
 
@@ -707,27 +711,34 @@ function buildCashlessBlock(\PDO $db, int $userId, int $eventId): ?array
 function buildLineupBlocks(\PDO $db, int $eventId): array
 {
     $stages = [];
+    $stageMedia = []; // map name => media URLs
     if (b2cTableExists($db, 'event_stages')) {
-        $stmt = $db->prepare("SELECT id, name FROM event_stages WHERE event_id = ? ORDER BY sort_order ASC");
+        $stmt = $db->prepare("SELECT id, name, image_url, video_url, video_360_url, description FROM event_stages WHERE event_id = ? ORDER BY sort_order ASC");
         $stmt->execute([$eventId]);
         $stageRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
         foreach ($stageRows as $stage) {
-            $stages[] = ['name' => $stage['name'], 'slots' => []];
+            $media = [
+                'image_url' => b2cResolveFileUrl($stage['image_url'] ?? null),
+                'video_url' => b2cResolveFileUrl($stage['video_url'] ?? null),
+                'video_360_url' => b2cResolveFileUrl($stage['video_360_url'] ?? null),
+                'description' => $stage['description'] ?? null,
+            ];
+            $stageMedia[$stage['name']] = $media;
+            $stages[] = array_merge(['name' => $stage['name'], 'slots' => []], $media);
         }
     }
 
-    // Artists table uses legal_name + organizer_id + stage_name
+    // Artists (legal_name + organizer_id + stage_name + photo_url)
     try {
         $stmtEv = $db->prepare("SELECT organizer_id FROM events WHERE id = ? LIMIT 1");
         $stmtEv->execute([$eventId]);
         $orgId = (int)$stmtEv->fetchColumn();
 
-        $stmt = $db->prepare("SELECT legal_name, artist_type, stage_name FROM artists WHERE organizer_id = ? AND is_active = true ORDER BY stage_name ASC, legal_name ASC");
+        $stmt = $db->prepare("SELECT legal_name, artist_type, stage_name, photo_url, performance_video_url, bio, genre FROM artists WHERE organizer_id = ? AND is_active = true ORDER BY stage_name ASC, legal_name ASC");
         $stmt->execute([$orgId]);
         $artists = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-        // Group by stage_name
         $grouped = [];
         foreach ($artists as $a) {
             $sn = $a['stage_name'] ?: 'Principal';
@@ -736,11 +747,13 @@ function buildLineupBlocks(\PDO $db, int $eventId): array
                 'artist_name' => $a['legal_name'],
                 'start_at' => '',
                 'end_at' => '',
-                'image_url' => null,
+                'image_url' => b2cResolveFileUrl($a['photo_url'] ?? null),
+                'video_url' => b2cResolveFileUrl($a['performance_video_url'] ?? null),
+                'bio' => $a['bio'] ?? null,
+                'genre' => $a['genre'] ?? null,
             ];
         }
 
-        // Merge with existing stages or create from grouped
         if (empty($stages) && !empty($grouped)) {
             foreach ($grouped as $sn => $slots) {
                 $stages[] = ['name' => $sn, 'slots' => $slots];
@@ -766,17 +779,27 @@ function buildMapBlocks(\PDO $db, int $eventId, array $event): array
 {
     $markers = [];
     if (b2cTableExists($db, 'event_pdv_points')) {
-        $stmt = $db->prepare("SELECT name, pdv_type AS kind, location_description FROM event_pdv_points WHERE event_id = ? AND is_active = true ORDER BY sort_order ASC");
+        $stmt = $db->prepare("SELECT name, pdv_type AS kind, location_description, image_url FROM event_pdv_points WHERE event_id = ? AND is_active = true ORDER BY sort_order ASC");
         $stmt->execute([$eventId]);
         foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $p) {
-            $markers[] = ['label' => $p['name'], 'kind' => $p['kind']];
+            $markers[] = [
+                'label' => $p['name'],
+                'kind' => $p['kind'],
+                'description' => $p['location_description'] ?? null,
+                'image_url' => b2cResolveFileUrl($p['image_url'] ?? null),
+            ];
         }
     }
     if (b2cTableExists($db, 'event_stages')) {
-        $stmt = $db->prepare("SELECT name FROM event_stages WHERE event_id = ? ORDER BY sort_order ASC");
+        $stmt = $db->prepare("SELECT name, image_url, video_url FROM event_stages WHERE event_id = ? ORDER BY sort_order ASC");
         $stmt->execute([$eventId]);
         foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $s) {
-            $markers[] = ['label' => $s['name'], 'kind' => 'stage'];
+            $markers[] = [
+                'label' => $s['name'],
+                'kind' => 'stage',
+                'image_url' => b2cResolveFileUrl($s['image_url'] ?? null),
+                'video_url' => b2cResolveFileUrl($s['video_url'] ?? null),
+            ];
         }
     }
 
@@ -800,7 +823,16 @@ function buildMapBlocks(\PDO $db, int $eventId, array $event): array
         return [['id' => 'no-map', 'type' => 'text', 'body' => 'Mapa do evento ainda nao disponivel. Pergunte sobre line-up, ingressos ou saldo.']];
     }
 
-    return [['id' => 'map', 'type' => 'map', 'markers' => $markers, 'center' => $center]];
+    return [[
+        'id' => 'map',
+        'type' => 'map',
+        'markers' => $markers,
+        'center' => $center,
+        'map_image_url' => b2cResolveFileUrl($event['map_image_url'] ?? null),
+        'map_3d_url' => b2cResolveFileUrl($event['map_3d_url'] ?? null),
+        'tour_video_url' => b2cResolveFileUrl($event['tour_video_url'] ?? null),
+        'tour_video_360_url' => b2cResolveFileUrl($event['tour_video_360_url'] ?? null),
+    ]];
 }
 
 function buildAgendaBlocks(\PDO $db, int $eventId): array
@@ -902,6 +934,7 @@ function buildParkingBlocks(\PDO $db, int $eventId): array
     }
 
     $cards = [];
+    $totalSpots = 0;
     foreach ($configs as $c) {
         $label = $c['vehicle_type'] === 'car' ? 'Carro' : ($c['vehicle_type'] === 'motorcycle' ? 'Moto' : ucfirst($c['vehicle_type']));
         $cards[] = [
@@ -910,13 +943,36 @@ function buildParkingBlocks(\PDO $db, int $eventId): array
             'delta' => 'R$ ' . number_format($c['price'], 2, ',', '.'),
             'delta_direction' => 'up',
         ];
+        $totalSpots += (int)$c['total_spots'];
     }
 
-    return [[
-        'id' => 'parking-info',
-        'type' => 'card_grid',
-        'cards' => $cards,
-    ]];
+    // Gera grid visual de vagas (ate 25 pra ficar 5x5 isometrico)
+    $visualCount = min(25, max(10, (int)($totalSpots / 10)));
+    $slots = [];
+    for ($i = 1; $i <= $visualCount; $i++) {
+        $status = 'available';
+        if ($i === 7) $status = 'selected'; // exemplo de vaga sugerida
+        elseif ($i % 4 === 0) $status = 'occupied';
+        elseif ($i % 7 === 0) $status = 'reserved';
+        $slots[] = ['number' => $i, 'status' => $status];
+    }
+
+    return [
+        [
+            'id' => 'parking-info',
+            'type' => 'card_grid',
+            'cards' => $cards,
+        ],
+        [
+            'id' => 'parking-visual',
+            'type' => 'parking_grid',
+            'sector' => 'A',
+            'slots' => $slots,
+            'columns' => 5,
+            'tariff' => 'R$ ' . number_format((float)($configs[0]['price'] ?? 15), 2, ',', '.') . '/h',
+            'safety_level' => 'A1',
+        ],
+    ];
 }
 
 function buildSectorBlocks(\PDO $db, int $eventId): array
@@ -925,7 +981,7 @@ function buildSectorBlocks(\PDO $db, int $eventId): array
         return [['id' => 'no-sectors', 'type' => 'text', 'body' => 'Setores nao configurados para este evento.']];
     }
 
-    $stmt = $db->prepare("SELECT name, sector_type, capacity FROM event_sectors WHERE event_id = ? ORDER BY sort_order ASC");
+    $stmt = $db->prepare("SELECT name, sector_type, capacity, image_url, video_url FROM event_sectors WHERE event_id = ? ORDER BY sort_order ASC");
     $stmt->execute([$eventId]);
     $sectors = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
@@ -937,7 +993,12 @@ function buildSectorBlocks(\PDO $db, int $eventId): array
         'id' => 'sectors',
         'type' => 'event_sectors',
         'title' => 'Setores do Evento',
-        'sectors' => array_map(fn($s) => ['name' => $s['name'], 'sector_type' => $s['sector_type']], $sectors),
+        'sectors' => array_map(fn($s) => [
+            'name' => $s['name'],
+            'sector_type' => $s['sector_type'],
+            'image_url' => b2cResolveFileUrl($s['image_url'] ?? null),
+            'video_url' => b2cResolveFileUrl($s['video_url'] ?? null),
+        ], $sectors),
     ]];
 }
 
@@ -946,7 +1007,7 @@ function buildCeremonyBlocks(\PDO $db, int $eventId): array
     if (!b2cTableExists($db, 'event_ceremony_moments')) {
         return [['id' => 'no-ceremony', 'type' => 'text', 'body' => 'Itinerario da cerimonia nao disponivel.']];
     }
-    $stmt = $db->prepare("SELECT name, moment_time, sort_order FROM event_ceremony_moments WHERE event_id = ? AND is_active = true ORDER BY sort_order ASC");
+    $stmt = $db->prepare("SELECT name, moment_time, sort_order, image_url, notes FROM event_ceremony_moments WHERE event_id = ? AND is_active = true ORDER BY sort_order ASC");
     $stmt->execute([$eventId]);
     $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
     if (empty($rows)) {
@@ -954,7 +1015,12 @@ function buildCeremonyBlocks(\PDO $db, int $eventId): array
     }
     $steps = [];
     foreach ($rows as $r) {
-        $steps[] = ['time' => $r['moment_time'] ?? '', 'title' => $r['name'], 'description' => null];
+        $steps[] = [
+            'time' => $r['moment_time'] ?? '',
+            'title' => $r['name'],
+            'description' => $r['notes'] ?? null,
+            'image_url' => b2cResolveFileUrl($r['image_url'] ?? null),
+        ];
     }
     return [['id' => 'itinerary', 'type' => 'itinerary', 'title' => 'Cerimonia', 'steps' => $steps]];
 }
@@ -981,14 +1047,18 @@ function buildTableBlocks(\PDO $db, int $eventId): array
     if (!b2cTableExists($db, 'event_tables')) {
         return [['id' => 'no-tables', 'type' => 'text', 'body' => 'Mapa de mesas nao disponivel.']];
     }
-    $stmt = $db->prepare("SELECT table_number, table_name, capacity, table_type, section FROM event_tables WHERE event_id = ? ORDER BY sort_order ASC");
+    $stmt = $db->prepare("SELECT table_number, table_name, capacity, table_type, section, layout_image_url FROM event_tables WHERE event_id = ? ORDER BY sort_order ASC");
     $stmt->execute([$eventId]);
     $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
     if (empty($rows)) {
         return [['id' => 'no-tables', 'type' => 'text', 'body' => 'Nenhuma mesa cadastrada.']];
     }
     $tables = [];
+    $layoutImage = null;
     foreach ($rows as $r) {
+        if (!$layoutImage && !empty($r['layout_image_url'])) {
+            $layoutImage = b2cResolveFileUrl($r['layout_image_url']);
+        }
         $tables[] = [
             'number' => $r['table_number'],
             'capacity' => (int)$r['capacity'],
@@ -996,7 +1066,13 @@ function buildTableBlocks(\PDO $db, int $eventId): array
             'guests' => [],
         ];
     }
-    return [['id' => 'seating', 'type' => 'seating_banquet', 'title' => 'Mapa de Mesas', 'tables' => $tables]];
+    return [[
+        'id' => 'seating',
+        'type' => 'seating_banquet',
+        'title' => 'Mapa de Mesas',
+        'tables' => $tables,
+        'layout_image_url' => $layoutImage,
+    ]];
 }
 
 function buildSubEventBlocks(\PDO $db, int $eventId): array
@@ -1004,7 +1080,7 @@ function buildSubEventBlocks(\PDO $db, int $eventId): array
     if (!b2cTableExists($db, 'event_sub_events')) {
         return [['id' => 'no-subs', 'type' => 'text', 'body' => 'Sub-eventos nao disponiveis.']];
     }
-    $stmt = $db->prepare("SELECT name, sub_event_type, event_date, event_time, venue, description FROM event_sub_events WHERE event_id = ? AND is_active = true ORDER BY sort_order ASC, event_date ASC");
+    $stmt = $db->prepare("SELECT name, sub_event_type, event_date, event_time, venue, description, image_url, video_url FROM event_sub_events WHERE event_id = ? AND is_active = true ORDER BY sort_order ASC, event_date ASC");
     $stmt->execute([$eventId]);
     $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
     if (empty($rows)) {
@@ -1017,6 +1093,8 @@ function buildSubEventBlocks(\PDO $db, int $eventId): array
             'label' => $r['name'],
             'description' => $r['venue'] ? ($r['venue'] . ($r['description'] ? ' — ' . $r['description'] : '')) : ($r['description'] ?? null),
             'status' => 'upcoming',
+            'image_url' => b2cResolveFileUrl($r['image_url'] ?? null),
+            'video_url' => b2cResolveFileUrl($r['video_url'] ?? null),
         ];
     }
     return [['id' => 'sub-events', 'type' => 'timeline', 'title' => 'Pre-Festas e Sub-Eventos', 'events' => $events]];
@@ -1097,12 +1175,11 @@ function buildDigitalCardBlocks(\PDO $db, int $userId, array $event): array
 function buildStageZoomBlocks(\PDO $db, int $eventId): array
 {
     if (!b2cTableExists($db, 'event_stages')) return [['id' => 'no-sz', 'type' => 'text', 'body' => 'Nenhum palco cadastrado.']];
-    $stmt = $db->prepare("SELECT id, name, stage_type, capacity FROM event_stages WHERE event_id = ? ORDER BY sort_order ASC LIMIT 1");
+    $stmt = $db->prepare("SELECT id, name, stage_type, capacity, image_url, video_url, video_360_url, description FROM event_stages WHERE event_id = ? ORDER BY sort_order ASC LIMIT 1");
     $stmt->execute([$eventId]);
     $stage = $stmt->fetch(\PDO::FETCH_ASSOC);
     if (!$stage) return [['id' => 'no-sz', 'type' => 'text', 'body' => 'Nenhum palco encontrado.']];
 
-    // Current session on this stage
     $artist = null;
     if (b2cTableExists($db, 'event_sessions')) {
         $stmt2 = $db->prepare("SELECT speaker_name FROM event_sessions WHERE stage_id = ? AND event_id = ? ORDER BY starts_at ASC LIMIT 1");
@@ -1115,8 +1192,12 @@ function buildStageZoomBlocks(\PDO $db, int $eventId): array
         'stage' => [
             'name' => $stage['name'], 'current_artist' => $artist,
             'capacity_pct' => rand(60, 95), 'bpm' => rand(120, 145),
+            'image_url' => b2cResolveFileUrl($stage['image_url'] ?? null),
+            'video_url' => b2cResolveFileUrl($stage['video_url'] ?? null),
+            'video_360_url' => b2cResolveFileUrl($stage['video_360_url'] ?? null),
+            'description' => $stage['description'] ?? null,
         ],
-        'has_live_stream' => true,
+        'has_live_stream' => !empty($stage['video_url']),
     ]];
 }
 
@@ -1438,6 +1519,26 @@ function fallbackToAIChat(array $body): array
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Resolve "file:{id}:{name}" refs para URL real de download.
+ * - file:abc123:palco.jpg → /api/organizer-files/abc123/download
+ * - https://... → inalterado
+ * - null/empty → null
+ */
+function b2cResolveFileUrl(?string $ref): ?string
+{
+    if (!$ref || trim($ref) === '') return null;
+    $ref = trim($ref);
+    if (str_starts_with($ref, 'file:')) {
+        $parts = explode(':', $ref, 3);
+        if (count($parts) >= 2 && $parts[1] !== '') {
+            return '/api/organizer-files/' . $parts[1] . '/download';
+        }
+        return null;
+    }
+    return $ref;
+}
 
 function b2cTableExists(\PDO $db, string $table): bool
 {

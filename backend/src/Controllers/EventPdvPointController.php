@@ -55,6 +55,7 @@ function createEventPdvPoint(array $body): void
     $stageId             = isset($body['stage_id']) ? (int)$body['stage_id'] : null;
     $locationDescription = trim((string)($body['location_description'] ?? ''));
     $sortOrder           = (int)($body['sort_order'] ?? 0);
+    $imageUrl            = trim((string)($body['image_url'] ?? ''));
 
     if (!$eventId || $name === '') {
         jsonError('Dados incompletos (event_id, name).', 400);
@@ -82,11 +83,11 @@ function createEventPdvPoint(array $body): void
     }
 
     $stmt = $db->prepare("
-        INSERT INTO event_pdv_points (event_id, name, pdv_type, stage_id, location_description, sort_order, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO event_pdv_points (event_id, organizer_id, name, pdv_type, stage_id, location_description, sort_order, image_url, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
         RETURNING id
     ");
-    $stmt->execute([$eventId, $name, $pdvType ?: null, $stageId, $locationDescription ?: null, $sortOrder]);
+    $stmt->execute([$eventId, $organizerId, $name, $pdvType ?: null, $stageId, $locationDescription ?: null, $sortOrder, $imageUrl ?: null]);
 
     jsonSuccess(['id' => $stmt->fetchColumn()], 'Ponto de venda criado com sucesso.', 201);
 }
@@ -113,6 +114,7 @@ function updateEventPdvPoint(int $id, array $body): void
     $stageId             = isset($body['stage_id']) ? (int)$body['stage_id'] : null;
     $locationDescription = trim((string)($body['location_description'] ?? ''));
     $sortOrder           = (int)($body['sort_order'] ?? 0);
+    $imageUrl            = trim((string)($body['image_url'] ?? ''));
 
     if ($name === '') {
         jsonError('Nome e obrigatorio.', 400);
@@ -135,10 +137,10 @@ function updateEventPdvPoint(int $id, array $body): void
 
     $stmt = $db->prepare("
         UPDATE event_pdv_points
-        SET name = ?, pdv_type = ?, stage_id = ?, location_description = ?, sort_order = ?
+        SET name = ?, pdv_type = ?, stage_id = ?, location_description = ?, sort_order = ?, image_url = ?
         WHERE id = ?
     ");
-    $stmt->execute([$name, $pdvType ?: null, $stageId, $locationDescription ?: null, $sortOrder, $id]);
+    $stmt->execute([$name, $pdvType ?: null, $stageId, $locationDescription ?: null, $sortOrder, $imageUrl ?: null, $id]);
 
     jsonSuccess([], 'Ponto de venda atualizado com sucesso.');
 }

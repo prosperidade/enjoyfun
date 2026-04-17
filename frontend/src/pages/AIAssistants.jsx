@@ -322,7 +322,7 @@ export default function AIAssistants() {
       ]);
       setAgents(agentsList);
       setProviders(providersList);
-    } catch (err) {
+    } catch {
       toast.error('Erro ao carregar assistentes');
     } finally {
       setLoading(false);

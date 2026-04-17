@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline-variant": "#3b494b",
+                    "primary-fixed-dim": "#00dbe9",
+                    "inverse-primary": "#006970",
+                    "surface-container-lowest": "#0a0e18",
+                    "inverse-on-surface": "#2c303b",
+                    "outline": "#849495",
+                    "error-container": "#93000a",
+                    "on-primary-fixed": "#002022",
+                    "on-primary": "#00363a",
+                    "secondary-container": "#7701d0",
+                    "tertiary-container": "#fed639",
+                    "surface-bright": "#353944",
+                    "on-tertiary-container": "#715d00",
+                    "tertiary-fixed-dim": "#eac324",
+                    "secondary-fixed": "#efdbff",
+                    "primary-fixed": "#7df4ff",
+                    "on-surface-variant": "#b9cacb",
+                    "surface-container-highest": "#313540",
+                    "on-primary-container": "#006970",
+                    "on-tertiary-fixed-variant": "#554500",
+                    "on-primary-fixed-variant": "#004f54",
+                    "primary": "#dbfcff",
+                    "tertiary-fixed": "#ffe179",
+                    "background": "#0f131d",
+                    "surface-container": "#1c1f2a",
+                    "secondary": "#dcb8ff",
+                    "surface-variant": "#313540",
+                    "on-secondary-container": "#dcb7ff",
+                    "surface-dim": "#0f131d",
+                    "on-surface": "#dfe2f1",
+                    "on-secondary-fixed-variant": "#6700b5",
+                    "on-background": "#dfe2f1",
+                    "secondary-fixed-dim": "#dcb8ff",
+                    "on-secondary": "#480081",
+                    "surface-container-high": "#262a35",
+                    "on-tertiary": "#3b2f00",
+                    "surface-tint": "#00dbe9",
+                    "primary-container": "#00f0ff",
+                    "inverse-surface": "#dfe2f1",
+                    "on-error": "#690005",
+                    "on-secondary-fixed": "#2c0051",
+                    "surface": "#0f131d",
+                    "surface-container-low": "#171b26",
+                    "tertiary": "#fff5de",
+                    "error": "#ffb4ab",
+                    "on-tertiary-fixed": "#231b00",
+                    "on-error-container": "#ffdad6"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Space Grotesk', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0e18; }
+        ::-webkit-scrollbar-thumb { background: #3b494b; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-background min-h-screen">
+<!-- Top Navigation Bar -->
+<nav class="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 shadow-[0_0_15px_rgba(0,240,255,0.05)] flex justify-between items-center px-8 h-16 w-full">
+<div class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500 font-headline tracking-tight">
+            Aether Event Finance
+        </div>
+<div class="hidden md:flex gap-8 items-center">
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-label" href="#">Dashboard</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-label" href="#">Budget</a>
+<a class="text-cyan-400 border-b-2 border-cyan-500 pb-1 font-label" href="#">Payables</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-label" href="#">Suppliers</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-label" href="#">Settings</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-400 hover:bg-slate-800/40 transition-all duration-300 rounded-full active:scale-95">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-slate-400 hover:bg-slate-800/40 transition-all duration-300 rounded-full active:scale-95">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-slate-800 overflow-hidden border border-slate-700">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="close-up portrait of a professional woman with a tech background, soft cinematic blue lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuATMsyg0fGUtI5uTt7qdF84OVW0GqxzHNcsvQQuHKR4dASyKITuRO2FFAKQpFrdbgmpmCaSoagMRbsn_t_XRaD3tNbaFwh-7iBBDmsm8HKCC9FAaMt5Em5itZM6-t0Qfbu4IJ-Nbftma9vpDw_9sQSDnma97xZLVR9IwmxOGqooECaUN9Lier2gQuY-2jbzD-p2kURz3QkZhzBhvTy75BRKa_mQFKpyuJfhy0JywIMu43NdMHIEj_34Pt8-qpvOyybIBDu1oPKmr5KK"/>
+</div>
+</div>
+</nav>
+<!-- Sidebar Navigation -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-slate-950 flex flex-col h-full pt-20 hidden md:flex border-r border-slate-900/50">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3 mb-6">
+<div class="w-10 h-10 bg-cyan-500/10 rounded-lg flex items-center justify-center border border-cyan-500/20">
+<span class="material-symbols-outlined text-cyan-400" data-icon="corporate_fare">corporate_fare</span>
+</div>
+<div>
+<h3 class="text-sm font-bold text-cyan-400 font-headline">EventCorp</h3>
+<p class="text-[10px] text-slate-500 tracking-widest uppercase">Enterprise Tier</p>
+</div>
+</div>
+</div>
+<nav class="flex-1">
+<a class="text-slate-400 p-4 flex items-center gap-3 hover:bg-slate-800/50 transition-all duration-300 hover:translate-x-1 font-label" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span> Overview
+            </a>
+<a class="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 text-cyan-400 border-r-2 border-cyan-500 p-4 flex items-center gap-3 font-label" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span> Ledger
+            </a>
+<a class="text-slate-400 p-4 flex items-center gap-3 hover:bg-slate-800/50 transition-all duration-300 hover:translate-x-1 font-label" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span> Vendors
+            </a>
+<a class="text-slate-400 p-4 flex items-center gap-3 hover:bg-slate-800/50 transition-all duration-300 hover:translate-x-1 font-label" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span> Reports
+            </a>
+<a class="text-slate-400 p-4 flex items-center gap-3 hover:bg-slate-800/50 transition-all duration-300 hover:translate-x-1 font-label" href="#">
+<span class="material-symbols-outlined" data-icon="shield">shield</span> Security
+            </a>
+</nav>
+<div class="p-6">
+<button class="w-full py-3 px-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-sm font-medium transition-all active:scale-95 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="upload">upload</span> Importar Dados
+            </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="md:ml-64 pt-24 pb-12 px-8">
+<header class="mb-10">
+<div class="flex items-center gap-2 text-cyan-500 mb-2 font-label text-sm">
+<span class="material-symbols-outlined text-sm" data-icon="arrow_back">arrow_back</span>
+<span>Voltar para Contas a Pagar</span>
+</div>
+<h1 class="text-4xl font-bold text-slate-200 font-headline tracking-tight">Detalhes do Pagamento: <span class="text-cyan-400">Main Stage Audio</span></h1>
+<p class="text-slate-400 mt-2 max-w-2xl">Gestão detalhada de faturas e fluxos de caixa para a produção técnica do Festival de Inverno 2024.</p>
+</header>
+<!-- Bento Grid Stats Section -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+<!-- Stat Card 1 -->
+<div class="bg-slate-900/60 backdrop-blur-md border-l-4 border-l-purple-500/50 p-6 rounded-xl shadow-2xl shadow-cyan-900/5 group hover:bg-slate-800/40 transition-all">
+<div class="flex justify-between items-start mb-4">
+<p class="text-slate-400 font-label text-sm uppercase tracking-wider">Total do Contrato</p>
+<span class="material-symbols-outlined text-purple-400" data-icon="receipt_long">receipt_long</span>
+</div>
+<div class="text-3xl font-bold text-slate-200 font-headline tracking-tighter">R$ 145.000,00</div>
+<div class="mt-4 text-[10px] text-slate-500 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="info">info</span> Atualizado há 2 horas
+                </div>
+</div>
+<!-- Stat Card 2 -->
+<div class="bg-slate-900/60 backdrop-blur-md border-l-4 border-l-cyan-500/50 p-6 rounded-xl shadow-2xl shadow-cyan-900/5 group hover:bg-slate-800/40 transition-all">
+<div class="flex justify-between items-start mb-4">
+<p class="text-slate-400 font-label text-sm uppercase tracking-wider">Valor Pago</p>
+<span class="material-symbols-outlined text-cyan-400" data-icon="check_circle">check_circle</span>
+</div>
+<div class="text-3xl font-bold text-cyan-400 font-headline tracking-tighter">R$ 90.000,00</div>
+<div class="mt-4 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+<div class="bg-cyan-500 h-full w-[62%] rounded-full shadow-[0_0_10px_rgba(0,240,255,0.5)]"></div>
+</div>
+</div>
+<!-- Stat Card 3 -->
+<div class="bg-slate-900/60 backdrop-blur-md border-l-4 border-l-orange-500/50 p-6 rounded-xl shadow-2xl shadow-cyan-900/5 group hover:bg-slate-800/40 transition-all">
+<div class="flex justify-between items-start mb-4">
+<p class="text-slate-400 font-label text-sm uppercase tracking-wider">Saldo Devedor</p>
+<span class="material-symbols-outlined text-orange-400" data-icon="pending">pending</span>
+</div>
+<div class="text-3xl font-bold text-slate-200 font-headline tracking-tighter text-orange-200">R$ 55.000,00</div>
+<div class="mt-4 text-[10px] text-orange-400/70 flex items-center gap-1 uppercase font-bold tracking-tighter">
+<span class="material-symbols-outlined text-xs" data-icon="warning">warning</span> Próximo vencimento em 4 dias
+                </div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+<!-- Artist/Service Section (2/3 width on large) -->
+<div class="lg:col-span-2 space-y-10">
+<!-- Artist/Service Profile -->
+<div class="bg-slate-900/40 rounded-2xl border border-cyan-500/30 p-8 relative overflow-hidden group">
+<!-- Decorative Glow -->
+<div class="absolute -right-20 -top-20 w-64 h-64 bg-cyan-500/5 rounded-full blur-[80px]"></div>
+<div class="flex flex-col md:flex-row gap-8 items-center relative z-10">
+<div class="w-32 h-32 rounded-2xl overflow-hidden border-2 border-cyan-500/50 shadow-[0_0_20px_rgba(0,240,255,0.2)]">
+<img alt="Audio Service Cover" class="w-full h-full object-cover scale-110 group-hover:scale-100 transition-transform duration-700" data-alt="high-tech audio mixing console in a dimly lit studio with neon blue and purple indicator lights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJrbYgZjmHH7gnWnedAhZBrbzQzL3HIj0yyt00CCygw7geo4ZlulGYUSib622f9cKGYmNMwd6dCR1pVGKPYjUZZcZ0zO3P_EMM6-ZVfP-O-H_9q6r8w56U8A4Jt8tP-ED9I5FtxqsADDEHG5QF45olL50lRmQbcqkmFqHJuP-HCEMgCf1Kri5He0rsFIKac1JGqqyyjTFAj-Vgv1uBeHcQrLj_AxTGhSTArcd-Mx4oVx6MGt3IAxUZdi89hV3VT0QegyDag1zeArsA"/>
+</div>
+<div class="flex-1 text-center md:text-left">
+<div class="flex flex-col md:flex-row md:items-center gap-3 mb-2">
+<h2 class="text-2xl font-bold text-slate-100 font-headline">Main Stage Audio Solutions</h2>
+<span class="bg-purple-500/10 text-purple-400 text-[10px] px-3 py-1 rounded-full border border-purple-500/20 font-bold uppercase tracking-widest self-center md:self-auto animate-pulse">AI-Verified Vendor</span>
+</div>
+<p class="text-slate-400 font-body mb-4">Especialistas em sonorização de grandes eventos e festivais outdoor. Contrato #AUD-2024-001</p>
+<div class="flex flex-wrap justify-center md:justify-start gap-4">
+<div class="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg text-xs text-slate-300">
+<span class="material-symbols-outlined text-sm text-cyan-400" data-icon="verified_user">verified_user</span> Master Partner
+                                </div>
+<div class="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg text-xs text-slate-300">
+<span class="material-symbols-outlined text-sm text-cyan-400" data-icon="pin_drop">pin_drop</span> São Paulo, BR
+                                </div>
+</div>
+</div>
+<div class="flex flex-col gap-2 w-full md:w-auto">
+<button class="w-full bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold py-3 px-6 rounded-xl hover:scale-[1.05] shadow-[0_0_15px_rgba(0,240,255,0.15)] transition-all active:scale-95">
+                                Agendar Pagamento
+                            </button>
+<button class="w-full border border-slate-700 text-slate-300 hover:border-cyan-500/50 font-medium py-3 px-6 rounded-xl transition-all">
+                                Contatar Suporte
+                            </button>
+</div>
+</div>
+</div>
+<!-- Payment History Table -->
+<div class="bg-surface p-1">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-xl font-bold text-slate-200 font-headline">Histórico de Transações</h3>
+<div class="flex gap-2">
+<button class="p-2 text-slate-400 hover:bg-slate-800/40 rounded-lg transition-all"><span class="material-symbols-outlined" data-icon="filter_list">filter_list</span></button>
+<button class="p-2 text-slate-400 hover:bg-slate-800/40 rounded-lg transition-all"><span class="material-symbols-outlined" data-icon="download">download</span></button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="text-slate-500 text-[10px] uppercase tracking-[0.2em] border-b border-slate-800/50">
+<th class="pb-4 font-medium">Data</th>
+<th class="pb-4 font-medium">Referência</th>
+<th class="pb-4 font-medium text-right">Valor</th>
+<th class="pb-4 font-medium text-center">Status</th>
+<th class="pb-4 font-medium text-right">Ação</th>
+</tr>
+</thead>
+<tbody class="text-sm">
+<tr class="group hover:bg-slate-800/30 transition-all duration-300">
+<td class="py-5 text-slate-300 font-medium">15 Mai, 2024</td>
+<td class="py-5">
+<div class="flex flex-col">
+<span class="text-slate-200 font-semibold">Entrada Técnica</span>
+<span class="text-[10px] text-slate-500">Transação #99281</span>
+</div>
+</td>
+<td class="py-5 text-right font-headline text-slate-200">R$ 45.000,00</td>
+<td class="py-5 text-center">
+<span class="bg-green-400/10 text-green-400 text-[10px] px-2 py-1 rounded border border-green-400/20 font-bold uppercase tracking-tighter">Liquidado</span>
+</td>
+<td class="py-5 text-right">
+<button class="text-cyan-500 hover:text-cyan-300 transition-colors"><span class="material-symbols-outlined text-lg" data-icon="receipt">receipt</span></button>
+</td>
+</tr>
+<tr class="group hover:bg-slate-800/30 transition-all duration-300 border-t border-slate-800/30">
+<td class="py-5 text-slate-300 font-medium">02 Jun, 2024</td>
+<td class="py-5">
+<div class="flex flex-col">
+<span class="text-slate-200 font-semibold">Parcela Equipamento</span>
+<span class="text-[10px] text-slate-500">Transação #99405</span>
+</div>
+</td>
+<td class="py-5 text-right font-headline text-slate-200">R$ 45.000,00</td>
+<td class="py-5 text-center">
+<span class="bg-green-400/10 text-green-400 text-[10px] px-2 py-1 rounded border border-green-400/20 font-bold uppercase tracking-tighter">Liquidado</span>
+</td>
+<td class="py-5 text-right">
+<button class="text-cyan-500 hover:text-cyan-300 transition-colors"><span class="material-symbols-outlined text-lg" data-icon="receipt">receipt</span></button>
+</td>
+</tr>
+<tr class="group hover:bg-slate-800/30 transition-all duration-300 border-t border-slate-800/30">
+<td class="py-5 text-slate-300 font-medium">15 Jul, 2024</td>
+<td class="py-5">
+<div class="flex flex-col">
+<span class="text-slate-200 font-semibold">Finalização de Montagem</span>
+<span class="text-[10px] text-slate-500">Agendado</span>
+</div>
+</td>
+<td class="py-5 text-right font-headline text-slate-200">R$ 55.000,00</td>
+<td class="py-5 text-center">
+<span class="bg-orange-500/10 text-orange-400 text-[10px] px-2 py-1 rounded border border-orange-500/20 font-bold uppercase tracking-tighter">Pendente</span>
+</td>
+<td class="py-5 text-right">
+<button class="text-slate-500 hover:text-cyan-300 transition-colors"><span class="material-symbols-outlined text-lg" data-icon="edit">edit</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Sidebar Info/Action Section (1/3 width on large) -->
+<div class="space-y-6">
+<!-- Smart Budget Widget -->
+<div class="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/50">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-purple-400" data-icon="auto_awesome">auto_awesome</span>
+<h4 class="text-sm font-bold text-slate-200 uppercase tracking-widest">Insights Aether AI</h4>
+</div>
+<p class="text-xs text-slate-400 mb-6 leading-relaxed">
+                        Este fornecedor representa <span class="text-cyan-400">22% do seu orçamento técnico</span>. Recomendamos o pagamento antecipado da última parcela para garantir um desconto de 2% via pronto-pagamento.
+                    </p>
+<div class="bg-slate-800/30 rounded-xl p-4 mb-4">
+<div class="flex justify-between items-center mb-2">
+<span class="text-[10px] text-slate-500 uppercase">Saúde do Orçamento</span>
+<span class="text-[10px] text-green-400 font-bold">OTIMIZADO</span>
+</div>
+<div class="flex gap-1">
+<div class="h-1 flex-1 bg-cyan-500 rounded-full"></div>
+<div class="h-1 flex-1 bg-cyan-500 rounded-full"></div>
+<div class="h-1 flex-1 bg-cyan-500 rounded-full"></div>
+<div class="h-1 flex-1 bg-slate-700 rounded-full"></div>
+</div>
+</div>
+<button class="w-full text-xs text-cyan-400 font-bold py-2 hover:bg-cyan-400/5 transition-all rounded-lg">Ver Simulação de Fluxo de Caixa</button>
+</div>
+<!-- Document Checklist -->
+<div class="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/50">
+<h4 class="text-sm font-bold text-slate-200 mb-4 font-headline uppercase tracking-wider">Documentação Necessária</h4>
+<ul class="space-y-4">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-green-400 text-sm" data-icon="task_alt">task_alt</span>
+<span class="text-xs text-slate-300">Contrato Assinado Digitalmente</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-green-400 text-sm" data-icon="task_alt">task_alt</span>
+<span class="text-xs text-slate-300">Certidões Negativas do Fornecedor</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-orange-400 text-sm" data-icon="radio_button_unchecked">radio_button_unchecked</span>
+<span class="text-xs text-slate-300">Nota Fiscal de Serviço (Pendente)</span>
+</li>
+</ul>
+<button class="mt-6 w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="attach_file">attach_file</span> Anexar Novo Arquivo
+                    </button>
+</div>
+<!-- Map/Location Widget -->
+<div class="bg-slate-900/60 backdrop-blur-md rounded-2xl overflow-hidden border border-slate-800/50 h-48 relative group">
+<div class="absolute inset-0 bg-gradient-to-t from-slate-950 to-transparent z-10"></div>
+<div class="absolute bottom-4 left-4 z-20">
+<p class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest">Base de Operações</p>
+<p class="text-xs text-slate-200">Distrito Industrial, Galpão 04</p>
+</div>
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" data-alt="minimalist stylized map of a modern city at night with blue transit lines and dark background" data-location="Sao Paulo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1JxbFxci5mKimxdzvcUbDcBDLRi1DuTa-xlMNRhd_f0-4mtgtaI3YgEE91nT_7LlmG_khvdn6O-LmErWZa2bbe9-sa6-9hzXDl5jhDrsHFkc6-6uWYygTERvBOwxQLdHkzoyD0MkobxiznzL8hUMRMuZfMoh96OSGwNjlz7l1Vqg9obTUpK3KfD3SGifypxxGImIRmHRKQY9C0puI0UTUmxf7Zsr4JLMpgJ_HbF5L0OATaI9xM3py1VEzBgvroqmuPoRRNZWudBl2"/>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/50 flex justify-around items-center h-16 z-50">
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="text-[10px]">Início</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-cyan-400">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="text-[10px]">Pagamentos</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span class="text-[10px]">Fornecedores</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-[10px]">Ajustes</span>
+</button>
+</nav>
+</body></html>

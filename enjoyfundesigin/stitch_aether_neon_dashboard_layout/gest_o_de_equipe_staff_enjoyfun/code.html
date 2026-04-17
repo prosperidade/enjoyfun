@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "error": "#ffb4ab",
+                    "primary": "#dbfcff",
+                    "background": "#0f131d",
+                    "on-secondary-fixed": "#2c0051",
+                    "tertiary-fixed": "#ffe179",
+                    "surface-container-lowest": "#0a0e18",
+                    "outline": "#849495",
+                    "on-error-container": "#ffdad6",
+                    "error-container": "#93000a",
+                    "on-surface-variant": "#b9cacb",
+                    "on-primary-fixed-variant": "#004f54",
+                    "on-primary-container": "#006970",
+                    "surface-bright": "#353944",
+                    "secondary-fixed-dim": "#dcb8ff",
+                    "outline-variant": "#3b494b",
+                    "tertiary-fixed-dim": "#eac324",
+                    "secondary-container": "#7701d0",
+                    "primary-fixed-dim": "#00dbe9",
+                    "surface-tint": "#00dbe9",
+                    "on-primary-fixed": "#002022",
+                    "surface-container-low": "#171b26",
+                    "surface-dim": "#0f131d",
+                    "on-tertiary-container": "#715d00",
+                    "secondary": "#dcb8ff",
+                    "surface": "#0f131d",
+                    "on-tertiary-fixed-variant": "#554500",
+                    "on-secondary-fixed-variant": "#6700b5",
+                    "tertiary-container": "#fed639",
+                    "surface-container": "#1c1f2a",
+                    "secondary-fixed": "#efdbff",
+                    "primary-fixed": "#7df4ff",
+                    "on-surface": "#dfe2f1",
+                    "on-secondary": "#480081",
+                    "inverse-surface": "#dfe2f1",
+                    "inverse-on-surface": "#2c303b",
+                    "surface-container-high": "#262a35",
+                    "inverse-primary": "#006970",
+                    "on-background": "#dfe2f1",
+                    "on-error": "#690005",
+                    "surface-variant": "#313540",
+                    "surface-container-highest": "#313540",
+                    "tertiary": "#fff5de",
+                    "on-secondary-container": "#dcb7ff",
+                    "primary-container": "#00f0ff",
+                    "on-tertiary-fixed": "#231b00",
+                    "on-tertiary": "#3b2f00",
+                    "on-primary": "#00363a"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Space Grotesk', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-layering-no-borders {
+            border: none !important;
+        }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface min-h-screen">
+<!-- TopNavBar (Shared Component) -->
+<header class="fixed top-0 w-full z-50 bg-[#0B0F19]/80 backdrop-blur-md shadow-[0_0_15px_rgba(0,240,255,0.1)] flex justify-between items-center px-8 py-4 w-full">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500 font-['Space_Grotesk'] tracking-tight">CyberStaff</span>
+<nav class="hidden md:flex gap-6">
+<a class="text-slate-400 hover:text-slate-200 hover:scale-105 transition-all duration-300" href="#">Dashboard</a>
+<a class="text-slate-400 hover:text-slate-200 hover:scale-105 transition-all duration-300" href="#">Analytics</a>
+<a class="text-slate-400 hover:text-slate-200 hover:scale-105 transition-all duration-300" href="#">Schedule</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-slate-400 hover:text-cyan-400 transition-colors">notifications</button>
+<button class="material-symbols-outlined text-slate-400 hover:text-cyan-400 transition-colors">settings</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-cyan-500/30">
+<img class="w-full h-full object-cover" data-alt="professional male admin portrait with blue studio lighting in a tech environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuArXg5-VQmvE-EFtmFm9PkvWel5H9cvJcpWSWsnXTHys-RhYU4ieBT_lhHbJ7zf_8pwA5Ga5GV5P1sqtR39E19OS0xDDb_nHeTtQyp5cX4kI51ibpKjYD0izXlbqD9p2WISyDmpcKMWfrHvn86B_0ciP-rsH0tCWdjuOCIID5uqvj4Bl3jvkdXY8ouJxYt9A2OiB2TCT-UCCwOZpSWFAIbfP6mjDa3Qy0XtfgdJ0hAYnUYflB67Jc7hhnhkgNeSJb7PSWYizCN85ZR1"/>
+</div>
+</div>
+</header>
+<div class="flex pt-20">
+<!-- SideNavBar (Shared Component) -->
+<aside class="fixed left-0 h-full w-64 bg-[#0F131D] flex flex-col p-6 shadow-2xl shadow-cyan-900/20 bg-slate-900/50 backdrop-blur-md">
+<div class="mb-10">
+<div class="flex items-center gap-3 mb-2">
+<div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-surface text-2xl">rocket_launch</span>
+</div>
+<div>
+<h2 class="text-xl font-black text-cyan-500 font-['Space_Grotesk']">NeonCurator</h2>
+<p class="text-xs text-slate-500 uppercase tracking-widest">Staff Terminal</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-cyan-500/20 to-transparent text-cyan-400 border-l-4 border-cyan-500 font-['Space_Grotesk'] font-medium hover:translate-x-1 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span>Team Overview</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 font-['Space_Grotesk'] font-medium hover:translate-x-1 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="badge">badge</span>
+<span>Roles</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 font-['Space_Grotesk'] font-medium hover:translate-x-1 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="category">category</span>
+<span>Sectors</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 font-['Space_Grotesk'] font-medium hover:translate-x-1 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="lock">lock</span>
+<span>Permissions</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 font-['Space_Grotesk'] font-medium hover:translate-x-1 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span>Activity</span>
+</a>
+</nav>
+<div class="mt-auto border-t border-slate-800/50 pt-6 space-y-2">
+<button class="w-full bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold py-3 rounded-xl mb-4 hover:scale-[1.05] shadow-[0_0_15px_rgba(0,240,255,0.15)] transition-all">
+                    Add Member
+                </button>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-slate-200" href="#">
+<span class="material-symbols-outlined">help</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-error" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span>Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 ml-64 p-8">
+<div class="max-w-7xl mx-auto">
+<!-- Header Section -->
+<div class="flex justify-between items-center mb-10">
+<div class="flex items-center gap-4">
+<div class="p-3 bg-cyan-400/10 rounded-2xl">
+<span class="material-symbols-outlined text-cyan-400 text-4xl">group</span>
+</div>
+<div>
+<h1 class="text-4xl font-bold font-headline text-slate-200 tracking-tight">Equipe / Staff</h1>
+<p class="text-slate-400">Gerenciamento de acessos e colaboradores EnjoyFun</p>
+</div>
+</div>
+<button class="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold px-6 py-3 rounded-xl flex items-center gap-2 hover:scale-[1.05] transition-all shadow-[0_0_20px_rgba(0,240,255,0.2)]">
+<span class="material-symbols-outlined">add</span>
+                        Novo Membro
+                    </button>
+</div>
+<!-- Filters & Stats Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+<div class="col-span-1 md:col-span-1 bg-slate-900/40 backdrop-blur-md p-6 rounded-2xl border border-slate-800/30 flex flex-col justify-between">
+<span class="text-slate-400 text-sm font-medium">Total Staff</span>
+<div class="flex items-end justify-between">
+<span class="text-3xl font-bold font-headline text-cyan-400">42</span>
+<span class="text-green-400 text-xs bg-green-400/10 px-2 py-1 rounded-full">+3 este mês</span>
+</div>
+</div>
+<div class="col-span-1 md:col-span-3 bg-slate-900/40 backdrop-blur-md p-6 rounded-2xl border border-slate-800/30 flex items-center gap-6">
+<div class="flex-1 relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">search</span>
+<input class="w-full bg-slate-800/50 border-none rounded-xl py-3 pl-12 pr-4 text-slate-200 placeholder:text-slate-500 focus:ring-2 focus:ring-cyan-500/40" placeholder="Buscar colaborador por nome ou email..." type="text"/>
+</div>
+<div class="flex gap-2">
+<button class="bg-slate-800/80 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+                                Filtros
+                            </button>
+<button class="bg-slate-800/80 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">download</span>
+                                Exportar
+                            </button>
+</div>
+</div>
+</div>
+<!-- Staff Table -->
+<div class="bg-slate-900/60 backdrop-blur-md rounded-2xl overflow-hidden border border-slate-800/40">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-800/30 border-b border-slate-800/50">
+<th class="px-6 py-4 font-headline text-slate-400 font-medium text-sm">MEMBRO</th>
+<th class="px-6 py-4 font-headline text-slate-400 font-medium text-sm">CONTATO</th>
+<th class="px-6 py-4 font-headline text-slate-400 font-medium text-sm">CARGO</th>
+<th class="px-6 py-4 font-headline text-slate-400 font-medium text-sm">SETOR</th>
+<th class="px-6 py-4 font-headline text-slate-400 font-medium text-sm">STATUS</th>
+<th class="px-6 py-4 font-headline text-slate-400 font-medium text-sm text-right">AÇÕES</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800/30">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-800/20 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-950 to-purple-950 flex items-center justify-center overflow-hidden border border-cyan-500/20">
+<img class="w-full h-full object-cover" data-alt="professional male portrait for staff profile, soft neutral background, corporate style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPPO9W2faBlYkPxoQVCbBN4-HBKtvAibrLmkmdIfzUrtC7Z0JMt1JkGifTr5MPx6QUHJQMVJ7AKutEbW6wKedQNXC0NcJcmpczAaETxYzUrW8xi3BBIh9SAMLfW6S8KPjTRLXNPthjNlt0aasxQu4cMxNqFS3lmpnfmKUdOfFKbTun2QdGLEbHoLvYx79sKpt6uqEQh_p2JVNpc7300pOAzgyLofItFb4Cmi9DxXO6LGTM6A5aXye5zA2SbZ0nxtChR6wWKIj5EyBu"/>
+</div>
+<div>
+<div class="text-slate-200 font-semibold">Lucas Silva</div>
+<div class="text-slate-500 text-xs">Desde 12/03/2023</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="text-slate-300 text-sm">lucas.silva@enjoyfun.com.br</div>
+<div class="text-slate-500 text-xs">(11) 98822-4411</div>
+</td>
+<td class="px-6 py-5">
+<span class="bg-purple-400/15 text-purple-400 px-3 py-1 rounded-full text-xs font-medium border border-purple-400/20">Gerente</span>
+</td>
+<td class="px-6 py-5">
+<span class="bg-green-400/10 text-green-400 px-3 py-1 rounded-full text-xs font-medium border border-green-400/20">Todos</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<div class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+<span class="text-slate-300 text-sm">Ativo</span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="text-slate-500 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-800/20 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-950 to-purple-950 flex items-center justify-center overflow-hidden border border-cyan-500/20">
+<img class="w-full h-full object-cover" data-alt="professional female portrait for staff profile, tech company aesthetic, soft cinematic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4wF7_bkGHYtkxRutfjXHR4HderoYCBK9bb46zcNL9Kk8jZNwT5HzmnHIyKvMafNIuR-fm8S46y8QY4J3QnXK56-hyNc-0a8jBMkdfxZ6aE3D-08cXpYoPHKicKuH30fwF_cC7caLEM2DngOVGBe5hmhtqu2nUGb7jHO-jjbBXTQMm7pAa51BZKhCmq-E4153-ZJp-NuPlNhP3f2thJTd5kZVpjXp4HnamBdOaAzisYS0n1gLh_TXTJiRDHN4tbIwFEsHLBpyFFA0-"/>
+</div>
+<div>
+<div class="text-slate-200 font-semibold">Ana Oliveira</div>
+<div class="text-slate-500 text-xs">Desde 05/01/2024</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="text-slate-300 text-sm">ana.o@enjoyfun.com.br</div>
+<div class="text-slate-500 text-xs">(11) 97711-2233</div>
+</td>
+<td class="px-6 py-5">
+<span class="bg-cyan-400/15 text-cyan-400 px-3 py-1 rounded-full text-xs font-medium border border-cyan-400/20">Caixa</span>
+</td>
+<td class="px-6 py-5">
+<span class="bg-amber-400/10 text-amber-400 px-3 py-1 rounded-full text-xs font-medium border border-amber-400/20">Bar</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<div class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+<span class="text-slate-300 text-sm">Ativo</span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="text-slate-500 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-800/20 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-950 to-purple-950 flex items-center justify-center overflow-hidden border border-cyan-500/20">
+<img class="w-full h-full object-cover" data-alt="professional male profile photo, studio portrait with blue background, young professional" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBubFMwHQgxDB03HxGdmrWIXkO3m8Z0vP0SMW4dnzgco3cNVa6NAHmpbEieH3xFRuQzjwTlf2CaCwyA_VfUAvvj_fNE_g-LJxGbTGxjcpMkDUXNeK4pXLfOZcW1v1bykjBNAr_I7GR_IVNp3c7E7n0AoIkd8XsgMVQnL5A1FeJwRPWDjCVmhLzEFcrPX3F3Y3i0iM8Z0FBSM0ZCXlM_lSIYg5738bsk9GtYG9ZLtpXq1-3pmAzlHY0kGu7O4V4izOEKSDNlC9t8XG3w"/>
+</div>
+<div>
+<div class="text-slate-200 font-semibold">Marcos Paulo</div>
+<div class="text-slate-500 text-xs">Desde 15/11/2023</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="text-slate-300 text-sm">m.paulo@enjoyfun.com.br</div>
+<div class="text-slate-500 text-xs">(11) 94455-6677</div>
+</td>
+<td class="px-6 py-5">
+<span class="bg-cyan-400/15 text-cyan-400 px-3 py-1 rounded-full text-xs font-medium border border-cyan-400/20">Caixa</span>
+</td>
+<td class="px-6 py-5">
+<span class="bg-orange-400/10 text-orange-400 px-3 py-1 rounded-full text-xs font-medium border border-orange-400/20">Food</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<div class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
+<span class="text-slate-300 text-sm">Inativo</span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="text-slate-500 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+</div>
+<!-- Modal Backdrop (Hidden by default, shown for structure) -->
+<div class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+<!-- Creation Modal -->
+<div class="bg-[#0F131D]/95 backdrop-blur-xl border border-slate-800/60 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+<div class="px-8 py-6 border-b border-slate-800/50 flex justify-between items-center">
+<h3 class="text-2xl font-bold font-headline text-slate-200">Novo Membro da Equipe</h3>
+<button class="text-slate-500 hover:text-slate-200 transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<form class="p-8 space-y-6">
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-sm font-medium text-slate-400">Nome Completo</label>
+<input class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-3 px-4 text-slate-200 focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 outline-none transition-all" placeholder="Ex: João Silva" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-medium text-slate-400">E-mail Corporativo</label>
+<input class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-3 px-4 text-slate-200 focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 outline-none transition-all" placeholder="nome@enjoyfun.com.br" type="email"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-medium text-slate-400">Cargo</label>
+<select class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-3 px-4 text-slate-200 focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 outline-none transition-all appearance-none">
+<option value="">Selecione o cargo</option>
+<option value="gerente">Gerente</option>
+<option value="caixa">Caixa</option>
+<option value="atendente">Atendente</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-medium text-slate-400">Setor</label>
+<select class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-3 px-4 text-slate-200 focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 outline-none transition-all appearance-none">
+<option value="">Selecione o setor</option>
+<option value="bar">Bar</option>
+<option value="food">Food</option>
+<option value="shop">Shop</option>
+<option value="todos">Todos</option>
+</select>
+</div>
+<div class="col-span-2 space-y-2">
+<label class="text-sm font-medium text-slate-400">Telefone / WhatsApp</label>
+<input class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-3 px-4 text-slate-200 focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 outline-none transition-all" placeholder="(11) 99999-9999" type="text"/>
+</div>
+</div>
+<div class="pt-4 flex justify-end gap-4">
+<button class="px-6 py-3 text-slate-400 hover:text-slate-200 font-medium transition-colors" type="button">Cancelar</button>
+<button class="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold px-8 py-3 rounded-xl hover:scale-[1.05] transition-all shadow-[0_0_15px_rgba(0,240,255,0.2)]" type="submit">
+                        Salvar Colaborador
+                    </button>
+</div>
+</form>
+</div>
+</div>
+</body></html>

@@ -21,14 +21,6 @@ import {
 import { Link, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
-const statusBadge = {
-  draft: "badge-gray",
-  published: "badge-green",
-  ongoing: "badge-blue",
-  finished: "badge-gray",
-  cancelled: "badge-red",
-};
-
 const EVENT_TYPE_LABELS = {
   festival: "Festival", show: "Show", corporate: "Corporativo",
   wedding: "Casamento", graduation: "Formatura", sports_stadium: "Esportivo",
@@ -79,6 +71,8 @@ function createEmptyEventForm() {
     map_parking_url: "",
     map_url: "",
     banner_url: "",
+    tour_video_url: "",
+    tour_video_360_url: "",
   };
 }
 
@@ -149,6 +143,8 @@ function mapEventToForm(event) {
     map_parking_url: event?.map_parking_url || "",
     map_url: event?.map_url || "",
     banner_url: event?.banner_url || "",
+    tour_video_url: event?.tour_video_url || "",
+    tour_video_360_url: event?.tour_video_360_url || "",
   };
 }
 
@@ -627,6 +623,8 @@ export default function Events() {
       map_seating_url: form.map_seating_url || null,
       map_parking_url: form.map_parking_url || null,
       banner_url: form.banner_url || null,
+      tour_video_url: form.tour_video_url || null,
+      tour_video_360_url: form.tour_video_360_url || null,
       commercial_config: {
         ticket_types: ticketTypesForSave.map(serializeTicketType),
         batches: batchesForSave.map(serializeBatch),

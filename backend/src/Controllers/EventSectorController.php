@@ -50,6 +50,8 @@ function createEventSector(array $body): void
     $priceModifier  = isset($body['price_modifier']) ? (float)$body['price_modifier'] : null;
     $allowsReentry  = !empty($body['allows_reentry']);
     $sortOrder      = (int)($body['sort_order'] ?? 0);
+    $imageUrl       = trim((string)($body['image_url'] ?? ''));
+    $videoUrl       = trim((string)($body['video_url'] ?? ''));
 
     if (!$eventId || $name === '') {
         jsonError('Dados incompletos (event_id, name).', 400);
@@ -62,13 +64,15 @@ function createEventSector(array $body): void
     }
 
     $stmt = $db->prepare("
-        INSERT INTO event_sectors (event_id, name, sector_type, capacity, price_modifier, allows_reentry, sort_order, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO event_sectors (event_id, organizer_id, name, sector_type, capacity, price_modifier, allows_reentry, sort_order,
+                                   image_url, video_url, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         RETURNING id
     ");
     $stmt->execute([
-        $eventId, $name, $sectorType ?: null, $capacity,
-        $priceModifier, $allowsReentry ? true : false, $sortOrder,
+        $eventId, $organizerId, $name, $sectorType ?: null, $capacity,
+        $priceModifier, $allowsReentry ? 't' : 'f', $sortOrder,
+        $imageUrl ?: null, $videoUrl ?: null,
     ]);
 
     jsonSuccess(['id' => $stmt->fetchColumn()], 'Setor criado com sucesso.', 201);
@@ -96,6 +100,8 @@ function updateEventSector(int $id, array $body): void
     $priceModifier  = isset($body['price_modifier']) ? (float)$body['price_modifier'] : null;
     $allowsReentry  = !empty($body['allows_reentry']);
     $sortOrder      = (int)($body['sort_order'] ?? 0);
+    $imageUrl       = trim((string)($body['image_url'] ?? ''));
+    $videoUrl       = trim((string)($body['video_url'] ?? ''));
 
     if ($name === '') {
         jsonError('Nome e obrigatorio.', 400);
@@ -103,10 +109,14 @@ function updateEventSector(int $id, array $body): void
 
     $stmt = $db->prepare("
         UPDATE event_sectors
-        SET name = ?, sector_type = ?, capacity = ?, price_modifier = ?, allows_reentry = ?, sort_order = ?
+        SET name = ?, sector_type = ?, capacity = ?, price_modifier = ?, allows_reentry = ?, sort_order = ?,
+            image_url = ?, video_url = ?
         WHERE id = ?
     ");
-    $stmt->execute([$name, $sectorType ?: null, $capacity, $priceModifier, $allowsReentry ? true : false, $sortOrder, $id]);
+    $stmt->execute([
+        $name, $sectorType ?: null, $capacity, $priceModifier, $allowsReentry ? true : false, $sortOrder,
+        $imageUrl ?: null, $videoUrl ?: null, $id,
+    ]);
 
     jsonSuccess([], 'Setor atualizado com sucesso.');
 }

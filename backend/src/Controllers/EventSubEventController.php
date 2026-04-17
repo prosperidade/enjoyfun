@@ -53,6 +53,8 @@ function createEventSubEvent(array $body): void
     $description  = trim((string)($body['description'] ?? ''));
     $capacity     = isset($body['capacity']) ? (int)$body['capacity'] : null;
     $sortOrder    = (int)($body['sort_order'] ?? 0);
+    $imageUrl     = trim((string)($body['image_url'] ?? ''));
+    $videoUrl     = trim((string)($body['video_url'] ?? ''));
 
     if (!$eventId || $name === '') {
         jsonError('Dados incompletos (event_id, name).', 400);
@@ -65,15 +67,16 @@ function createEventSubEvent(array $body): void
     }
 
     $stmt = $db->prepare("
-        INSERT INTO event_sub_events (event_id, name, sub_event_type, event_date, event_time, venue, address, description, capacity, sort_order, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO event_sub_events (event_id, organizer_id, name, sub_event_type, event_date, event_time, venue, address, description, capacity, sort_order, image_url, video_url, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         RETURNING id
     ");
     $stmt->execute([
-        $eventId, $name, $subEventType ?: 'other',
+        $eventId, $organizerId, $name, $subEventType ?: 'other',
         $eventDate ?: null, $eventTime ?: null,
         $venue ?: null, $address ?: null, $description ?: null,
-        $capacity, $sortOrder
+        $capacity, $sortOrder,
+        $imageUrl ?: null, $videoUrl ?: null,
     ]);
 
     jsonSuccess(['id' => $stmt->fetchColumn()], 'Sub-evento criado com sucesso.', 201);
@@ -104,6 +107,8 @@ function updateEventSubEvent(int $id, array $body): void
     $description  = trim((string)($body['description'] ?? ''));
     $capacity     = isset($body['capacity']) ? (int)$body['capacity'] : null;
     $sortOrder    = (int)($body['sort_order'] ?? 0);
+    $imageUrl     = trim((string)($body['image_url'] ?? ''));
+    $videoUrl     = trim((string)($body['video_url'] ?? ''));
 
     if ($name === '') {
         jsonError('Nome e obrigatorio.', 400);
@@ -111,14 +116,15 @@ function updateEventSubEvent(int $id, array $body): void
 
     $stmt = $db->prepare("
         UPDATE event_sub_events
-        SET name = ?, sub_event_type = ?, event_date = ?, event_time = ?, venue = ?, address = ?, description = ?, capacity = ?, sort_order = ?
+        SET name = ?, sub_event_type = ?, event_date = ?, event_time = ?, venue = ?, address = ?, description = ?, capacity = ?, sort_order = ?, image_url = ?, video_url = ?
         WHERE id = ?
     ");
     $stmt->execute([
         $name, $subEventType ?: 'other',
         $eventDate ?: null, $eventTime ?: null,
         $venue ?: null, $address ?: null, $description ?: null,
-        $capacity, $sortOrder, $id
+        $capacity, $sortOrder,
+        $imageUrl ?: null, $videoUrl ?: null, $id,
     ]);
 
     jsonSuccess([], 'Sub-evento atualizado com sucesso.');

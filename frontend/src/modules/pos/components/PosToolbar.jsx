@@ -4,7 +4,6 @@ export default function PosToolbar({
   eventId,
   events,
   eventsError,
-  sectorInfo,
   setEventId,
   setTab,
   tab,

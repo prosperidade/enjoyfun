@@ -133,8 +133,33 @@ function orgFileUpload(PDO $db): void
     $organizerId = (int)($operator['organizer_id'] ?? $operator['id'] ?? 0);
     $userId = (int)($operator['id'] ?? $operator['sub'] ?? 0);
 
+    // DEBUG: logar tudo que chega
+    error_log('[UPLOAD] _FILES keys: ' . json_encode(array_keys($_FILES ?? [])));
+    error_log('[UPLOAD] _POST: ' . json_encode($_POST ?? []));
+    error_log('[UPLOAD] CONTENT_LENGTH: ' . ($_SERVER['CONTENT_LENGTH'] ?? 'NULL'));
+    error_log('[UPLOAD] post_max_size: ' . ini_get('post_max_size') . ' | upload_max_filesize: ' . ini_get('upload_max_filesize'));
+    if (isset($_FILES['file'])) {
+        error_log('[UPLOAD] file info: ' . json_encode([
+            'name' => $_FILES['file']['name'] ?? null,
+            'type' => $_FILES['file']['type'] ?? null,
+            'size' => $_FILES['file']['size'] ?? null,
+            'error' => $_FILES['file']['error'] ?? null,
+        ]));
+    }
+
     if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-        jsonError('Arquivo nao recebido ou com erro de upload.', 422);
+        $errCode = $_FILES['file']['error'] ?? 'sem arquivo';
+        $errMap = [
+            1 => 'UPLOAD_ERR_INI_SIZE (arquivo maior que upload_max_filesize do PHP)',
+            2 => 'UPLOAD_ERR_FORM_SIZE',
+            3 => 'UPLOAD_ERR_PARTIAL',
+            4 => 'UPLOAD_ERR_NO_FILE (FormData sem file)',
+            6 => 'UPLOAD_ERR_NO_TMP_DIR',
+            7 => 'UPLOAD_ERR_CANT_WRITE',
+            8 => 'UPLOAD_ERR_EXTENSION',
+        ];
+        $reason = $errMap[$errCode] ?? "erro desconhecido (code=$errCode)";
+        jsonError("Arquivo nao recebido: $reason", 422);
     }
 
     $file = $_FILES['file'];
@@ -142,21 +167,28 @@ function orgFileUpload(PDO $db): void
     $mimeType = $file['type'] ?? '';
     $fileSize = (int)($file['size'] ?? 0);
 
-    // Validate size (max 20MB)
-    if ($fileSize > 20 * 1024 * 1024) {
-        jsonError('Arquivo excede o limite de 20MB.', 422);
+    // Validate size (max 200MB para suportar videos)
+    if ($fileSize > 200 * 1024 * 1024) {
+        jsonError('Arquivo excede o limite de 200MB.', 422);
     }
 
-    // Validate MIME
+    // Validate MIME (imagens, docs, videos, modelos 3D)
     $allowedMimes = [
+        // Documentos
         'text/csv', 'text/plain',
         'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/pdf',
         'application/json',
-        'image/jpeg', 'image/png', 'image/webp',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        // Imagens
+        'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/avif',
+        // Videos
+        'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska',
+        // Modelos 3D
+        'model/gltf+json', 'model/gltf-binary',
+        'application/octet-stream', // fallback pra .glb/.gltf que as vezes vem assim
     ];
     if ($mimeType !== '' && !in_array($mimeType, $allowedMimes, true)) {
         jsonError("Tipo de arquivo nao permitido: {$mimeType}.", 422);

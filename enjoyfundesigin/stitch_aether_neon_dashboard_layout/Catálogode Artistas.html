@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Catálogo de Artistas | EnjoyFun</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-fixed": "#ffe179",
+                    "inverse-primary": "#006970",
+                    "background": "#0f131d",
+                    "surface-container-low": "#171b26",
+                    "secondary-fixed": "#efdbff",
+                    "surface-variant": "#313540",
+                    "on-tertiary-container": "#715d00",
+                    "on-secondary-fixed-variant": "#6700b5",
+                    "tertiary": "#fff5de",
+                    "tertiary-container": "#fed639",
+                    "error-container": "#93000a",
+                    "on-background": "#dfe2f1",
+                    "surface-tint": "#00dbe9",
+                    "surface-container-highest": "#313540",
+                    "on-tertiary": "#3b2f00",
+                    "on-secondary-fixed": "#2c0051",
+                    "error": "#ffb4ab",
+                    "on-primary-fixed-variant": "#004f54",
+                    "on-primary": "#00363a",
+                    "surface": "#0f131d",
+                    "primary-fixed-dim": "#00dbe9",
+                    "on-primary-fixed": "#002022",
+                    "primary-fixed": "#7df4ff",
+                    "tertiary-fixed-dim": "#eac324",
+                    "on-surface": "#dfe2f1",
+                    "surface-container": "#1c1f2a",
+                    "secondary-container": "#7701d0",
+                    "primary-container": "#00f0ff",
+                    "outline": "#849495",
+                    "surface-dim": "#0f131d",
+                    "secondary-fixed-dim": "#dcb8ff",
+                    "on-tertiary-fixed": "#231b00",
+                    "inverse-surface": "#dfe2f1",
+                    "secondary": "#dcb8ff",
+                    "on-error-container": "#ffdad6",
+                    "inverse-on-surface": "#2c303b",
+                    "primary": "#dbfcff",
+                    "on-secondary": "#480081",
+                    "on-surface-variant": "#b9cacb",
+                    "on-primary-container": "#006970",
+                    "surface-container-high": "#262a35",
+                    "on-tertiary-fixed-variant": "#554500",
+                    "surface-bright": "#353944",
+                    "outline-variant": "#3b494b",
+                    "on-secondary-container": "#dcb7ff",
+                    "surface-container-lowest": "#0a0e18",
+                    "on-error": "#690005"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-card {
+        background: rgba(15, 19, 29, 0.6);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface font-body min-h-screen">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full flex justify-between items-center px-8 h-16 bg-slate-950/80 backdrop-blur-md z-50 shadow-[0_0_15px_rgba(0,240,255,0.05)] font-['Space_Grotesk'] tracking-tight">
+<div class="flex items-center gap-8">
+<h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-cyan-200">EnjoyFun Artist Management</h1>
+<nav class="hidden md:flex gap-6">
+<a class="text-slate-400 hover:text-slate-200 hover:scale-105 transition-all duration-300" href="#">Dashboard</a>
+<a class="text-cyan-400 border-b-2 border-cyan-500 pb-1 hover:scale-105 transition-all duration-300" href="#">Artists</a>
+<a class="text-slate-400 hover:text-slate-200 hover:scale-105 transition-all duration-300" href="#">Venues</a>
+<a class="text-slate-400 hover:text-slate-200 hover:scale-105 transition-all duration-300" href="#">Finance</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-slate-400 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<img alt="User profile" class="w-8 h-8 rounded-full border border-cyan-500/30" data-alt="User profile avatar of a creative professional in a dark studio setting with soft cyan ambient light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoZe2hBY0WJYohyPoXabRzN586QlHvY7gKvfUnheN4pxHucsG960iWDat2JadqvWHUHG43MRwrcS9PxiKxztkmKkCje_-2CYFIUCL8b4Ihox8fHPZQyIuser68GB3pA8-b_A1AfqTDN4HDgmwntTRiArHSS2rcMjDJRqJzX8gJ0X1AFj8DQfuQfD4v70S-sPxU3mxytnapjOAxBGB0-38LxRK3HOJPvWhhFmKVL_fftMvgUdqstZVOmN9SG20Cc30Sfs6UKX81YeLD"/>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-64 bg-slate-900/50 backdrop-blur-xl flex flex-col py-6 border-r border-slate-800/60 z-40 hidden md:flex shadow-2xl">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-secondary flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-950" data-icon="auto_awesome" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<div>
+<p class="text-lg font-black text-slate-100 font-headline leading-tight">Artist Manager</p>
+<p class="text-xs text-cyan-400/70 font-medium">AI-Powered Console</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1 px-3">
+<a class="flex items-center gap-4 px-4 py-3 bg-cyan-500/10 text-cyan-400 border-r-4 border-cyan-500 font-medium transition-transform scale-[1.02]" href="#">
+<span class="material-symbols-outlined" data-icon="person_search">person_search</span>
+<span class="font-['Inter']">Catalog</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="font-['Inter']">Logistics</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-['Inter']">Contracts</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_month">calendar_month</span>
+<span class="font-['Inter']">Schedule</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="auto_awesome">auto_awesome</span>
+<span class="font-['Inter']">AI Insights</span>
+</a>
+</nav>
+<div class="px-3 mt-auto pt-6 space-y-1 border-t border-slate-800/60">
+<button class="w-full flex items-center justify-center gap-2 py-3 mb-4 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold hover:scale-105 transition-all shadow-[0_0_15px_rgba(0,240,255,0.15)]">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                New Artist
+            </button>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-400 hover:bg-slate-800/40 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="font-['Inter']">Help</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-400 hover:bg-slate-800/40 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-['Inter']">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="md:ml-64 pt-24 px-6 pb-24 md:pb-8 max-w-7xl mx-auto">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+<div>
+<h2 class="text-4xl md:text-5xl font-headline font-bold text-slate-100 tracking-tight mb-2">Catálogo de Artistas</h2>
+<div class="h-1 w-24 bg-gradient-to-r from-cyan-500 to-transparent rounded-full"></div>
+</div>
+<!-- View Toggle -->
+<div class="flex bg-surface-container p-1 rounded-full border border-slate-800/50">
+<button class="px-6 py-2 rounded-full text-sm font-bold bg-cyan-500 text-slate-950 transition-all">Por Evento</button>
+<button class="px-6 py-2 rounded-full text-sm font-medium text-slate-400 hover:text-slate-200 transition-all">Catálogo Geral</button>
+</div>
+</div>
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+<div class="glass-card p-8 rounded-2xl border border-slate-800/40 relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-cyan-500/5 rounded-full blur-2xl group-hover:bg-cyan-500/10 transition-colors"></div>
+<p class="text-slate-400 text-sm font-medium mb-1">Total de Artistas</p>
+<h3 class="text-4xl font-headline font-bold text-slate-100">1,284</h3>
+<div class="mt-4 flex items-center gap-2 text-green-400 text-xs font-bold uppercase tracking-wider">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span>
+                    +12% este mês
+                </div>
+</div>
+<div class="glass-card p-8 rounded-2xl border border-slate-800/40 relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl group-hover:bg-purple-500/10 transition-colors"></div>
+<p class="text-slate-400 text-sm font-medium mb-1">Ativos no Evento</p>
+<h3 class="text-4xl font-headline font-bold text-slate-100">42</h3>
+<div class="mt-4 flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-wider">
+<span class="material-symbols-outlined text-sm" data-icon="stadium">stadium</span>
+                    Main Stage Live
+                </div>
+</div>
+<div class="glass-card p-8 rounded-2xl border border-slate-800/40 relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-error/5 rounded-full blur-2xl group-hover:bg-error/10 transition-colors"></div>
+<p class="text-slate-400 text-sm font-medium mb-1">Alertas Críticos</p>
+<h3 class="text-4xl font-headline font-bold text-error">03</h3>
+<div class="mt-4 flex items-center gap-2 text-error text-xs font-bold uppercase tracking-wider">
+<span class="material-symbols-outlined text-sm" data-icon="warning">warning</span>
+                    Contratos pendentes
+                </div>
+</div>
+</div>
+<!-- Filters & Search -->
+<div class="glass-card p-6 rounded-2xl border border-slate-800/40 mb-8 flex flex-col md:flex-row gap-6 items-center">
+<div class="relative flex-1 w-full">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" data-icon="search">search</span>
+<input class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-3 pl-12 pr-4 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 transition-all" placeholder="Buscar por nome ou ID..." type="text"/>
+</div>
+<div class="flex gap-4 w-full md:w-auto">
+<select class="flex-1 md:flex-none bg-slate-800/50 border border-slate-700/50 rounded-xl py-3 px-6 text-slate-300 focus:outline-none focus:border-cyan-500 transition-all">
+<option>Gênero: Todos</option>
+<option>Eletrônica</option>
+<option>Rock</option>
+<option>Pop</option>
+<option>Jazz</option>
+</select>
+<select class="flex-1 md:flex-none bg-slate-800/50 border border-slate-700/50 rounded-xl py-3 px-6 text-slate-300 focus:outline-none focus:border-cyan-500 transition-all">
+<option>Status: Todos</option>
+<option>Ativo</option>
+<option>Pendente</option>
+<option>Em Turnê</option>
+</select>
+</div>
+</div>
+<!-- Artist Table -->
+<div class="glass-card rounded-2xl border border-slate-800/40 overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-800/30 border-b border-slate-800/60">
+<th class="px-6 py-5 text-xs font-bold uppercase tracking-widest text-slate-400">Nome</th>
+<th class="px-6 py-5 text-xs font-bold uppercase tracking-widest text-slate-400">Gênero</th>
+<th class="px-6 py-5 text-xs font-bold uppercase tracking-widest text-slate-400">Cache</th>
+<th class="px-6 py-5 text-xs font-bold uppercase tracking-widest text-slate-400">Status</th>
+<th class="px-6 py-5 text-xs font-bold uppercase tracking-widest text-slate-400 text-right">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800/40">
+<tr class="hover:bg-slate-800/20 transition-colors group">
+<td class="px-6 py-5">
+<div class="flex items-center gap-4">
+<img class="w-10 h-10 rounded-lg object-cover" data-alt="Portrait of a modern musician wearing reflective sunglasses with neon stage lights background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6u1teDFCkikpJRAeirOR8xjPxrTf8Bazo74SGAgpvaazB5Xvji80hXgLYPe6KCbPmZJRMeZ4UKSUpEUyHCosbLli0Hj24Yy2o05lmS-gvq4ANoZ2QYeYhQKiokNVQ83IEvmDR_PHNxn5u9ayRm_QN9FBPXvapCCYjeNM83E1PYlu6Ugi0oA90z6ITjR44OX-P00utbZYaUY0JtzWP2Ud2_Fzeld3O01qbNKgNlXdtukJYYhZ3MdjCppAhJQTtlmU3ZrEylHg1u87V"/>
+<div>
+<p class="font-bold text-slate-200">Cyber Echoes</p>
+<p class="text-xs text-slate-500 font-mono uppercase">ID: ART-9021</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-slate-300">Synthwave / Electro</td>
+<td class="px-6 py-5 font-mono text-cyan-400 font-medium">R$ 12.500,00</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter bg-green-400/10 text-green-400 border border-green-400/20">Ativo</span>
+</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 rounded-lg bg-slate-800/50 text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="visibility">visibility</span>
+</button>
+<button class="p-2 rounded-lg bg-slate-800/50 text-slate-400 hover:bg-slate-700 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="edit">edit</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-slate-800/20 transition-colors group">
+<td class="px-6 py-5">
+<div class="flex items-center gap-4">
+<img class="w-10 h-10 rounded-lg object-cover" data-alt="Close-up of a jazz musician playing a glowing electric saxophone in a smoke-filled club with deep blue lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7p0NIBz3SLFhojYgwKvi4GPCeyMOfsR2BGAM-O_qxF6UmHaZZPMrTaukp8Tl9viWhSA3kiNN4mWDDUsysIZOguXye91WGk4cLAZY7F3FQAd_0Jzuw5N1xdanxCUJEcaVnSpqi3UigqltiVwtPjBrJPbTTKwCNkge2rvpncMtZwQGt1aL9HEdDmL73LlzJaSHmv5Dm90enCHt-Toi_l67ZjE2XTAsPyPiC67wUxlaT4EcMfioPDl4_oH8RS8zyzm3ij7PU6xnwWFwt"/>
+<div>
+<p class="font-bold text-slate-200">Neon Quartz</p>
+<p class="text-xs text-slate-500 font-mono uppercase">ID: ART-4482</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-slate-300">Indie Pop</td>
+<td class="px-6 py-5 font-mono text-cyan-400 font-medium">R$ 8.200,00</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter bg-purple-500/10 text-purple-400 border border-purple-500/20 animate-pulse">Em Turnê</span>
+</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 rounded-lg bg-slate-800/50 text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="visibility">visibility</span>
+</button>
+<button class="p-2 rounded-lg bg-slate-800/50 text-slate-400 hover:bg-slate-700 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="edit">edit</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-slate-800/20 transition-colors group">
+<td class="px-6 py-5">
+<div class="flex items-center gap-4">
+<img class="w-10 h-10 rounded-lg object-cover" data-alt="Dynamic shot of a female DJ performing with hyper-modern glowing decks and violet laser lights piercing through haze" src="https://lh3.googleusercontent.com/aida-public/AB6AXuASKLemosIq_wUoFUONs6NQnaWRUp-QNAQ65eXUx53bykKgJaSiWZLNGRuDW1HoOtxcM_BJs7fChRftKqmfj0xL-U9tt5bR6muOWAVokb_wPS2cZBlFxOoM1cqvJ4UUDj57tJD6S8J9PBRU1n3p63yhATC2uJee-lVo8quBMIx2XEsGXE58KC9Am7tGyyaDHp1FmO8tQUPoYrqcigcTA2vqmrjvkEBch1vhNKJwdDRdG_2u6v9eWqb0MJZPWFLkUGKG2G5xYjhtxLjV"/>
+<div>
+<p class="font-bold text-slate-200">The Void Collective</p>
+<p class="text-xs text-slate-500 font-mono uppercase">ID: ART-1109</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-slate-300">Dark Techno</td>
+<td class="px-6 py-5 font-mono text-cyan-400 font-medium">R$ 15.000,00</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter bg-error/10 text-error border border-error/20">Pendente</span>
+</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 rounded-lg bg-slate-800/50 text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="visibility">visibility</span>
+</button>
+<button class="p-2 rounded-lg bg-slate-800/50 text-slate-400 hover:bg-slate-700 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="edit">edit</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-6 bg-slate-800/10 border-t border-slate-800/60 flex justify-between items-center">
+<p class="text-sm text-slate-500 italic">Exibindo 3 de 1.284 artistas</p>
+<div class="flex gap-2">
+<button class="p-2 rounded-lg border border-slate-700/50 text-slate-400 hover:bg-slate-800 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="p-2 rounded-lg border border-slate-700/50 text-slate-200 bg-slate-800 transition-all">1</button>
+<button class="p-2 rounded-lg border border-slate-700/50 text-slate-400 hover:bg-slate-800 transition-all">2</button>
+<button class="p-2 rounded-lg border border-slate-700/50 text-slate-400 hover:bg-slate-800 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center px-4 py-3 md:hidden bg-slate-900/90 backdrop-blur-lg border-t border-slate-800/50 shadow-[0_-5px_20px_rgba(138,43,226,0.1)]">
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-cyan-400 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="text-[10px] uppercase tracking-widest font-bold mt-1">Feed</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-cyan-400 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="event_note">event_note</span>
+<span class="text-[10px] uppercase tracking-widest font-bold mt-1">Schedule</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-purple-500/20 text-purple-400 rounded-xl px-4 py-2" href="#">
+<span class="material-symbols-outlined" data-icon="history_edu">history_edu</span>
+<span class="text-[10px] uppercase tracking-widest font-bold mt-1">Contracts</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-cyan-400 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="smart_toy">smart_toy</span>
+<span class="text-[10px] uppercase tracking-widest font-bold mt-1">AI Chat</span>
+</a>
+</nav>
+<!-- EmbeddedAIChat Widget -->
+<div class="fixed bottom-24 right-8 z-[60] group">
+<!-- Floating FAB -->
+<button class="w-14 h-14 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center shadow-[0_0_20px_rgba(138,43,226,0.4)] hover:scale-110 transition-all duration-300 relative">
+<span class="material-symbols-outlined text-3xl" data-icon="smart_toy" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+<span class="absolute -top-1 -right-1 w-4 h-4 bg-cyan-400 rounded-full border-2 border-slate-950"></span>
+</button>
+<!-- Embedded Chat Interface (Simplified Visual) -->
+<div class="absolute bottom-16 right-0 w-80 glass-card rounded-2xl border border-secondary/30 overflow-hidden shadow-2xl opacity-0 translate-y-4 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-300">
+<div class="p-4 bg-gradient-to-r from-secondary-container/50 to-secondary/30 border-b border-secondary/20 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="auto_awesome">auto_awesome</span>
+<span class="text-sm font-bold text-slate-100">AI Assistant</span>
+</div>
+<div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+</div>
+<div class="p-4 h-64 overflow-y-auto space-y-4 bg-slate-900/40">
+<div class="bg-slate-800/60 p-3 rounded-tr-xl rounded-b-xl max-w-[85%]">
+<p class="text-xs text-slate-300 leading-relaxed">Olá! Como posso ajudar na gestão dos seus artistas hoje?</p>
+</div>
+<div class="bg-secondary-container/20 p-3 rounded-tl-xl rounded-b-xl max-w-[85%] ml-auto border border-secondary/20">
+<p class="text-xs text-secondary leading-relaxed">Analisar contratos pendentes</p>
+</div>
+</div>
+<div class="p-3 bg-slate-800/80 border-t border-slate-700/30 flex items-center gap-2">
+<input class="flex-1 bg-transparent border-none text-xs text-slate-200 placeholder-slate-500 focus:ring-0" placeholder="Pergunte à IA..." type="text"/>
+<button class="text-secondary hover:text-white transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="send">send</span>
+</button>
+</div>
+</div>
+</div>
+</body></html>

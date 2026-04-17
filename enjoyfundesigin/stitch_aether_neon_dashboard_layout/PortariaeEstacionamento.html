@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aether Event Control - Portaria e Estacionamento</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#efdbff",
+                        "tertiary-fixed-dim": "#eac324",
+                        "surface-container": "#1c1f2a",
+                        "primary-fixed-dim": "#00dbe9",
+                        "surface-variant": "#313540",
+                        "on-background": "#dfe2f1",
+                        "tertiary-fixed": "#ffe179",
+                        "inverse-primary": "#006970",
+                        "outline-variant": "#3b494b",
+                        "on-secondary-fixed-variant": "#6700b5",
+                        "on-primary-container": "#006970",
+                        "on-secondary": "#480081",
+                        "on-tertiary-fixed-variant": "#554500",
+                        "surface-bright": "#353944",
+                        "primary-fixed": "#7df4ff",
+                        "on-tertiary": "#3b2f00",
+                        "on-surface": "#dfe2f1",
+                        "on-secondary-container": "#dcb7ff",
+                        "tertiary": "#fff5de",
+                        "surface": "#0f131d",
+                        "surface-container-high": "#262a35",
+                        "surface-container-highest": "#313540",
+                        "on-primary-fixed-variant": "#004f54",
+                        "on-error": "#690005",
+                        "on-tertiary-container": "#715d00",
+                        "primary-container": "#00f0ff",
+                        "surface-container-lowest": "#0a0e18",
+                        "error": "#ffb4ab",
+                        "surface-tint": "#00dbe9",
+                        "on-primary": "#00363a",
+                        "inverse-on-surface": "#2c303b",
+                        "background": "#0f131d",
+                        "surface-dim": "#0f131d",
+                        "on-surface-variant": "#b9cacb",
+                        "surface-container-low": "#171b26",
+                        "outline": "#849495",
+                        "secondary": "#dcb8ff",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-fixed": "#231b00",
+                        "error-container": "#93000a",
+                        "secondary-fixed-dim": "#dcb8ff",
+                        "on-primary-fixed": "#002022",
+                        "inverse-surface": "#dfe2f1",
+                        "primary": "#dbfcff",
+                        "secondary-container": "#7701d0",
+                        "tertiary-container": "#fed639",
+                        "on-secondary-fixed": "#2c0051"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0a0e18;
+            color: #dfe2f1;
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .font-space-grotesk { font-family: 'Space Grotesk', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface-container-lowest">
+<!-- TopNavBar -->
+<header class="bg-slate-900/50 backdrop-blur-md text-slate-200 font-space-grotesk docked full-width top-0 z-50 shadow-[0_0_15px_rgba(0,240,255,0.1)] flex justify-between items-center w-full px-8 h-16 fixed">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-wider text-cyan-400">Aether Event Control</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-slate-400 hover:text-cyan-300 transition-all duration-300" href="#">Dashboard</a>
+<a class="text-slate-400 hover:text-cyan-300 transition-all duration-300" href="#">Analytics</a>
+<a class="text-slate-400 hover:text-cyan-300 transition-all duration-300" href="#">Logs</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="bg-primary-container text-on-primary px-4 py-1.5 rounded-lg font-bold text-sm scale-[1.02] active:scale-95 transition-all">AI Assistant</button>
+<div class="hidden lg:flex items-center gap-2 px-3 py-1 bg-slate-800/50 rounded-full border border-slate-700/50">
+<div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+<span class="text-xs text-slate-300">Network: Stable</span>
+</div>
+<div class="flex gap-3 ml-2">
+<span class="material-symbols-outlined text-slate-400 cursor-pointer hover:text-cyan-300" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined text-slate-400 cursor-pointer hover:text-cyan-300" data-icon="settings">settings</span>
+</div>
+<img alt="Admin Profile" class="w-8 h-8 rounded-full border border-cyan-500/30" data-alt="close-up portrait of a digital security administrator profile icon in a sleek neon UI style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHJFZymLSJzJOh0FK6jTUMCYATIpIpkcDEmmQG2VFzgxsucQsaGB9MKq_2nH5oKNaw0Hr0bLlo7YniH2b2-_0eSQfIfTwVQyyZD0ykN_3sxQQ3_-34e-VC-RATlOq0lQlGqj5XUka4wo8tKtUfBLsMkmVI9Mtjsuwxh5p5ta1pyy4lxrlEQQQtVExFcYq-CfBj5UFqPtNYarjoPSd7MHeTvhR3QceLpRlMj6pIxoMRvCBhTa8fI-r0ZDTkVjiFkegeOd9OjWeRadw7"/>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="bg-[#0B0F19] font-space-grotesk text-slate-300 h-screen w-64 fixed left-0 top-16 border-r border-slate-800/60 z-40">
+<div class="flex flex-col py-6 gap-2">
+<div class="px-6 mb-6">
+<div class="flex items-center gap-3">
+<img alt="System Node" class="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20" data-alt="abstract geometric brand logo representing a high-tech curator node with neon cyan accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1bg5IubWit93RItJKqb8mGWwt-t25ukI60Sazd00cuj9R11KMjFfuML6euDIRDL-Z_eqdBE6F0kszznLV9F32SvJa5RToZ6T9WpTgKaC7jasLWFTR3nJvP46mcOfLOUsYAt_clVYVxYrp6TrmNUuHWZy0kuDgj3424y96jTCcI2Ex7MCgD-Vn0MZw2w1WLIesmd4EfmkDSJ7J5Wm3J0kcUFLpxtEdTY_54Da2A06kMUKMrZW4SKmRpItguvCaw8or3obASNhkP3AH"/>
+<div>
+<p class="text-lg font-black text-white leading-none">Neon Curator</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Event Terminal v1.0</p>
+</div>
+</div>
+</div>
+<nav class="flex flex-col">
+<a class="flex items-center gap-3 px-6 py-4 text-slate-400 hover:bg-slate-800/40 hover:text-slate-100 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span>Check-In</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-4 text-cyan-400 bg-cyan-500/5 border-r-4 border-cyan-500 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="local_parking">local_parking</span>
+<span>Parking</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-4 text-slate-400 hover:bg-slate-800/40 hover:text-slate-100 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="speed">speed</span>
+<span>Capacity</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-4 text-slate-400 hover:bg-slate-800/40 hover:text-slate-100 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="smart_toy">smart_toy</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-4 text-slate-400 hover:bg-slate-800/40 hover:text-slate-100 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span>Staff</span>
+</a>
+</nav>
+<div class="mt-auto px-6 pb-20">
+<button class="w-full bg-slate-800/50 border border-slate-700/50 py-3 rounded-xl text-cyan-400 font-bold text-sm hover:border-cyan-500/50 transition-all">Validate Ticket</button>
+<a class="flex items-center gap-3 py-4 mt-4 text-slate-400 hover:text-red-400 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span>Log Out</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-24 pb-12 px-8 min-h-screen">
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-10">
+<div>
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-cyan-400 text-3xl" data-icon="local_parking">local_parking</span>
+<h1 class="text-4xl font-headline font-bold text-white tracking-tight">Portaria e Estacionamento</h1>
+</div>
+<p class="text-slate-400 font-body">Gerenciamento em tempo real de acessos e veículos.</p>
+</div>
+<div class="flex items-center gap-3 px-4 py-2 bg-green-400/10 border border-green-400/20 rounded-full">
+<span class="text-xs font-bold text-green-400 uppercase tracking-widest">Capacidade: 85% - OK</span>
+<div class="w-2 h-2 rounded-full bg-green-400"></div>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-8">
+<!-- Left Column: Forms & Controls -->
+<div class="col-span-12 lg:col-span-4 space-y-8">
+<!-- Navigation Tabs -->
+<div class="flex bg-slate-800/50 p-1.5 rounded-2xl border border-slate-700/30">
+<button class="flex-1 py-3 px-4 rounded-xl text-sm font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_10px_rgba(0,240,255,0.1)]">Estacionamento</button>
+<button class="flex-1 py-3 px-4 rounded-xl text-sm font-bold text-slate-400 hover:text-slate-200 transition-all">Validar Ingresso</button>
+</div>
+<!-- Registration Card -->
+<section class="bg-slate-900/60 backdrop-blur-md border border-slate-800/60 rounded-3xl p-8 shadow-[0_0_20px_rgba(0,0,0,0.3)]">
+<h2 class="text-xl font-headline font-bold text-white mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-400" data-icon="add_circle">add_circle</span>
+                        Nova Entrada
+                    </h2>
+<form class="space-y-6">
+<div class="space-y-2">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Evento</label>
+<select class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-slate-200 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all outline-none appearance-none">
+<option>Aether Festival 2024</option>
+<option>Cyber Summit 1.0</option>
+<option>Neon Night Party</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Placa do Veículo</label>
+<input class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-4 text-3xl font-mono uppercase text-cyan-400 placeholder-slate-700 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all outline-none" placeholder="ABC-1234" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Tipo de Veículo</label>
+<div class="grid grid-cols-3 gap-3">
+<button class="flex flex-col items-center gap-2 p-3 bg-slate-800/30 border border-slate-700/50 rounded-xl hover:border-cyan-500/50 transition-all group" type="button">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-cyan-400" data-icon="directions_car">directions_car</span>
+<span class="text-[10px] font-bold text-slate-400">Carro</span>
+</button>
+<button class="flex flex-col items-center gap-2 p-3 bg-slate-800/30 border border-slate-700/50 rounded-xl hover:border-cyan-500/50 transition-all group" type="button">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-cyan-400" data-icon="two_wheeler">two_wheeler</span>
+<span class="text-[10px] font-bold text-slate-400">Moto</span>
+</button>
+<button class="flex flex-col items-center gap-2 p-3 bg-slate-800/30 border border-slate-700/50 rounded-xl hover:border-cyan-500/50 transition-all group" type="button">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-cyan-400" data-icon="local_shipping">local_shipping</span>
+<span class="text-[10px] font-bold text-slate-400">VIP</span>
+</button>
+</div>
+</div>
+<div class="pt-4 flex flex-col gap-3">
+<button class="w-full bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold py-4 rounded-xl shadow-[0_0_15px_rgba(0,240,255,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all" type="button">
+                                Registrar Entrada
+                            </button>
+<button class="w-full border-2 border-amber-500/50 text-amber-500 font-bold py-4 rounded-xl hover:bg-amber-500/5 transition-all" type="button">
+                                Registrar Saída
+                            </button>
+</div>
+</form>
+</section>
+<!-- AI Integration Widget -->
+<section class="bg-slate-900/60 backdrop-blur-md border border-slate-800/60 rounded-3xl p-6 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-3xl -z-10"></div>
+<div class="flex items-center gap-3 mb-4">
+<div class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-purple-400 text-sm" data-icon="auto_awesome" data-weight="fill">auto_awesome</span>
+</div>
+<h3 class="font-headline font-bold text-slate-200">Aether AI Insights</h3>
+</div>
+<p class="text-sm text-slate-400 mb-4 italic leading-relaxed">"O pico de saída é esperado para as 23:45. Recomendo abrir o portão auxiliar B."</p>
+<div class="flex gap-2">
+<input class="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2 text-xs outline-none focus:border-cyan-500/50" placeholder="Perguntar ao assistente..." type="text"/>
+<button class="bg-cyan-500/20 text-cyan-400 p-2 rounded-lg hover:bg-cyan-500/30 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="send">send</span>
+</button>
+</div>
+</section>
+</div>
+<!-- Right Column: Table & Logs -->
+<div class="col-span-12 lg:col-span-8">
+<section class="bg-slate-900/40 backdrop-blur-sm border border-slate-800/40 rounded-3xl overflow-hidden shadow-2xl">
+<div class="px-8 py-6 border-b border-slate-800/60 flex justify-between items-center">
+<h2 class="text-xl font-headline font-bold text-white">Registros Recentes</h2>
+<div class="flex gap-2">
+<button class="p-2 text-slate-400 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined" data-icon="filter_list">filter_list</span>
+</button>
+<button class="p-2 text-slate-400 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined" data-icon="download">download</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-slate-900/50">
+<tr>
+<th class="px-8 py-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Veículo</th>
+<th class="px-8 py-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Tipo</th>
+<th class="px-8 py-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Entrada</th>
+<th class="px-8 py-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Status</th>
+<th class="px-8 py-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] text-right">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800/40">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-800/20 transition-colors group">
+<td class="px-8 py-5">
+<span class="font-mono font-bold text-lg text-white group-hover:text-cyan-400 transition-colors">ABC-9821</span>
+</td>
+<td class="px-8 py-5 text-slate-300">Carro Passeio</td>
+<td class="px-8 py-5 text-slate-400 text-sm">19:32:04</td>
+<td class="px-8 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-green-400/10 text-green-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
+<span class="w-1 h-1 rounded-full bg-green-400"></span> Estacionado
+                                        </span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="text-slate-500 hover:text-white"><span class="material-symbols-outlined" data-icon="more_vert">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-800/20 transition-colors group">
+<td class="px-8 py-5">
+<span class="font-mono font-bold text-lg text-white group-hover:text-cyan-400 transition-colors">KLS-3310</span>
+</td>
+<td class="px-8 py-5 text-slate-300">Motocicleta</td>
+<td class="px-8 py-5 text-slate-400 text-sm">19:45:12</td>
+<td class="px-8 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 text-amber-500 rounded-full text-[10px] font-bold uppercase tracking-wider">
+<span class="w-1 h-1 rounded-full bg-amber-500 animate-pulse"></span> Pendente
+                                        </span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="text-slate-500 hover:text-white"><span class="material-symbols-outlined" data-icon="more_vert">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-800/20 transition-colors group">
+<td class="px-8 py-5">
+<span class="font-mono font-bold text-lg text-white group-hover:text-cyan-400 transition-colors">BR-VIP-01</span>
+</td>
+<td class="px-8 py-5 text-slate-300">Van Executiva</td>
+<td class="px-8 py-5 text-slate-400 text-sm">18:12:44</td>
+<td class="px-8 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800 text-slate-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                                            Finalizado
+                                        </span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="text-slate-500 hover:text-white"><span class="material-symbols-outlined" data-icon="more_vert">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-slate-800/20 transition-colors group">
+<td class="px-8 py-5">
+<span class="font-mono font-bold text-lg text-white group-hover:text-cyan-400 transition-colors">XYZ-5555</span>
+</td>
+<td class="px-8 py-5 text-slate-300">Carro Passeio</td>
+<td class="px-8 py-5 text-slate-400 text-sm">20:01:33</td>
+<td class="px-8 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-green-400/10 text-green-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
+<span class="w-1 h-1 rounded-full bg-green-400"></span> Estacionado
+                                        </span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="text-slate-500 hover:text-white"><span class="material-symbols-outlined" data-icon="more_vert">more_vert</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="px-8 py-6 border-t border-slate-800/60 flex justify-between items-center">
+<span class="text-xs text-slate-500 font-medium">Exibindo 1-10 de 156 registros</span>
+<div class="flex gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:text-white hover:border-cyan-500/50 transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/50 text-cyan-400 font-bold">1</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:text-white hover:border-cyan-500/50 transition-all">2</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:text-white hover:border-cyan-500/50 transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Visualization / Map Preview placeholder -->
+<div class="mt-8 grid grid-cols-2 gap-8">
+<div class="bg-slate-900/40 rounded-3xl border border-slate-800/40 p-6 flex items-center gap-4">
+<div class="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-400" data-icon="door_front">door_front</span>
+</div>
+<div>
+<p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Portão Principal</p>
+<p class="text-xl font-bold text-white">Status: Aberto</p>
+</div>
+</div>
+<div class="bg-slate-900/40 rounded-3xl border border-slate-800/40 p-6 flex items-center gap-4">
+<div class="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-purple-400" data-icon="timer">timer</span>
+</div>
+<div>
+<p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Tempo Médio Perm.</p>
+<p class="text-xl font-bold text-white">04h 22m</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Background Atmospheric Glows -->
+<div class="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/10 blur-[120px] rounded-full -z-50"></div>
+<div class="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 blur-[120px] rounded-full -z-50"></div>
+</body></html>

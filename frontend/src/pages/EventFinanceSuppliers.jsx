@@ -18,7 +18,7 @@ const CONTRACT_STATUS = {
   cancelled: { label: "Cancelado", cls: "badge-red" },
 };
 
-function SupplierRow({ supplier, events, onUpdated, scopedEventId, onScopedEventChange }) {
+function SupplierRow({ supplier, events, scopedEventId, onScopedEventChange }) {
   const [open, setOpen] = useState(false);
   const [contracts, setContracts] = useState([]);
   const [eventId, setEventId] = useState(scopedEventId || "");

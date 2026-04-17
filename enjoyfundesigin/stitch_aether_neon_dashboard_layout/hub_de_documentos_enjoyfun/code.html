@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hub de Documentos | AETHER COMMAND</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0e18;
+        }
+        h1, h2, h3, .font-headline {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#0f131d",
+                        "tertiary-fixed": "#ffe179",
+                        "surface-container-high": "#262a35",
+                        "tertiary": "#fff5de",
+                        "surface-variant": "#313540",
+                        "on-error-container": "#ffdad6",
+                        "surface-dim": "#0f131d",
+                        "outline": "#849495",
+                        "on-tertiary": "#3b2f00",
+                        "inverse-on-surface": "#2c303b",
+                        "surface-bright": "#353944",
+                        "inverse-primary": "#006970",
+                        "secondary-fixed-dim": "#dcb8ff",
+                        "inverse-surface": "#dfe2f1",
+                        "on-primary-container": "#006970",
+                        "error-container": "#93000a",
+                        "surface-container-low": "#171b26",
+                        "on-secondary-fixed": "#2c0051",
+                        "on-primary": "#00363a",
+                        "secondary-fixed": "#efdbff",
+                        "on-tertiary-container": "#715d00",
+                        "surface-container-highest": "#313540",
+                        "primary-fixed": "#7df4ff",
+                        "tertiary-fixed-dim": "#eac324",
+                        "on-surface": "#dfe2f1",
+                        "on-primary-fixed": "#002022",
+                        "on-secondary-fixed-variant": "#6700b5",
+                        "on-tertiary-fixed-variant": "#554500",
+                        "on-error": "#690005",
+                        "on-tertiary-fixed": "#231b00",
+                        "on-primary-fixed-variant": "#004f54",
+                        "on-background": "#dfe2f1",
+                        "surface-container": "#1c1f2a",
+                        "surface-container-lowest": "#0a0e18",
+                        "on-secondary": "#480081",
+                        "primary": "#dbfcff",
+                        "surface-tint": "#00dbe9",
+                        "secondary": "#dcb8ff",
+                        "background": "#0f131d",
+                        "outline-variant": "#3b494b",
+                        "error": "#ffb4ab",
+                        "primary-container": "#00f0ff",
+                        "secondary-container": "#7701d0",
+                        "on-surface-variant": "#b9cacb",
+                        "tertiary-container": "#fed639",
+                        "primary-fixed-dim": "#00dbe9",
+                        "on-secondary-container": "#dcb7ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface-container-lowest text-on-background min-h-screen">
+<!-- Top Navigation (AETHER COMMAND) -->
+<nav class="bg-slate-950/80 backdrop-blur-md fixed top-0 z-50 w-full flex justify-between items-center px-8 h-16 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+<div class="text-xl font-bold tracking-widest text-cyan-400 drop-shadow-[0_0_8px_rgba(0,240,255,0.5)] font-headline">
+            AETHER COMMAND
+        </div>
+<div class="hidden md:flex gap-8 items-center h-full">
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-headline" href="#">Dashboard</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-headline" href="#">Events</a>
+<a class="text-cyan-400 border-b-2 border-cyan-400 pb-1 font-headline" href="#">Files</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-headline" href="#">Analytics</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:text-cyan-400 transition-all p-2 rounded-lg hover:bg-slate-800/40">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-slate-400 hover:text-cyan-400 transition-all p-2 rounded-lg hover:bg-slate-800/40">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full border border-cyan-400/30 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="professional user profile portrait in dark moody cinematic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgVHyxE-Se5YIlEzQvtE_g73qr25HX5vwXlbTY39_xXFtIkkOK0_fGmPgH0ubrEdPe_ReTg0UP6VwTazWP_7oqkFxVuW0-Y613nVSohRDKKVyS1KzLhSAz6WRdOmmSvjnDMvqcVIJ-lLkklLExvKqvbwZoCRHMS_DLZyXmqFWbep4GXRl-dyAVvaf6VTxjC1i1Hg3FFihGypxV9McQKTPU0d5Ucd7WEsMa2Q8RTez-FBdWkKBIbFRtghMFoGYwPsstEipSvG2OBLBc"/>
+</div>
+</div>
+</nav>
+<!-- Sidebar (NEON CURATOR) -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-slate-900/90 backdrop-blur-xl border-r border-slate-800/50 shadow-[4px_0_24px_rgba(0,0,0,0.5)] flex flex-col h-full py-6 px-4 gap-2 hidden lg:flex pt-24">
+<div class="mb-6 px-4">
+<div class="text-lg font-black text-cyan-400 font-headline uppercase tracking-tighter">NEON CURATOR</div>
+<div class="text-xs text-slate-500 font-headline">Event Control</div>
+</div>
+<nav class="flex-1 space-y-2">
+<a class="flex items-center gap-3 text-slate-400 px-4 py-3 hover:text-slate-100 hover:bg-slate-800/60 hover:translate-x-1 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Overview</span>
+</a>
+<a class="flex items-center gap-3 text-slate-400 px-4 py-3 hover:text-slate-100 hover:bg-slate-800/60 hover:translate-x-1 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">event</span>
+<span>Schedule</span>
+</a>
+<a class="flex items-center gap-3 text-slate-400 px-4 py-3 hover:text-slate-100 hover:bg-slate-800/60 hover:translate-x-1 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">mic</span>
+<span>Speakers</span>
+</a>
+<a class="flex items-center gap-3 bg-cyan-500/10 text-cyan-400 rounded-lg px-4 py-3 shadow-[inset_0_0_10px_rgba(0,240,255,0.1)] transition-all" href="#">
+<span class="material-symbols-outlined">folder_open</span>
+<span>Files</span>
+</a>
+<a class="flex items-center gap-3 text-slate-400 px-4 py-3 hover:text-slate-100 hover:bg-slate-800/60 hover:translate-x-1 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">inventory</span>
+<span>Logistics</span>
+</a>
+</nav>
+<button class="mt-4 mx-4 py-3 px-4 bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold rounded-xl shadow-[0_0_15px_rgba(0,240,255,0.3)] hover:scale-[1.05] transition-all duration-300">
+            CREATE NEW
+        </button>
+<div class="mt-auto border-t border-slate-800/50 pt-4 space-y-1">
+<a class="flex items-center gap-3 text-slate-400 px-4 py-2 hover:text-slate-100" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="text-sm">Support</span>
+</a>
+<a class="flex items-center gap-3 text-slate-400 px-4 py-2 hover:text-slate-100" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="text-sm">Sign Out</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="lg:pl-64 pt-20 pb-12 px-6 md:px-12">
+<!-- Header -->
+<header class="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-cyan-500/10 flex items-center justify-center rounded-xl border border-cyan-500/20 shadow-[0_0_10px_rgba(0,240,255,0.1)]">
+<span class="material-symbols-outlined text-cyan-400 text-3xl">description</span>
+</div>
+<div>
+<h1 class="text-2xl font-bold text-slate-100 tracking-tight font-headline">Hub de Documentos</h1>
+<p class="text-slate-400 text-sm">Gerencie e processe ativos digitais com IA</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="relative">
+<select class="appearance-none bg-slate-800/50 border border-slate-700 text-slate-200 py-2.5 pl-4 pr-10 rounded-xl focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all cursor-pointer">
+<option>Todas Categorias</option>
+<option>Jurídico</option>
+<option>Financeiro</option>
+<option>Operacional</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-slate-400 pointer-events-none">expand_more</span>
+</div>
+<button class="flex items-center gap-2 px-4 py-2.5 border border-slate-700 text-slate-300 rounded-xl hover:border-cyan-500/50 hover:text-cyan-400 transition-all group">
+<span class="material-symbols-outlined text-lg group-hover:rotate-180 transition-transform duration-500">refresh</span>
+<span class="font-medium">Atualizar</span>
+</button>
+</div>
+</header>
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
+<!-- Upload & Form Section (Bento Style) -->
+<section class="xl:col-span-4 flex flex-col gap-6">
+<div class="bg-slate-900/60 backdrop-blur-md border border-slate-800/60 rounded-2xl p-6 flex flex-col gap-6">
+<h2 class="text-lg font-bold text-slate-100 font-headline">Novo Documento</h2>
+<!-- Dropzone -->
+<div class="border-2 border-dashed border-slate-700 rounded-2xl p-8 flex flex-col items-center justify-center gap-4 hover:border-cyan-400 hover:bg-cyan-500/5 transition-all cursor-pointer group">
+<span class="material-symbols-outlined text-5xl text-cyan-400 group-hover:scale-110 transition-transform">cloud_upload</span>
+<div class="text-center">
+<p class="text-slate-200 font-semibold">Arraste e solte arquivos</p>
+<p class="text-slate-500 text-sm">PDF, DOCX ou JPG até 50MB</p>
+</div>
+</div>
+<div class="space-y-4">
+<div class="space-y-1.5">
+<label class="text-xs uppercase tracking-widest text-slate-500 font-bold ml-1">Categoria</label>
+<select class="w-full bg-slate-800/50 border border-slate-700 text-slate-200 p-3 rounded-xl focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all outline-none">
+<option>Selecione uma categoria...</option>
+<option>Relatório de Evento</option>
+<option>Contrato de Palestrante</option>
+<option>Mídia de Marketing</option>
+</select>
+</div>
+<div class="space-y-1.5">
+<label class="text-xs uppercase tracking-widest text-slate-500 font-bold ml-1">Notas Adicionais</label>
+<textarea class="w-full bg-slate-800/50 border border-slate-700 text-slate-200 p-3 rounded-xl focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all outline-none resize-none" placeholder="Descreva brevemente o conteúdo..." rows="3"></textarea>
+</div>
+<button class="w-full py-4 bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-black rounded-xl shadow-[0_0_20px_rgba(0,240,255,0.2)] hover:scale-[1.02] active:scale-95 transition-all">
+                            INICIAR UPLOAD
+                        </button>
+</div>
+</div>
+<!-- Info Card -->
+<div class="bg-gradient-to-br from-secondary-container/20 to-transparent border border-secondary-container/30 rounded-2xl p-6 relative overflow-hidden group">
+<div class="relative z-10">
+<h3 class="text-secondary font-bold font-headline mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined">auto_awesome</span>
+                            IA de Processamento
+                        </h3>
+<p class="text-slate-400 text-sm leading-relaxed">
+                            Nossa rede neural agora suporta indexação vetorial automática para busca semântica profunda.
+                        </p>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-9xl">neurology</span>
+</div>
+</div>
+</section>
+<!-- Table Section -->
+<section class="xl:col-span-8 space-y-6">
+<!-- Search & Filters -->
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="w-full bg-slate-900/60 backdrop-blur-md border border-slate-800/60 text-slate-200 py-4 pl-12 pr-6 rounded-2xl focus:border-cyan-500/50 transition-all outline-none" placeholder="Pesquisar nos arquivos..." type="text"/>
+</div>
+<!-- Files Table -->
+<div class="bg-slate-900/60 backdrop-blur-md border border-slate-800/60 rounded-2xl overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-widest font-bold">
+<th class="px-6 py-4">Arquivo</th>
+<th class="px-6 py-4">Categoria</th>
+<th class="px-6 py-4">Tamanho</th>
+<th class="px-6 py-4">Status Parse</th>
+<th class="px-6 py-4">Status Index</th>
+<th class="px-6 py-4">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800/50">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-800/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-cyan-400">picture_as_pdf</span>
+<span class="text-slate-200 font-medium truncate max-w-[140px]">contrato_final_v2.pdf</span>
+</div>
+</td>
+<td class="px-6 py-4 text-slate-400 text-sm">Jurídico</td>
+<td class="px-6 py-4 text-slate-400 text-sm">2.4 MB</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-green-500/15 text-green-400 border border-green-500/20">
+                                            Processado
+                                        </span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-green-500/15 text-green-400 border border-green-500/20">
+                                            Indexado
+                                        </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
+<button class="text-slate-400 hover:text-purple-400 transition-colors" title="Visualizar"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="text-slate-400 hover:text-cyan-400 transition-colors" title="Re-processar"><span class="material-symbols-outlined text-lg">redo</span></button>
+<button class="text-slate-400 hover:text-red-400 transition-colors" title="Excluir"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 2 (Processing) -->
+<tr class="hover:bg-slate-800/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-cyan-400">description</span>
+<span class="text-slate-200 font-medium truncate max-w-[140px]">palestra_ai_log.docx</span>
+</div>
+</td>
+<td class="px-6 py-4 text-slate-400 text-sm">Eventos</td>
+<td class="px-6 py-4 text-slate-400 text-sm">842 KB</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
+<svg class="animate-spin h-3 w-3 text-cyan-400" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path></svg>
+                                            Processando
+                                        </span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/10">
+                                            Indexando
+                                        </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
+<button class="text-slate-400 hover:text-purple-400 transition-colors" title="Visualizar"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="text-slate-400 hover:text-cyan-400 transition-colors" title="Re-processar"><span class="material-symbols-outlined text-lg">redo</span></button>
+<button class="text-slate-400 hover:text-red-400 transition-colors" title="Excluir"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 3 (Pending) -->
+<tr class="hover:bg-slate-800/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-cyan-400">image</span>
+<span class="text-slate-200 font-medium truncate max-w-[140px]">blueprint_stage_01.jpg</span>
+</div>
+</td>
+<td class="px-6 py-4 text-slate-400 text-sm">Operacional</td>
+<td class="px-6 py-4 text-slate-400 text-sm">5.1 MB</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-700/50 text-slate-300">
+                                            Pendente
+                                        </span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-700/50 text-slate-300">
+                                            Pendente
+                                        </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
+<button class="text-slate-400 hover:text-purple-400 transition-colors" title="Visualizar"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="text-slate-400 hover:text-cyan-400 transition-colors" title="Re-processar"><span class="material-symbols-outlined text-lg">redo</span></button>
+<button class="text-slate-400 hover:text-red-400 transition-colors" title="Excluir"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 4 (Error) -->
+<tr class="hover:bg-slate-800/30 transition-colors group border-b-0">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-red-400">error</span>
+<span class="text-slate-200 font-medium truncate max-w-[140px]">relatorio_corrompido.pdf</span>
+</div>
+</td>
+<td class="px-6 py-4 text-slate-400 text-sm">Financeiro</td>
+<td class="px-6 py-4 text-slate-400 text-sm">1.2 MB</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/15 text-red-400 border border-red-500/20">
+                                            Erro
+                                        </span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/15 text-red-400 border border-red-500/10">
+                                            Erro
+                                        </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
+<button class="text-slate-400 hover:text-purple-400 transition-colors" title="Visualizar"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="text-slate-400 hover:text-cyan-400 transition-colors" title="Re-processar"><span class="material-symbols-outlined text-lg">redo</span></button>
+<button class="text-slate-400 hover:text-red-400 transition-colors" title="Excluir"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="px-6 py-4 bg-slate-900/40 border-t border-slate-800/50 flex items-center justify-between">
+<span class="text-sm text-slate-500">Exibindo 4 de 28 arquivos</span>
+<div class="flex gap-2">
+<button class="p-2 border border-slate-700 rounded-lg text-slate-400 hover:text-cyan-400 hover:border-cyan-500/50 transition-all">
+<span class="material-symbols-outlined text-lg">chevron_left</span>
+</button>
+<div class="flex items-center gap-1">
+<button class="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 font-bold text-sm">1</button>
+<button class="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-800 text-sm">2</button>
+<button class="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-800 text-sm">3</button>
+</div>
+<button class="p-2 border border-slate-700 rounded-lg text-slate-400 hover:text-cyan-400 hover:border-cyan-500/50 transition-all">
+<span class="material-symbols-outlined text-lg">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- AI Chat Widget -->
+<div class="fixed bottom-6 right-6 z-[60]">
+<button class="w-14 h-14 bg-secondary-container rounded-full flex items-center justify-center text-on-secondary-container shadow-[0_0_20px_rgba(138,43,226,0.4)] hover:scale-110 active:scale-90 transition-all group">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-12 transition-transform">chat_bubble</span>
+<div class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-surface rounded-full"></div>
+</button>
+<!-- Floating label hint -->
+<div class="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-slate-900/90 backdrop-blur border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            Falar com AETHER AI
+        </div>
+</div>
+</body></html>

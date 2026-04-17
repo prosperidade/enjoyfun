@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Meals Control - EnjoyFun</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-secondary": "#480081",
+                    "surface-container-low": "#171b26",
+                    "on-tertiary-fixed": "#231b00",
+                    "surface-container": "#1c1f2a",
+                    "inverse-primary": "#006970",
+                    "surface-container-lowest": "#0a0e18",
+                    "surface-variant": "#313540",
+                    "on-error-container": "#ffdad6",
+                    "on-secondary-container": "#dcb7ff",
+                    "surface-bright": "#353944",
+                    "secondary": "#dcb8ff",
+                    "on-error": "#690005",
+                    "inverse-on-surface": "#2c303b",
+                    "on-secondary-fixed-variant": "#6700b5",
+                    "on-tertiary-container": "#715d00",
+                    "on-secondary-fixed": "#2c0051",
+                    "on-tertiary-fixed-variant": "#554500",
+                    "on-primary-fixed-variant": "#004f54",
+                    "on-primary-fixed": "#002022",
+                    "tertiary": "#fff5de",
+                    "surface": "#0f131d",
+                    "secondary-fixed-dim": "#dcb8ff",
+                    "on-primary": "#00363a",
+                    "background": "#0f131d",
+                    "inverse-surface": "#dfe2f1",
+                    "secondary-container": "#7701d0",
+                    "outline-variant": "#3b494b",
+                    "outline": "#849495",
+                    "surface-tint": "#00dbe9",
+                    "tertiary-fixed-dim": "#eac324",
+                    "primary-container": "#00f0ff",
+                    "primary": "#dbfcff",
+                    "primary-fixed": "#7df4ff",
+                    "on-tertiary": "#3b2f00",
+                    "tertiary-container": "#fed639",
+                    "surface-container-high": "#262a35",
+                    "error-container": "#93000a",
+                    "surface-dim": "#0f131d",
+                    "secondary-fixed": "#efdbff",
+                    "on-surface-variant": "#b9cacb",
+                    "on-surface": "#dfe2f1",
+                    "on-background": "#dfe2f1",
+                    "surface-container-highest": "#313540",
+                    "tertiary-fixed": "#ffe179",
+                    "primary-fixed-dim": "#00dbe9",
+                    "error": "#ffb4ab",
+                    "on-primary-container": "#006970"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-space-grotesk { font-family: 'Space Grotesk', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(15, 19, 29, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(59, 73, 75, 0.3); }
+        .neon-glow-cyan { shadow: 0 0 15px rgba(0, 240, 255, 0.15); }
+        .neon-glow-amber { shadow: 0 0 15px rgba(251, 191, 36, 0.15); }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface selection:bg-primary-container/30">
+<!-- SideNavBar (Desktop) -->
+<nav class="fixed left-0 top-0 flex flex-col h-full z-40 bg-slate-900/60 backdrop-blur-md border-r border-slate-800/60 shadow-2xl w-64 hidden md:flex font-space-grotesk text-sm">
+<div class="p-6">
+<div class="flex items-center gap-3 mb-8">
+<div class="w-10 h-10 rounded-lg bg-amber-400 flex items-center justify-center shadow-[0_0_15px_rgba(251,191,36,0.3)]">
+<span class="material-symbols-outlined text-slate-950" style="font-variation-settings: 'FILL' 1;">restaurant</span>
+</div>
+<div>
+<h1 class="text-xl font-black text-amber-400">EventSaaS</h1>
+<p class="text-[10px] uppercase tracking-tighter text-slate-400">Gestão de Refeições</p>
+</div>
+</div>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-amber-200/70 hover:bg-slate-800/40 transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span> Painel Geral
+                </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-400/10 text-amber-400 border-r-4 border-amber-400 translate-x-1 transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">restaurant</span> Refeições
+                </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-amber-200/70 hover:bg-slate-800/40 transition-colors" href="#">
+<span class="material-symbols-outlined">group</span> Participantes
+                </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-amber-200/70 hover:bg-slate-800/40 transition-colors" href="#">
+<span class="material-symbols-outlined">analytics</span> Relatórios
+                </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-amber-200/70 hover:bg-slate-800/40 transition-colors" href="#">
+<span class="material-symbols-outlined">tune</span> Ajustes
+                </a>
+</div>
+</div>
+<div class="mt-auto p-6 space-y-4">
+<button class="w-full py-3 px-4 bg-slate-800/50 border border-slate-700 text-slate-300 rounded-xl hover:bg-slate-700 transition-all text-xs font-bold uppercase tracking-widest">
+                Exportar Dados
+            </button>
+<div class="pt-4 border-t border-slate-800/60 space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-amber-200/70" href="#"><span class="material-symbols-outlined">help</span> Suporte</a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-red-400" href="#"><span class="material-symbols-outlined">logout</span> Sair</a>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="md:ml-64 min-h-screen pb-24 md:pb-8">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center w-full px-8 py-4 h-20 sticky top-0 z-30 bg-slate-950/50 backdrop-blur-md shadow-[0_0_15px_rgba(251,191,36,0.1)] bg-gradient-to-r from-amber-500/5 to-purple-500/5">
+<div class="flex items-center gap-6">
+<span class="text-2xl font-bold text-amber-400 tracking-wider font-space-grotesk">Meals Control</span>
+<nav class="hidden lg:flex items-center gap-6 font-space-grotesk text-slate-200">
+<a class="text-slate-400 hover:text-slate-200 transition-all duration-300" href="#">Monitoramento</a>
+<a class="text-slate-400 hover:text-slate-200 transition-all duration-300" href="#">Histórico</a>
+<a class="text-slate-400 hover:text-slate-200 transition-all duration-300" href="#">Configurações</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800/50 transition-all">
+<span class="material-symbols-outlined text-lg">sync</span> Sincronizar
+                </button>
+<button class="flex items-center gap-2 px-5 py-2 rounded-lg bg-amber-400 text-slate-950 font-bold hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(251,191,36,0.2)]">
+                    Novo Serviço
+                </button>
+<div class="h-8 w-[1px] bg-slate-800 mx-2"></div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400 cursor-pointer hover:text-amber-400 transition-colors">notifications</span>
+<img alt="Avatar do Organizador" class="w-10 h-10 rounded-full border-2 border-amber-400/30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkGfGnQPIIPnF2LSXazwd2ny1nQOj-Ic5rsmV2XJS8Mj1f45jsft0nDmf6olZU0RTGNAyU46MlSh0pnduU0AERXqmi7He7dgL6RJr61fao8S9Hl_fy0knbe0FcwSyae7pYD1NBL86h3IJV-wxXlj30wKm6hwxkuUveI1CUmvPel_GKnfx4krmlpe_4DAewqC986qAX7Yty_nH_wOYGxse6ZG1ShHpPgJZpd5-3h-gtFGi6YJ-cx2lBen_CVWFJmWkEgazqngUYb4jH"/>
+</div>
+</div>
+</header>
+<div class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+<!-- Hero Section -->
+<section class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="space-y-2">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-amber-400 text-4xl">flatware</span>
+<h2 class="text-4xl font-bold font-space-grotesk text-slate-100 tracking-tight">Controle de Refeições</h2>
+</div>
+<p class="text-slate-400 max-w-xl">Baixa por QR e monitoramento de saldo operacional de refeições em tempo real para múltiplos setores e eventos.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-6 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:border-amber-400/50 transition-all font-medium">Atualizar</button>
+<button class="px-6 py-2.5 rounded-xl border-2 border-amber-400 text-amber-400 hover:bg-amber-400/5 transition-all font-bold">Configurar Refeições</button>
+</div>
+</section>
+<!-- Active Notice -->
+<div class="flex items-center justify-between p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 neon-glow-amber">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center animate-pulse">
+<span class="material-symbols-outlined text-amber-300">timer</span>
+</div>
+<div>
+<p class="text-amber-300 font-bold">Refeição Almoço Equipe encerra em 15 minutos</p>
+<p class="text-amber-300/60 text-xs">Total de 450/600 refeições servidas</p>
+</div>
+</div>
+<button class="text-amber-300 text-sm font-bold uppercase tracking-widest hover:underline px-4">Estender Tempo</button>
+</div>
+<!-- Dashboard Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Filter Card (Left) -->
+<div class="lg:col-span-4 space-y-6">
+<div class="glass-card p-6 rounded-3xl space-y-6">
+<h3 class="text-lg font-bold font-space-grotesk text-slate-200 flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-400">filter_list</span> Parâmetros Operacionais
+                        </h3>
+<div class="space-y-4">
+<div class="space-y-1.5">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Evento</label>
+<select class="w-full bg-slate-800/50 border-slate-700 rounded-xl text-slate-200 focus:border-cyan-500 focus:ring-cyan-500/20 transition-all py-3">
+<option>Tech Summit 2024</option>
+<option>Conferência Alpha</option>
+</select>
+</div>
+<div class="space-y-1.5">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Dia do Evento</label>
+<select class="w-full bg-slate-800/50 border-slate-700 rounded-xl text-slate-200 focus:border-cyan-500 focus:ring-cyan-500/20 transition-all py-3">
+<option>Dia 01 - 22 Outubro</option>
+<option>Dia 02 - 23 Outubro</option>
+</select>
+</div>
+<div class="space-y-1.5">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Refeição Atual</label>
+<select class="w-full bg-slate-800/50 border-slate-700 rounded-xl text-slate-200 focus:border-cyan-500 focus:ring-cyan-500/20 transition-all py-3">
+<option>Almoço Executivo</option>
+<option>Jantar de Gala</option>
+</select>
+</div>
+<div class="space-y-1.5">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Setor / Ponto</label>
+<select class="w-full bg-slate-800/50 border-slate-700 rounded-xl text-slate-200 focus:border-cyan-500 focus:ring-cyan-500/20 transition-all py-3">
+<option>Restaurante Principal</option>
+<option>Copa VIP</option>
+</select>
+</div>
+</div>
+</div>
+<!-- Registration Form -->
+<div class="glass-card p-6 rounded-3xl bg-gradient-to-br from-slate-900 to-slate-950 border-cyan-500/20">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-lg font-bold font-space-grotesk text-slate-200">Baixa Manual / QR</h3>
+<span class="material-symbols-outlined text-cyan-400">qr_code_2</span>
+</div>
+<div class="space-y-4">
+<input class="w-full bg-slate-950/80 border-2 border-slate-800 focus:border-cyan-500 text-center font-mono text-xl tracking-[0.5em] py-5 rounded-2xl text-cyan-400 placeholder:text-slate-700 transition-all" placeholder="TOKEN DO PARTICIPANTE" type="text"/>
+<button class="w-full py-5 rounded-2xl bg-gradient-to-r from-cyan-600 to-cyan-400 text-slate-950 font-black text-lg uppercase tracking-wider hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_30px_rgba(34,211,238,0.2)]">
+                                Registrar Refeição
+                            </button>
+</div>
+</div>
+</div>
+<!-- Main Monitoring Content (Right) -->
+<div class="lg:col-span-8 space-y-6">
+<!-- Offline Monitoring Card -->
+<div class="glass-card p-8 rounded-3xl relative overflow-hidden">
+<div class="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-[100px] -mr-32 -mt-32"></div>
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+<div>
+<h3 class="text-xl font-bold font-space-grotesk text-slate-100 mb-1">Status de Sincronização Local</h3>
+<p class="text-sm text-slate-400">Gerenciamento de cache offline e fila de dados</p>
+</div>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span> Conectado
+                                </span>
+<span class="px-3 py-1 rounded-full bg-slate-800/50 text-slate-500 text-[10px] font-bold uppercase tracking-widest">Offline (0)</span>
+<span class="px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-bold uppercase tracking-widest">Pendentes (12)</span>
+<span class="px-3 py-1 rounded-full bg-red-500/10 text-red-400 text-[10px] font-bold uppercase tracking-widest">Falhas (2)</span>
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+<div class="bg-slate-800/30 p-4 rounded-2xl border border-slate-800/60">
+<p class="text-[10px] text-slate-500 font-bold uppercase mb-1">Fila de Sincronização</p>
+<p class="text-2xl font-bold text-cyan-400 font-space-grotesk">Em andamento</p>
+</div>
+<div class="bg-slate-800/30 p-4 rounded-2xl border border-slate-800/60">
+<p class="text-[10px] text-slate-500 font-bold uppercase mb-1">Registros Locais</p>
+<p class="text-2xl font-bold text-slate-200 font-space-grotesk">1.240</p>
+</div>
+<div class="bg-slate-800/30 p-4 rounded-2xl border border-slate-800/60">
+<p class="text-[10px] text-slate-500 font-bold uppercase mb-1">Pendências</p>
+<p class="text-2xl font-bold text-amber-400 font-space-grotesk">08</p>
+</div>
+<div class="bg-slate-800/30 p-4 rounded-2xl border border-slate-800/60">
+<p class="text-[10px] text-slate-500 font-bold uppercase mb-1">Erros de Rede</p>
+<p class="text-2xl font-bold text-red-400 font-space-grotesk">02</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex-1 py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-bold hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">cloud_sync</span> Sincronizar agora
+                            </button>
+<button class="flex-1 py-3 rounded-xl bg-slate-800/50 border border-slate-700 text-slate-400 font-bold hover:text-slate-200 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">history_edu</span> Reenfileirar falhas
+                            </button>
+</div>
+</div>
+<!-- Tabbed Section -->
+<div class="glass-card rounded-3xl overflow-hidden">
+<div class="flex border-b border-slate-800/60 px-6 overflow-x-auto scrollbar-hide">
+<button class="px-6 py-5 text-sm font-bold border-b-2 border-amber-500 text-amber-500 whitespace-nowrap">Resumo Operacional</button>
+<button class="px-6 py-5 text-sm font-bold text-slate-400 hover:text-slate-200 border-b-2 border-transparent whitespace-nowrap">Histórico</button>
+<button class="px-6 py-5 text-sm font-bold text-slate-400 hover:text-slate-200 border-b-2 border-transparent whitespace-nowrap">Projeção</button>
+<button class="px-6 py-5 text-sm font-bold text-slate-400 hover:text-slate-200 border-b-2 border-transparent whitespace-nowrap">Diagnósticos</button>
+</div>
+<div class="p-0">
+<table class="w-full text-left border-collapse">
+<thead class="bg-slate-900/40 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+<tr>
+<th class="px-6 py-4">Horário</th>
+<th class="px-6 py-4">Participante</th>
+<th class="px-6 py-4">Tipo de Refeição</th>
+<th class="px-6 py-4">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800/40">
+<tr class="hover:bg-slate-800/20 transition-colors">
+<td class="px-6 py-4 text-slate-400 text-sm">12:44:12</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<img alt="Participant" class="w-8 h-8 rounded-full border border-slate-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_h0RYkqrJedDxHgwwVUUIVtNUN0E1MNwpwAYOndvHcCNIfqcCvSXqN7GFDsels3rz0KK5ETkYqd8ocgNf_LIrPmtQS2EMPhV78X57zR11xl8s1AmfnykgKhIwtMI3O6njoDriqD_bnb3I6Lrc3LLJX_AFT9VJnSoy2JJl9fungCTy4SegvRqN_xDwfIKY9fnSWvW37NQ-Fk_lbnqyg8gydYKjY1fJmqEJ7LpaoGo-E5fEmOO08xT3ovhDdbtDF650cXYNKoI3dn6B"/>
+<div class="text-sm font-medium text-slate-200">Ricardo Almeida <span class="block text-[10px] text-slate-500">Desenvolvedor Sênior</span></div>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-300">Almoço Equipe</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 rounded-md bg-green-400/10 text-green-400 text-[10px] font-bold uppercase tracking-widest border border-green-400/20">Validado</span>
+</td>
+</tr>
+<tr class="hover:bg-slate-800/20 transition-colors">
+<td class="px-6 py-4 text-slate-400 text-sm">12:43:55</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<img alt="Participant" class="w-8 h-8 rounded-full border border-slate-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCQ0D3R590dl-gnl3wAq9rCGZmW6pcmh0d_jsES70fjs2LowV7vYVwKzjoG4f1xYyirKmmeRHmP_AHZsN_NAHSJCLTm85SoALXCNLrt4PwH4QGrTl0yXN1CeyWpQ3D2pHlqOnUzRRoTBSoYYo-W34Q7m1jPpb1wKUBDK3V8sb9NLnlEQWg7LBagGWkKhozmaiv8NcS5hXEnNHlZdErM5VUAkWq5SC9Fz_5vJHcFtao_aKSeS3LvwWllGKml8oGGc9WVdQmBcPFYpMOk"/>
+<div class="text-sm font-medium text-slate-200">Amanda Costa <span class="block text-[10px] text-slate-500">Palestrante VIP</span></div>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-300">Almoço Buffet</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 rounded-md bg-green-400/10 text-green-400 text-[10px] font-bold uppercase tracking-widest border border-green-400/20">Validado</span>
+</td>
+</tr>
+<tr class="hover:bg-slate-800/20 transition-colors">
+<td class="px-6 py-4 text-slate-400 text-sm">12:43:30</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<img alt="Participant" class="w-8 h-8 rounded-full border border-slate-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxbYm4EQHCC60zqTllxvFTPLLJbkyPNB7u-YH6mnvNF5OW1u7BY5f0-yJo0JfQuKPwfvTcvTIw89eADP-cF-cck9d2yVYIjAxJZEiJA6lvdf9jAzrLL676D3uiQyYgoSQEAuu391jZWfqNwTjGAH3xSR6fCE-UzN36QxYtFWURcSHVkimvf7JTrrKRHmcysEj7iNXeYITMfuZRpBtFnE4vVn1A1TeptOp1RsN7-NX7MRI2zbaFvJnFs5btNyN9g-2iKE0moYzvCX15"/>
+<div class="text-sm font-medium text-slate-200">Felipe Mendes <span class="block text-[10px] text-slate-500">Staff Produção</span></div>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-300">Almoço Equipe</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 rounded-md bg-amber-400/10 text-amber-400 text-[10px] font-bold uppercase tracking-widest border border-amber-400/20">Aguardando Sinc</span>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="p-4 bg-slate-900/20 text-center">
+<button class="text-cyan-400 text-xs font-bold uppercase tracking-widest hover:text-cyan-300 transition-colors">Ver histórico completo</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Overlay / Config Modal Section (Simplified as Visual Section) -->
+<div class="max-w-7xl mx-auto px-6 pb-20">
+<div class="glass-card p-8 rounded-3xl border-amber-400/20 relative overflow-hidden">
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-transparent"></div>
+<div class="flex items-center gap-4 mb-8">
+<div class="w-12 h-12 rounded-2xl bg-amber-400/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-amber-400">settings_applications</span>
+</div>
+<div>
+<h3 class="text-xl font-bold font-space-grotesk text-slate-100">Configuração de Refeições e Custos</h3>
+<p class="text-sm text-slate-400">Defina janelas de horário e valores operacionais por serviço</p>
+</div>
+</div>
+<div class="space-y-4">
+<!-- Service Row -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-slate-800/30 p-4 rounded-2xl border border-slate-800/60">
+<div class="md:col-span-3">
+<span class="text-sm font-bold text-slate-200">Café da Manhã</span>
+</div>
+<div class="md:col-span-3 flex items-center gap-2">
+<input class="flex-1 bg-slate-900 border-slate-700 rounded-lg text-xs text-slate-300" type="time" value="07:00"/>
+<span class="text-slate-500">às</span>
+<input class="flex-1 bg-slate-900 border-slate-700 rounded-lg text-xs text-slate-300" type="time" value="09:30"/>
+</div>
+<div class="md:col-span-3">
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">R$</span>
+<input class="w-full bg-slate-900 border-slate-700 rounded-lg text-sm text-slate-200 pl-10" type="number" value="25.00"/>
+</div>
+</div>
+<div class="md:col-span-3 flex justify-end items-center gap-4">
+<span class="text-[10px] font-bold text-slate-500 uppercase">Ativo</span>
+<div class="w-10 h-5 bg-amber-400 rounded-full relative cursor-pointer">
+<div class="w-4 h-4 bg-slate-950 rounded-full absolute right-0.5 top-0.5"></div>
+</div>
+<button class="text-slate-500 hover:text-red-400 transition-colors"><span class="material-symbols-outlined text-xl">delete</span></button>
+</div>
+</div>
+<!-- Service Row -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-slate-800/30 p-4 rounded-2xl border border-slate-800/60">
+<div class="md:col-span-3">
+<span class="text-sm font-bold text-slate-200">Almoço Executivo</span>
+</div>
+<div class="md:col-span-3 flex items-center gap-2">
+<input class="flex-1 bg-slate-900 border-slate-700 rounded-lg text-xs text-slate-300" type="time" value="11:30"/>
+<span class="text-slate-500">às</span>
+<input class="flex-1 bg-slate-900 border-slate-700 rounded-lg text-xs text-slate-300" type="time" value="14:30"/>
+</div>
+<div class="md:col-span-3">
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">R$</span>
+<input class="w-full bg-slate-900 border-slate-700 rounded-lg text-sm text-slate-200 pl-10" type="number" value="48.50"/>
+</div>
+</div>
+<div class="md:col-span-3 flex justify-end items-center gap-4">
+<span class="text-[10px] font-bold text-slate-500 uppercase">Ativo</span>
+<div class="w-10 h-5 bg-amber-400 rounded-full relative cursor-pointer">
+<div class="w-4 h-4 bg-slate-950 rounded-full absolute right-0.5 top-0.5"></div>
+</div>
+<button class="text-slate-500 hover:text-red-400 transition-colors"><span class="material-symbols-outlined text-xl">delete</span></button>
+</div>
+</div>
+<!-- Service Row -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-slate-800/30 p-4 rounded-2xl border border-slate-800/60">
+<div class="md:col-span-3">
+<span class="text-sm font-bold text-slate-200">Jantar de Gala</span>
+</div>
+<div class="md:col-span-3 flex items-center gap-2">
+<input class="flex-1 bg-slate-900 border-slate-700 rounded-lg text-xs text-slate-300" type="time" value="19:00"/>
+<span class="text-slate-500">às</span>
+<input class="flex-1 bg-slate-900 border-slate-700 rounded-lg text-xs text-slate-300" type="time" value="23:00"/>
+</div>
+<div class="md:col-span-3">
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">R$</span>
+<input class="w-full bg-slate-900 border-slate-700 rounded-lg text-sm text-slate-200 pl-10" type="number" value="120.00"/>
+</div>
+</div>
+<div class="md:col-span-3 flex justify-end items-center gap-4">
+<span class="text-[10px] font-bold text-slate-500 uppercase">Ativo</span>
+<div class="w-10 h-5 bg-amber-400 rounded-full relative cursor-pointer">
+<div class="w-4 h-4 bg-slate-950 rounded-full absolute right-0.5 top-0.5"></div>
+</div>
+<button class="text-slate-500 hover:text-red-400 transition-colors"><span class="material-symbols-outlined text-xl">delete</span></button>
+</div>
+</div>
+</div>
+<div class="mt-8 flex justify-end gap-3">
+<button class="px-6 py-2 rounded-xl text-slate-400 font-bold hover:text-slate-200 transition-all uppercase text-xs tracking-widest">Descartar</button>
+<button class="px-8 py-3 rounded-xl bg-amber-400 text-slate-950 font-black shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:scale-105 active:scale-95 transition-all uppercase text-xs tracking-widest">Salvar Alterações</button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 md:hidden bg-slate-900/80 backdrop-blur-lg border-t border-amber-500/20 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] rounded-t-2xl">
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-amber-300 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-inter text-[10px] uppercase tracking-widest mt-1">Início</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-amber-400/20 text-amber-400 rounded-xl px-4 py-1 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">qr_code_scanner</span>
+<span class="font-inter text-[10px] uppercase tracking-widest mt-1">Scanner</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-amber-300 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">reorder</span>
+<span class="font-inter text-[10px] uppercase tracking-widest mt-1">Fila</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-amber-300 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">more_horiz</span>
+<span class="font-inter text-[10px] uppercase tracking-widest mt-1">Mais</span>
+</a>
+</nav>
+<!-- Decorative Elements -->
+<div class="fixed top-0 left-1/4 w-[500px] h-[500px] bg-amber-400/5 rounded-full blur-[120px] pointer-events-none -z-10"></div>
+<div class="fixed bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-500/5 rounded-full blur-[120px] pointer-events-none -z-10"></div>
+</body></html>

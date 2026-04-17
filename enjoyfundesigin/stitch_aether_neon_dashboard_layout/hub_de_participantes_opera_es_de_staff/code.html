@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-low": "#171b26",
+                    "on-background": "#dfe2f1",
+                    "tertiary-container": "#fed639",
+                    "secondary-container": "#7701d0",
+                    "outline": "#849495",
+                    "error": "#ffb4ab",
+                    "surface-tint": "#00dbe9",
+                    "error-container": "#93000a",
+                    "tertiary-fixed-dim": "#eac324",
+                    "tertiary": "#fff5de",
+                    "on-secondary": "#480081",
+                    "on-secondary-fixed": "#2c0051",
+                    "surface-container-highest": "#313540",
+                    "on-secondary-container": "#dcb7ff",
+                    "primary": "#dbfcff",
+                    "outline-variant": "#3b494b",
+                    "surface-container": "#1c1f2a",
+                    "primary-container": "#00f0ff",
+                    "tertiary-fixed": "#ffe179",
+                    "surface-container-high": "#262a35",
+                    "on-primary": "#00363a",
+                    "on-error-container": "#ffdad6",
+                    "inverse-on-surface": "#2c303b",
+                    "on-tertiary-container": "#715d00",
+                    "secondary-fixed-dim": "#dcb8ff",
+                    "surface-bright": "#353944",
+                    "on-primary-container": "#006970",
+                    "on-tertiary-fixed": "#231b00",
+                    "on-error": "#690005",
+                    "inverse-surface": "#dfe2f1",
+                    "on-secondary-fixed-variant": "#6700b5",
+                    "secondary-fixed": "#efdbff",
+                    "primary-fixed": "#7df4ff",
+                    "on-tertiary-fixed-variant": "#554500",
+                    "on-surface-variant": "#b9cacb",
+                    "on-primary-fixed-variant": "#004f54",
+                    "surface-container-lowest": "#0a0e18",
+                    "inverse-primary": "#006970",
+                    "surface-dim": "#0f131d",
+                    "on-tertiary": "#3b2f00",
+                    "surface": "#0f131d",
+                    "surface-variant": "#313540",
+                    "on-primary-fixed": "#002022",
+                    "primary-fixed-dim": "#00dbe9",
+                    "background": "#0f131d",
+                    "secondary": "#dcb8ff",
+                    "on-surface": "#dfe2f1"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0a0e18;
+            color: #dfe2f1;
+            font-family: 'Inter', sans-serif;
+        }
+        .neon-glow-primary {
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+<!-- TopNavBar -->
+<header class="bg-slate-950/80 backdrop-blur-md border-b border-cyan-500/10 shadow-[0_4px_20px_rgba(0,0,0,0.5)] docked full-width top-0 z-50 fixed flex justify-between items-center w-full px-6 py-3">
+<div class="flex items-center gap-8">
+<span class="font-['Space_Grotesk'] text-2xl font-bold tracking-tighter text-cyan-400 drop-shadow-[0_0_8px_rgba(0,240,255,0.4)]">OpsHub</span>
+<nav class="hidden md:flex gap-6 font-['Space_Grotesk'] tracking-tight">
+<a class="text-slate-400 font-medium hover:text-cyan-300 hover:bg-white/5 transition-all duration-300 px-3 py-1 rounded" href="#">Directory</a>
+<a class="text-cyan-400 border-b-2 border-cyan-500/50 pb-1 font-medium hover:text-cyan-300 transition-all duration-300" href="#">Analytics</a>
+<a class="text-slate-400 font-medium hover:text-cyan-300 hover:bg-white/5 transition-all duration-300 px-3 py-1 rounded" href="#">Audit Log</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">search</span>
+<input class="bg-slate-900/50 border border-slate-700/50 rounded-full py-1.5 pl-10 pr-4 text-sm focus:outline-none focus:border-cyan-500/50 transition-all w-64" placeholder="Buscar..." type="text"/>
+</div>
+<button class="text-slate-400 hover:text-cyan-400 transition-colors active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-slate-400 hover:text-cyan-400 transition-colors active:scale-95">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<img alt="Administrator Profile" class="w-8 h-8 rounded-full border border-cyan-500/30" data-alt="Professional headshot of a male system administrator with a focused expression, high-key studio lighting, dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCngUIx6jiBSSGWEaO3CIU55IOY7CGKXRe5A1vil4em4OgKkrqhkETZtx6CSTGc-mY1hieY8l1tUEu0XXntPr9CmFPN3EmoicNgtxFo2zsRqPtOqDdr5jwn6bpwPxK4m_76mc_aKQJ6ahICoPNMbLIdFv4-8RXJLPrkueDzKG94mEa-cncq2Qv_dMFXa-3nXnXk6BGO-UvR0U_oj2Usauxs9U3XKD1pQQ6WgbE78bzULd99dh0EoN_9J5nwnC4qhCO_1ZQzRzNhP7dg"/>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0B0F19] flex flex-col border-r border-slate-800/50 shadow-[4px_0_15px_rgba(0,0,0,0.3)] z-40 pt-16 font-['Space_Grotesk']">
+<div class="px-6 py-8 flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">security</span>
+</div>
+<div>
+<p class="text-cyan-400 font-black leading-tight">Neon Curator</p>
+<p class="text-slate-500 text-xs">Ops Level 4</p>
+</div>
+</div>
+<nav class="flex-1 px-2 space-y-1 overflow-y-auto">
+<a class="text-slate-500 hover:text-slate-200 px-4 py-3 flex items-center gap-3 hover:bg-slate-800/40 transition-all duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">group</span>
+<span>Participants</span>
+</a>
+<a class="bg-gradient-to-r from-cyan-500/20 to-transparent text-cyan-400 border-l-4 border-cyan-500 px-4 py-3 flex items-center gap-3 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">engineering</span>
+<span>Workforce</span>
+</a>
+<a class="text-slate-500 hover:text-slate-200 px-4 py-3 flex items-center gap-3 hover:bg-slate-800/40 transition-all duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">hail</span>
+<span>Guest List</span>
+</a>
+<a class="text-slate-500 hover:text-slate-200 px-4 py-3 flex items-center gap-3 hover:bg-slate-800/40 transition-all duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">settings_input_component</span>
+<span>Operations</span>
+</a>
+<a class="text-slate-500 hover:text-slate-200 px-4 py-3 flex items-center gap-3 hover:bg-slate-800/40 transition-all duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">verified_user</span>
+<span>Roles</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-800/50">
+<button class="w-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 py-2 rounded font-bold hover:bg-cyan-500/20 transition-all active:scale-95 mb-4">
+                Bulk Actions
+            </button>
+<div class="space-y-1">
+<a class="text-slate-500 hover:text-slate-200 px-4 py-2 flex items-center gap-3 text-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-sm">help</span>
+                    Support
+                </a>
+<a class="text-slate-500 hover:text-slate-200 px-4 py-2 flex items-center gap-3 text-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-sm">logout</span>
+                    Log Out
+                </a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-20 p-8 min-h-screen">
+<!-- Dashboard Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10">
+<div>
+<nav class="flex items-center gap-2 text-xs text-slate-500 uppercase tracking-widest mb-2">
+<span>Hub de Participantes</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span class="text-cyan-400">Operações de Staff</span>
+</nav>
+<h1 class="font-headline text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+                    Gerenciamento de Equipes
+                </h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-6 py-2.5 rounded-lg border border-slate-700 text-slate-300 font-medium hover:border-cyan-500/50 hover:text-cyan-400 transition-all active:scale-95">
+                    Exportar Relatório
+                </button>
+<button class="px-6 py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold neon-glow-primary hover:scale-[1.05] transition-all active:scale-95 flex items-center gap-2">
+<span class="material-symbols-outlined">upload</span>
+                    Importar Staff
+                </button>
+</div>
+</div>
+<!-- Main Layout: 2 Columns (Bento Style) -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Left Column: Hierarchy View -->
+<div class="col-span-12 lg:col-span-4 space-y-4">
+<div class="flex items-center justify-between mb-2 px-2">
+<h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Gestores de Operação</h2>
+<span class="text-xs text-cyan-500 bg-cyan-500/10 px-2 py-0.5 rounded-full">12 Ativos</span>
+</div>
+<!-- Manager Cards -->
+<div class="space-y-3">
+<!-- Selected Manager -->
+<div class="bg-cyan-500/5 border-2 border-cyan-400 p-4 rounded-xl cursor-pointer transition-all hover:translate-x-1">
+<div class="flex items-center gap-4">
+<img class="w-12 h-12 rounded-lg object-cover ring-2 ring-cyan-400/30" data-alt="Portrait of a professional man with a short beard, outdoor urban setting, natural morning light, soft focus background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLMgOEuLiUkatOwhVO2s9GIxh8735tFP263odR_1f8f-8Pv9UfHdrJOBDa_32Ifbs3OoU8t8Kdm2EM9f5L0mi9jtRKFRdq_-l-ow1KR8hmMwwZ1S3E2KZerW4_GoL3QcNj68K6_DWz8kVaZjBMIOHly0lE8LuOwUVjTRQQYLJ9fHCIxIHoR4SHn17nzAVL3i44E6pmFIoY-uL4FLw3SWv8pTD8TR_ypM2OXX-7SlhJgLcOmeSZga8HLPpKr1Asjen2HiRSWXj1KrmQ"/>
+<div>
+<h3 class="font-bold text-cyan-400">Ricardo Mendes</h3>
+<p class="text-xs text-slate-400">Líder de Logística • 24 Membros</p>
+</div>
+<span class="material-symbols-outlined ml-auto text-cyan-400">check_circle</span>
+</div>
+</div>
+<div class="bg-slate-800/40 border border-slate-700/50 p-4 rounded-xl cursor-pointer hover:border-cyan-500/30 transition-all hover:translate-x-1">
+<div class="flex items-center gap-4">
+<img class="w-12 h-12 rounded-lg object-cover grayscale opacity-70" data-alt="Close-up portrait of a young professional woman with a warm smile, indoor creative office setting, soft bokeh" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCr70pM0-tUX56-GcDp3V9W3N4a7CA3bsSqB7xNZ0bozWRVPv_VP0GA3eJvBJ9VZ_T8Lz3wXiNRlQKW3gqTdiwkKpYmFlYYZ5BC1gCrSK926qlRiGJa1dAC0KTCv-4N6fLpqsNQ0emnkzus0I1BgosCoq1jba2lNAC9EHOxtWaGFsQz-Gz7U4f_8eZEcbZEPaGx90zeVxSKHEW2RbfUQWEW8pcYXDjW4Pe1YTbMCjCKpOW500nobH5fEYk62YEfsMWAiLzlwVbsFUTK"/>
+<div>
+<h3 class="font-bold text-slate-300">Elena Rocha</h3>
+<p class="text-xs text-slate-500">Coord. de Hospitalidade • 18 Membros</p>
+</div>
+</div>
+</div>
+<div class="bg-slate-800/40 border border-slate-700/50 p-4 rounded-xl cursor-pointer hover:border-cyan-500/30 transition-all hover:translate-x-1">
+<div class="flex items-center gap-4">
+<img class="w-12 h-12 rounded-lg object-cover grayscale opacity-70" data-alt="Man in tech environment with glasses, blue ambient lighting from screens, modern professional look" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCr3YqoWyYO2j-6q8QP9a8PKU1bXztGRUXjiVDirufy8wvLgnkGUg8Ex-ln2YoHGxE8ebcor7chtEYFf57Wy1luDq-xBAWf44LVMfwB6yUMfp9TIVGaAtz0sJXY5VpdYA7VgEFkMtCdsWlH5eunk5VIMgMKO-wYznRWn-gBE0dkifsTFKjtZD-It--ELFFpG_qgflsg-VFe-9KoXE90bl8RgMr3uKmuWzcbj3OJ5x_keb_m9kdgZ9NbOZSeOXW_nyNqSC82GS0QP8Py"/>
+<div>
+<h3 class="font-bold text-slate-300">Thiago Silva</h3>
+<p class="text-xs text-slate-500">Sup. de TI &amp; Redes • 12 Membros</p>
+</div>
+</div>
+</div>
+<div class="bg-slate-800/40 border border-slate-700/50 p-4 rounded-xl cursor-pointer hover:border-cyan-500/30 transition-all hover:translate-x-1">
+<div class="flex items-center gap-4">
+<img class="w-12 h-12 rounded-lg object-cover grayscale opacity-70" data-alt="Business woman with a confident stance, high-end office background, balanced natural and artificial light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA4yXkKzzumrOFlTeWvOTBPLRzSsdg4DWe2s3zfAai2wTzm5EBws0yxwWXopeXRAPEj0dYjkWFjgvfUQuQge0lL9s2_V0cbQzUpDryQZeEAN4N1y7zguKrrk157-0DY4N3N-cFlEOfZX2apQ39hwHxj03pUPG6DlJstv0bqaENwahDPf0WqrIJTMC_4J_r2AEjFoDyGZ_lmjEH5Fn05Otfs7NwHbK3hAnBTukS1GrC-kOLfTOmIGc2zvPVgIXYsbHuUW1G4avZm9o69"/>
+<div>
+<h3 class="font-bold text-slate-300">Beatriz Costa</h3>
+<p class="text-xs text-slate-500">Gerente de Segurança • 35 Membros</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Chat Widget -->
+<div class="mt-8 bg-slate-900/60 backdrop-blur-md border border-slate-800/60 rounded-xl p-6 relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-secondary-container/20 blur-3xl group-hover:bg-cyan-500/30 transition-all duration-500"></div>
+<div class="flex items-center gap-3 mb-4">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center animate-pulse">
+<span class="material-symbols-outlined text-on-secondary text-sm" style="font-variation-settings: 'FILL' 1;">psychology</span>
+</div>
+<h4 class="font-headline font-bold text-slate-200">Aether AI Chat</h4>
+</div>
+<p class="text-xs text-slate-400 mb-4 italic">"Ricardo Mendes está com 3 colaboradores com escalas conflitantes no setor B."</p>
+<div class="flex gap-2">
+<input class="flex-1 bg-slate-800/50 border-none rounded-lg text-xs px-3 py-2 focus:ring-1 focus:ring-cyan-500" placeholder="Perguntar à IA..." type="text"/>
+<button class="bg-cyan-500/20 text-cyan-400 p-2 rounded-lg hover:bg-cyan-500/30 transition-colors">
+<span class="material-symbols-outlined text-sm">send</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right Column: Team Table -->
+<div class="col-span-12 lg:col-span-8">
+<div class="bg-surface-container-low border border-slate-800/40 rounded-2xl overflow-hidden shadow-2xl">
+<div class="p-6 border-b border-slate-800/50 flex justify-between items-center bg-slate-900/40">
+<div>
+<h2 class="text-xl font-headline font-bold text-white">Equipe: Logística</h2>
+<p class="text-sm text-slate-500">Gestor Responsável: Ricardo Mendes</p>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex -space-x-2">
+<img class="w-8 h-8 rounded-full border-2 border-[#0B0F19]" data-alt="User avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwVIn26r4KMnIkFnRtqXpw5wjRg1nbk1H_Q5vlxtfLiJqIrPKliFZlG71YZ5_20G2u9E5BgOpl8NcLZKXFZXVDUm4vZH13UafkD77jZWDd2-V48XIojuwJSMrATnFF0dr7Q9BWJtzIyMdXFdyARMlO47pG7a_0539cByKVyl9odhJvLP_ChDsmj4IuqeYt7fDArivNgbvmyQdaPeKJENbfJ4HzS0gQ26mAT066B81-Smv3rWruaEDhbv27O-Y3XJckN9691Dmv8b6X"/>
+<img class="w-8 h-8 rounded-full border-2 border-[#0B0F19]" data-alt="User avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCUn7U3RPMxwXtwC6GKU9VmMGVIQ-XgDvFswpGCYU3VIa2xDZuMZSx1xbtOT4bYtGppsBCT88y0Hw-nimR-5a1ZYqee_RTZSqGl_AGwrp9qD0mLFZvTOxe2Ogd3cpoU7gxPP0g66VGQM3agXmKLTYs-o9bpzkEcdse74WwYk1L8NZcQcxo2SBsFguNj4QpKKgdRhUSXs_UQ-uBgtQXrh-5yMP_MfyVKQ_MUHrqFA1RkGRa2_F897w7jCxNA6m1oP6lfH_zrui0uAttJ"/>
+<img class="w-8 h-8 rounded-full border-2 border-[#0B0F19]" data-alt="User avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDZAHF4T6N1OqPrahJrE8bFGWurY49M-5OLyb9izZ2i4WSybO6vF0yfjD4bYXmTU50F4AAuX6Yq7LBDPZYLMqOcntp4F5IXw-XfwDZf514PxP-eByOhaD6_GneH30YkriAYpikq4p9TZ3ka9k0rxYGcEZwAyRln0iAgPVFlj5UKRo8woRUFZy-UQPU_thOU9XyvU5CGAsKcbaB8D_G5JlufiXk7cEgz4Fzp51Eah5-rzZxNrLXk64EIzqHcyGxdzC-2J1kMn-3PS3k"/>
+<div class="w-8 h-8 rounded-full bg-slate-800 border-2 border-[#0B0F19] flex items-center justify-center text-[10px] text-slate-400">+21</div>
+</div>
+<span class="w-[1px] h-6 bg-slate-800 mx-2"></span>
+<button class="p-2 text-slate-400 hover:text-white transition-colors">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="bg-slate-900/20 text-slate-500 text-xs uppercase tracking-widest border-b border-slate-800/50">
+<th class="px-6 py-4 font-semibold">Participante</th>
+<th class="px-6 py-4 font-semibold">Função</th>
+<th class="px-6 py-4 font-semibold">Status</th>
+<th class="px-6 py-4 font-semibold text-right">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800/30">
+<tr class="hover:bg-cyan-500/5 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-slate-800 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPUsIKG2rV4a_V7mGcFlYbUcc664pcqAjH90utCLR0iHnqN4ksUt6oZaNwxeTDom-TmowygghjdyqeP4iZq2W6u2ji4-728kxQqad_I_PhvdPjWjSDuEgHpUD8w7Klt2zCtCMCGCl65AbH6Tz76UOU-682Yj_Ijr10OG3bUhm9boDX7_zF-E9PvlJy_qixRjdhek_ScJgHFKtFm4A7nhFqIkO8N5xf1opF8cZEC1CRYhOQPVJE2UpMrj1UNm-Bo--cmdCG3cb8GZrn"/>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Alexandre Pires</p>
+<p class="text-[10px] text-slate-500">alex@opshub.corp</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs text-slate-300 bg-slate-800/50 px-2 py-1 rounded">Operador Senior</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]"></div>
+<span class="text-xs text-green-400">Em Serviço</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-500 hover:text-cyan-400 transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-lg">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-cyan-500/5 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-slate-800 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFXdHk18AiPMPy8-QUdLQEf6d9tC0SxHPfYrpx-sMbySluiPfl-c1cKsgc2TqMqs62Pc90uejC2Ef6W6IzWlpgMmLxw8ev3O6sYj-Mw8Z9mGkbmg3odSm9otQ10r_W-2tUCGDrPJkWcH6XDmbMl39XiALK6AxNHAvxTJ0jr3qoGT4V0s0ChJuQ01ePESSZn2LCyEVkVdG7lBFAjnlEQIRIY5r4kGDivjJmyWP56_5VcY8heJ_jYe6neaBAPz_2mp2TjnGt1Js_EY6s"/>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Mariana Lima</p>
+<p class="text-[10px] text-slate-500">mari@opshub.corp</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs text-slate-300 bg-slate-800/50 px-2 py-1 rounded">Despachante</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]"></div>
+<span class="text-xs text-green-400">Em Serviço</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-500 hover:text-cyan-400 transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-lg">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-cyan-500/5 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-slate-800 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChbDOhX_71_hXFseupoMP_Hp0_-FgTXkYifd5yWJpGFqfwh3PkrirayEltHu7x4NPzyIYzmEhhQTfNOtNej_a3EK2q7oWR_cqD7KZZCpkEaeQMfLjP2_KC_sHq-NHbql7V-tX8j6gw6UUKl6-OaHWl58GCHVzy3OJzjnbxxeQ_ZXCdza8-lHKTJC7YI9VLA9qClpL0vAMMIOJaAsCpsk8_SnICfCpVMRZXF8fvL_6Jw106pXcJjbgpK15F3EQYMOH3AxpcqP_aYf1u"/>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Carlos Eduardo</p>
+<p class="text-[10px] text-slate-500">cadu@opshub.corp</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs text-slate-300 bg-slate-800/50 px-2 py-1 rounded">Auxiliar</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 rounded-full bg-slate-500"></div>
+<span class="text-xs text-slate-500">Fora de Escala</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-500 hover:text-cyan-400 transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-lg">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-cyan-500/5 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-slate-800 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmPMxiaqDX1jtRNwyS-jWeOwCeDNlcJ-Flb75_Ms_VFpaaiBGJDFzL2N_J4XOGj0-lYysZq4LT9NZ9QfgpCFo2aAkGgyAt9EMCg_CHpz0IUDb6LCudBasEO1UhieTtdA1L69AwDiyl54C3O1bYv_RI9X3dhFeLxqF_5vtbrRGMNh6KggNMELWtdweGgnEJVxThQ72xG5pxyTnlX7ohz7CXt_MLPV2_ql-jphIYMCcfrZ1iAqkYtpcoZvTyEuRiVSbahkJGO_w7wnzB"/>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Luiza Soares</p>
+<p class="text-[10px] text-slate-500">luiza@opshub.corp</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs text-slate-300 bg-slate-800/50 px-2 py-1 rounded">Estoquista</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.5)]"></div>
+<span class="text-xs text-red-400">Em Pausa</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-500 hover:text-cyan-400 transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-lg">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-cyan-500/5 transition-colors group border-b-0">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-slate-800 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBglbN9Jxj7GhXmUcU-THvok83NdSjhhK_tO3o5TZLlo1oYAX622g-mngbT2_3idNVS0v1zSK8E601cQU-0htDsBKNGnCIhmn3LenTJ59yL5QF3p4ak3JaM2lMLAJNm1sdnO3eACe1yJq5iDfnIhHr7Vzhtq0W8ZAZ4XmpRWpcGUxwuFC2wOAZYAxUDYhlP8h-D0tjKn2nB7L9fKrxqgQvyOWpUdREzjMs9WD-3GVRWN2lMUmpMdWiZE__s-nHgkcK8s0phzfLheur6"/>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Henrique Souza</p>
+<p class="text-[10px] text-slate-500">h.souza@opshub.corp</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs text-slate-300 bg-slate-800/50 px-2 py-1 rounded">Motorista V.I.P</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]"></div>
+<span class="text-xs text-green-400">Em Serviço</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-500 hover:text-cyan-400 transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-lg">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination-like Footer -->
+<div class="p-4 bg-slate-900/40 border-t border-slate-800/50 flex justify-between items-center text-xs text-slate-500">
+<span>Mostrando 5 de 24 participantes</span>
+<div class="flex gap-2">
+<button class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 transition-colors">Anterior</button>
+<button class="px-3 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded">1</button>
+<button class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 transition-colors">2</button>
+<button class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 transition-colors">3</button>
+<button class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 transition-colors">Próximo</button>
+</div>
+</div>
+</div>
+<!-- Stats Summary Cards -->
+<div class="grid grid-cols-3 gap-4 mt-6">
+<div class="bg-slate-900/40 border border-slate-800/60 p-4 rounded-xl flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-green-400/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-green-400">task_alt</span>
+</div>
+<div>
+<p class="text-2xl font-bold text-slate-100">82%</p>
+<p class="text-[10px] uppercase text-slate-500 tracking-tighter">Produtividade Média</p>
+</div>
+</div>
+<div class="bg-slate-900/40 border border-slate-800/60 p-4 rounded-xl flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-cyan-400/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-400">schedule</span>
+</div>
+<div>
+<p class="text-2xl font-bold text-slate-100">0h 42m</p>
+<p class="text-[10px] uppercase text-slate-500 tracking-tighter">Tempo Médio de Resposta</p>
+</div>
+</div>
+<div class="bg-slate-900/40 border border-slate-800/60 p-4 rounded-xl flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-purple-400">auto_awesome</span>
+</div>
+<div>
+<p class="text-2xl font-bold text-slate-100">14</p>
+<p class="text-[10px] uppercase text-slate-500 tracking-tighter">Otimizações por IA</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Contextual Floating Action Button (FAB) -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-gradient-to-tr from-cyan-500 to-purple-600 rounded-full flex items-center justify-center text-white shadow-[0_0_20px_rgba(0,240,255,0.4)] hover:scale-110 active:scale-95 transition-all z-50 group">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform">add</span>
+</button>
+</body></html>

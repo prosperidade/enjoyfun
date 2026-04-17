@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EnjoyFun Organizer Panel</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary": "#00363a",
+                        "secondary-fixed-dim": "#dcb8ff",
+                        "surface-container-lowest": "#0a0e18",
+                        "primary-fixed-dim": "#00dbe9",
+                        "on-tertiary-fixed-variant": "#554500",
+                        "on-primary-fixed": "#002022",
+                        "secondary": "#8A2BE2",
+                        "error-container": "#93000a",
+                        "surface-bright": "#353944",
+                        "on-surface-variant": "#b9cacb",
+                        "inverse-on-surface": "#2c303b",
+                        "surface-dim": "#0f131d",
+                        "outline": "#849495",
+                        "surface-container": "#1c1f2a",
+                        "on-primary-container": "#006970",
+                        "on-secondary": "#480081",
+                        "on-secondary-fixed": "#2c0051",
+                        "secondary-fixed": "#efdbff",
+                        "on-tertiary-fixed": "#231b00",
+                        "primary": "#dbfcff",
+                        "surface-container-high": "#262a35",
+                        "surface-variant": "#313540",
+                        "error": "#ffb4ab",
+                        "surface-container-highest": "#313540",
+                        "on-primary-fixed-variant": "#004f54",
+                        "on-background": "#dfe2f1",
+                        "surface-container-low": "#171b26",
+                        "primary-container": "#00f0ff",
+                        "tertiary-fixed": "#ffe179",
+                        "on-error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#6700b5",
+                        "tertiary": "#fff5de",
+                        "tertiary-container": "#fed639",
+                        "on-surface": "#dfe2f1",
+                        "inverse-surface": "#dfe2f1",
+                        "on-tertiary": "#3b2f00",
+                        "outline-variant": "#3b494b",
+                        "on-error": "#690005",
+                        "inverse-primary": "#006970",
+                        "primary-fixed": "#7df4ff",
+                        "surface-tint": "#00dbe9",
+                        "background": "#0f131d",
+                        "on-secondary-container": "#dcb7ff",
+                        "tertiary-fixed-dim": "#eac324",
+                        "secondary-container": "#7701d0",
+                        "surface": "#0f131d",
+                        "on-tertiary-container": "#715d00"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Space Grotesk", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+        }
+        .main-gradient {
+            background: radial-gradient(circle at center top, rgba(0, 240, 255, 0.03) 0%, transparent 70%);
+        }
+        .glass-header {
+            background: rgba(15, 19, 29, 0.4);
+            backdrop-filter: blur(16px);
+        }
+    </style>
+</head>
+<body class="text-on-background selection:bg-primary-container/30">
+<!-- Mobile Drawer Overlay -->
+<div class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 lg:hidden hidden" id="mobile-overlay"></div>
+<!-- SideNavBar Shell -->
+<aside class="fixed left-0 h-full w-64 border-r border-slate-800/50 bg-slate-900/50 backdrop-blur-md z-50 transition-transform duration-300 lg:translate-x-0 -translate-x-full flex flex-col py-8 px-4" id="sidebar">
+<!-- Logo & Branding -->
+<div class="mb-10 px-4">
+<h1 class="text-2xl font-black text-cyan-500 drop-shadow-[0_0_8px_rgba(0,240,255,0.5)] font-headline tracking-tighter">
+                EnjoyFun
+            </h1>
+<p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 mt-1">Organizer Panel</p>
+</div>
+<!-- Navigation Content -->
+<nav class="flex-1 space-y-1 overflow-y-auto pr-2 custom-scrollbar">
+<!-- Active Item: SISTEMA (Dashboard context) -->
+<a class="group flex items-center px-4 py-3 text-sm font-semibold text-cyan-400 bg-cyan-500/10 border-l-2 border-cyan-500 rounded-r-lg transition-all duration-300" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="dashboard">dashboard</span>
+<span>Visão Geral</span>
+</a>
+<div class="pt-4 pb-2">
+<span class="px-4 text-[10px] font-bold text-slate-600 tracking-wider uppercase font-headline">Gerenciamento</span>
+</div>
+<button class="w-full group flex items-center justify-between px-4 py-3 text-sm text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 rounded-lg transition-all duration-300">
+<div class="flex items-center">
+<span class="material-symbols-outlined mr-3" data-icon="assignment_ind">assignment_ind</span>
+<span>Credenciamento</span>
+</div>
+<span class="material-symbols-outlined text-xs text-slate-600 group-hover:text-cyan-400 transition-transform" data-icon="expand_more">expand_more</span>
+</button>
+<button class="w-full group flex items-center justify-between px-4 py-3 text-sm text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 rounded-lg transition-all duration-300">
+<div class="flex items-center">
+<span class="material-symbols-outlined mr-3" data-icon="payments">payments</span>
+<span>Financeiro</span>
+</div>
+<span class="material-symbols-outlined text-xs text-slate-600 group-hover:text-cyan-400 transition-transform" data-icon="expand_more">expand_more</span>
+</button>
+<button class="w-full group flex items-center justify-between px-4 py-3 text-sm text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 rounded-lg transition-all duration-300">
+<div class="flex items-center">
+<span class="material-symbols-outlined mr-3" data-icon="point_of_sale">point_of_sale</span>
+<span>Vendas no Local</span>
+</div>
+<span class="material-symbols-outlined text-xs text-slate-600 group-hover:text-cyan-400 transition-transform" data-icon="expand_more">expand_more</span>
+</button>
+<div class="pt-4 pb-2">
+<span class="px-4 text-[10px] font-bold text-slate-600 tracking-wider uppercase font-headline">SISTEMA</span>
+</div>
+<a class="group flex items-center px-4 py-3 text-sm text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 rounded-lg transition-all duration-300" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="settings_suggest">settings_suggest</span>
+<span>Configurações</span>
+</a>
+<a class="group flex items-center px-4 py-3 text-sm text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 rounded-lg transition-all duration-300" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="help">help</span>
+<span>Suporte</span>
+</a>
+</nav>
+<!-- Sidebar Footer -->
+<div class="mt-auto pt-6 border-t border-slate-800/50 px-4">
+<button class="w-full flex items-center py-3 text-sm text-slate-400 hover:text-red-400 transition-colors duration-300">
+<span class="material-symbols-outlined mr-3" data-icon="logout">logout</span>
+<span>Sair da conta</span>
+</button>
+<div class="mt-4">
+<p class="text-[10px] text-slate-600 font-mono">EnjoyFun v2.4.0-stable</p>
+</div>
+</div>
+</aside>
+<!-- Header & Main Content Wrapper -->
+<div class="lg:ml-64 flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="sticky top-0 h-16 glass-header border-b border-slate-800/40 z-30 flex items-center justify-between px-6">
+<div class="flex items-center">
+<button class="lg:hidden p-2 text-slate-400 mr-4" id="mobile-toggle">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<div class="hidden md:flex items-center space-x-2 text-slate-400 text-sm">
+<span class="material-symbols-outlined text-lg" data-icon="home">home</span>
+<span class="material-symbols-outlined text-xs" data-icon="chevron_right">chevron_right</span>
+<span class="text-slate-200 font-medium">Organizer Panel</span>
+</div>
+</div>
+<div class="flex items-center gap-4 sm:gap-6">
+<!-- Status Badge -->
+<div class="hidden sm:flex items-center px-3 py-1 rounded-full bg-green-400/10 text-green-400 text-[11px] font-bold tracking-wide uppercase">
+<span class="w-1.5 h-1.5 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+                    Online
+                </div>
+<!-- AI Button -->
+<button class="relative group p-[1px] rounded-lg bg-gradient-to-r from-cyan-500 to-purple-500 transition-transform duration-300 hover:scale-105 active:scale-95">
+<div class="flex items-center bg-slate-900/90 rounded-[7px] px-4 py-1.5 gap-2">
+<span class="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-lg" data-icon="sparkles" data-weight="fill" style="font-variation-settings: 'FILL' 1;">colors_spark</span>
+<span class="text-xs font-bold font-headline text-slate-200">Assistente IA</span>
+</div>
+<div class="absolute inset-0 bg-cyan-400/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"></div>
+</button>
+<!-- Notifications -->
+<div class="relative cursor-pointer text-slate-400 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-cyan-400 rounded-full animate-pulse border border-slate-900"></span>
+</div>
+<!-- Divider -->
+<div class="h-6 w-[1px] bg-slate-800"></div>
+<!-- Profile -->
+<div class="flex items-center gap-3 group cursor-pointer">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold text-slate-200">Marco Aurélio</p>
+<p class="text-[10px] text-slate-500">Administrador</p>
+</div>
+<div class="relative">
+<img alt="User avatar with status ring" class="w-9 h-9 rounded-full ring-2 ring-slate-700 group-hover:ring-cyan-500/50 transition-all" data-alt="Close up portrait of a middle-aged man with sharp features and a confident expression, professional studio lighting against dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZ5zq-hrPNu7aujrJr2wcTYF2ZJl8eHrNdWSJKyGCda_55tDKqf4e4sqU1E7F4vVviQwb3Qwuc6vT54kqzVqaYItcbsUx8Rw2aFf6oAbap0tjiuGR-EamZ5HbArqmVt6rFsi5liPgvT8f7_n1ic6AYHAZaYwlMWmWNPAdKU240DC5qIr3iNwtT_nkq0cS3INDs0sMrz29gRKDqRiDEpq3qFe9zo98hIo9dfei5GCDpDq02egKZtwL5EHf0Arwo6I2DAluStjMM4o2I"/>
+<div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-slate-900 rounded-full"></div>
+</div>
+</div>
+</div>
+</header>
+<!-- Scrollable Main Content -->
+<main class="flex-1 overflow-y-auto main-gradient p-4 sm:p-6 lg:p-10">
+<div class="max-w-7xl mx-auto">
+<!-- Section Header -->
+<div class="mb-10">
+<h2 class="text-4xl font-bold font-headline text-slate-100 tracking-tight mb-2">Painel de <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">Controle</span></h2>
+<p class="text-slate-400 max-w-2xl font-light">Bem-vindo de volta ao cockpit do EnjoyFun. Aqui você monitora o status do seu evento em tempo real e acessa as ferramentas de inteligência artificial.</p>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+<!-- Primary Stat Card -->
+<div class="col-span-1 md:col-span-2 bg-slate-900/40 border border-slate-800/40 backdrop-blur-md p-8 rounded-2xl relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-32 h-32 bg-cyan-500/10 blur-[60px] group-hover:bg-cyan-500/20 transition-all"></div>
+<div class="relative z-10">
+<p class="text-[10px] uppercase tracking-widest text-cyan-400 font-bold mb-4">Métrica de Vendas</p>
+<h3 class="text-5xl font-black font-headline text-slate-100 mb-2">R$ 142.850</h3>
+<div class="flex items-center text-green-400 text-sm font-medium">
+<span class="material-symbols-outlined text-sm mr-1" data-icon="trending_up">trending_up</span>
+<span>+12.4% em relação a ontem</span>
+</div>
+</div>
+<div class="mt-8 flex gap-4">
+<div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full w-[78%] bg-cyan-500 shadow-[0_0_8px_rgba(0,240,255,0.4)]"></div>
+</div>
+<span class="text-[10px] text-slate-500 font-bold">META 78%</span>
+</div>
+</div>
+<!-- AI Insights Card -->
+<div class="col-span-1 md:col-span-1 bg-gradient-to-br from-secondary/10 to-transparent border border-secondary/20 p-8 rounded-2xl group cursor-pointer hover:border-secondary/40 transition-all">
+<div class="w-12 h-12 bg-secondary/20 rounded-xl flex items-center justify-center mb-6 text-secondary">
+<span class="material-symbols-outlined text-2xl" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<h4 class="text-lg font-bold text-slate-100 mb-2 font-headline tracking-wide">Insights da IA</h4>
+<p class="text-sm text-slate-400 leading-relaxed mb-6">Detectamos um pico de acesso na área VIP. Recomendamos reforçar o staff de bar nos próximos 20 minutos.</p>
+<button class="text-xs font-bold text-secondary uppercase tracking-widest hover:underline">Ver recomendações</button>
+</div>
+<!-- Small Stat Card -->
+<div class="bg-slate-900/40 border border-slate-800/40 p-6 rounded-2xl flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 bg-slate-800/50 rounded-lg flex items-center justify-center text-cyan-400">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+</div>
+<span class="text-slate-600 text-xs font-bold uppercase">Check-ins</span>
+</div>
+<div class="mt-6">
+<p class="text-3xl font-black font-headline text-slate-100">3.842</p>
+<p class="text-[10px] text-slate-500 font-medium">de 5.000 ingressos</p>
+</div>
+</div>
+<!-- Recent Activity Section (Visual placeholder) -->
+<div class="col-span-1 md:col-span-4 bg-slate-900/30 border border-slate-800/40 rounded-2xl p-8">
+<div class="flex justify-between items-center mb-8">
+<h4 class="font-headline font-bold text-xl text-slate-100 tracking-tight">Atividade Recente</h4>
+<button class="text-xs font-bold text-cyan-500 uppercase tracking-widest hover:text-cyan-400 transition-colors">Histórico Completo</button>
+</div>
+<div class="space-y-6">
+<!-- Activity Item -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-2 h-2 rounded-full bg-cyan-500"></div>
+<div>
+<p class="text-sm text-slate-200 font-medium">Novo ingresso vendido — Lote 02</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-tighter">Há 2 minutos por PDV Central</p>
+</div>
+</div>
+<span class="text-xs font-mono text-slate-400">+ R$ 180,00</span>
+</div>
+<!-- Activity Item -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-2 h-2 rounded-full bg-purple-500"></div>
+<div>
+<p class="text-sm text-slate-200 font-medium">AI Agent otimizou rotas de acesso</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-tighter">Há 15 minutos • Automático</p>
+</div>
+</div>
+<span class="text-xs font-mono text-purple-400">SISTEMA</span>
+</div>
+<!-- Activity Item -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-2 h-2 rounded-full bg-slate-700"></div>
+<div>
+<p class="text-sm text-slate-200 font-medium">Alteração de preço — Camarote</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-tighter">Há 42 minutos por Marco A.</p>
+</div>
+</div>
+<span class="text-xs font-mono text-slate-400">MODIFICADO</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Graphic/Visual Map Placehoder -->
+<div class="mt-8 rounded-2xl overflow-hidden h-[400px] border border-slate-800/40 relative group">
+<div class="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
+<div class="w-16 h-16 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 mb-4 animate-pulse">
+<span class="material-symbols-outlined text-3xl" data-icon="location_on">location_on</span>
+</div>
+<h5 class="text-slate-100 font-headline font-bold text-lg">Mapa de Calor em Tempo Real</h5>
+<p class="text-slate-400 text-sm mt-2">Clique para expandir a visão das antenas RF e densidade de público.</p>
+</div>
+<img alt="Cyberpunk city map from above with glowing routes" class="w-full h-full object-cover" data-alt="Digital wireframe map of a large festival grounds with neon blue and purple heat map overlays showing crowd density" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9Jjf_HryuqtHcvmYq5je37vFVJzuyqQ_nT45QSS9R8r9Y9A54WS_D3rTb6vxd1YGWU3GfA-Tdroj0jqNAoKMAxCSMeX4zpdzMhfckMzHxn72NkadLhZYfQNxaHFhB554u0p6vma6f3nwkDtQAQ38KhFHMBH7sn7CH0zvz96R0VLswPgBuUbvqZUinFlBV4xW2-WewSqQK0F4nxe0uP902RwFwX5vEPqaBxQ2CwibiLk57XCze4x1PtzS-_8cmnJO6Enc2ZiunGIQT"/>
+</div>
+</div>
+</main>
+<!-- Floating AI Chat Widget -->
+<div class="fixed bottom-8 right-8 z-50">
+<button class="w-14 h-14 bg-gradient-to-tr from-secondary to-purple-500 rounded-full shadow-[0_0_20px_rgba(138,43,226,0.4)] flex items-center justify-center text-slate-100 hover:scale-110 transition-transform active:scale-95 group">
+<span class="material-symbols-outlined text-3xl" data-icon="forum" data-weight="fill" style="font-variation-settings: 'FILL' 1;">forum</span>
+<span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-slate-900 rounded-full text-[10px] flex items-center justify-center font-bold">2</span>
+<!-- Tooltip hover -->
+<div class="absolute right-16 px-3 py-2 bg-slate-800 rounded-lg text-xs font-bold text-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-slate-700">
+                    Fale com o Sparkles AI
+                </div>
+</button>
+</div>
+</div>
+<script>
+        // Simple UI Interaction Logic (Non-functional as requested, just showing state management)
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('mobile-overlay');
+
+        mobileToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        });
+
+        overlay.addEventListener('click', () => {
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
+        });
+    </script>
+</body></html>

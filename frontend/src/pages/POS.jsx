@@ -81,7 +81,6 @@ export default function POS({ fixedSector = "bar" }) {
 
   const {
     aiQuestion,
-    chatHistory,
     lastReportUpdatedAt,
     loadingInsight,
     loadingReports,

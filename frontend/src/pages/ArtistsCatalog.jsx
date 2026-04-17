@@ -461,6 +461,7 @@ export default function ArtistsCatalog() {
   );
   const [severityFilter, setSeverityFilter] = useState(searchParams.get("severity") || "all");
   const [loading, setLoading] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [statusLoading, setStatusLoading] = useState(true);
   const [operationalLoading, setOperationalLoading] = useState(false);
   const [loadError, setLoadError] = useState("");

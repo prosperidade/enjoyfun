@@ -50,6 +50,7 @@ function createEventTable(array $body): void
     $capacity    = isset($body['capacity']) ? (int)$body['capacity'] : null;
     $section     = trim((string)($body['section'] ?? ''));
     $sortOrder   = (int)($body['sort_order'] ?? 0);
+    $layoutImageUrl = trim((string)($body['layout_image_url'] ?? ''));
 
     if (!$eventId || $tableNumber === null) {
         jsonError('Dados incompletos (event_id, table_number).', 400);
@@ -73,11 +74,11 @@ function createEventTable(array $body): void
     }
 
     $stmt = $db->prepare("
-        INSERT INTO event_tables (event_id, table_number, table_name, table_type, capacity, section, sort_order, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO event_tables (event_id, organizer_id, table_number, table_name, table_type, capacity, section, sort_order, layout_image_url, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         RETURNING id
     ");
-    $stmt->execute([$eventId, $tableNumber, $tableName ?: null, $tableType ?: null, $capacity, $section ?: null, $sortOrder]);
+    $stmt->execute([$eventId, $organizerId, $tableNumber, $tableName ?: null, $tableType ?: null, $capacity, $section ?: null, $sortOrder, $layoutImageUrl ?: null]);
 
     jsonSuccess(['id' => $stmt->fetchColumn()], 'Mesa criada com sucesso.', 201);
 }
@@ -105,6 +106,7 @@ function updateEventTable(int $id, array $body): void
     $capacity    = isset($body['capacity']) ? (int)$body['capacity'] : null;
     $section     = trim((string)($body['section'] ?? ''));
     $sortOrder   = (int)($body['sort_order'] ?? 0);
+    $layoutImageUrl = trim((string)($body['layout_image_url'] ?? ''));
 
     if ($tableNumber === null) {
         jsonError('table_number e obrigatorio.', 400);
@@ -123,10 +125,10 @@ function updateEventTable(int $id, array $body): void
 
     $stmt = $db->prepare("
         UPDATE event_tables
-        SET table_number = ?, table_name = ?, table_type = ?, capacity = ?, section = ?, sort_order = ?
+        SET table_number = ?, table_name = ?, table_type = ?, capacity = ?, section = ?, sort_order = ?, layout_image_url = ?
         WHERE id = ?
     ");
-    $stmt->execute([$tableNumber, $tableName ?: null, $tableType ?: null, $capacity, $section ?: null, $sortOrder, $id]);
+    $stmt->execute([$tableNumber, $tableName ?: null, $tableType ?: null, $capacity, $section ?: null, $sortOrder, $layoutImageUrl ?: null, $id]);
 
     jsonSuccess([], 'Mesa atualizada com sucesso.');
 }

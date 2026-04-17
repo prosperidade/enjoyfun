@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>OpsHub | Importar Participantes</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-low": "#171b26",
+                        "on-background": "#dfe2f1",
+                        "tertiary-container": "#fed639",
+                        "secondary-container": "#7701d0",
+                        "outline": "#849495",
+                        "error": "#ffb4ab",
+                        "surface-tint": "#00dbe9",
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#eac324",
+                        "tertiary": "#fff5de",
+                        "on-secondary": "#480081",
+                        "on-secondary-fixed": "#2c0051",
+                        "surface-container-highest": "#313540",
+                        "on-secondary-container": "#dcb7ff",
+                        "primary": "#dbfcff",
+                        "outline-variant": "#3b494b",
+                        "surface-container": "#1c1f2a",
+                        "primary-container": "#00f0ff",
+                        "tertiary-fixed": "#ffe179",
+                        "surface-container-high": "#262a35",
+                        "on-primary": "#00363a",
+                        "on-error-container": "#ffdad6",
+                        "inverse-on-surface": "#2c303b",
+                        "on-tertiary-container": "#715d00",
+                        "secondary-fixed-dim": "#dcb8ff",
+                        "surface-bright": "#353944",
+                        "on-primary-container": "#006970",
+                        "on-tertiary-fixed": "#231b00",
+                        "on-error": "#690005",
+                        "inverse-surface": "#dfe2f1",
+                        "on-secondary-fixed-variant": "#6700b5",
+                        "secondary-fixed": "#efdbff",
+                        "primary-fixed": "#7df4ff",
+                        "on-tertiary-fixed-variant": "#554500",
+                        "on-surface-variant": "#b9cacb",
+                        "on-primary-fixed-variant": "#004f54",
+                        "surface-container-lowest": "#0a0e18",
+                        "inverse-primary": "#006970",
+                        "surface-dim": "#0f131d",
+                        "on-tertiary": "#3b2f00",
+                        "surface": "#0f131d",
+                        "surface-variant": "#313540",
+                        "on-primary-fixed": "#002022",
+                        "primary-fixed-dim": "#00dbe9",
+                        "background": "#0f131d",
+                        "secondary": "#dcb8ff",
+                        "on-surface": "#dfe2f1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Space Grotesk', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-background min-h-screen overflow-hidden">
+<!-- Content Mock (Participants Hub Background) -->
+<div class="flex h-screen opacity-20 pointer-events-none select-none">
+<!-- SideNavBar Shared Component -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0B0F19] flex flex-col border-r border-slate-800/50 shadow-[4px_0_15px_rgba(0,0,0,0.3)] font-['Space_Grotesk']">
+<div class="p-6">
+<span class="text-cyan-400 font-black text-2xl">Neon Curator</span>
+<div class="mt-4 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-800"></div>
+<div>
+<div class="text-on-background text-sm font-bold">System Operator</div>
+<div class="text-slate-500 text-xs">Ops Level 4</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 mt-4">
+<div class="bg-gradient-to-r from-cyan-500/20 to-transparent text-cyan-400 border-l-4 border-cyan-500 px-4 py-3 flex items-center gap-3">
+<span class="material-symbols-outlined">group</span>
+<span>Participants</span>
+</div>
+<div class="text-slate-500 px-4 py-3 flex items-center gap-3">
+<span class="material-symbols-outlined">engineering</span>
+<span>Workforce</span>
+</div>
+<div class="text-slate-500 px-4 py-3 flex items-center gap-3">
+<span class="material-symbols-outlined">hail</span>
+<span>Guest List</span>
+</div>
+</nav>
+</aside>
+<!-- Main Canvas Content -->
+<main class="ml-64 flex-1 p-12 space-y-8">
+<div class="h-12 w-64 bg-slate-800 rounded-lg"></div>
+<div class="grid grid-cols-4 gap-6">
+<div class="h-32 bg-slate-800 rounded-xl"></div>
+<div class="h-32 bg-slate-800 rounded-xl"></div>
+<div class="h-32 bg-slate-800 rounded-xl"></div>
+<div class="h-32 bg-slate-800 rounded-xl"></div>
+</div>
+<div class="h-96 bg-slate-800 rounded-2xl w-full"></div>
+</main>
+</div>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
+<!-- Modal Card -->
+<div class="w-full max-w-2xl bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+<!-- Header -->
+<header class="px-8 py-6 flex items-center justify-between bg-slate-900/50 border-b border-slate-800/50">
+<h2 class="text-slate-100 font-headline text-xl font-bold tracking-tight">Importar Participantes (CSV)</h2>
+<button class="text-slate-400 hover:text-cyan-400 transition-colors duration-300">
+<span class="material-symbols-outlined text-2xl">close</span>
+</button>
+</header>
+<!-- Body -->
+<div class="p-8 space-y-8 max-h-[716px] overflow-y-auto">
+<!-- Drag & Drop Area -->
+<div class="relative group">
+<div class="border-2 border-dashed border-slate-700/50 rounded-2xl p-10 flex flex-col items-center justify-center gap-4 bg-slate-800/30 hover:bg-slate-800/50 hover:border-cyan-500/30 transition-all duration-300 cursor-pointer">
+<div class="w-16 h-16 rounded-full bg-cyan-500/10 flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-cyan-400 text-3xl">upload_file</span>
+</div>
+<div class="text-center">
+<p class="text-slate-200 font-medium">Arraste seu arquivo .csv aqui</p>
+<p class="text-slate-500 text-sm mt-1">ou <span class="text-cyan-400 underline decoration-cyan-400/30">procure no seu computador</span></p>
+</div>
+<p class="text-slate-600 text-xs mt-2">Tamanho máximo: 10MB (Aprox. 50.000 linhas)</p>
+</div>
+</div>
+<!-- Form Configuration -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="space-y-3">
+<label class="text-slate-400 text-[10px] uppercase font-bold tracking-widest block">Tipo de Participante</label>
+<div class="relative">
+<select class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-slate-200 appearance-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 transition-all outline-none">
+<option>Convidado VIP</option>
+<option>Staff Técnica</option>
+<option>Palestrante</option>
+<option>Público Geral</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">expand_more</span>
+</div>
+</div>
+<div class="space-y-3">
+<label class="text-slate-400 text-[10px] uppercase font-bold tracking-widest block">Codificação</label>
+<div class="relative">
+<select class="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-slate-200 appearance-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 transition-all outline-none">
+<option>UTF-8 (Recomendado)</option>
+<option>ISO-8859-1</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Mapping Section -->
+<div class="space-y-5">
+<div class="flex items-center justify-between">
+<label class="text-slate-400 text-[10px] uppercase font-bold tracking-widest block">Mapeamento de Colunas</label>
+<span class="text-xs text-cyan-500/70 italic font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">info</span>
+                            Detectado automaticamente
+                        </span>
+</div>
+<div class="bg-slate-800/20 rounded-2xl overflow-hidden border border-slate-800/50">
+<div class="grid grid-cols-2 gap-4 px-6 py-3 bg-slate-800/40 text-[10px] uppercase text-slate-500 font-bold tracking-wider">
+<div>Campo do Sistema</div>
+<div>Coluna do Arquivo</div>
+</div>
+<div class="divide-y divide-slate-800/50">
+<!-- Row 1 -->
+<div class="grid grid-cols-2 gap-4 px-6 py-4 items-center">
+<div class="text-slate-300 text-sm font-medium">Nome Completo</div>
+<div class="relative">
+<select class="w-full bg-slate-900/50 border border-slate-700/30 rounded-lg px-3 py-2 text-xs text-slate-400 appearance-none focus:border-cyan-500 transition-all outline-none">
+<option>col_full_name</option>
+<option>nome_participante</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 text-sm">expand_more</span>
+</div>
+</div>
+<!-- Row 2 -->
+<div class="grid grid-cols-2 gap-4 px-6 py-4 items-center">
+<div class="text-slate-300 text-sm font-medium">Email Primário</div>
+<div class="relative">
+<select class="w-full bg-slate-900/50 border border-slate-700/30 rounded-lg px-3 py-2 text-xs text-slate-400 appearance-none focus:border-cyan-500 transition-all outline-none">
+<option>user_email</option>
+<option>contato</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 text-sm">expand_more</span>
+</div>
+</div>
+<!-- Row 3 -->
+<div class="grid grid-cols-2 gap-4 px-6 py-4 items-center">
+<div class="text-slate-300 text-sm font-medium">Cargo / Função</div>
+<div class="relative">
+<select class="w-full bg-slate-900/50 border border-slate-700/30 rounded-lg px-3 py-2 text-xs text-slate-400 appearance-none focus:border-cyan-500 transition-all outline-none">
+<option>position_title</option>
+<option>funcao</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 text-sm">expand_more</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<footer class="px-8 py-6 bg-slate-950/40 border-t border-slate-800/50 flex flex-col md:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-2 text-slate-500 text-sm">
+<span class="material-symbols-outlined text-cyan-500/50" style="font-variation-settings: 'FILL' 1;">cloud_download</span>
+<span>Template CSV disponível</span>
+</div>
+<div class="flex items-center gap-4 w-full md:w-auto">
+<button class="flex-1 md:flex-none px-6 py-2.5 rounded-xl border border-slate-700 text-slate-300 font-medium hover:bg-slate-800 hover:border-slate-600 transition-all duration-300 active:scale-95">
+                        Cancelar
+                    </button>
+<button class="flex-1 md:flex-none px-8 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold shadow-[0_0_15px_rgba(0,240,255,0.2)] hover:shadow-[0_0_20px_rgba(0,240,255,0.4)] hover:scale-[1.02] transition-all duration-300 active:scale-95 flex items-center justify-center gap-2">
+<span>Iniciar Importação</span>
+<span class="material-symbols-outlined text-xl">play_arrow</span>
+</button>
+</div>
+</footer>
+</div>
+</div>
+</body></html>

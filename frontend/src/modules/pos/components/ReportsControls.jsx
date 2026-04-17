@@ -1,14 +1,9 @@
 const TIME_FILTERS = ["1h", "5h", "24h", "total"];
 
 export default function ReportsControls({
-  aiQuestion,
   hasValidEventContext,
   lastReportUpdatedAt,
-  loadingInsight,
   loadingReports,
-  onAiQuestionChange,
-  onInsightComposerKeyDown,
-  onRequestInsight,
   onTimeFilterChange,
   reportError,
   reportStale,

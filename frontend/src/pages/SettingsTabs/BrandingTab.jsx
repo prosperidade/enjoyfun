@@ -94,7 +94,7 @@ export default function BrandingTab() {
                 applyBrand(updatedSettings);
                 toast.success('Logo atualizada!');
             }
-        } catch (error) {
+        } catch {
             toast.error('Erro ao fazer upload da logo.');
         } finally {
             setUploading(false);

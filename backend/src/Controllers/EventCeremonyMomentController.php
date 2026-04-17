@@ -49,6 +49,7 @@ function createEventCeremonyMoment(array $body): void
     $responsible = trim((string)($body['responsible'] ?? ''));
     $notes       = trim((string)($body['notes'] ?? ''));
     $sortOrder   = (int)($body['sort_order'] ?? 0);
+    $imageUrl    = trim((string)($body['image_url'] ?? ''));
 
     if (!$eventId || $name === '') {
         jsonError('Dados incompletos (event_id, name).', 400);
@@ -61,11 +62,11 @@ function createEventCeremonyMoment(array $body): void
     }
 
     $stmt = $db->prepare("
-        INSERT INTO event_ceremony_moments (event_id, name, moment_time, responsible, notes, sort_order, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO event_ceremony_moments (event_id, organizer_id, name, moment_time, responsible, notes, sort_order, image_url, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
         RETURNING id
     ");
-    $stmt->execute([$eventId, $name, $momentTime ?: null, $responsible ?: null, $notes ?: null, $sortOrder]);
+    $stmt->execute([$eventId, $organizerId, $name, $momentTime ?: null, $responsible ?: null, $notes ?: null, $sortOrder, $imageUrl ?: null]);
 
     jsonSuccess(['id' => $stmt->fetchColumn()], 'Momento de cerimonia criado com sucesso.', 201);
 }
@@ -91,6 +92,7 @@ function updateEventCeremonyMoment(int $id, array $body): void
     $responsible = trim((string)($body['responsible'] ?? ''));
     $notes       = trim((string)($body['notes'] ?? ''));
     $sortOrder   = (int)($body['sort_order'] ?? 0);
+    $imageUrl    = trim((string)($body['image_url'] ?? ''));
 
     if ($name === '') {
         jsonError('Nome e obrigatorio.', 400);
@@ -98,10 +100,10 @@ function updateEventCeremonyMoment(int $id, array $body): void
 
     $stmt = $db->prepare("
         UPDATE event_ceremony_moments
-        SET name = ?, moment_time = ?, responsible = ?, notes = ?, sort_order = ?
+        SET name = ?, moment_time = ?, responsible = ?, notes = ?, sort_order = ?, image_url = ?
         WHERE id = ?
     ");
-    $stmt->execute([$name, $momentTime ?: null, $responsible ?: null, $notes ?: null, $sortOrder, $id]);
+    $stmt->execute([$name, $momentTime ?: null, $responsible ?: null, $notes ?: null, $sortOrder, $imageUrl ?: null, $id]);
 
     jsonSuccess([], 'Momento de cerimonia atualizado com sucesso.');
 }

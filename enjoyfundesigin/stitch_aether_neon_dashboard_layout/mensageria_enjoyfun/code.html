@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EnjoyFun - Mensageria</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#00f0ff",
+                        "on-primary": "#00363a",
+                        "on-error": "#690005",
+                        "on-surface": "#dfe2f1",
+                        "tertiary-fixed": "#ffe179",
+                        "background": "#0f131d",
+                        "primary": "#dbfcff",
+                        "surface-bright": "#353944",
+                        "on-primary-fixed": "#002022",
+                        "on-primary-container": "#006970",
+                        "secondary-fixed-dim": "#dcb8ff",
+                        "on-secondary-fixed-variant": "#6700b5",
+                        "on-secondary": "#480081",
+                        "inverse-on-surface": "#2c303b",
+                        "on-primary-fixed-variant": "#004f54",
+                        "surface-container-lowest": "#0a0e18",
+                        "on-surface-variant": "#b9cacb",
+                        "secondary": "#dcb8ff",
+                        "tertiary-container": "#fed639",
+                        "on-tertiary-container": "#715d00",
+                        "inverse-primary": "#006970",
+                        "surface-tint": "#00dbe9",
+                        "surface": "#0f131d",
+                        "outline-variant": "#3b494b",
+                        "secondary-fixed": "#efdbff",
+                        "on-tertiary-fixed": "#231b00",
+                        "tertiary": "#fff5de",
+                        "primary-fixed": "#7df4ff",
+                        "inverse-surface": "#dfe2f1",
+                        "outline": "#849495",
+                        "surface-container-high": "#262a35",
+                        "surface-container-low": "#171b26",
+                        "error": "#ffb4ab",
+                        "error-container": "#93000a",
+                        "surface-variant": "#313540",
+                        "surface-container": "#1c1f2a",
+                        "on-background": "#dfe2f1",
+                        "tertiary-fixed-dim": "#eac324",
+                        "surface-dim": "#0f131d",
+                        "secondary-container": "#7701d0",
+                        "surface-container-highest": "#313540",
+                        "primary-fixed-dim": "#00dbe9",
+                        "on-tertiary": "#3b2f00",
+                        "on-secondary-fixed": "#2c0051",
+                        "on-secondary-container": "#dcb7ff",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#554500"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .brand-font { font-family: 'Space Grotesk', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(15, 19, 29, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(59, 73, 75, 0.6); }
+        .neon-glow-cyan { text-shadow: 0 0 10px rgba(0, 240, 255, 0.5); }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-24 md:pb-0">
+<!-- TopAppBar Shell -->
+<header class="bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 shadow-[0_0_15px_rgba(0,240,255,0.05)] flex justify-between items-center px-6 py-4 w-full docked full-width top-0 z-50 sticky">
+<div class="flex items-center gap-4">
+<span class="text-2xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 brand-font">EnjoyFun</span>
+<nav class="hidden md:flex gap-6 ml-8">
+<a class="text-slate-400 font-medium hover:text-cyan-300 transition-all duration-300" href="#">Início</a>
+<a class="text-cyan-400 font-bold border-b-2 border-cyan-400" href="#">Mensagens</a>
+<a class="text-slate-400 font-medium hover:text-cyan-300 transition-all duration-300" href="#">Histórico</a>
+<a class="text-slate-400 font-medium hover:text-cyan-300 transition-all duration-300" href="#">Ajustes</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-slate-400 hover:text-cyan-300 cursor-pointer">notifications</span>
+<span class="material-symbols-outlined text-slate-400 hover:text-cyan-300 cursor-pointer">help_outline</span>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-cyan-500/30">
+<img alt="Avatar do Usuário" class="w-full h-full object-cover" data-alt="close-up portrait of a professional man in a tech office setting with soft blue ambient lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBD9kZel5K7ijZ69wO3ZD3LekA7yUFk9RSF9O6xn9HzrghlZxwjMCj9CqiNrt_3Ql513KUitQqI3-N1tuT_C0qVESWZQA05gonUZpumnz05mUL1NQqpV7_gk7i-sE2fPR0stv6Szb67tnWKsqK-8v2xYeeaJClPHUsfUZDmnmTQwDJls6FPq-2BenqK-VWY32UYp9rdW1quhjrf5-SeBHGqKYh9wnaDig-dBvRwkt2E-eXv6MUZhZvA7WgIJOBOy1-QnjkydyOh52Un"/>
+</div>
+</div>
+</header>
+<main class="max-w-7xl mx-auto px-6 py-8">
+<!-- Page Title -->
+<div class="flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-cyan-400 text-3xl neon-glow-cyan" data-icon="forum">forum</span>
+<h1 class="text-2xl font-bold text-slate-100 tracking-tight">Mensageria</h1>
+</div>
+<!-- Channel Status Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+<div class="glass-card p-6 rounded-2xl flex items-center justify-between group hover:border-green-500/40 transition-all duration-300">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-green-400" data-icon="chat">chat</span>
+</div>
+<div>
+<p class="text-slate-100 font-bold">WhatsApp</p>
+<p class="text-slate-400 text-xs">Canal de resposta rápida</p>
+</div>
+</div>
+<span class="bg-green-500/15 text-green-400 text-xs px-3 py-1 rounded-full font-medium border border-green-500/20">Configurado</span>
+</div>
+<div class="glass-card p-6 rounded-2xl flex items-center justify-between group hover:border-cyan-500/40 transition-all duration-300">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-400" data-icon="mail">mail</span>
+</div>
+<div>
+<p class="text-slate-100 font-bold">E-mail</p>
+<p class="text-slate-400 text-xs">Comunicações formais</p>
+</div>
+</div>
+<span class="bg-green-500/15 text-green-400 text-xs px-3 py-1 rounded-full font-medium border border-green-500/20">Configurado</span>
+</div>
+</div>
+<!-- Main Tabs Control -->
+<div class="flex p-1.5 bg-slate-800/50 rounded-xl mb-8 w-fit">
+<button class="px-8 py-2.5 rounded-lg bg-cyan-500 text-slate-950 font-bold text-sm transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)]">Enviar</button>
+<button class="px-8 py-2.5 rounded-lg text-slate-400 font-medium text-sm hover:text-slate-200 transition-all">Histórico</button>
+</div>
+<!-- Tab Content: Enviar -->
+<div class="glass-card p-8 rounded-2xl relative overflow-hidden">
+<div class="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-[100px] -mr-32 -mt-32"></div>
+<!-- Sub-tabs for Channels -->
+<div class="flex gap-4 mb-8">
+<button class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-green-500/15 text-green-400 border border-green-500/30 text-sm font-semibold transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="chat">chat</span>
+                    WhatsApp
+                </button>
+<button class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-slate-400 border border-transparent hover:bg-slate-800/50 text-sm font-semibold transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="mail">mail</span>
+                    E-mail
+                </button>
+</div>
+<!-- Form -->
+<div class="space-y-6 max-w-2xl">
+<div>
+<label class="block text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 ml-1">Destinatário</label>
+<input class="w-full bg-slate-800/50 border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 rounded-xl text-slate-200 px-4 py-3.5 transition-all outline-none" placeholder="+55 (00) 00000-0000" type="text"/>
+</div>
+<div>
+<div class="flex justify-between items-end mb-2 ml-1">
+<label class="block text-slate-400 text-xs font-bold uppercase tracking-widest">Mensagem</label>
+<span class="text-slate-500 text-[10px]">0/1000 caracteres</span>
+</div>
+<textarea class="w-full bg-slate-800/50 border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 rounded-xl text-slate-200 px-4 py-3.5 transition-all outline-none resize-none" placeholder="Digite sua mensagem aqui..." rows="6"></textarea>
+</div>
+<div class="flex justify-end">
+<button class="bg-green-500 hover:bg-green-400 text-slate-950 font-black px-10 py-4 rounded-xl transition-all duration-300 transform active:scale-95 shadow-[0_0_20px_rgba(34,197,94,0.3)] flex items-center gap-3">
+<span>Enviar WhatsApp</span>
+<span class="material-symbols-outlined text-xl" data-icon="send">send</span>
+</button>
+</div>
+</div>
+</div>
+<!-- History Preview Section (Implicitly shown as requested by requirements list) -->
+<div class="mt-12">
+<div class="flex justify-between items-end mb-6">
+<h2 class="text-xl font-bold text-slate-100">Envios Recentes</h2>
+<button class="text-cyan-400 text-sm font-medium hover:underline">Ver todo histórico</button>
+</div>
+<div class="glass-card rounded-2xl overflow-hidden border border-slate-800/40">
+<table class="w-full text-left border-collapse">
+<thead class="bg-slate-900/40">
+<tr>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Canal</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Destino</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Mensagem</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Status</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Data</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800/30">
+<tr class="hover:bg-slate-800/20 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-green-400 text-lg" data-icon="chat">chat</span>
+<span class="text-slate-300 text-sm">WhatsApp</span>
+</div>
+</td>
+<td class="px-6 py-4 text-slate-300 text-sm font-medium">+55 11 99887-7665</td>
+<td class="px-6 py-4 text-slate-400 text-sm truncate max-w-[200px]">Olá! Gostaria de confirmar seu agendamento para amanhã...</td>
+<td class="px-6 py-4">
+<span class="bg-cyan-500/15 text-cyan-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Lido</span>
+</td>
+<td class="px-6 py-4 text-slate-500 text-xs">Hoje, 14:32</td>
+</tr>
+<tr class="hover:bg-slate-800/20 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-400 text-lg" data-icon="mail">mail</span>
+<span class="text-slate-300 text-sm">E-mail</span>
+</div>
+</td>
+<td class="px-6 py-4 text-slate-300 text-sm font-medium">contato@empresa.com.br</td>
+<td class="px-6 py-4 text-slate-400 text-sm truncate max-w-[200px]">Segue anexo o relatório mensal de desempenho...</td>
+<td class="px-6 py-4">
+<span class="bg-green-500/15 text-green-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Enviado</span>
+</td>
+<td class="px-6 py-4 text-slate-500 text-xs">Hoje, 09:15</td>
+</tr>
+<tr class="hover:bg-slate-800/20 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-green-400 text-lg" data-icon="chat">chat</span>
+<span class="text-slate-300 text-sm">WhatsApp</span>
+</div>
+</td>
+<td class="px-6 py-4 text-slate-300 text-sm font-medium">+55 21 98765-4321</td>
+<td class="px-6 py-4 text-slate-400 text-sm truncate max-w-[200px]">Seu pedido #4589 foi despachado e está em rota...</td>
+<td class="px-6 py-4">
+<span class="bg-red-500/15 text-red-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Falha</span>
+</td>
+<td class="px-6 py-4 text-slate-500 text-xs">Ontem, 18:20</td>
+</tr>
+<tr class="hover:bg-slate-800/20 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-400 text-lg" data-icon="mail">mail</span>
+<span class="text-slate-300 text-sm">E-mail</span>
+</div>
+</td>
+<td class="px-6 py-4 text-slate-300 text-sm font-medium">suporte@client.com</td>
+<td class="px-6 py-4 text-slate-400 text-sm truncate max-w-[200px]">Nova atualização de segurança disponível para...</td>
+<td class="px-6 py-4">
+<span class="bg-amber-500/15 text-amber-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Pendente</span>
+</td>
+<td class="px-6 py-4 text-slate-500 text-xs">Ontem, 17:45</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+<!-- BottomNavBar Shell -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-xl border-t border-slate-800/40 shadow-[0_-5px_20px_rgba(0,0,0,0.5)] flex justify-around items-center px-4 pb-6 pt-3 z-50">
+<a class="flex flex-col items-center justify-center text-slate-500 opacity-70 hover:bg-slate-800/50 transition-colors tap-highlight-transparent" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-['Space_Grotesk'] text-[10px] uppercase tracking-widest mt-1">Início</span>
+</a>
+<a class="flex flex-col items-center justify-center text-cyan-400 bg-cyan-500/10 rounded-xl px-4 py-2 shadow-[0_0_10px_rgba(0,240,255,0.2)] tap-highlight-transparent animate-pulse-subtle" href="#">
+<span class="material-symbols-outlined" data-icon="chat_bubble">chat_bubble</span>
+<span class="font-['Space_Grotesk'] text-[10px] uppercase tracking-widest mt-1">Mensagens</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 opacity-70 hover:bg-slate-800/50 transition-colors tap-highlight-transparent" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-['Space_Grotesk'] text-[10px] uppercase tracking-widest mt-1">Histórico</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 opacity-70 hover:bg-slate-800/50 transition-colors tap-highlight-transparent" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-['Space_Grotesk'] text-[10px] uppercase tracking-widest mt-1">Ajustes</span>
+</a>
+</nav>
+</body></html>

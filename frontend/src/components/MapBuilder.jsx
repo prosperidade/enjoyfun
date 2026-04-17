@@ -58,8 +58,6 @@ function SectionShell({ title, count, expanded, toggle, children }) {
 
 export default function MapBuilder({ eventId }) {
   const [elements, setElements] = useState([]);
-  const [stages, setStages] = useState([]);
-  const [pdvPoints, setPdvPoints] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [dragging, setDragging] = useState(null);
   const [expanded, setExpanded] = useState(true);
@@ -75,8 +73,6 @@ export default function MapBuilder({ eventId }) {
     ]).then(([stagesRes, pdvRes]) => {
       const s = stagesRes.data?.data || [];
       const p = pdvRes.data?.data || [];
-      setStages(s);
-      setPdvPoints(p);
 
       // Build visual elements from existing data
       const els = [];
@@ -168,8 +164,6 @@ export default function MapBuilder({ eventId }) {
   const updateLabel = (id, label) => {
     setElements((prev) => prev.map((el) => el.id === id ? { ...el, label } : el));
   };
-
-  const allItems = [...stages, ...pdvPoints, ...elements.filter((e) => e.source === "manual")];
 
   return (
     <SectionShell title="Mapa do Evento" count={elements.length} expanded={expanded} toggle={() => setExpanded(!expanded)}>

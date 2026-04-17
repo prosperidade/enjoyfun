@@ -13,7 +13,7 @@ const perks = [
 ];
 
 export default function Login() {
-  const { user, login, register } = useAuth();
+  const { user, login } = useAuth();
   const [tab, setTab]         = useState('login');
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw]   = useState(false);

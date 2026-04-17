@@ -49,6 +49,10 @@ function createEventStage(array $body): void
     $capacity            = isset($body['capacity']) ? (int)$body['capacity'] : null;
     $locationDescription = trim((string)($body['location_description'] ?? ''));
     $sortOrder           = (int)($body['sort_order'] ?? 0);
+    $imageUrl            = trim((string)($body['image_url'] ?? ''));
+    $videoUrl            = trim((string)($body['video_url'] ?? ''));
+    $video360Url         = trim((string)($body['video_360_url'] ?? ''));
+    $description         = trim((string)($body['description'] ?? ''));
 
     if (!$eventId || $name === '') {
         jsonError('Dados incompletos (event_id, name).', 400);
@@ -61,11 +65,15 @@ function createEventStage(array $body): void
     }
 
     $stmt = $db->prepare("
-        INSERT INTO event_stages (event_id, name, stage_type, capacity, location_description, sort_order, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO event_stages (event_id, organizer_id, name, stage_type, capacity, location_description, sort_order,
+                                  image_url, video_url, video_360_url, description, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         RETURNING id
     ");
-    $stmt->execute([$eventId, $name, $stageType ?: null, $capacity, $locationDescription ?: null, $sortOrder]);
+    $stmt->execute([
+        $eventId, $organizerId, $name, $stageType ?: null, $capacity, $locationDescription ?: null, $sortOrder,
+        $imageUrl ?: null, $videoUrl ?: null, $video360Url ?: null, $description ?: null,
+    ]);
 
     jsonSuccess(['id' => $stmt->fetchColumn()], 'Palco criado com sucesso.', 201);
 }
@@ -91,6 +99,10 @@ function updateEventStage(int $id, array $body): void
     $capacity            = isset($body['capacity']) ? (int)$body['capacity'] : null;
     $locationDescription = trim((string)($body['location_description'] ?? ''));
     $sortOrder           = (int)($body['sort_order'] ?? 0);
+    $imageUrl            = trim((string)($body['image_url'] ?? ''));
+    $videoUrl            = trim((string)($body['video_url'] ?? ''));
+    $video360Url         = trim((string)($body['video_360_url'] ?? ''));
+    $description         = trim((string)($body['description'] ?? ''));
 
     if ($name === '') {
         jsonError('Nome e obrigatorio.', 400);
@@ -98,10 +110,14 @@ function updateEventStage(int $id, array $body): void
 
     $stmt = $db->prepare("
         UPDATE event_stages
-        SET name = ?, stage_type = ?, capacity = ?, location_description = ?, sort_order = ?
+        SET name = ?, stage_type = ?, capacity = ?, location_description = ?, sort_order = ?,
+            image_url = ?, video_url = ?, video_360_url = ?, description = ?
         WHERE id = ?
     ");
-    $stmt->execute([$name, $stageType ?: null, $capacity, $locationDescription ?: null, $sortOrder, $id]);
+    $stmt->execute([
+        $name, $stageType ?: null, $capacity, $locationDescription ?: null, $sortOrder,
+        $imageUrl ?: null, $videoUrl ?: null, $video360Url ?: null, $description ?: null, $id,
+    ]);
 
     jsonSuccess([], 'Palco atualizado com sucesso.');
 }

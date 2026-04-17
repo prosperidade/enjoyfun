@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-container": "#fed639",
+                    "surface-container-high": "#262a35",
+                    "on-secondary": "#480081",
+                    "on-surface": "#dfe2f1",
+                    "surface-tint": "#00dbe9",
+                    "tertiary": "#fff5de",
+                    "on-primary-fixed": "#002022",
+                    "inverse-on-surface": "#2c303b",
+                    "secondary-container": "#7701d0",
+                    "primary-fixed": "#7df4ff",
+                    "on-primary": "#00363a",
+                    "on-surface-variant": "#b9cacb",
+                    "surface-variant": "#313540",
+                    "secondary": "#dcb8ff",
+                    "background": "#0f131d",
+                    "secondary-fixed-dim": "#dcb8ff",
+                    "inverse-surface": "#dfe2f1",
+                    "error": "#ffb4ab",
+                    "on-error": "#690005",
+                    "surface-container-highest": "#313540",
+                    "on-tertiary-fixed-variant": "#554500",
+                    "tertiary-fixed-dim": "#eac324",
+                    "surface-container": "#1c1f2a",
+                    "on-tertiary": "#3b2f00",
+                    "on-primary-fixed-variant": "#004f54",
+                    "surface": "#0f131d",
+                    "surface-dim": "#0f131d",
+                    "secondary-fixed": "#efdbff",
+                    "on-background": "#dfe2f1",
+                    "surface-bright": "#353944",
+                    "error-container": "#93000a",
+                    "primary-container": "#00f0ff",
+                    "surface-container-lowest": "#0a0e18",
+                    "tertiary-fixed": "#ffe179",
+                    "primary": "#dbfcff",
+                    "on-tertiary-fixed": "#231b00",
+                    "outline-variant": "#3b494b",
+                    "outline": "#849495",
+                    "on-primary-container": "#006970",
+                    "on-secondary-fixed": "#2c0051",
+                    "on-secondary-container": "#dcb7ff",
+                    "surface-container-low": "#171b26",
+                    "primary-fixed-dim": "#00dbe9",
+                    "on-tertiary-container": "#715d00",
+                    "on-secondary-fixed-variant": "#6700b5",
+                    "inverse-primary": "#006970",
+                    "on-error-container": "#ffdad6"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #0a0e18;
+            color: #dfe2f1;
+            font-family: 'Inter', sans-serif;
+        }
+        .font-headline { font-family: 'Space Grotesk', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .neon-glow-cyan { text-shadow: 0 0 10px rgba(0, 240, 255, 0.5); }
+        .neon-border-cyan { box-shadow: 0 0 15px rgba(0, 240, 255, 0.1); }
+    </style>
+</head>
+<body class="flex min-h-screen overflow-x-hidden">
+<!-- SideNavBar (Shared Component) -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0B0F19] flex flex-col py-6 gap-2 shadow-[10px_0_30px_rgba(0,0,0,0.5)] z-50 font-['Space_Grotesk'] font-medium">
+<div class="px-6 mb-8">
+<h1 class="text-lg font-black text-slate-200">Event Manager</h1>
+<p class="text-xs text-cyan-400">Vendas no Local</p>
+</div>
+<nav class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-6 py-3 text-slate-400 hover:text-slate-200 hover:bg-slate-800/30 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="badge">badge</span>
+<span>Credenciamento</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-slate-400 hover:text-slate-200 hover:bg-slate-800/30 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span>Financeiro</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-cyan-400 bg-cyan-500/10 border-r-4 border-cyan-500 translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="point_of_sale">point_of_sale</span>
+<span>Vendas no Local</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-slate-400 hover:text-slate-200 hover:bg-slate-800/30 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>SISTEMA</span>
+</a>
+</nav>
+<button class="mx-6 mb-8 bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(0,240,255,0.3)] hover:scale-[1.05] transition-all duration-300">
+            New Sale
+        </button>
+<footer class="flex flex-col gap-1 border-t border-slate-800/50 pt-4">
+<a class="flex items-center gap-3 px-6 py-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/30 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="text-sm">Support</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/30 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="text-sm">Logout</span>
+</a>
+</footer>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 flex-1 flex flex-col min-h-screen bg-surface-container-lowest">
+<!-- TopAppBar (Shared Component) -->
+<header class="sticky top-0 z-40 flex justify-between items-center w-full px-8 py-4 bg-[#0B0F19]/80 backdrop-blur-md shadow-[0_0_15px_rgba(0,240,255,0.05)] font-['Space_Grotesk'] tracking-tight">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-cyan-200">Vendas no Local</span>
+<div class="hidden md:flex items-center gap-6">
+<a class="text-cyan-400 border-b-2 border-cyan-400 pb-1" href="#">Dashboard</a>
+<a class="text-slate-400 hover:text-slate-200 transition-all duration-300" href="#">Relatórios</a>
+<a class="text-slate-400 hover:text-slate-200 transition-all duration-300" href="#">Terminais</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 px-4 py-1.5 bg-secondary-container/20 text-secondary border border-secondary-container/30 rounded-full hover:bg-secondary-container/30 transition-all duration-300">
+<span class="material-symbols-outlined text-[20px]" data-icon="smart_toy">smart_toy</span>
+<span class="text-sm font-medium">AI Assistant</span>
+</button>
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-400 hover:bg-slate-800/50 rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-slate-400 hover:bg-slate-800/50 rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 overflow-hidden ml-2">
+<img alt="User Profile" data-alt="close-up portrait of a professional man with modern eyewear in soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrR_oLS8OkTZEKsi92Tj_voEXOR1YCj4UhLNZ0umulNIm61jqbxN6fUvjNk_sA7wYZ5LbrhIOmRsi9ONqcMyKmulHaQo-KS1UMpIsKu6hkbTbpdBqmfqvun2LZBCTn-hiogkhd9qExLjN3isUqsJyu_p293F5iKXHt5qRJnumqY6GifF0A-YQLwFazaEVehR3QuT3UbBGbHxqZcQuRNu_rILNz0Seh-gzH3A9l4EFoOR8WQ2xjtsxw6aiveEMNiF90D8ajRW_cQp7W"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-8 max-w-[1600px] mx-auto w-full flex flex-col gap-8">
+<!-- Real-time Overview & AI Prediction Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Overview Card -->
+<section class="lg:col-span-2 relative overflow-hidden bg-surface-container rounded-3xl p-8 flex flex-col justify-between shadow-[0_0_40px_rgba(0,0,0,0.3)]">
+<div class="absolute top-0 right-0 p-8 opacity-10">
+<span class="material-symbols-outlined text-[120px]" data-icon="monitoring">monitoring</span>
+</div>
+<div>
+<h2 class="font-headline text-slate-400 text-sm uppercase tracking-widest mb-2">Visão Geral de Vendas Hoje</h2>
+<div class="flex items-baseline gap-4">
+<span class="font-headline text-6xl font-bold text-white">R$ 142.850,00</span>
+<span class="text-green-400 flex items-center text-lg font-medium">
+<span class="material-symbols-outlined mr-1" data-icon="trending_up">trending_up</span>
+                                +12.4%
+                            </span>
+</div>
+</div>
+<div class="mt-8 flex gap-8">
+<div class="flex flex-col">
+<span class="text-xs text-slate-500 uppercase">Transações</span>
+<span class="text-xl font-headline font-bold text-slate-200">2,842</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs text-slate-500 uppercase">Ticket Médio</span>
+<span class="text-xl font-headline font-bold text-slate-200">R$ 50,26</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs text-slate-500 uppercase">Pico de Vendas</span>
+<span class="text-xl font-headline font-bold text-slate-200">14:20h</span>
+</div>
+</div>
+<!-- Background Ambient Glow -->
+<div class="absolute -bottom-24 -left-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-[100px]"></div>
+</section>
+<!-- AI Sales Prediction -->
+<section class="bg-secondary-container/5 border border-secondary-container/20 backdrop-blur-md rounded-3xl p-8 flex flex-col gap-6 relative overflow-hidden">
+<div class="flex items-center gap-3">
+<div class="bg-secondary/20 p-2 rounded-lg">
+<span class="material-symbols-outlined text-secondary" data-icon="psychology" style="font-variation-settings: 'FILL' 1;">psychology</span>
+</div>
+<h3 class="font-headline text-lg font-bold text-secondary">Previsão IA EnjoyFun</h3>
+</div>
+<div class="space-y-4">
+<div class="bg-surface-container-high/40 p-4 rounded-xl border-l-4 border-secondary shadow-lg">
+<p class="text-sm text-slate-200 leading-relaxed">Pico de demanda detectado para as <span class="text-secondary font-bold">19:30h</span>. Recomendamos reforçar o staff no Bar Principal.</p>
+</div>
+<div class="bg-surface-container-high/40 p-4 rounded-xl border-l-4 border-tertiary-container shadow-lg">
+<p class="text-sm text-slate-200 leading-relaxed">Alerta de Estoque: <span class="text-tertiary-container font-bold">Cerveja Artesanal IPA</span> atingirá nível crítico em 45 minutos.</p>
+</div>
+</div>
+<button class="mt-auto w-full py-2.5 rounded-xl border border-secondary/30 text-secondary text-sm font-medium hover:bg-secondary/10 transition-all duration-300">
+                        Ver Insights Completos
+                    </button>
+<!-- Decorative Pulse Glow -->
+<div class="absolute -top-10 -right-10 w-32 h-32 bg-secondary/10 rounded-full blur-[60px] animate-pulse"></div>
+</section>
+</div>
+<!-- Sales by Category Bento Grid -->
+<section>
+<div class="flex items-center justify-between mb-6">
+<h2 class="font-headline text-2xl font-bold text-white">Vendas por Categoria</h2>
+<span class="text-xs text-slate-500 italic">Atualizado há 30s</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Bar -->
+<div class="bg-surface p-6 rounded-2xl border border-slate-800/50 flex flex-col gap-4 hover:bg-surface-container-low transition-all duration-300 group">
+<div class="flex justify-between items-start">
+<div class="bg-cyan-500/10 p-3 rounded-xl group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-cyan-400" data-icon="local_bar">local_bar</span>
+</div>
+<span class="text-xs font-bold text-cyan-400 bg-cyan-400/10 px-2 py-1 rounded">62% TOTAL</span>
+</div>
+<div>
+<h4 class="text-slate-400 text-sm font-medium">Bar</h4>
+<p class="text-3xl font-headline font-bold text-white">R$ 88.560</p>
+</div>
+<div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+<div class="bg-cyan-400 h-full w-[62%] rounded-full shadow-[0_0_8px_rgba(34,211,238,0.5)]"></div>
+</div>
+</div>
+<!-- Alimentação -->
+<div class="bg-surface p-6 rounded-2xl border border-slate-800/50 flex flex-col gap-4 hover:bg-surface-container-low transition-all duration-300 group">
+<div class="flex justify-between items-start">
+<div class="bg-tertiary-container/10 p-3 rounded-xl group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-tertiary-container" data-icon="restaurant">restaurant</span>
+</div>
+<span class="text-xs font-bold text-tertiary-container bg-tertiary-container/10 px-2 py-1 rounded">28% TOTAL</span>
+</div>
+<div>
+<h4 class="text-slate-400 text-sm font-medium">Alimentação</h4>
+<p class="text-3xl font-headline font-bold text-white">R$ 39.998</p>
+</div>
+<div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+<div class="bg-tertiary-container h-full w-[28%] rounded-full shadow-[0_0_8px_rgba(254,214,57,0.5)]"></div>
+</div>
+</div>
+<!-- Loja/Merch -->
+<div class="bg-surface p-6 rounded-2xl border border-slate-800/50 flex flex-col gap-4 hover:bg-surface-container-low transition-all duration-300 group">
+<div class="flex justify-between items-start">
+<div class="bg-green-500/10 p-3 rounded-xl group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-green-400" data-icon="shopping_bag">shopping_bag</span>
+</div>
+<span class="text-xs font-bold text-green-400 bg-green-400/10 px-2 py-1 rounded">10% TOTAL</span>
+</div>
+<div>
+<h4 class="text-slate-400 text-sm font-medium">Loja/Merch</h4>
+<p class="text-3xl font-headline font-bold text-white">R$ 14.292</p>
+</div>
+<div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+<div class="bg-green-400 h-full w-[10%] rounded-full shadow-[0_0_8px_rgba(74,222,128,0.5)]"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Lower Section: Live Feed & Popular Items -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+<!-- Live POS Feed -->
+<section class="xl:col-span-2 bg-surface rounded-3xl border border-slate-800/50 overflow-hidden">
+<div class="p-6 border-b border-slate-800/50 flex justify-between items-center">
+<h2 class="font-headline text-xl font-bold text-white">Feed de Vendas em Tempo Real</h2>
+<div class="flex gap-2">
+<button class="p-1.5 bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="filter_list">filter_list</span>
+</button>
+<button class="p-1.5 bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="download">download</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-xs uppercase tracking-wider text-slate-500 bg-slate-900/50">
+<th class="px-6 py-4 font-semibold">Horário</th>
+<th class="px-6 py-4 font-semibold">Ponto de Venda</th>
+<th class="px-6 py-4 font-semibold">Itens</th>
+<th class="px-6 py-4 font-semibold text-right">Valor</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800/30">
+<tr class="hover:bg-slate-800/20 transition-all cursor-default">
+<td class="px-6 py-4 text-sm text-slate-400 font-mono">15:42:10</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+<span class="text-sm font-medium text-slate-200">Bar Principal</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-400">2x Cerveja Artesanal IPA</td>
+<td class="px-6 py-4 text-sm font-bold text-white text-right">R$ 56,00</td>
+</tr>
+<tr class="hover:bg-slate-800/20 transition-all cursor-default">
+<td class="px-6 py-4 text-sm text-slate-400 font-mono">15:41:55</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+<span class="text-sm font-medium text-slate-200">Food Truck A</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-400">1x Hambúrguer Gourmet + Fritas</td>
+<td class="px-6 py-4 text-sm font-bold text-white text-right">R$ 48,00</td>
+</tr>
+<tr class="hover:bg-slate-800/20 transition-all cursor-default">
+<td class="px-6 py-4 text-sm text-slate-400 font-mono">15:40:32</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+<span class="text-sm font-medium text-slate-200">Loja Oficial</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-400">1x Camiseta do Evento (M)</td>
+<td class="px-6 py-4 text-sm font-bold text-white text-right">R$ 89,90</td>
+</tr>
+<tr class="hover:bg-slate-800/20 transition-all cursor-default">
+<td class="px-6 py-4 text-sm text-slate-400 font-mono">15:39:12</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+<span class="text-sm font-medium text-slate-200">Bar VIP</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-400">3x Gin Tônica Premium</td>
+<td class="px-6 py-4 text-sm font-bold text-white text-right">R$ 135,00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Popular Items -->
+<section class="bg-surface rounded-3xl border border-slate-800/50 p-6 flex flex-col gap-6">
+<h2 class="font-headline text-xl font-bold text-white">Top Itens do Dia</h2>
+<div class="flex flex-col gap-4">
+<!-- Item 1 -->
+<div class="flex items-center gap-4 group p-2 hover:bg-slate-800/30 rounded-xl transition-all">
+<div class="w-14 h-14 rounded-lg overflow-hidden bg-slate-800">
+<img class="w-full h-full object-cover" data-alt="close up of a cold craft beer glass with condensation and thick foam" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2XuvNr-zyXgO-of-0Ytiup03vajehZG0vvIoGsE7WdU5XWlQPvECNXbJ3JjbeU4JRzgWEeD6y7yCqz_A_rKPSYgj4PVHt3fggIkmBjCZ3eVNgbSzYZw9xRXPVrYtf5qza0flwJI_72ceuCm4WDCb3GtRmds6rM4JJjNrgyUVNwaOnOd6VjP59KvXAY7HYj_Qr97fPQok_YHWrjPXZPYiinWCHb7Ufc0W48G5qUT7eisqR28gVejKXbgEF2mvVzZWTrZYmW_2vA4HW"/>
+</div>
+<div class="flex-1">
+<h5 class="text-sm font-bold text-slate-200">Cerveja Artesanal IPA</h5>
+<p class="text-xs text-slate-500">1,240 vendidos</p>
+</div>
+<div class="text-right">
+<span class="text-cyan-400 font-bold">R$ 28</span>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center gap-4 group p-2 hover:bg-slate-800/30 rounded-xl transition-all">
+<div class="w-14 h-14 rounded-lg overflow-hidden bg-slate-800">
+<img class="w-full h-full object-cover" data-alt="folded high quality black cotton t-shirt with a minimalist neon graphic logo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZcYCnNu1-xZaE5GrcwBhWSUbzKmLwnsNLEJud3WAghiI8l2gbql7YsJXfXnUzY44f76ir9oAFS9RGT-aXSScIGvJuC4QEzSo0hJsSKC6iM_nMWoZONkc295ehXo-yqLWXiKKf2yjS9HtbACxG64BU-PUNiteJlnVjMcpQ0uA8VliNcUs-DhFpmwv0WJRcRHQEuLUP9_vTFI-DstRkUOHVYU9auH3h8cTrAhsb-piw2dY4Ppdb7njsh0MKyTpS965GCGz_TAGicOzS"/>
+</div>
+<div class="flex-1">
+<h5 class="text-sm font-bold text-slate-200">Camiseta do Evento</h5>
+<p class="text-xs text-slate-500">456 vendidos</p>
+</div>
+<div class="text-right">
+<span class="text-cyan-400 font-bold">R$ 89</span>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="flex items-center gap-4 group p-2 hover:bg-slate-800/30 rounded-xl transition-all">
+<div class="w-14 h-14 rounded-lg overflow-hidden bg-slate-800">
+<img class="w-full h-full object-cover" data-alt="vibrant healthy mediterranean bowl with fresh vegetables and grains in a dark ceramic bowl" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaPM3NwUb8g0u16dc-Zc5VOYv-qjpGdPvlogH-uxSxQh6gciaVt8NkHpdyi5b3a8hb4fQ2cAB16TeJZXValR3hwsHJqoZbvzV0dODQIftjDrWF4Hu1T1XMjQSj-oDoRQbxmWIKLrQzyx1Z_Y5j12A9zKcqDHQWFFLHmVzZNK9g3bQOFtrV06jtBySHvNfC8Vi8rSQlJ-1xbuNsHd98CfBh-n25eJZFbP-wFLhB7CGN0zK4ptlLW_whV3YQ7uHIbxul4YlMEoV_XeQx"/>
+</div>
+<div class="flex-1">
+<h5 class="text-sm font-bold text-slate-200">Bowl Mediterrâneo</h5>
+<p class="text-xs text-slate-500">382 vendidos</p>
+</div>
+<div class="text-right">
+<span class="text-cyan-400 font-bold">R$ 42</span>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="flex items-center gap-4 group p-2 hover:bg-slate-800/30 rounded-xl transition-all">
+<div class="w-14 h-14 rounded-lg overflow-hidden bg-slate-800">
+<img class="w-full h-full object-cover" data-alt="decadent gourmet donut with purple glaze and sprinkles on a dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3LyAQvzfRCzaytFjt-ST9S3d7yk8-cN-kn4q7l-HFuHL2SzoYf82Bmwmulh4AR_ILUvNE1ixn-TmG3jfJxzqDChC-w4YvUmlqg0Dcl6S-2QryCmr0vvxNuS-Kbln8yGD4r_300De3MbN1SFiik1GOBeeI-IL6WKvLqk3JECmvGBxp4LDUvWhlmwvlx3l7pOSjruSJyaUrrB658FTtp5WdecR-Te-j5W-65fIUTr6Gl-w_i_mV8nU-sYc6xGgiPigJBMKkXrArBwiN"/>
+</div>
+<div class="flex-1">
+<h5 class="text-sm font-bold text-slate-200">Combo Sweetness</h5>
+<p class="text-xs text-slate-500">210 vendidos</p>
+</div>
+<div class="text-right">
+<span class="text-cyan-400 font-bold">R$ 25</span>
+</div>
+</div>
+</div>
+<button class="mt-auto flex items-center justify-center gap-2 text-slate-400 hover:text-white transition-all py-2">
+<span class="text-sm font-medium">Ver Ranking Completo</span>
+<span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</section>
+</div>
+</div>
+<!-- Footer Decoration -->
+<footer class="mt-auto p-8 opacity-20 flex justify-center">
+<div class="h-[1px] w-full max-w-4xl bg-gradient-to-r from-transparent via-cyan-500 to-transparent"></div>
+</footer>
+</main>
+<!-- FAB (Suppressed based on context: Details/Complex Dashboard usually suppresses global FAB, but providing for 'New Sale' shortcut if needed as secondary) -->
+<!-- Not rendering global FAB to prioritize side nav CTA as per professional UX patterns for desktop -->
+</body></html>

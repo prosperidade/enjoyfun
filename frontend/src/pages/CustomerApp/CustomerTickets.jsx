@@ -4,13 +4,11 @@ import { Ticket, CalendarDays, MapPin, ArrowLeft, Search, X, Sun } from 'lucide-
 import { QRCodeSVG } from 'qrcode.react';
 import { getMyTicketsApi } from '../../api/customer';
 import { useCustomerEventContext } from '../../hooks/useCustomerEventContext';
-import { getStoredUser } from '../../lib/session';
 
 export default function CustomerTickets() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { eventContext } = useCustomerEventContext(slug);
-  const user = getStoredUser() || {};
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');

@@ -68,7 +68,6 @@ export default function SuperAdminPanel() {
     const [planMetrics, setPlanMetrics] = useState(null);
     const [planMetricsLoading, setPlanMetricsLoading] = useState(false);
     const [billingInvoices, setBillingInvoices] = useState([]);
-    const [invoicesLoading, setInvoicesLoading] = useState(false);
 
     const fetchOrganizers = useCallback(async () => {
         try {

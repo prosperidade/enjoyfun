@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container": "#1c1f2a",
+                    "secondary": "#dcb8ff",
+                    "tertiary-fixed": "#ffe179",
+                    "background": "#0f131d",
+                    "surface-dim": "#0f131d",
+                    "on-surface": "#dfe2f1",
+                    "on-secondary-fixed-variant": "#6700b5",
+                    "secondary-fixed-dim": "#dcb8ff",
+                    "on-background": "#dfe2f1",
+                    "surface-variant": "#313540",
+                    "on-secondary-container": "#dcb7ff",
+                    "surface-tint": "#00dbe9",
+                    "primary-container": "#a855f7",
+                    "inverse-surface": "#dfe2f1",
+                    "surface-container-high": "#262a35",
+                    "on-tertiary": "#3b2f00",
+                    "on-secondary": "#480081",
+                    "on-tertiary-fixed": "#231b00",
+                    "tertiary": "#fff5de",
+                    "error": "#ffb4ab",
+                    "on-error-container": "#ffdad6",
+                    "on-secondary-fixed": "#2c0051",
+                    "on-error": "#690005",
+                    "surface-container-low": "#171b26",
+                    "surface": "#0f131d",
+                    "surface-container-lowest": "#0a0e18",
+                    "primary-fixed-dim": "#00dbe9",
+                    "outline-variant": "#3b494b",
+                    "inverse-primary": "#006970",
+                    "on-primary-fixed": "#002022",
+                    "secondary-container": "#7701d0",
+                    "on-primary": "#00363a",
+                    "outline": "#849495",
+                    "error-container": "#93000a",
+                    "inverse-on-surface": "#2c303b",
+                    "secondary-fixed": "#efdbff",
+                    "tertiary-container": "#fed639",
+                    "surface-bright": "#353944",
+                    "tertiary-fixed-dim": "#eac324",
+                    "on-tertiary-container": "#715d00",
+                    "on-tertiary-fixed-variant": "#554500",
+                    "on-primary-fixed-variant": "#004f54",
+                    "primary": "#f3e8ff",
+                    "surface-container-highest": "#313540",
+                    "on-primary-container": "#7e22ce",
+                    "primary-fixed": "#7df4ff",
+                    "on-surface-variant": "#b9cacb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "2xl": "1rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-panel { background: rgba(15, 19, 29, 0.6); backdrop-filter: blur(12px); }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-slate-950/50 backdrop-blur-md shadow-[0_0_15px_rgba(168,85,247,0.1)] flex justify-between items-center px-8 h-16 w-full">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-purple-600 font-['Space_Grotesk'] tracking-tight">Aether Control</span>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-['Space_Grotesk']" href="#">Dashboard</a>
+<a class="text-slate-400 hover:text-slate-200 transition-colors font-['Space_Grotesk']" href="#">Analytics</a>
+<a class="text-purple-400 border-b-2 border-purple-400 pb-1 font-['Space_Grotesk']" href="#">Nodes</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-400 hover:bg-slate-800/40 transition-all rounded-full active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-slate-400 hover:bg-slate-800/40 transition-all rounded-full active:scale-95">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-purple-500/30">
+<img alt="User profile" data-alt="minimalist 3d avatar of a tech professional with purple neon lighting accents and clean geometric background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBN8rk_QY4RIfrobdROIazEZNliF3QQDP70rjoTf1DfWOfg1CuBmS0JoD-N3GZcd4NOoZoYkEdZvrl-hDPwsU3q863G71rfr9hepK1k2BaJMwNOgXhoNHHcZ51x7I8LP2Sd28vYUYxcfeYpez6hT2_rNE-bGTqNwd1y5itpO3-NkOG2mvBziH3EGeqB19SAXWOey82ZstywygJn54x8EvGdcw02BKH7pSSjKEZLZtqalmS16QtlfIzB13-iE8xqRMWlNssBrKMVGgW2"/>
+</div>
+</div>
+</header>
+<div class="bg-gradient-to-r from-purple-500/10 to-purple-500/10 h-[1px] w-full fixed top-16 z-50"></div>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-64 bg-slate-900/60 backdrop-blur-xl border-r border-slate-800/60 flex flex-col p-4 gap-2 shadow-2xl">
+<div class="flex items-center gap-3 px-2 py-4 mb-4">
+<div class="p-2 bg-purple-500/10 rounded-lg">
+<span class="material-symbols-outlined text-purple-400" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+</div>
+<div>
+<div class="text-xl font-black text-slate-200 font-['Space_Grotesk']">Neural Grid</div>
+<div class="text-[10px] text-slate-400 font-medium">Nodes Ativos: 12</div>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-purple-500/10 text-purple-400 border-r-4 border-purple-500 cursor-pointer transition-all font-['Space_Grotesk'] font-medium">
+<span class="material-symbols-outlined">memory</span>
+<span>AI Providers</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/30 hover:text-slate-200 cursor-pointer transition-all hover:scale-[1.02] font-['Space_Grotesk'] font-medium">
+<span class="material-symbols-outlined">psychology</span>
+<span>Model Config</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/30 hover:text-slate-200 cursor-pointer transition-all hover:scale-[1.02] font-['Space_Grotesk'] font-medium">
+<span class="material-symbols-outlined">shield</span>
+<span>Security</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/30 hover:text-slate-200 cursor-pointer transition-all hover:scale-[1.02] font-['Space_Grotesk'] font-medium">
+<span class="material-symbols-outlined">database</span>
+<span>Logs</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/30 hover:text-slate-200 cursor-pointer transition-all hover:scale-[1.02] font-['Space_Grotesk'] font-medium">
+<span class="material-symbols-outlined">terminal</span>
+<span>Advanced</span>
+</div>
+</nav>
+<div class="mt-auto p-4">
+<button class="w-full py-3 bg-purple-500 hover:bg-purple-400 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+<span class="material-symbols-outlined text-sm">add</span>
+<span>Deploy New Node</span>
+</button>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="ml-64 pt-24 pb-12 px-8 min-h-screen">
+<div class="max-w-5xl mx-auto space-y-8">
+<!-- Header Section -->
+<section class="flex flex-col gap-2">
+<h1 class="text-4xl font-bold text-slate-200 tracking-tight">AI Control Center</h1>
+<p class="text-slate-400 max-w-2xl">Gerencie as integrações de modelos de linguagem e provedores neurais da sua infraestrutura.</p>
+</section>
+<!-- Main Provider Card -->
+<div class="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-8 space-y-8 shadow-xl">
+<!-- Section Title -->
+<div class="flex items-start gap-4 border-b border-slate-800/60 pb-6">
+<div class="p-3 bg-purple-500/15 rounded-xl">
+<span class="material-symbols-outlined text-purple-400 text-3xl" style="font-variation-settings: 'FILL' 1;">dns</span>
+</div>
+<div>
+<h2 class="text-xl text-slate-200 font-semibold">Provedores de Inteligência</h2>
+<p class="text-sm text-slate-400 mt-1">Selecione e configure as chaves de API para os modelos globais.</p>
+<p class="text-xs text-slate-500 mt-2 italic">Nota: As chaves são criptografadas em repouso seguindo padrões AES-256.</p>
+</div>
+</div>
+<!-- Provider Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- OpenAI Card -->
+<div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-5 flex flex-col gap-4 hover:border-purple-500/30 transition-all group">
+<div class="flex justify-between items-start">
+<div class="h-10 w-10 bg-white/5 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-200">bolt</span>
+</div>
+<span class="px-2 py-1 bg-green-500/15 text-green-400 text-[10px] font-bold rounded uppercase tracking-wider">Configurado</span>
+</div>
+<div>
+<h3 class="text-slate-200 font-semibold">OpenAI</h3>
+<p class="text-xs text-slate-500">Modelos GPT-4o e GPT-3.5 Turbo</p>
+</div>
+<div class="flex gap-2">
+<span class="px-2 py-1 bg-purple-500/15 text-purple-400 text-[10px] font-bold rounded">Padrão</span>
+</div>
+</div>
+<!-- Anthropic Card -->
+<div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-5 flex flex-col gap-4 hover:border-purple-500/30 transition-all group border-purple-500/20">
+<div class="flex justify-between items-start">
+<div class="h-10 w-10 bg-white/5 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-200">auto_awesome</span>
+</div>
+<span class="px-2 py-1 bg-green-500/15 text-green-400 text-[10px] font-bold rounded uppercase tracking-wider">Configurado</span>
+</div>
+<div>
+<h3 class="text-slate-200 font-semibold">Anthropic</h3>
+<p class="text-xs text-slate-500">Claude 3.5 Sonnet &amp; Opus</p>
+</div>
+</div>
+<!-- Google Card -->
+<div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-5 flex flex-col gap-4 hover:border-purple-500/30 transition-all group opacity-70">
+<div class="flex justify-between items-start">
+<div class="h-10 w-10 bg-white/5 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-200">cloud_done</span>
+</div>
+<span class="px-2 py-1 bg-slate-700/50 text-slate-400 text-[10px] font-bold rounded uppercase tracking-wider">Sem chave</span>
+</div>
+<div>
+<h3 class="text-slate-200 font-semibold">Google Gemini</h3>
+<p class="text-xs text-slate-500">Gemini 1.5 Pro &amp; Flash</p>
+</div>
+</div>
+</div>
+<!-- Configuration Form -->
+<div class="space-y-6 pt-6 border-t border-slate-800/60">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<!-- Model Selection -->
+<div class="space-y-4">
+<label class="block text-sm font-medium text-slate-300">Modelo Ativo</label>
+<div class="relative">
+<select class="w-full bg-slate-800/50 border border-slate-700 focus:border-purple-500 text-slate-200 rounded-xl py-3 px-4 appearance-none outline-none transition-all">
+<option>GPT-4o (Omni)</option>
+<option>Claude 3.5 Sonnet</option>
+<option>GPT-4 Turbo</option>
+<option>GPT-3.5 Legacy</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-3.5 text-slate-500 pointer-events-none">expand_more</span>
+</div>
+<div class="p-4 bg-slate-800/30 rounded-xl border border-slate-700/30 space-y-2">
+<div class="flex justify-between text-xs">
+<span class="text-slate-400">Custo Entrada (1M tokens):</span>
+<span class="text-purple-400 font-medium">$5.00</span>
+</div>
+<div class="flex justify-between text-xs">
+<span class="text-slate-400">Custo Saída (1M tokens):</span>
+<span class="text-purple-400 font-medium">$15.00</span>
+</div>
+<div class="flex items-center gap-2 mt-2 pt-2 border-t border-slate-700/30">
+<span class="material-symbols-outlined text-amber-400 text-sm">warning</span>
+<span class="text-[10px] text-amber-400 uppercase font-bold">Aviso: Modelo Legacy. Descontinuação em 2025.</span>
+</div>
+</div>
+</div>
+<!-- API Key Input -->
+<div class="space-y-4">
+<label class="block text-sm font-medium text-slate-300">API Key Secret</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-3.5 text-slate-500 group-focus-within:text-purple-400 transition-colors" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
+<input class="w-full bg-slate-800/50 border border-slate-700 focus:border-purple-500 text-slate-200 rounded-xl py-3 pl-12 pr-4 outline-none transition-all" placeholder="Insira sua chave API..." type="password" value="sk-proj-************************************"/>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<label class="flex items-center gap-3 bg-slate-800/30 border border-slate-700/50 rounded-xl px-4 py-3 cursor-pointer hover:bg-slate-800/50 transition-all">
+<input checked="" class="w-4 h-4 accent-green-500 rounded bg-slate-700 border-slate-600" type="checkbox"/>
+<span class="text-xs text-slate-300 font-medium">Logs Ativos</span>
+</label>
+<label class="flex items-center gap-3 bg-slate-800/30 border border-slate-700/50 rounded-xl px-4 py-3 cursor-pointer hover:bg-slate-800/50 transition-all">
+<input class="w-4 h-4 accent-purple-500 rounded bg-slate-700 border-slate-600" type="checkbox"/>
+<span class="text-xs text-slate-300 font-medium">Modo Seguro</span>
+</label>
+</div>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex justify-end gap-4 mt-8">
+<button class="px-6 py-2.5 border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 rounded-xl font-medium transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">open_run</span>
+                            Testar Conexão
+                        </button>
+<button class="px-10 py-2.5 bg-purple-500 hover:bg-purple-400 text-white rounded-xl font-semibold shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all active:scale-95 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">save</span>
+                            Salvar Alterações
+                        </button>
+</div>
+</div>
+</div>
+<!-- Bento Status Section -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+<div class="md:col-span-1 bg-slate-900/60 border border-slate-800/60 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 text-center group hover:bg-purple-500/5 transition-all">
+<span class="text-3xl font-black text-purple-400 font-['Space_Grotesk']">99.9%</span>
+<span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Uptime Médio</span>
+</div>
+<div class="md:col-span-2 bg-slate-900/60 border border-slate-800/60 rounded-2xl p-6 flex items-center justify-between group hover:bg-purple-500/5 transition-all">
+<div class="space-y-1">
+<span class="text-xs text-slate-500 font-bold uppercase tracking-widest">Consumo Mensal</span>
+<div class="text-2xl font-bold text-slate-200">1.2M Tokens</div>
+</div>
+<div class="h-12 w-32 relative">
+<!-- Decorative line for visual metrics -->
+<div class="absolute inset-0 bg-gradient-to-t from-purple-500/20 to-transparent rounded-lg"></div>
+<div class="absolute bottom-0 w-full h-[2px] bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.8)]"></div>
+</div>
+</div>
+<div class="md:col-span-1 bg-slate-900/60 border border-slate-800/60 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 text-center group hover:bg-purple-500/5 transition-all">
+<span class="material-symbols-outlined text-green-400 text-3xl">verified_user</span>
+<span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Status Seguro</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation for Mobile -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-slate-950/80 backdrop-blur-xl border-t border-slate-800/60 grid grid-cols-5 h-20 items-center px-2 z-50">
+<div class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-bold">Home</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-purple-400 border-t-2 border-purple-500 h-full pt-4">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">memory</span>
+<span class="text-[10px] font-bold">Nodes</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">analytics</span>
+<span class="text-[10px] font-bold">Stats</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">security</span>
+<span class="text-[10px] font-bold">Security</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="text-[10px] font-bold">Profile</span>
+</div>
+</nav>
+</body></html>

@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EnjoyFun | Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#0f131d",
+                        "surface-container-low": "#171b26",
+                        "tertiary-fixed-dim": "#eac324",
+                        "outline-variant": "#3b494b",
+                        "outline": "#849495",
+                        "primary-fixed-dim": "#00dbe9",
+                        "on-secondary-container": "#dcb7ff",
+                        "on-primary-fixed": "#002022",
+                        "tertiary-fixed": "#ffe179",
+                        "tertiary": "#fff5de",
+                        "primary-container": "#00f0ff",
+                        "surface-container-lowest": "#0a0e18",
+                        "on-tertiary-container": "#715d00",
+                        "on-tertiary-fixed": "#231b00",
+                        "tertiary-container": "#fed639",
+                        "surface": "#0f131d",
+                        "error": "#ffb4ab",
+                        "surface-tint": "#00dbe9",
+                        "surface-container": "#1c1f2a",
+                        "secondary-fixed-dim": "#dcb8ff",
+                        "on-surface-variant": "#b9cacb",
+                        "primary": "#dbfcff",
+                        "on-surface": "#dfe2f1",
+                        "on-secondary-fixed-variant": "#6700b5",
+                        "on-primary-container": "#006970",
+                        "surface-variant": "#313540",
+                        "on-primary": "#00363a",
+                        "on-tertiary-fixed-variant": "#554500",
+                        "secondary-container": "#7701d0",
+                        "on-secondary-fixed": "#2c0051",
+                        "secondary": "#dcb8ff",
+                        "surface-bright": "#353944",
+                        "on-error": "#690005",
+                        "surface-container-high": "#262a35",
+                        "on-error-container": "#ffdad6",
+                        "inverse-on-surface": "#2c303b",
+                        "background": "#0f131d",
+                        "secondary-fixed": "#efdbff",
+                        "surface-container-highest": "#313540",
+                        "primary-fixed": "#7df4ff",
+                        "inverse-surface": "#dfe2f1",
+                        "on-tertiary": "#3b2f00",
+                        "inverse-primary": "#006970",
+                        "error-container": "#93000a",
+                        "on-primary-fixed-variant": "#004f54",
+                        "on-secondary": "#480081",
+                        "on-background": "#dfe2f1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(15, 19, 29, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(59, 73, 75, 0.6); }
+        .neon-glow-cyan { box-shadow: 0 0 15px rgba(0, 240, 255, 0.1); }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface min-h-screen">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-slate-950/80 backdrop-blur-xl border-r border-slate-800/50 flex flex-col py-6 gap-4 z-40 hidden md:flex">
+<div class="px-6 mb-8 flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-slate-950" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+</div>
+<div>
+<div class="text-xl font-black text-cyan-500 font-['Space_Grotesk']">EnjoyFun</div>
+<div class="text-xs text-slate-400">Event Panel</div>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-cyan-500/10 to-transparent text-cyan-400 border-l-4 border-cyan-500 font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span> General Summary
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 transition-colors duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="event">event</span> Event Operation
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 transition-colors duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="support_agent">support_agent</span> Management Support
+            </a>
+</nav>
+<div class="px-4 mt-auto space-y-2">
+<button class="w-full py-3 mb-4 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold hover:scale-105 transition-all duration-300 shadow-[0_0_15px_rgba(0,240,255,0.15)]">
+                New Event
+            </button>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-purple-400 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="smart_toy">smart_toy</span> AI Assistant
+            </a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-red-400 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span> Logout
+            </a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-64 p-4 md:p-8 space-y-12">
+<!-- Header Section -->
+<header class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 glass-card rounded-xl flex items-center justify-center text-cyan-400 shadow-lg">
+<span class="material-symbols-outlined text-3xl" data-icon="dashboard">dashboard</span>
+</div>
+<div>
+<h1 class="text-3xl font-bold tracking-tight text-on-surface">Dashboard</h1>
+<p class="text-slate-400">Olá, Administrador • <span class="text-cyan-400/80">Gestão em tempo real</span></p>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-4">
+<div class="bg-amber-400/10 text-amber-400 border border-amber-400/20 px-4 py-2 rounded-full text-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">cloud_off</span>
+                    Offline cache warning: Dados locais ativos
+                </div>
+<div class="glass-card px-4 py-2 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-slate-800/40 transition-colors">
+<span class="material-symbols-outlined text-slate-400">event_available</span>
+<span class="font-medium">Festival de Inverno 2024</span>
+<span class="material-symbols-outlined text-slate-400">expand_more</span>
+</div>
+</div>
+</header>
+<!-- Section 1: Resumo Geral -->
+<section class="space-y-6">
+<div class="flex items-center gap-3">
+<h2 class="text-2xl font-bold">Resumo Geral</h2>
+<span class="bg-cyan-500/10 text-cyan-400 text-xs font-bold px-3 py-1 rounded-full border border-cyan-500/20">Ativo</span>
+</div>
+<!-- Stat Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+<!-- Card 1 -->
+<div class="glass-card p-6 rounded-2xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+<div class="absolute top-0 left-0 w-full h-1 bg-green-500/50"></div>
+<div class="flex items-start justify-between mb-4">
+<div class="p-3 bg-green-500/10 rounded-xl text-green-500">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+</div>
+<span class="text-xs text-green-400 font-bold">+12%</span>
+</div>
+<p class="text-slate-400 text-sm font-medium mb-1">Vendas Total</p>
+<h3 class="text-2xl font-bold text-on-surface">R$ 124.500</h3>
+</div>
+<!-- Card 2 -->
+<div class="glass-card p-6 rounded-2xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+<div class="absolute top-0 left-0 w-full h-1 bg-purple-500/50"></div>
+<div class="flex items-start justify-between mb-4">
+<div class="p-3 bg-purple-500/10 rounded-xl text-purple-500">
+<span class="material-symbols-outlined" data-icon="confirmation_number">confirmation_number</span>
+</div>
+<span class="text-xs text-purple-400 font-bold">8.2k</span>
+</div>
+<p class="text-slate-400 text-sm font-medium mb-1">Ingressos Vendidos</p>
+<h3 class="text-2xl font-bold text-on-surface">4.850</h3>
+</div>
+<!-- Card 3 -->
+<div class="glass-card p-6 rounded-2xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+<div class="absolute top-0 left-0 w-full h-1 bg-amber-500/50"></div>
+<div class="flex items-start justify-between mb-4">
+<div class="p-3 bg-amber-500/10 rounded-xl text-amber-500">
+<span class="material-symbols-outlined" data-icon="credit_card">credit_card</span>
+</div>
+<span class="text-xs text-amber-400 font-bold">Live</span>
+</div>
+<p class="text-slate-400 text-sm font-medium mb-1">Saldo Cartões</p>
+<h3 class="text-2xl font-bold text-on-surface">R$ 52.410</h3>
+</div>
+<!-- Card 4 -->
+<div class="glass-card p-6 rounded-2xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+<div class="absolute top-0 left-0 w-full h-1 bg-emerald-500/50"></div>
+<div class="flex items-start justify-between mb-4">
+<div class="p-3 bg-emerald-500/10 rounded-xl text-emerald-500">
+<span class="material-symbols-outlined" data-icon="account_balance">account_balance</span>
+</div>
+</div>
+<p class="text-slate-400 text-sm font-medium mb-1">Saldo Global</p>
+<h3 class="text-2xl font-bold text-on-surface">R$ 176.910</h3>
+</div>
+<!-- Card 5 -->
+<div class="glass-card p-6 rounded-2xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+<div class="absolute top-0 left-0 w-full h-1 bg-indigo-500/50"></div>
+<div class="flex items-start justify-between mb-4">
+<div class="p-3 bg-indigo-500/10 rounded-xl text-indigo-500">
+<span class="material-symbols-outlined" data-icon="card_giftcard">card_giftcard</span>
+</div>
+</div>
+<p class="text-slate-400 text-sm font-medium mb-1">Presentes</p>
+<h3 class="text-2xl font-bold text-on-surface">128 un.</h3>
+</div>
+</div>
+<!-- Complex Panels -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Revenue By Sector -->
+<div class="lg:col-span-4 glass-card p-8 rounded-3xl">
+<h4 class="text-lg font-bold mb-6 flex items-center justify-between">
+                        Revenue By Sector
+                        <span class="material-symbols-outlined text-slate-500">more_vert</span>
+</h4>
+<div class="space-y-6">
+<div class="flex items-center gap-4">
+<div class="w-3 h-12 rounded-full bg-cyan-500"></div>
+<div class="flex-1">
+<div class="flex justify-between text-sm mb-1">
+<span class="text-slate-300">Área VIP</span>
+<span class="font-bold">65%</span>
+</div>
+<div class="w-full bg-slate-800 h-1.5 rounded-full">
+<div class="bg-cyan-500 h-full rounded-full" style="width: 65%"></div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-3 h-12 rounded-full bg-purple-500"></div>
+<div class="flex-1">
+<div class="flex justify-between text-sm mb-1">
+<span class="text-slate-300">Pista Premium</span>
+<span class="font-bold">25%</span>
+</div>
+<div class="w-full bg-slate-800 h-1.5 rounded-full">
+<div class="bg-purple-500 h-full rounded-full" style="width: 25%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Participants -->
+<div class="lg:col-span-4 glass-card p-8 rounded-3xl">
+<h4 class="text-lg font-bold mb-6 flex items-center justify-between">
+                        Participants By Category
+                        <span class="material-symbols-outlined text-slate-500">pie_chart</span>
+</h4>
+<div class="aspect-square w-full relative flex items-center justify-center">
+<div class="w-40 h-40 rounded-full border-8 border-cyan-500/20 flex items-center justify-center relative">
+<div class="absolute inset-0 border-t-8 border-cyan-500 rounded-full"></div>
+<div class="text-center">
+<span class="text-2xl font-bold">4.8k</span>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest">Total</p>
+</div>
+</div>
+</div>
+</div>
+<!-- AI Chat -->
+<div class="lg:col-span-4 glass-card p-6 rounded-3xl border-purple-500/20 relative overflow-hidden flex flex-col">
+<div class="absolute -top-12 -right-12 w-32 h-32 bg-purple-500/10 blur-3xl"></div>
+<div class="flex items-center gap-3 mb-6">
+<div class="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center animate-pulse">
+<span class="material-symbols-outlined text-slate-950 text-sm" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<h4 class="font-bold text-purple-400">Embedded AI Assistant</h4>
+</div>
+<div class="flex-1 bg-slate-950/40 rounded-xl p-4 mb-4 text-sm text-slate-300 space-y-3">
+<div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            "A taxa de conversão na Área VIP subiu 14% na última hora. Deseja disparar notificação de estoque?"
+                        </div>
+</div>
+<div class="relative">
+<input class="w-full bg-slate-800/50 border-slate-700 rounded-xl py-2 pl-4 pr-10 focus:ring-purple-500/30 text-sm" placeholder="Pergunte sobre os dados..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-2 text-purple-400 cursor-pointer">send</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Operação do Evento -->
+<section class="space-y-6">
+<div class="flex items-center gap-3">
+<h2 class="text-2xl font-bold">Operação do Evento</h2>
+<span class="bg-cyan-500/10 text-cyan-400 text-xs font-bold px-3 py-1 rounded-full border border-cyan-500/20">Acompanhamento</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Carros Dentro -->
+<div class="glass-card p-6 rounded-2xl flex items-center gap-6 group">
+<div class="w-16 h-16 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-3xl" data-icon="directions_car">directions_car</span>
+</div>
+<div>
+<p class="text-slate-400 text-sm">Carros Dentro</p>
+<h3 class="text-3xl font-bold">1.240 <span class="text-slate-600 text-sm font-normal">/ 1.500</span></h3>
+</div>
+</div>
+<!-- Terminais Offline -->
+<div class="glass-card p-6 rounded-2xl flex items-center gap-6 group">
+<div class="w-16 h-16 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-3xl" data-icon="terminal">terminal</span>
+</div>
+<div>
+<p class="text-slate-400 text-sm">Terminais Offline</p>
+<h3 class="text-3xl font-bold text-rose-400">03 <span class="text-slate-600 text-sm font-normal">un.</span></h3>
+</div>
+</div>
+<!-- Estoque Crítico -->
+<div class="glass-card p-6 rounded-2xl flex items-center gap-6 group border-amber-500/30">
+<div class="w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-3xl" data-icon="inventory_2">inventory_2</span>
+</div>
+<div>
+<p class="text-slate-400 text-sm">Estoque Crítico</p>
+<h3 class="text-3xl font-bold text-amber-400">12 <span class="text-slate-600 text-sm font-normal">items</span></h3>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<div class="glass-card rounded-3xl overflow-hidden">
+<div class="p-6 border-b border-slate-800 flex justify-between items-center">
+<h4 class="font-bold">Real-time Traffic Density</h4>
+<span class="text-xs text-cyan-400 uppercase tracking-widest">Live Flow</span>
+</div>
+<div class="h-64 p-6 flex items-end gap-2">
+<!-- Mock chart bars -->
+<div class="flex-1 bg-cyan-500/20 rounded-t-lg h-[40%]"></div>
+<div class="flex-1 bg-cyan-500/20 rounded-t-lg h-[60%]"></div>
+<div class="flex-1 bg-cyan-500/40 rounded-t-lg h-[85%]"></div>
+<div class="flex-1 bg-cyan-500/20 rounded-t-lg h-[50%]"></div>
+<div class="flex-1 bg-cyan-500/60 rounded-t-lg h-[95%]"></div>
+<div class="flex-1 bg-cyan-500/20 rounded-t-lg h-[30%]"></div>
+<div class="flex-1 bg-cyan-500/30 rounded-t-lg h-[45%]"></div>
+</div>
+</div>
+<div class="glass-card p-6 rounded-3xl">
+<h4 class="font-bold mb-6">Staff Location Heatmap</h4>
+<div class="w-full h-64 rounded-2xl overflow-hidden bg-slate-800 relative">
+<img class="w-full h-full object-cover opacity-50 grayscale" data-alt="blueprint architectural floor plan of a large event venue with colorful heatmap overlays indicating crowd density areas" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCcZgHfSNcvCMU4SE09XxwaBhwNb-oCVe23AKoyqcsd59ItSVfG1UQitVJ09kaQHKtOkdYv6KL2DpNfcWtLZC8b69Fb-Q0H1xx-VZ9RgGTI6mf6vk8wUPxBGotiTOnIiKiXiXmA1mTkj-EDlBd4oBUH19VLloGgVAoOiBE7StkG3cAJ7uZqwZg5XyrOnMzyK19PYRrfZXIfHvyimkGz5GXjisMpf-0_NIq5m9waBK_cyOKAfGzmylYX2mkgjMzwnzmgw-J1XWUXsSGF"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-12 h-12 bg-cyan-500/20 rounded-full flex items-center justify-center animate-ping"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Apoio à Gestão -->
+<section class="space-y-6">
+<div class="flex items-center gap-3">
+<h2 class="text-2xl font-bold">Apoio à Gestão</h2>
+<span class="bg-amber-500/10 text-amber-400 text-xs font-bold px-3 py-1 rounded-full border border-amber-500/20">Apoio</span>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+<!-- Top Products -->
+<div class="lg:col-span-2 glass-card rounded-3xl p-8">
+<h4 class="text-lg font-bold mb-6">Top Products</h4>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-4 bg-slate-900/40 rounded-2xl border border-slate-800/40">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-400">local_bar</span>
+</div>
+<div>
+<p class="font-bold">Cerveja Artesanal IPA</p>
+<p class="text-xs text-slate-500">2.450 unidades</p>
+</div>
+</div>
+<span class="text-cyan-400 font-bold">R$ 49.000</span>
+</div>
+<div class="flex items-center justify-between p-4 bg-slate-900/40 rounded-2xl border border-slate-800/40">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-400">restaurant</span>
+</div>
+<div>
+<p class="font-bold">Hambúrguer Gourmet</p>
+<p class="text-xs text-slate-500">1.820 unidades</p>
+</div>
+</div>
+<span class="text-cyan-400 font-bold">R$ 72.800</span>
+</div>
+</div>
+</div>
+<!-- Quick Links -->
+<div class="glass-card rounded-3xl p-6">
+<h4 class="font-bold mb-4">Quick Links</h4>
+<div class="grid grid-cols-2 gap-3">
+<button class="flex flex-col items-center justify-center p-4 bg-slate-800/30 rounded-2xl hover:bg-cyan-500/10 hover:text-cyan-400 transition-all border border-transparent hover:border-cyan-500/20">
+<span class="material-symbols-outlined mb-2">print</span>
+<span class="text-xs font-medium">Relatórios</span>
+</button>
+<button class="flex flex-col items-center justify-center p-4 bg-slate-800/30 rounded-2xl hover:bg-cyan-500/10 hover:text-cyan-400 transition-all border border-transparent hover:border-cyan-500/20">
+<span class="material-symbols-outlined mb-2">group_add</span>
+<span class="text-xs font-medium">Staff</span>
+</button>
+<button class="flex flex-col items-center justify-center p-4 bg-slate-800/30 rounded-2xl hover:bg-cyan-500/10 hover:text-cyan-400 transition-all border border-transparent hover:border-cyan-500/20">
+<span class="material-symbols-outlined mb-2">history</span>
+<span class="text-xs font-medium">Logs</span>
+</button>
+<button class="flex flex-col items-center justify-center p-4 bg-slate-800/30 rounded-2xl hover:bg-cyan-500/10 hover:text-cyan-400 transition-all border border-transparent hover:border-cyan-500/20">
+<span class="material-symbols-outlined mb-2">settings</span>
+<span class="text-xs font-medium">Ajustes</span>
+</button>
+</div>
+</div>
+<!-- Users Card -->
+<div class="glass-card rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-6xl">groups</span>
+</div>
+<div>
+<h4 class="font-bold mb-1">Users Online</h4>
+<p class="text-3xl font-black text-cyan-500">1.4k</p>
+</div>
+<div class="flex -space-x-3 mt-4">
+<img class="w-10 h-10 rounded-full border-2 border-slate-900 object-cover" data-alt="portrait of a professional user with a neutral background in a tech environment profile picture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2QaivzY_bVypvsEPZWEpvcpHRancVE1ng1MU-uVy4i-5cyGbBNP_-pw4NxmuE2BG-rGKAoHI15xrDtQP9bPI1Jwy37YH9qqvrqdWWC4Jr9beSwka6wctMQiw3idHCJRZV_ABjr2ELgmczAYlu5n_v-b9o51EwB6_a9ZNDkTGQJ0OqWI2xFBYl4Vqnc7Jw2EEkccvucPGqd5pQQT3ZMuN6SHnzp6tXelbBoOWqtdmQ8H6kvbJVIZrAxUQYwF0vw-G_K09QKVXXptiV"/>
+<img class="w-10 h-10 rounded-full border-2 border-slate-900 object-cover" data-alt="portrait of a confident woman entrepreneur in a professional office setting profile picture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCV_QXe6-Pt36Ot6t9HxdV0tbZOeRo0cHFucUdfGx8bwj6GQhYba_UHaF_JheRHGh6qivYlz0ZqVLAd4blck7EYb7gGfG7fF0BXDY9Iesl4R3znjxBPIM3BV8dvoKYr0wB2k06wku-cJhu-v361fSingNgVmNmp52494yASJITsBemIdmdSCce4iZka89iQR2d5bZUEFnDJ4iOy6QpSeDC78Sxl7yzflcU-GUQro3tQn30oA9CzrkrySJVw6gYxqdKU67wYWsBS-tj4"/>
+<img class="w-10 h-10 rounded-full border-2 border-slate-900 object-cover" data-alt="portrait of a young designer with glasses in a creative studio environment profile picture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHVMT9G6p-1ydOqKdNqS22uK2CqXiu9GZRHzzcnzDPX9BkKJaU5GZxxdcqE_l9PnNz3EaG7OFfViKVa49yj62QsSsIi7rNeQD2I3cEQpgAomqbKYzCp7--b-bRX1L_54Iq2ozmSS2oObS38b0uIkFpbdnCqFmbYwa93MwBuhJYVLOtWEVKcl5XmXHEXq5oDMe1KeihhooSucGYLjUOkWtty6thHVfUnK0zb1N37VzvH_3-kfQVl1tK98fdmAJimngw-RqPxoL6fg6T"/>
+<div class="w-10 h-10 rounded-full border-2 border-slate-900 bg-slate-800 flex items-center justify-center text-[10px] font-bold">+24</div>
+</div>
+</div>
+</div>
+<!-- Workforce and Finance -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20 md:pb-8">
+<div class="glass-card p-6 rounded-3xl">
+<div class="flex justify-between items-center mb-6">
+<h4 class="font-bold">Workforce Allocation</h4>
+<span class="material-symbols-outlined text-slate-500">engineering</span>
+</div>
+<div class="space-y-4">
+<div class="flex items-center gap-4">
+<span class="w-24 text-xs text-slate-400">Security</span>
+<div class="flex-1 h-2 bg-slate-800 rounded-full">
+<div class="bg-cyan-500 h-full rounded-full" style="width: 85%"></div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="w-24 text-xs text-slate-400">Cleaning</span>
+<div class="flex-1 h-2 bg-slate-800 rounded-full">
+<div class="bg-purple-500 h-full rounded-full" style="width: 45%"></div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="w-24 text-xs text-slate-400">Support</span>
+<div class="flex-1 h-2 bg-slate-800 rounded-full">
+<div class="bg-amber-500 h-full rounded-full" style="width: 70%"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="glass-card p-6 rounded-3xl flex items-center justify-between">
+<div>
+<h4 class="font-bold mb-4">Finance Overview</h4>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black text-emerald-400">R$ 412k</span>
+<span class="text-xs text-slate-500">Gross Margin</span>
+</div>
+</div>
+<div class="h-full flex items-center">
+<div class="w-32 h-32 glass-card rounded-full flex items-center justify-center relative border-emerald-500/20">
+<div class="absolute inset-0 border-4 border-emerald-400/10 rounded-full"></div>
+<div class="absolute inset-0 border-t-4 border-emerald-400 rounded-full rotate-45"></div>
+<span class="material-symbols-outlined text-emerald-400 text-3xl">trending_up</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Mobile Bottom NavBar (Hidden on desktop) -->
+<nav class="fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-xl border-t border-slate-800 md:hidden flex justify-around py-3 px-6 z-50">
+<button class="flex flex-col items-center gap-1 text-cyan-400">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-bold">Summary</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined">event</span>
+<span class="text-[10px]">Operation</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined">support_agent</span>
+<span class="text-[10px]">Support</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="text-[10px]">AI</span>
+</button>
+</nav>
+<!-- Floating Top Bar for Mobile -->
+<div class="md:hidden fixed top-0 left-0 w-full glass-card h-16 px-6 flex items-center justify-between z-50">
+<span class="text-xl font-black text-cyan-500 font-['Space_Grotesk']">EnjoyFun</span>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-slate-400">notifications</span>
+<div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="organizer profile picture of a tech professional man in a casual business setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRUkVx-7Y-aiVTWVbaIpOEjTrA5YvK-4Cn3WH9pFNUXW_hyT-PXAnX6AJABkiX0UQxQ2vXVNQW2RXaA4wwGF6tds7Lbm8mZkLKF2KGJNaIrRiQs_Ta5aG_oKcucCrM-tkXVjQOCleG3geAWohZsbhd6Syf-dcE3Nv77qN9etLN3BPP-9hN_nWCy9Nwh0rq0TzflgIKR5OKOzGXOKk7XJqorMds9XiSckQTF2qm4vZFPMe3g5BCKqGi1U9o0v6MOLTKbOKxp9n1J4tg"/>
+</div>
+</div>
+</div>
+</body></html>

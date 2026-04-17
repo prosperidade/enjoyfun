@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "primary-container": "#00f0ff",
+                "surface-container-low": "#171b26",
+                "on-secondary-fixed-variant": "#6700b5",
+                "surface-variant": "#313540",
+                "surface-bright": "#353944",
+                "outline-variant": "#3b494b",
+                "on-tertiary-fixed": "#231b00",
+                "secondary-container": "#7701d0",
+                "error-container": "#93000a",
+                "background": "#0f131d",
+                "tertiary-fixed": "#ffe179",
+                "on-tertiary-container": "#715d00",
+                "on-tertiary-fixed-variant": "#554500",
+                "secondary": "#dcb8ff",
+                "on-tertiary": "#3b2f00",
+                "on-secondary": "#480081",
+                "on-primary": "#00363a",
+                "primary-fixed-dim": "#00dbe9",
+                "on-background": "#dfe2f1",
+                "surface-container-lowest": "#0a0e18",
+                "secondary-fixed-dim": "#dcb8ff",
+                "primary-fixed": "#7df4ff",
+                "on-error": "#690005",
+                "on-surface-variant": "#b9cacb",
+                "secondary-fixed": "#efdbff",
+                "surface": "#0f131d",
+                "surface-container-high": "#262a35",
+                "primary": "#dbfcff",
+                "surface-container": "#1c1f2a",
+                "inverse-on-surface": "#2c303b",
+                "surface-tint": "#00dbe9",
+                "on-secondary-container": "#dcb7ff",
+                "tertiary-container": "#fed639",
+                "on-secondary-fixed": "#2c0051",
+                "inverse-primary": "#006970",
+                "tertiary": "#fff5de",
+                "surface-dim": "#0f131d",
+                "on-error-container": "#ffdad6",
+                "tertiary-fixed-dim": "#eac324",
+                "error": "#ffb4ab",
+                "on-surface": "#dfe2f1",
+                "on-primary-fixed-variant": "#004f54",
+                "inverse-surface": "#dfe2f1",
+                "surface-container-highest": "#313540",
+                "outline": "#849495",
+                "on-primary-container": "#006970",
+                "on-primary-fixed": "#002022"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "fontFamily": {
+                "headline": ["Space Grotesk"],
+                "body": ["Inter"],
+                "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
+        .glass-card {
+            background: rgba(15, 19, 29, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(59, 73, 75, 0.4);
+        }
+        .neon-glow-cyan {
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-background min-h-screen">
+<!-- TopNavBar -->
+<nav class="fixed top-0 z-50 w-full flex justify-between items-center px-6 py-3 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 shadow-[0_0_20px_rgba(0,240,255,0.05)]">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">EventoHub</span>
+<div class="hidden md:flex gap-6">
+<a class="text-cyan-400 border-b-2 border-cyan-400 font-['Space_Grotesk'] text-slate-200 hover:text-cyan-300 transition-colors duration-300" href="#">Painel</a>
+<a class="text-slate-400 font-['Space_Grotesk'] text-slate-200 hover:text-cyan-300 transition-colors duration-300" href="#">Explorar</a>
+<a class="text-slate-400 font-['Space_Grotesk'] text-slate-200 hover:text-cyan-300 transition-colors duration-300" href="#">Relatórios</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<input class="bg-slate-800/50 border-none rounded-full px-4 py-1.5 text-sm w-64 focus:ring-2 focus:ring-cyan-500/50 outline-none" placeholder="Buscar métricas..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-1.5 text-slate-400 text-sm">search</span>
+</div>
+<button class="material-symbols-outlined text-slate-400 hover:text-cyan-400 transition-colors">notifications</button>
+<button class="material-symbols-outlined text-slate-400 hover:text-cyan-400 transition-colors">settings</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-cyan-500/30">
+<img alt="Avatar do usuário" data-alt="close-up portrait of a digital professional in a modern office environment with soft neon lighting reflections" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3y4Y10-C_VYsuF8vPGCQ9E6aJAPDOQgpY2CaAWXcadlgGr4vygKcUka-QIyXWKjJyxJMGn50J0zajH1ybHHOIrq-3Sm-xJCZJplOt3mAz6LF4nOeuPomn-Qgf4LFrxU3_PFankMtQ5qFRROzbPrr5-Mf12hrH-oH6LvqWydyohD8to8OSsRi46B3uXBlxSTyiCNqZrlLqB_vjdkGh2kwaw6OrglPLii4ZMtARu6u_Y10HQJTA6jauW_LWb5HrQ4M_ku1Do_0tfJ0P"/>
+</div>
+</div>
+</nav>
+<!-- SideNavBar (Desktop) -->
+<aside class="hidden md:flex flex-col gap-2 p-4 h-screen w-64 fixed left-0 top-0 pt-16 bg-slate-900/50 backdrop-blur-xl border-r border-slate-800/50 shadow-2xl shadow-cyan-900/10 z-40">
+<div class="mb-8 px-4 py-2">
+<h3 class="text-cyan-400 font-bold font-['Inter'] text-sm">Gestão PRO</h3>
+<p class="text-slate-500 text-xs">Administrador</p>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 p-3 rounded-lg bg-cyan-500/10 text-cyan-400 border-r-4 border-cyan-500 shadow-[0_0_15px_rgba(0,240,255,0.1)] transition-all duration-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium text-sm">Painel</span>
+</a>
+<a class="flex items-center gap-3 p-3 rounded-lg text-slate-500 hover:bg-slate-800/30 hover:text-slate-200 transition-all duration-300 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-medium text-sm">Analítica</span>
+</a>
+<a class="flex items-center gap-3 p-3 rounded-lg text-slate-500 hover:bg-slate-800/30 hover:text-slate-200 transition-all duration-300 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-medium text-sm">Eventos</span>
+</a>
+<a class="flex items-center gap-3 p-3 rounded-lg text-slate-500 hover:bg-slate-800/30 hover:text-slate-200 transition-all duration-300 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-medium text-sm">Participantes</span>
+</a>
+<a class="flex items-center gap-3 p-3 rounded-lg text-slate-500 hover:bg-slate-800/30 hover:text-slate-200 transition-all duration-300 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-medium text-sm">Configurações</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content -->
+<main class="md:pl-64 pt-20 pb-12 px-6">
+<div class="max-w-7xl mx-auto space-y-8">
+<!-- Header & Filters -->
+<div class="flex flex-col gap-6">
+<div class="flex justify-between items-end">
+<div>
+<h1 class="text-2xl font-bold text-slate-100 tracking-tight">Dashboard Analítico</h1>
+<p class="text-slate-400 text-sm mt-1">Bem-vindo ao cockpit operacional EnjoyFun</p>
+</div>
+<div class="flex gap-3">
+<button class="bg-slate-800/50 text-slate-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-700 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">download</span> Exportar PDF
+                        </button>
+<button class="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 px-4 py-2 rounded-lg text-sm font-bold hover:scale-[1.05] transition-all shadow-[0_0_15px_rgba(0,240,255,0.15)]">
+                            Novo Relatório
+                        </button>
+</div>
+</div>
+<!-- Filter Bar -->
+<div class="glass-card rounded-2xl p-4 flex flex-wrap gap-4 items-center">
+<div class="flex-1 min-w-[200px]">
+<label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1 ml-1">Evento</label>
+<select class="w-full bg-slate-800/50 border-none text-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-cyan-500 transition-all">
+<option>Festival de Verão 2024</option>
+<option>Tech Conference SP</option>
+<option>Gala de Inverno</option>
+</select>
+</div>
+<div class="flex-1 min-w-[200px]">
+<label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1 ml-1">Comparar Evento</label>
+<select class="w-full bg-slate-800/50 border-none text-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-cyan-500 transition-all">
+<option>Festival de Verão 2023</option>
+<option>Tech Conference 2023</option>
+<option>Nenhum</option>
+</select>
+</div>
+<div class="flex-1 min-w-[200px]">
+<label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1 ml-1">Agrupar por</label>
+<select class="w-full bg-slate-800/50 border-none text-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-cyan-500 transition-all">
+<option>Diário</option>
+<option>Semanal</option>
+<option>Mensal</option>
+</select>
+</div>
+<button class="mt-5 p-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-xl transition-colors">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+</div>
+</div>
+<!-- Section 1: Resumo Analítico -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+<div class="glass-card p-6 rounded-2xl group hover:border-cyan-500/30 transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-cyan-400/10 rounded-lg">
+<span class="material-symbols-outlined text-cyan-400">payments</span>
+</div>
+<span class="text-green-400 text-xs font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">trending_up</span> +12%
+                        </span>
+</div>
+<p class="text-slate-400 text-sm">Receita Total</p>
+<h3 class="text-2xl font-bold text-cyan-400 mt-1">R$ 1.240.500</h3>
+<div class="w-full bg-slate-800 h-1 mt-4 rounded-full overflow-hidden">
+<div class="bg-cyan-400 h-full w-[75%]"></div>
+</div>
+</div>
+<div class="glass-card p-6 rounded-2xl group hover:border-cyan-500/30 transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-purple-500/15 rounded-lg">
+<span class="material-symbols-outlined text-purple-400">confirmation_number</span>
+</div>
+<span class="text-green-400 text-xs font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">trending_up</span> +5%
+                        </span>
+</div>
+<p class="text-slate-400 text-sm">Ticket Médio</p>
+<h3 class="text-2xl font-bold text-cyan-400 mt-1">R$ 245,50</h3>
+<div class="w-full bg-slate-800 h-1 mt-4 rounded-full overflow-hidden">
+<div class="bg-purple-500 h-full w-[60%]"></div>
+</div>
+</div>
+<div class="glass-card p-6 rounded-2xl group hover:border-cyan-500/30 transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-yellow-400/10 rounded-lg">
+<span class="material-symbols-outlined text-yellow-400">bolt</span>
+</div>
+<span class="text-red-400 text-xs font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">trending_down</span> -2%
+                        </span>
+</div>
+<p class="text-slate-400 text-sm">Conversão</p>
+<h3 class="text-2xl font-bold text-cyan-400 mt-1">14,2%</h3>
+<div class="w-full bg-slate-800 h-1 mt-4 rounded-full overflow-hidden">
+<div class="bg-yellow-400 h-full w-[42%]"></div>
+</div>
+</div>
+<div class="glass-card p-6 rounded-2xl group hover:border-cyan-500/30 transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-green-400/10 rounded-lg">
+<span class="material-symbols-outlined text-green-400">group</span>
+</div>
+<span class="text-green-400 text-xs font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">trending_up</span> +18%
+                        </span>
+</div>
+<p class="text-slate-400 text-sm">Total Participantes</p>
+<h3 class="text-2xl font-bold text-cyan-400 mt-1">12.450</h3>
+<div class="w-full bg-slate-800 h-1 mt-4 rounded-full overflow-hidden">
+<div class="bg-green-400 h-full w-[85%]"></div>
+</div>
+</div>
+</section>
+<!-- Section 2: Curva e Performance Comercial -->
+<section class="glass-card rounded-2xl p-6">
+<div class="flex justify-between items-center mb-8">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-cyan-400/15 rounded-full">
+<span class="material-symbols-outlined text-cyan-400">show_chart</span>
+</div>
+<h2 class="text-xl font-bold text-slate-100">Curva e Performance Comercial</h2>
+</div>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(0,240,255,0.6)]"></span>
+<span class="text-xs text-slate-400">Evento Atual</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(138,43,226,0.6)]"></span>
+<span class="text-xs text-slate-400">Ano Anterior</span>
+</div>
+</div>
+</div>
+<div class="relative h-80 w-full">
+<!-- Faux Line Chart using SVG -->
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 1000 300">
+<!-- Grid Lines -->
+<line stroke="#1c1f2a" stroke-width="1" x1="0" x2="1000" y1="50" y2="50"></line>
+<line stroke="#1c1f2a" stroke-width="1" x1="0" x2="1000" y1="125" y2="125"></line>
+<line stroke="#1c1f2a" stroke-width="1" x1="0" x2="1000" y1="200" y2="200"></line>
+<line stroke="#1c1f2a" stroke-width="1" x1="0" x2="1000" y1="275" y2="275"></line>
+<!-- Purple Line (Previous) -->
+<path d="M0,250 Q100,240 200,180 T400,160 T600,120 T800,140 T1000,80" fill="none" opacity="0.6" stroke="#8A2BE2" stroke-dasharray="8 4" stroke-width="3"></path>
+<!-- Cyan Line (Current) -->
+<path class="drop-shadow-[0_0_8px_rgba(0,240,255,0.4)]" d="M0,280 Q100,260 200,200 T400,140 T600,80 T800,60 T1000,20" fill="none" stroke="#00f0ff" stroke-linecap="round" stroke-width="4"></path>
+<!-- Glow Area -->
+<lineargradient id="cyan-gradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#00f0ff" stop-opacity="0.1"></stop>
+<stop offset="100%" stop-color="#00f0ff" stop-opacity="0"></stop>
+</lineargradient>
+<path d="M0,280 Q100,260 200,200 T400,140 T600,80 T800,60 T1000,20 V300 H0 Z" fill="url(#cyan-gradient)"></path>
+</svg>
+<!-- Chart Labels -->
+<div class="flex justify-between mt-4 text-[10px] text-slate-500 uppercase tracking-widest px-2">
+<span>Semana 1</span>
+<span>Semana 2</span>
+<span>Semana 3</span>
+<span>Semana 4</span>
+<span>Semana 5</span>
+<span>Semana 6</span>
+<span>Semana 7</span>
+<span>Semana 8</span>
+</div>
+</div>
+</section>
+<!-- Section 3 & 5 Mixed: Bento Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Section 3: Ranking de Produtos -->
+<div class="glass-card rounded-2xl p-6 lg:col-span-2">
+<div class="flex items-center gap-3 mb-6">
+<div class="p-2 bg-purple-500/15 rounded-full">
+<span class="material-symbols-outlined text-purple-400">inventory_2</span>
+</div>
+<h2 class="text-lg font-bold text-slate-100">Ranking de Produtos e Vendedores</h2>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-widest">
+<th class="px-4 py-3 rounded-l-xl">Produto / Colaborador</th>
+<th class="px-4 py-3 text-right">Qtd. Vendas</th>
+<th class="px-4 py-3 text-right">Faturamento</th>
+<th class="px-4 py-3 text-right rounded-r-xl">Evolução</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800/30">
+<tr class="hover:bg-slate-800/30 transition-colors">
+<td class="px-4 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-slate-700 flex items-center justify-center text-xs font-bold text-cyan-400">VIP</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Ingresso VIP Gold</p>
+<p class="text-[10px] text-slate-500">Acesso Total</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-4 text-right text-sm text-slate-300">1.450</td>
+<td class="px-4 py-4 text-right text-sm text-cyan-400 font-bold">R$ 580.000</td>
+<td class="px-4 py-4 text-right">
+<span class="bg-green-400/10 text-green-400 text-[10px] px-2 py-1 rounded-full">+14%</span>
+</td>
+</tr>
+<tr class="hover:bg-slate-800/30 transition-colors">
+<td class="px-4 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-slate-700 flex items-center justify-center text-xs font-bold text-purple-400">STD</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Ingresso Standard</p>
+<p class="text-[10px] text-slate-500">Lote 03</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-4 text-right text-sm text-slate-300">3.200</td>
+<td class="px-4 py-4 text-right text-sm text-cyan-400 font-bold">R$ 448.000</td>
+<td class="px-4 py-4 text-right">
+<span class="bg-green-400/10 text-green-400 text-[10px] px-2 py-1 rounded-full">+8%</span>
+</td>
+</tr>
+<tr class="hover:bg-slate-800/30 transition-colors">
+<td class="px-4 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full overflow-hidden border border-slate-700">
+<img alt="Vendedor" data-alt="professional sales representative portrait with neutral background and sharp focus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLlr3jAA3n-9k0EyPPbR8O3rJLrEBUTQntkJYJvJoU7kylNYk153HEMEpiYK1mhvxyV-pcPvJ_8yn7sU8ZuAYyzpyoTys256sY0lf5synM8sskc8xL-V3pq1oW-TtAZlP2Ff9Nm4zNUNbk9goLYV7vHbhBA7VDLmfvQ5dj0Q4G-RJYq1v5L1VjiusQz07EkSAOgKT8feCX81aQVGwh4tkNpiaa12eiLxAd4mfEmtanGhytRR8Hqg6NFcnrciMdQPrVqm2nZTEEPYJ1"/>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-200">Ricardo Almeida</p>
+<p class="text-[10px] text-slate-500">Vendedor Senior</p>
+</div>
+</div>
+</td>
+<td class="px-4 py-4 text-right text-sm text-slate-300">420</td>
+<td class="px-4 py-4 text-right text-sm text-cyan-400 font-bold">R$ 105.000</td>
+<td class="px-4 py-4 text-right">
+<span class="bg-cyan-500/10 text-cyan-400 text-[10px] px-2 py-1 rounded-full">Meta OK</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Section 5: Participação por Setor -->
+<div class="glass-card rounded-2xl p-6 flex flex-col items-center">
+<div class="w-full flex items-center gap-3 mb-8">
+<div class="p-2 bg-yellow-400/15 rounded-full">
+<span class="material-symbols-outlined text-yellow-400">pie_chart</span>
+</div>
+<h2 class="text-lg font-bold text-slate-100">Receita por Setor</h2>
+</div>
+<div class="relative w-48 h-48 mb-8">
+<!-- Custom Pie Chart Representation -->
+<svg class="w-full h-full rotate-[-90deg]" viewbox="0 0 36 36">
+<circle cx="18" cy="18" fill="transparent" r="16" stroke="#1c1f2a" stroke-width="4"></circle>
+<circle class="drop-shadow-[0_0_4px_rgba(0,240,255,0.4)]" cx="18" cy="18" fill="transparent" r="16" stroke="#00f0ff" stroke-dasharray="45 100" stroke-width="4"></circle>
+<circle cx="18" cy="18" fill="transparent" r="16" stroke="#8A2BE2" stroke-dasharray="30 100" stroke-dashoffset="-45" stroke-width="4"></circle>
+<circle cx="18" cy="18" fill="transparent" r="16" stroke="#FFE179" stroke-dasharray="25 100" stroke-dashoffset="-75" stroke-width="4"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-[10px] text-slate-500 uppercase">Total</span>
+<span class="text-lg font-bold text-slate-200">100%</span>
+</div>
+</div>
+<div class="w-full space-y-3">
+<div class="flex justify-between items-center text-sm">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+<span class="text-slate-400">Camarote</span>
+</div>
+<span class="text-slate-200 font-medium">45%</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-purple-500"></span>
+<span class="text-slate-400">Pista Premium</span>
+</div>
+<span class="text-slate-200 font-medium">30%</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-yellow-400"></span>
+<span class="text-slate-400">Arquibancada</span>
+</div>
+<span class="text-slate-200 font-medium">25%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 4: Comparativo entre Eventos -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="glass-card rounded-2xl p-6">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-green-400/15 rounded-full">
+<span class="material-symbols-outlined text-green-400">bar_chart</span>
+</div>
+<h2 class="text-lg font-bold text-slate-100">Vendas: Atual vs Anterior</h2>
+</div>
+<span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded uppercase tracking-widest">Unidades</span>
+</div>
+<div class="space-y-6">
+<div class="space-y-2">
+<div class="flex justify-between text-xs text-slate-400 mb-1">
+<span>Festival Verão 2024</span>
+<span class="text-cyan-400">8.450 unidades</span>
+</div>
+<div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+<div class="bg-gradient-to-r from-cyan-600 to-cyan-400 h-full w-[85%] rounded-full shadow-[0_0_10px_rgba(0,240,255,0.3)]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs text-slate-400 mb-1">
+<span>Festival Verão 2023</span>
+<span class="text-slate-300">7.100 unidades</span>
+</div>
+<div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+<div class="bg-slate-600 h-full w-[70%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="glass-card rounded-2xl p-6">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-red-400/15 rounded-full">
+<span class="material-symbols-outlined text-red-400">insights</span>
+</div>
+<h2 class="text-lg font-bold text-slate-100">Eficiência de Conversão</h2>
+</div>
+<span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded uppercase tracking-widest">Percentual</span>
+</div>
+<div class="flex items-center justify-around h-32">
+<div class="text-center">
+<div class="text-3xl font-bold text-cyan-400 mb-1">14.2%</div>
+<div class="text-[10px] text-slate-500 uppercase tracking-tighter">Evento Atual</div>
+</div>
+<div class="h-12 w-[1px] bg-slate-800"></div>
+<div class="text-center">
+<div class="text-3xl font-bold text-slate-400 mb-1">11.8%</div>
+<div class="text-[10px] text-slate-500 uppercase tracking-tighter">Ano Anterior</div>
+</div>
+<div class="h-12 w-[1px] bg-slate-800"></div>
+<div class="text-center">
+<div class="text-2xl font-bold text-green-400 mb-1">+2.4pp</div>
+<div class="text-[10px] text-slate-500 uppercase tracking-tighter">Melhoria</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 5 Extra: Financial Summaries Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="glass-card p-6 rounded-2xl flex items-center gap-4 border-l-4 border-l-cyan-500">
+<div class="p-3 bg-slate-800/50 rounded-xl">
+<span class="material-symbols-outlined text-cyan-400">account_balance</span>
+</div>
+<div>
+<p class="text-slate-500 text-[10px] uppercase tracking-widest">Líquido Previsto</p>
+<h4 class="text-xl font-bold text-slate-100">R$ 890.400</h4>
+</div>
+</div>
+<div class="glass-card p-6 rounded-2xl flex items-center gap-4 border-l-4 border-l-purple-500">
+<div class="p-3 bg-slate-800/50 rounded-xl">
+<span class="material-symbols-outlined text-purple-400">receipt_long</span>
+</div>
+<div>
+<p class="text-slate-500 text-[10px] uppercase tracking-widest">Taxas e Encargos</p>
+<h4 class="text-xl font-bold text-slate-100">R$ 42.150</h4>
+</div>
+</div>
+<div class="glass-card p-6 rounded-2xl flex items-center gap-4 border-l-4 border-l-yellow-400">
+<div class="p-3 bg-slate-800/50 rounded-xl">
+<span class="material-symbols-outlined text-yellow-400">savings</span>
+</div>
+<div>
+<p class="text-slate-500 text-[10px] uppercase tracking-widest">Cashback Ativo</p>
+<h4 class="text-xl font-bold text-slate-100">R$ 12.800</h4>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Mobile Navigation Bar -->
+<div class="md:hidden fixed bottom-0 left-0 w-full bg-slate-950/90 backdrop-blur-lg border-t border-slate-800 flex justify-around items-center py-3 z-50">
+<button class="flex flex-col items-center gap-1 text-cyan-400">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px]">Painel</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined">analytics</span>
+<span class="text-[10px]">Analítica</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="text-[10px]">Eventos</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px]">Ajustes</span>
+</button>
+</div>
+</body></html>

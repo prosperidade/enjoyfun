@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#dbfcff",
+                        "surface-container-low": "#171b26",
+                        "outline-variant": "#3b494b",
+                        "tertiary-fixed": "#ffe179",
+                        "surface-container-highest": "#313540",
+                        "inverse-surface": "#dfe2f1",
+                        "primary-container": "#00f0ff",
+                        "secondary-fixed": "#efdbff",
+                        "primary-fixed": "#7df4ff",
+                        "primary-fixed-dim": "#00dbe9",
+                        "on-tertiary": "#3b2f00",
+                        "on-background": "#dfe2f1",
+                        "on-secondary-fixed": "#2c0051",
+                        "inverse-on-surface": "#2c303b",
+                        "surface-variant": "#313540",
+                        "tertiary-container": "#fed639",
+                        "on-error": "#690005",
+                        "surface-container-lowest": "#0a0e18",
+                        "on-tertiary-fixed-variant": "#554500",
+                        "on-primary": "#00363a",
+                        "inverse-primary": "#006970",
+                        "tertiary-fixed-dim": "#eac324",
+                        "surface-container": "#1c1f2a",
+                        "surface-dim": "#0f131d",
+                        "on-primary-fixed-variant": "#004f54",
+                        "error": "#ffb4ab",
+                        "tertiary": "#fff5de",
+                        "outline": "#849495",
+                        "error-container": "#93000a",
+                        "surface-bright": "#353944",
+                        "surface": "#0f131d",
+                        "on-tertiary-fixed": "#231b00",
+                        "background": "#0f131d",
+                        "on-primary-fixed": "#002022",
+                        "on-primary-container": "#006970",
+                        "on-tertiary-container": "#715d00",
+                        "on-surface": "#dfe2f1",
+                        "on-secondary-fixed-variant": "#6700b5",
+                        "secondary": "#dcb8ff",
+                        "on-secondary-container": "#dcb7ff",
+                        "on-secondary": "#480081",
+                        "on-surface-variant": "#b9cacb",
+                        "on-error-container": "#ffdad6",
+                        "surface-tint": "#00dbe9",
+                        "surface-container-high": "#262a35",
+                        "secondary-container": "#7701d0",
+                        "secondary-fixed-dim": "#dcb8ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0b0f19;
+            color: #dfe2f1;
+            font-family: 'Inter', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(15, 19, 29, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(132, 148, 149, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-surface-container-lowest min-h-screen">
+<!-- SideNavBar (Shared Component) -->
+<aside class="fixed left-0 top-0 h-full flex flex-col py-6 bg-slate-900/50 backdrop-blur-xl shadow-2xl w-64 z-50">
+<div class="px-6 mb-10">
+<h1 class="font-['Space_Grotesk'] font-black text-cyan-400 text-2xl tracking-tighter">EnjoyFun</h1>
+<p class="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">AI Panel v2</p>
+</div>
+<nav class="flex-1 flex flex-col gap-1 px-4">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/30 rounded-lg hover:translate-x-2 transition-transform duration-300 font-['Inter'] text-sm font-medium" href="#">
+<span class="material-symbols-outlined">dashboard</span> Dashboard
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-500/20 to-transparent text-purple-400 border-r-4 border-purple-500 rounded-lg font-['Inter'] text-sm font-medium" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">psychology</span> IA Hub
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/30 rounded-lg hover:translate-x-2 transition-transform duration-300 font-['Inter'] text-sm font-medium" href="#">
+<span class="material-symbols-outlined">smart_toy</span> Agentes
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/30 rounded-lg hover:translate-x-2 transition-transform duration-300 font-['Inter'] text-sm font-medium" href="#">
+<span class="material-symbols-outlined">genetics</span> DNA Config
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/30 rounded-lg hover:translate-x-2 transition-transform duration-300 font-['Inter'] text-sm font-medium" href="#">
+<span class="material-symbols-outlined">help_center</span> Suporte
+            </a>
+</nav>
+<div class="px-6 mt-auto">
+<button class="w-full bg-gradient-to-r from-purple-600 to-purple-400 text-white py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(168,85,247,0.3)] hover:scale-105 transition-all mb-8">
+                Novo Agente
+            </button>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/30 rounded-lg transition-all font-['Inter'] text-sm font-medium" href="#">
+<span class="material-symbols-outlined">logout</span> Sair
+            </a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 p-10 max-w-7xl">
+<!-- Hero Header -->
+<header class="mb-12 relative overflow-hidden p-12 rounded-3xl border border-purple-500/20 bg-gradient-to-br from-slate-900 via-slate-950 to-purple-900/20">
+<div class="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-cyan-500/10 blur-[100px] rounded-full"></div>
+<div class="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-purple-500/10 blur-[80px] rounded-full"></div>
+<div class="relative z-10">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-bold uppercase tracking-widest mb-4">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+</span>
+                    Operação Ativa
+                </div>
+<h2 class="text-5xl font-['Space_Grotesk'] font-bold text-white mb-3 tracking-tight">
+                    Agentes de <span class="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-400">Operação</span>
+</h2>
+<p class="text-slate-400 text-lg max-w-2xl font-light">
+                    Configuração avançada, orquestração de lógica e monitoramento de logs em tempo real para inteligências autônomas.
+                </p>
+</div>
+</header>
+<!-- Stat Boxes -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+<div class="glass-panel p-6 rounded-2xl relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined text-cyan-400 p-2 bg-cyan-400/10 rounded-lg">speed</span>
+<span class="text-xs font-bold text-green-400 bg-green-400/10 px-2 py-1 rounded">+2.4%</span>
+</div>
+<h3 class="text-slate-400 text-sm font-medium mb-1">Taxa de Sucesso</h3>
+<p class="text-3xl font-['Space_Grotesk'] font-bold text-white">98.2%</p>
+</div>
+<div class="glass-panel p-6 rounded-2xl relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined text-purple-400 p-2 bg-purple-400/10 rounded-lg">timer</span>
+<span class="text-xs font-bold text-slate-400 bg-slate-800 px-2 py-1 rounded">Média</span>
+</div>
+<h3 class="text-slate-400 text-sm font-medium mb-1">Tempo de Resposta</h3>
+<p class="text-3xl font-['Space_Grotesk'] font-bold text-white">1.2s</p>
+</div>
+<div class="glass-panel p-6 rounded-2xl relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined text-cyan-400 p-2 bg-cyan-400/10 rounded-lg">bolt</span>
+<span class="text-xs font-bold text-cyan-400 bg-cyan-400/10 px-2 py-1 rounded">24h</span>
+</div>
+<h3 class="text-slate-400 text-sm font-medium mb-1">Ações Autônomas</h3>
+<p class="text-3xl font-['Space_Grotesk'] font-bold text-white">14.5k</p>
+</div>
+</section>
+<div class="grid grid-cols-12 gap-8">
+<!-- Blueprint Workbench -->
+<div class="col-span-12 lg:col-span-8">
+<div class="glass-panel rounded-3xl overflow-hidden border border-slate-800 flex flex-col h-[500px]">
+<div class="p-6 flex justify-between items-center bg-slate-900/80 border-b border-slate-800">
+<div>
+<h3 class="text-white font-bold font-['Space_Grotesk']">Blueprint Workbench</h3>
+<p class="text-xs text-slate-500">Editor visual de fluxo lógico de agentes</p>
+</div>
+<div class="flex gap-2">
+<button class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs hover:bg-slate-700 transition-colors">Preview</button>
+<button class="px-4 py-2 bg-cyan-500 text-slate-950 rounded-lg text-xs font-bold hover:scale-105 transition-all">Salvar Blueprint</button>
+</div>
+</div>
+<div class="flex-1 bg-slate-950 relative overflow-hidden flex items-center justify-center p-8">
+<!-- Blueprint Visual Mockup -->
+<div class="w-full h-full border border-slate-800 rounded-2xl border-dashed relative flex items-center justify-center">
+<div class="absolute top-10 left-10 p-4 bg-slate-900 border border-purple-500/30 rounded-xl w-48 shadow-2xl">
+<div class="flex items-center gap-2 mb-2">
+<span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+<span class="text-[10px] text-slate-400 uppercase font-bold">Input Trigger</span>
+</div>
+<div class="text-xs text-white">Novo Email recebido via Zapier</div>
+</div>
+<div class="w-0.5 h-12 bg-gradient-to-b from-purple-500 to-cyan-500 absolute top-[115px] left-[135px]"></div>
+<div class="p-5 bg-slate-900 border-2 border-purple-500 rounded-2xl w-64 shadow-[0_0_30px_rgba(168,85,247,0.1)]">
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-purple-400 text-lg">psychology</span>
+<span class="text-[10px] text-purple-400 uppercase font-bold">Processamento IA</span>
+</div>
+<div class="text-xs text-slate-200 mb-2">Analisar sentimento e extrair intenção de compra.</div>
+<div class="p-2 bg-slate-950 rounded text-[9px] font-mono text-cyan-400">Model: GPT-4o-Turbo</div>
+</div>
+<div class="absolute bottom-10 right-10 p-4 bg-slate-900 border border-slate-700 rounded-xl w-48 opacity-50">
+<div class="flex items-center gap-2 mb-2">
+<span class="w-2 h-2 rounded-full bg-green-400"></span>
+<span class="text-[10px] text-slate-400 uppercase font-bold">Output Action</span>
+</div>
+<div class="text-xs text-slate-400 italic">Notificar Slack</div>
+</div>
+<!-- Grid Pattern Overlay -->
+<div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: radial-gradient(#fff 1px, transparent 1px); background-size: 20px 20px;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Central de Controle -->
+<div class="col-span-12 lg:col-span-4 flex flex-col gap-8">
+<div class="glass-panel p-8 rounded-3xl border border-slate-800">
+<h3 class="text-white font-bold font-['Space_Grotesk'] mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-400">settings_input_component</span>
+                        Central de Controle
+                    </h3>
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<div>
+<p class="text-sm text-slate-200 font-medium">Modo de Aprovação</p>
+<p class="text-[10px] text-slate-500">Exigir revisão humana para cada ação</p>
+</div>
+<div class="w-12 h-6 bg-slate-800 rounded-full relative p-1 cursor-pointer">
+<div class="w-4 h-4 bg-slate-500 rounded-full transition-all"></div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div>
+<p class="text-sm text-slate-200 font-medium">Autonomia</p>
+<p class="text-[10px] text-slate-500">Permitir que a IA tome decisões em silos</p>
+</div>
+<div class="w-12 h-6 bg-cyan-500/20 rounded-full relative p-1 cursor-pointer">
+<div class="w-4 h-4 bg-cyan-400 rounded-full ml-auto shadow-[0_0_8px_rgba(34,211,238,0.5)] transition-all"></div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div>
+<p class="text-sm text-slate-200 font-medium">Auto-Correção</p>
+<p class="text-[10px] text-slate-500">Refinar prompts após erro detectado</p>
+</div>
+<div class="w-12 h-6 bg-slate-800 rounded-full relative p-1 cursor-pointer">
+<div class="w-4 h-4 bg-slate-500 rounded-full transition-all"></div>
+</div>
+</div>
+</div>
+<div class="mt-10 p-4 bg-purple-500/5 rounded-xl border border-purple-500/20">
+<p class="text-[10px] text-purple-400 font-bold uppercase mb-2">Segurança</p>
+<p class="text-[11px] text-slate-400 leading-relaxed">O agente está operando com permissões de nível 2. Modificações em banco de dados exigem chave RSA mestra.</p>
+</div>
+</div>
+<div class="glass-panel p-8 rounded-3xl border border-slate-800 flex-1">
+<h3 class="text-white font-bold font-['Space_Grotesk'] mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-purple-400">history</span>
+                        Feed de Execução
+                    </h3>
+<div class="space-y-6">
+<div class="relative pl-6 border-l border-slate-800">
+<div class="absolute -left-[5px] top-1 w-2.5 h-2.5 bg-green-500 rounded-full"></div>
+<div class="flex justify-between items-center mb-1">
+<span class="text-[10px] text-slate-500 font-mono">14:32:01</span>
+<span class="text-[10px] text-green-400">Sucesso</span>
+</div>
+<p class="text-xs text-slate-300">Resumo de reunião enviado para diretoria.</p>
+</div>
+<div class="relative pl-6 border-l border-slate-800">
+<div class="absolute -left-[5px] top-1 w-2.5 h-2.5 bg-purple-500 rounded-full"></div>
+<div class="flex justify-between items-center mb-1">
+<span class="text-[10px] text-slate-500 font-mono">14:30:15</span>
+<span class="text-[10px] text-purple-400">Processando</span>
+</div>
+<p class="text-xs text-slate-300">Análise de sentimentos em 14 tickets de suporte.</p>
+</div>
+<div class="relative pl-6 border-l border-slate-800">
+<div class="absolute -left-[5px] top-1 w-2.5 h-2.5 bg-slate-700 rounded-full"></div>
+<div class="flex justify-between items-center mb-1">
+<span class="text-[10px] text-slate-500 font-mono">14:15:00</span>
+<span class="text-[10px] text-slate-500">Idle</span>
+</div>
+<p class="text-xs text-slate-500">Aguardando novo gatilho Webhook.</p>
+</div>
+</div>
+<button class="w-full mt-8 py-2 text-xs text-slate-500 hover:text-cyan-400 transition-colors">Ver todos os logs</button>
+</div>
+</div>
+<!-- Detailed Agent Cards -->
+<div class="col-span-12">
+<h3 class="text-2xl font-['Space_Grotesk'] font-bold text-white mb-8">Agentes Configurados</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+<!-- Agent Card 1 -->
+<div class="glass-panel rounded-3xl overflow-hidden group hover:border-purple-500/50 transition-all">
+<div class="h-48 relative">
+<img alt="AI Visualization" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" data-alt="abstract rendering of a glowing purple brain with neural network filaments in a dark futuristic laboratory setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAztw74_ZiDVDZXGPfi6moet59J32osqfpIUNmBGvRd6P4o3K4526DSWBylBFXFc1NqYC4qIx6TVNwwWDFsaqGKF5BSuwJtSl4PFi2Qxz8ztcfgqGGlelT6DwtmDTkSRbBbfCVNue9E7Eja2Jr-a8FT3Q9Z2OFRE1524uRA-cLdoHhzjGRt3qPYMJqFJ_rZAYIB1dbAw4YRtesnfFw63dYhJ2L2X15bAuzCrVdDciGtLthYukNCeaOVdREFvAY8yF3vHXVpl0xMZZb2"/>
+<div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
+<div class="absolute bottom-4 left-6">
+<div class="px-2 py-1 bg-purple-500 text-slate-950 text-[10px] font-black rounded mb-1 inline-block">GPT-4o</div>
+<h4 class="text-white font-bold text-xl">Lumina Support</h4>
+</div>
+</div>
+<div class="p-6">
+<p class="text-slate-400 text-sm mb-6 leading-relaxed">Especialista em atendimento técnico e triagem de erros críticos em infraestrutura Cloud.</p>
+<div class="flex flex-wrap gap-2 mb-6">
+<span class="px-3 py-1 bg-slate-800 text-slate-400 text-[10px] rounded-full">Slack</span>
+<span class="px-3 py-1 bg-slate-800 text-slate-400 text-[10px] rounded-full">Zendesk</span>
+<span class="px-3 py-1 bg-slate-800 text-slate-400 text-[10px] rounded-full">Github</span>
+</div>
+<div class="pt-6 border-t border-slate-800 flex justify-between items-center">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-slate-900 overflow-hidden">
+<img alt="User" class="w-full h-full object-cover" data-alt="portrait of a young tech professional with glasses" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9cied6IO7LudnM-AJWzgxGnqt_WiYrBf5ZfJHcZ17Ui8F4dWW_7HJxQJEgZQfSPL1W8Cs2FUOjJEiUu-s21b4GzOQseYRDnk8WjubMwPrqgmRGtqGnO0mSU-HbcnYwlPyOdAQNzddf1Erf6aZQAuALVnB1R8sDP429YOihcEWLnivHsvlfTA152eE34EYbJLh5xIkLRVzzLAJzEwVpRI5Y7F1i4erWLWQ7nW1Cv0Ey0vOV_9bzywTui7sxByYbGW570jZd1vlj8pv"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-slate-900 bg-slate-800 flex items-center justify-center text-[10px] text-slate-400">+3</div>
+</div>
+<button class="text-cyan-400 text-sm font-bold flex items-center gap-1 hover:translate-x-1 transition-transform">
+                                    Editar <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Agent Card 2 -->
+<div class="glass-panel rounded-3xl overflow-hidden group hover:border-cyan-500/50 transition-all">
+<div class="h-48 relative">
+<img alt="AI Visualization" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" data-alt="geometric crystalline shapes glowing with neon cyan light in a void representing high speed data processing" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7zXjOYjesgGcr21OCDaog9Rd_q_GPqClvGmQTbYVnqWJPwRyQR8SSr1TF4bjRwPLFmzikkDk8DSZbEWGWqCSndgpzlPGrdTaOu7eMgtfW_pbO7ZySTzdSCZevnB87RJktIYXt82jlLDDmx9-JWNRjAJtaepLWEF7nKZy90ijKlE-hRwEEAm_YjX7aFzrShJq71XhQnS-0F2kDBHMPu7BlYePfJW_g-bDlDq5pUdSP6NfInTyr9P8QMYidEV53lbk0qNn8UhbcvVua"/>
+<div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
+<div class="absolute bottom-4 left-6">
+<div class="px-2 py-1 bg-cyan-400 text-slate-950 text-[10px] font-black rounded mb-1 inline-block">Claude 3.5</div>
+<h4 class="text-white font-bold text-xl">Nexus Analyst</h4>
+</div>
+</div>
+<div class="p-6">
+<p class="text-slate-400 text-sm mb-6 leading-relaxed">Agente de inteligência competitiva que monitora mercados financeiros e gera relatórios delta.</p>
+<div class="flex flex-wrap gap-2 mb-6">
+<span class="px-3 py-1 bg-slate-800 text-slate-400 text-[10px] rounded-full">Bloomberg</span>
+<span class="px-3 py-1 bg-slate-800 text-slate-400 text-[10px] rounded-full">Python</span>
+</div>
+<div class="pt-6 border-t border-slate-800 flex justify-between items-center">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-slate-900 overflow-hidden">
+<img alt="User" class="w-full h-full object-cover" data-alt="professional male portrait with blue lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBazHUb5NZWb0BOpHEMUN494v3cdYRZr53RNB8EfrQCIIwvF5oDGPuOzSu1Ncl9DKFuMadAnGaZC3qcxqASgVGuad6Ql-3wMvEPBCdd4vMqxBWCT9fnZ5M7ieQMaNhWLVqK6z_jHabIvF0Tx7sFmDkumUeYtrRZokFpXlgcR4TiZDlIYJVR4NFusD_T2t97KSfjzX-EcvMCTUt5Zn8qo8sKZo4yAmSKDnhKCVIVMJcWPCpyAraY_cEOfiH2dwEzXc66dNGZCxseSkiD"/>
+</div>
+</div>
+<button class="text-cyan-400 text-sm font-bold flex items-center gap-1 hover:translate-x-1 transition-transform">
+                                    Editar <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Agent Card 3 -->
+<div class="glass-panel rounded-3xl overflow-hidden group hover:border-purple-500/50 transition-all">
+<div class="h-48 relative">
+<img alt="AI Visualization" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" data-alt="swirling liquid metal with purple and magenta reflections in a zero gravity environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCt5_4hzz053ecNxt1B5p6GKP1FE96EuBDXA7XZT2Zg85xAjQ4HMnE99MobLLkIbbvWtF86KRf-vk0OfF2mkJpf5LE-6-RCkyCPtWZZxll-uvhdideLZoOpmjkNKoy6cBDf97lWhAi_OIU4ErCtetxehfnFEbUopehVqzuiXeW9sq7-0iP_xYxhNqpQvNsziXgNvD4JY6Of-MWE8YH4EWxBBYh1Bi6l6Gk45Gq-cW6RdlYL8d7XxAdNrpGG1BDcV74YYAyRzgnT9qh1"/>
+<div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
+<div class="absolute bottom-4 left-6">
+<div class="px-2 py-1 bg-purple-500 text-slate-950 text-[10px] font-black rounded mb-1 inline-block">Llama 3</div>
+<h4 class="text-white font-bold text-xl">Ghostwriter AI</h4>
+</div>
+</div>
+<div class="p-6">
+<p class="text-slate-400 text-sm mb-6 leading-relaxed">Automação de conteúdo SEO e copywriter para redes sociais com ajuste dinâmico de persona.</p>
+<div class="flex flex-wrap gap-2 mb-6">
+<span class="px-3 py-1 bg-slate-800 text-slate-400 text-[10px] rounded-full">Notion</span>
+<span class="px-3 py-1 bg-slate-800 text-slate-400 text-[10px] rounded-full">Instagram</span>
+</div>
+<div class="pt-6 border-t border-slate-800 flex justify-between items-center">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-slate-900 overflow-hidden">
+<img alt="User" class="w-full h-full object-cover" data-alt="confident woman looking at camera with creative office background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAy3iX3kk9aEZ1cx1_ix88FPJ4AkseQh7CIroHXjvgbeREO-s_TeH003SMZU43bPBlSdbdWAViqs8GXu9ygf4iDTNh5O3mBf287KWz1nuoByLjgS9_o4YxtuV6KfpIASQ9svs7VR1r1ubjCGj5Qn--Ke35ariHqbNGtQoYNHorKFcIItqZewg45kj6_xChKSuwXGN0KkHZjIMXExBs9HayH-eqhL7B5Du3WcFUXy4maG5uU3sG2o_xVQUGDNgtjt-yFrvbcC-N2i1Bq"/>
+</div>
+</div>
+<button class="text-cyan-400 text-sm font-bold flex items-center gap-1 hover:translate-x-1 transition-transform">
+                                    Editar <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<footer class="mt-24 pt-12 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-6">
+<p class="text-slate-500 text-xs">© 2024 EnjoyFun AI Ecosystem. Todos os direitos reservados.</p>
+<div class="flex gap-8">
+<a class="text-slate-500 hover:text-white text-xs transition-colors" href="#">Termos de Uso</a>
+<a class="text-slate-500 hover:text-white text-xs transition-colors" href="#">Privacidade</a>
+<a class="text-slate-500 hover:text-white text-xs transition-colors" href="#">Logs do Sistema</a>
+</div>
+</footer>
+</main>
+</body></html>

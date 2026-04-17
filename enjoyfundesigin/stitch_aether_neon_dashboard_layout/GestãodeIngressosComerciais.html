@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EnjoyFun | Ingressos Comerciais</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "primary-fixed-dim": "#00dbe9",
+                "on-tertiary-fixed-variant": "#554500",
+                "on-tertiary-container": "#715d00",
+                "inverse-surface": "#dfe2f1",
+                "tertiary": "#fff5de",
+                "secondary-fixed-dim": "#dcb8ff",
+                "surface-bright": "#353944",
+                "secondary-fixed": "#efdbff",
+                "on-error": "#690005",
+                "on-background": "#dfe2f1",
+                "on-tertiary-fixed": "#231b00",
+                "surface-variant": "#313540",
+                "surface-tint": "#00dbe9",
+                "surface-container-low": "#171b26",
+                "on-error-container": "#ffdad6",
+                "background": "#0f131d",
+                "on-secondary": "#480081",
+                "surface-container-highest": "#313540",
+                "error": "#ffb4ab",
+                "inverse-primary": "#006970",
+                "tertiary-fixed": "#ffe179",
+                "surface-container-lowest": "#0a0e18",
+                "on-primary": "#00363a",
+                "on-primary-fixed": "#002022",
+                "on-primary-fixed-variant": "#004f54",
+                "primary": "#dbfcff",
+                "outline": "#849495",
+                "surface-container-high": "#262a35",
+                "tertiary-container": "#fed639",
+                "on-secondary-container": "#dcb7ff",
+                "on-primary-container": "#006970",
+                "error-container": "#93000a",
+                "surface-dim": "#0f131d",
+                "on-surface-variant": "#b9cacb",
+                "surface-container": "#1c1f2a",
+                "on-surface": "#dfe2f1",
+                "outline-variant": "#3b494b",
+                "on-tertiary": "#3b2f00",
+                "secondary": "#dcb8ff",
+                "tertiary-fixed-dim": "#eac324",
+                "on-secondary-fixed": "#2c0051",
+                "primary-container": "#00f0ff",
+                "on-secondary-fixed-variant": "#6700b5",
+                "primary-fixed": "#7df4ff",
+                "surface": "#0f131d",
+                "inverse-on-surface": "#2c303b",
+                "secondary-container": "#7701d0"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "fontFamily": {
+                "headline": ["Space Grotesk"],
+                "body": ["Inter"],
+                "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0a0e18;
+            color: #dfe2f1;
+        }
+        .glass-panel {
+            background: rgba(15, 19, 29, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(59, 73, 75, 0.4);
+        }
+        .neo-glow-cyan {
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+        }
+    </style>
+</head>
+<body class="font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<header class="bg-slate-900/50 backdrop-blur-md font-['Space_Grotesk'] tracking-tight docked full-width top-0 z-50 shadow-[0_0_15px_rgba(0,240,255,0.1)] flex justify-between items-center w-full px-8 h-16 fixed">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500">Aether Events</span>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="text-slate-400 hover:text-slate-200 transition-all duration-300" href="#">Dashboard</a>
+<a class="text-cyan-400 border-b-2 border-cyan-500 pb-1" href="#">Events</a>
+<a class="text-slate-400 hover:text-slate-200 transition-all duration-300" href="#">Finance</a>
+<a class="text-slate-400 hover:text-slate-200 transition-all duration-300" href="#">Analytics</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:bg-slate-800/50 p-2 rounded-full transition-all duration-300">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-slate-400 hover:bg-slate-800/50 p-2 rounded-full transition-all duration-300">
+<span class="material-symbols-outlined" data-icon="auto_awesome">auto_awesome</span>
+</button>
+<img alt="User profile" class="w-8 h-8 rounded-full border border-cyan-500/30" data-alt="Close-up portrait of a stylish young man with minimalist glasses in a moody tech environment with blue backlighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8Se407xXWRL6_Ck0pceLCD9ONWSqRim9hZZHFQfw-qRDUaHFmthQDOb8WiKTmOyxSwq3wnlHswjOUJEsWG7s3zeiAcHt5bSZ1bDdMnDOWa908sWs5Fa1Yg2aP8daOwD9e4g7e7eDH0P3rE_9W5_OsO3PURKaGA_o9axnBni28G3tqk0uXqf26Gd4oP8T8bh_WKjC14LeMYY9swi7jI_o6rz_47_bdkwcFTlulQ9TKrEuYWPtU4fetmwVVtZicKdyWJgxhpxT6tMvv"/>
+</div>
+</header>
+<!-- SideNavBar (Hidden on Mobile) -->
+<aside class="bg-[#0B0F19] flex flex-col fixed left-0 top-0 h-full py-6 border-r border-slate-800/40 w-64 hidden md:flex z-40 mt-16">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3 mb-6">
+<div class="w-10 h-10 bg-gradient-to-br from-cyan-500 to-purple-600 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-white" data-icon="confirmation_number" style="font-variation-settings: 'FILL' 1;">confirmation_number</span>
+</div>
+<div>
+<h3 class="text-sm font-bold text-slate-100 leading-none">Neon Curator</h3>
+<p class="text-[10px] text-cyan-400 uppercase tracking-widest mt-1">Enterprise Tier</p>
+</div>
+</div>
+<button class="w-full py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300">
+                Create Event
+            </button>
+</div>
+<nav class="flex-1 px-4 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-800/30 hover:text-slate-300 rounded-xl transition-all font-['Space_Grotesk'] uppercase text-xs tracking-widest" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span> Overview
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-cyan-500/10 to-transparent text-cyan-400 border-l-4 border-cyan-500 font-['Space_Grotesk'] uppercase text-xs tracking-widest" href="#">
+<span class="material-symbols-outlined" data-icon="confirmation_number">confirmation_number</span> Ticketing
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-800/30 hover:text-slate-300 rounded-xl transition-all font-['Space_Grotesk'] uppercase text-xs tracking-widest" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span> Attendees
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-800/30 hover:text-slate-300 rounded-xl transition-all font-['Space_Grotesk'] uppercase text-xs tracking-widest" href="#">
+<span class="material-symbols-outlined" data-icon="campaign">campaign</span> Marketing
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-800/30 hover:text-slate-300 rounded-xl transition-all font-['Space_Grotesk'] uppercase text-xs tracking-widest" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span> Settings
+            </a>
+</nav>
+<div class="px-4 pt-4 mt-4 border-t border-slate-800/40 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-300 font-['Space_Grotesk'] uppercase text-xs tracking-widest" href="#">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span> AI Assistant
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-300 font-['Space_Grotesk'] uppercase text-xs tracking-widest" href="#">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span> Support
+            </a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="md:ml-64 pt-24 pb-20 px-4 md:px-12 max-w-7xl mx-auto">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+<div>
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-cyan-400 text-3xl" data-icon="confirmation_number">confirmation_number</span>
+<h1 class="font-headline text-3xl font-bold text-slate-100 tracking-tight">Ingressos Comerciais</h1>
+</div>
+<p class="text-slate-400 flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    1.247 ingressos comerciais ativos
+                </p>
+</div>
+<div class="flex gap-4 w-full md:w-auto">
+<button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 rounded-xl transition-all">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+                    Scanner
+                </button>
+<button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-cyan-400 hover:scale-105 active:scale-95 text-slate-950 font-bold rounded-xl shadow-[0_0_20px_rgba(0,240,255,0.2)] transition-all">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                    Venda Rápida
+                </button>
+</div>
+</div>
+<!-- Filter Card -->
+<section class="glass-panel rounded-2xl p-6 md:p-8 mb-8">
+<div class="flex items-center gap-2 mb-6">
+<span class="w-1 h-6 bg-cyan-500 rounded-full"></span>
+<h2 class="font-headline text-xl text-slate-100">Operação Comercial de Ingressos</h2>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+<div class="space-y-2">
+<label class="text-xs font-bold text-slate-400 uppercase tracking-widest">Evento</label>
+<select class="w-full bg-slate-800/50 border-slate-700/50 rounded-xl text-slate-200 focus:ring-cyan-500 focus:border-cyan-500 transition-all">
+<option>Cyber Genesis 2024</option>
+<option>Neon Nights Festival</option>
+<option>Aether Underground</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold text-slate-400 uppercase tracking-widest">Lote</label>
+<select class="w-full bg-slate-800/50 border-slate-700/50 rounded-xl text-slate-200 focus:ring-cyan-500 focus:border-cyan-500 transition-all">
+<option>Todos os Lotes</option>
+<option>Lote 01 - Early Bird</option>
+<option>Lote 02 - General Admission</option>
+<option>Lote VIP</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold text-slate-400 uppercase tracking-widest">Comissário</label>
+<select class="w-full bg-slate-800/50 border-slate-700/50 rounded-xl text-slate-200 focus:ring-cyan-500 focus:border-cyan-500 transition-all">
+<option>Todos os Comissários</option>
+<option>Ricardo A. (C12)</option>
+<option>Mariana S. (C09)</option>
+<option>Felipe T. (C22)</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold text-slate-400 uppercase tracking-widest">Setor</label>
+<select class="w-full bg-slate-800/50 border-slate-700/50 rounded-xl text-slate-200 focus:ring-cyan-500 focus:border-cyan-500 transition-all">
+<option>Pista Premium</option>
+<option>Camarote Aether</option>
+<option>Área VIP Deck</option>
+</select>
+</div>
+</div>
+</section>
+<!-- AI Assistant Box -->
+<section class="mb-12 p-6 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-8xl" data-icon="psychology">psychology</span>
+</div>
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-cyan-400" data-icon="auto_awesome">auto_awesome</span>
+<h3 class="font-headline font-bold text-slate-100">Assistente de Ingressos</h3>
+</div>
+<div class="flex flex-wrap gap-3">
+<button class="px-4 py-2 bg-slate-900/80 border border-slate-700 rounded-full text-sm text-slate-300 hover:border-cyan-500/50 hover:text-cyan-400 transition-all">
+                    "Quantos ingressos foram vendidos hoje?"
+                </button>
+<button class="px-4 py-2 bg-slate-900/80 border border-slate-700 rounded-full text-sm text-slate-300 hover:border-cyan-500/50 hover:text-cyan-400 transition-all">
+                    "Quais lotes tem disponibilidade?"
+                </button>
+<button class="px-4 py-2 bg-slate-900/80 border border-slate-700 rounded-full text-sm text-slate-300 hover:border-cyan-500/50 hover:text-cyan-400 transition-all">
+                    "Resumo de vendas por comissário"
+                </button>
+</div>
+</section>
+<!-- Ticket Table -->
+<section class="glass-panel rounded-2xl overflow-hidden mb-8">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-slate-800/40">
+<th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Titular</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Evento</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Tipo</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Lote</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Comissário</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800/40">
+<tr class="hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<p class="text-sm font-medium text-slate-100">Lucas Oliveira</p>
+<p class="text-[10px] font-mono text-slate-500">REF: #AE-2490X</p>
+</td>
+<td class="px-6 py-4 text-sm text-slate-300">Cyber Genesis</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-purple-500/10 text-purple-400 text-[10px] font-bold rounded uppercase tracking-tighter">Premium</span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-400">Lote 02</td>
+<td class="px-6 py-4 text-sm text-slate-400">Ricardo A.</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-cyan-400/10 text-cyan-400 text-[10px] font-bold rounded uppercase">Used</span>
+</td>
+<td class="px-6 py-4 text-right space-x-2">
+<button class="text-slate-500 hover:text-cyan-400 transition-colors"><span class="material-symbols-outlined" data-icon="send">send</span></button>
+<button class="text-slate-500 hover:text-cyan-400 transition-colors"><span class="material-symbols-outlined" data-icon="visibility">visibility</span></button>
+</td>
+</tr>
+<tr class="hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<p class="text-sm font-medium text-slate-100">Ana Beatriz S.</p>
+<p class="text-[10px] font-mono text-slate-500">REF: #AE-2501Z</p>
+</td>
+<td class="px-6 py-4 text-sm text-slate-300">Cyber Genesis</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-purple-500/10 text-purple-400 text-[10px] font-bold rounded uppercase tracking-tighter">VIP Pass</span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-400">Lote VIP</td>
+<td class="px-6 py-4 text-sm text-slate-400">Mariana S.</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-green-400/10 text-green-400 text-[10px] font-bold rounded uppercase">Paid</span>
+</td>
+<td class="px-6 py-4 text-right space-x-2">
+<button class="text-slate-500 hover:text-cyan-400 transition-colors"><span class="material-symbols-outlined" data-icon="send">send</span></button>
+<button class="text-slate-500 hover:text-cyan-400 transition-colors"><span class="material-symbols-outlined" data-icon="visibility">visibility</span></button>
+</td>
+</tr>
+<tr class="hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<p class="text-sm font-medium text-slate-100">Marco Aurélio</p>
+<p class="text-[10px] font-mono text-slate-500">REF: #AE-2512W</p>
+</td>
+<td class="px-6 py-4 text-sm text-slate-300">Cyber Genesis</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-purple-500/10 text-purple-400 text-[10px] font-bold rounded uppercase tracking-tighter">Standard</span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-400">Lote 01</td>
+<td class="px-6 py-4 text-sm text-slate-400">Felipe T.</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-amber-400/10 text-amber-400 text-[10px] font-bold rounded uppercase">Pending</span>
+</td>
+<td class="px-6 py-4 text-right space-x-2">
+<button class="text-slate-500 hover:text-cyan-400 transition-colors"><span class="material-symbols-outlined" data-icon="send">send</span></button>
+<button class="text-slate-500 hover:text-cyan-400 transition-colors"><span class="material-symbols-outlined" data-icon="visibility">visibility</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Pagination -->
+<nav class="flex items-center justify-between px-2">
+<p class="text-sm text-slate-500">Mostrando <span class="text-slate-200">1-10</span> de <span class="text-slate-200">1.247</span> ingressos</p>
+<div class="flex gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-cyan-400 hover:border-cyan-500/50 transition-all">
+<span class="material-symbols-outlined" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 font-bold">1</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-cyan-400 transition-all">2</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-cyan-400 transition-all">3</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-cyan-400 hover:border-cyan-500/50 transition-all">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</nav>
+</main>
+<!-- Overlay / Floating Components (Example: QR Modal Visible for context) -->
+<div class="fixed inset-0 bg-[#0B0F19]/80 backdrop-blur-xl z-[60] flex items-center justify-center p-6 bg-opacity-95">
+<div class="max-w-md w-full glass-panel rounded-3xl p-8 relative shadow-[0_0_50px_rgba(0,240,255,0.1)] border-cyan-500/30">
+<button class="absolute top-6 right-6 text-slate-500 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+<div class="text-center mb-8">
+<div class="inline-flex items-center gap-2 px-3 py-1 bg-red-500/10 text-red-400 rounded-full text-[10px] font-bold uppercase tracking-widest mb-4">
+<span class="material-symbols-outlined text-xs" data-icon="warning">warning</span>
+                    Prints e fotos são inválidos
+                </div>
+<h3 class="font-headline text-2xl font-bold text-slate-100">Ingresso Oficial</h3>
+<p class="text-slate-400 text-sm mt-1">Cyber Genesis 2024 • Pista Premium</p>
+</div>
+<div class="bg-white p-6 rounded-2xl mb-8 relative border-4 border-cyan-500/50 neo-glow-cyan">
+<img alt="QR Code" class="w-full aspect-square object-contain" data-alt="Digital blue QR code on white background with glowing cyan digital circuit pattern borders" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2iC7Il6YZ5kYyL_qKiRRSu6o2XekquEqWO7W4H8nmGdgNHacZ1sjPj1PN98sEW18unyHIMIGkEzYew4LJDCd2MsMsNpl_Yk5gVDITwPZkqJdAcphNO_tUSu8a9e0Wp3RvsdXvh8a-Q9-qcYb51IjjcrO9C1ceenQ93u6f3MwMjTscmuxjiOK2lYiR71bSYCLqjHRhNlVhti9WT9C9DIkoOUxzYMXfsqHiK1iZNy0TNoqVf_bIs6GQx-zPq2zhP05MgBKJSy94y0zA"/>
+<div class="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 px-4 py-1 rounded-full border border-cyan-500/30">
+<p class="text-[10px] font-mono text-cyan-400 flex items-center gap-2">
+<span class="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping"></span>
+                        REFRESHA EM 00:24s
+                    </p>
+</div>
+</div>
+<div class="space-y-4">
+<div class="p-4 bg-slate-800/40 rounded-xl border border-slate-700/50">
+<div class="flex justify-between items-center mb-1">
+<span class="text-[10px] text-slate-500 uppercase tracking-widest">Titular</span>
+<span class="text-[10px] text-slate-500 uppercase tracking-widest">Documento</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-sm font-bold text-slate-200">Lucas Oliveira</span>
+<span class="text-sm font-mono text-slate-400">***.442.189-**</span>
+</div>
+</div>
+<button class="w-full py-4 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-2xl shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all">
+                    Fechar Ingresso
+                </button>
+</div>
+</div>
+</div>
+<!-- Transfer Modal (Small Preview) -->
+<div class="fixed bottom-10 right-10 z-[70] hidden md:block">
+<div class="glass-panel w-80 rounded-2xl p-6 shadow-2xl border-purple-500/30">
+<h4 class="font-headline text-lg font-bold text-slate-100 mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-purple-400" data-icon="sync_alt">sync_alt</span>
+                Transferir Ingresso
+            </h4>
+<div class="space-y-4">
+<div>
+<label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Nome do Destinatário</label>
+<input class="w-full bg-slate-800 border-slate-700 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:ring-purple-500" placeholder="Ex: Maria Silva" type="text"/>
+</div>
+<div>
+<label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">E-mail</label>
+<input class="w-full bg-slate-800 border-slate-700 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:ring-purple-500" placeholder="maria@email.com" type="email"/>
+</div>
+<button class="w-full py-3 bg-gradient-to-r from-purple-600 to-purple-500 text-white font-bold rounded-xl text-sm shadow-lg hover:shadow-purple-500/20 transition-all">
+                    Enviar Transferência
+                </button>
+</div>
+</div>
+</div>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-3 md:hidden bg-[#0B0F19]/80 backdrop-blur-lg border-t border-slate-800/50 z-50 rounded-t-2xl shadow-[0_-5px_20px_rgba(0,240,255,0.05)]">
+<a class="flex flex-col items-center justify-center text-slate-500" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-['Inter'] text-[10px] font-medium">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-cyan-500/10 text-cyan-400 rounded-xl px-3 py-1" href="#">
+<span class="material-symbols-outlined" data-icon="confirmation_number">confirmation_number</span>
+<span class="font-['Inter'] text-[10px] font-medium">Tickets</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500" href="#">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span class="font-['Inter'] text-[10px] font-medium">Scanner</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-['Inter'] text-[10px] font-medium">Settings</span>
+</a>
+</nav>
+</body></html>

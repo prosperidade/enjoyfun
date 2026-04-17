@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link2, Mail, Pencil, Trash2, Upload, Users, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
@@ -42,10 +42,6 @@ export default function Guests() {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
-  const activeEventName = useMemo(() => {
-    if (!selectedEvent) return 'Todos os eventos';
-    return events.find((e) => String(e.id) === String(selectedEvent))?.name || 'Evento';
-  }, [events, selectedEvent]);
 
   // ── Loaders ──────────────────────────────────────────────────────────────
   const loadEvents = async () => {

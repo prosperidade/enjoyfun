@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EnjoyFun Panel - Canais de Contato</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .click-feedback-ripple:active {
+            transform: scale(0.98);
+            transition: transform 0.1s ease;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-container": "#fed639",
+                      "surface-container-low": "#171b26",
+                      "on-background": "#dfe2f1",
+                      "error": "#ffb4ab",
+                      "secondary-container": "#7701d0",
+                      "outline": "#849495",
+                      "error-container": "#93000a",
+                      "surface-tint": "#00dbe9",
+                      "tertiary": "#fff5de",
+                      "on-secondary": "#480081",
+                      "tertiary-fixed-dim": "#eac324",
+                      "surface-container-highest": "#313540",
+                      "on-secondary-container": "#dcb7ff",
+                      "primary": "#dbfcff",
+                      "on-secondary-fixed": "#2c0051",
+                      "surface-container": "#1c1f2a",
+                      "primary-container": "#00f0ff",
+                      "outline-variant": "#3b494b",
+                      "tertiary-fixed": "#ffe179",
+                      "surface-container-high": "#262a35",
+                      "on-primary": "#00363a",
+                      "on-error-container": "#ffdad6",
+                      "inverse-on-surface": "#2c303b",
+                      "secondary-fixed-dim": "#dcb8ff",
+                      "on-tertiary-container": "#715d00",
+                      "surface-bright": "#353944",
+                      "on-primary-container": "#006970",
+                      "on-secondary-fixed-variant": "#6700b5",
+                      "on-tertiary-fixed": "#231b00",
+                      "on-error": "#690005",
+                      "inverse-surface": "#dfe2f1",
+                      "primary-fixed": "#7df4ff",
+                      "secondary-fixed": "#efdbff",
+                      "surface-container-lowest": "#0a0e18",
+                      "on-tertiary-fixed-variant": "#554500",
+                      "on-surface-variant": "#b9cacb",
+                      "on-primary-fixed-variant": "#004f54",
+                      "on-tertiary": "#3b2f00",
+                      "inverse-primary": "#006970",
+                      "surface-dim": "#0f131d",
+                      "surface": "#0f131d",
+                      "surface-variant": "#313540",
+                      "secondary": "#dcb8ff",
+                      "on-surface": "#dfe2f1",
+                      "on-primary-fixed": "#002022",
+                      "primary-fixed-dim": "#00dbe9",
+                      "background": "#0f131d"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Space Grotesk"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-surface-container-lowest text-on-surface font-body min-h-screen selection:bg-cyan-500/30">
+<!-- SideNavBar (Authority: JSON) -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-slate-900/50 backdrop-blur-lg flex flex-col p-4 gap-2 shadow-2xl bg-gradient-to-b from-cyan-500/5 to-purple-500/5 z-40 hidden md:flex">
+<div class="mb-8 px-2">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center overflow-hidden border border-cyan-500/20">
+<img alt="Organization Logo" data-alt="Abstract minimalist circular logo with cyan glowing circuit patterns on a dark slate background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlhi5Hx_Sxqhdt5s1PkI9psTkUj0LuMs_IeVIgN6ODmYFcb1ja6fX1NVcgIpqrZMoKgOeQdm1EwM4osYlLKmrrKcy3IHjSsoOX8nfgxk7PBjD5p_DVCtnjw8TluplZKJU6W70aT7CpBNSpjBYJBeuxJos2F4halh2fTlFkPc8GFEEtgivnUqjSkSAh9CgaLNelqrg65-nS-zwrw_oV9qvMd1Ner10gh9rAbar6xiFBrn7GTmuX4Q5X3RyyAluvRrVP1ZPY0kFTlDXd"/>
+</div>
+<div>
+<h1 class="font-headline font-black text-cyan-400 text-lg leading-none">EnjoyFun</h1>
+<p class="text-[10px] text-slate-400 uppercase tracking-widest mt-1">Organizer Panel</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800/40 hover:translate-x-1 transition-transform duration-300 group" href="#">
+<span class="material-symbols-outlined text-[20px]">palette</span>
+<span class="font-inter text-sm">Branding</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-500 click-feedback-ripple" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">hub</span>
+<span class="font-inter text-sm">Communication</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800/40 hover:translate-x-1 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+<span class="font-inter text-sm">Financials</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800/40 hover:translate-x-1 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined text-[20px]">psychology</span>
+<span class="font-inter text-sm">AI Config</span>
+</a>
+</nav>
+<div class="mt-auto flex flex-col gap-1 border-t border-slate-800/50 pt-4">
+<button class="w-full bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold py-2.5 rounded-lg mb-4 shadow-[0_0_15px_rgba(0,240,255,0.15)] hover:scale-[1.02] transition-all">
+                New Event
+            </button>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-cyan-400 transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">support_agent</span>
+<span class="font-inter text-sm">Support</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-error transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+<span class="font-inter text-sm">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-64 min-h-screen flex flex-col relative">
+<!-- TopAppBar (Authority: JSON) -->
+<header class="sticky top-0 z-50 w-full px-8 py-4 bg-slate-950/80 backdrop-blur-md flex justify-between items-center shadow-[0_0_15px_rgba(0,240,255,0.05)]">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500 font-headline tracking-tight">EnjoyFun Panel</span>
+<nav class="hidden lg:flex gap-6">
+<a class="text-slate-400 hover:text-cyan-300 transition-all duration-300 font-inter text-sm" href="#">Dashboard</a>
+<a class="text-slate-400 hover:text-cyan-300 transition-all duration-300 font-inter text-sm" href="#">Events</a>
+<a class="text-slate-400 hover:text-cyan-300 transition-all duration-300 font-inter text-sm" href="#">Reports</a>
+<a class="text-cyan-400 border-b-2 border-cyan-500 pb-1 font-inter text-sm" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-400 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-slate-400 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-surface-container-high border border-slate-700 overflow-hidden ml-2">
+<img alt="Organizer Profile" data-alt="Close-up professional portrait of a tech professional man with glasses, soft studio lighting, focused gaze, minimalist background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-t53Yd3cyJBHrJH9-yUOr632qYdPvZzqH8l_Dbje2-28LlCmQMjZHo6n-ftOuxeaFzwvhXzlDJAoGosCO-TmroPas5jsXdLF2S5ljlKEXqfUW3grmKL18EPoU7nJ5sostequzpFedpaetC4MpOaWzx_91LNXM_ljh1yUreIZNkRjUCUecX3yNMs8DjTYUEav32i4a74Vd2AziCUvNCxIqFTd8uIDvh2Qo-QbZVWTsu_cNwSM_cpBzj0ohWkV3s_St5xYBGjvF8Ovv"/>
+</div>
+</div>
+</header>
+<!-- Content Area -->
+<div class="flex-1 p-8 max-w-5xl mx-auto w-full space-y-8">
+<!-- Breadcrumbs & Title -->
+<div class="space-y-1">
+<div class="flex items-center gap-2 text-xs text-slate-400 uppercase tracking-widest font-medium">
+<span>Settings</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span class="text-cyan-400">Canais de Contato</span>
+</div>
+<h2 class="text-3xl font-headline font-bold text-on-surface">Canais de Contato</h2>
+</div>
+<!-- Info Banner (Glassmorphism) -->
+<div class="relative overflow-hidden p-6 rounded-2xl bg-cyan-500/5 border border-cyan-500/20 flex items-center gap-4">
+<div class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px]"></div>
+<div class="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+<span class="material-symbols-outlined text-2xl">info</span>
+</div>
+<div>
+<p class="text-cyan-100 font-medium tracking-tight">Configure seus canais de comunicação para envio de notificações</p>
+<p class="text-sm text-cyan-400/70">As alterações nestas configurações afetarão o fluxo global de mensagens.</p>
+</div>
+</div>
+<div class="grid grid-cols-1 gap-8">
+<!-- Email Section Card -->
+<section class="bg-slate-900/60 backdrop-blur-md border border-slate-800/60 rounded-xl p-8 space-y-6 shadow-xl relative group">
+<div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent"></div>
+<div class="flex items-center gap-4 mb-2">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-cyan-400 border border-slate-700/50">
+<span class="material-symbols-outlined">mail</span>
+</div>
+<h3 class="text-xl font-headline font-semibold text-slate-200">Configurações de E-mail</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-sm font-label text-slate-400">Remetente</label>
+<div class="relative">
+<input class="w-full bg-slate-800/50 border-slate-700/50 rounded-lg py-3 px-4 text-slate-200 focus:border-cyan-500 focus:ring-cyan-500/20 transition-all outline-none" placeholder="contato@empresa.com.br" type="email"/>
+<span class="material-symbols-outlined absolute right-3 top-3 text-slate-500 text-sm">alternate_email</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-label text-slate-400">Resend API Key</label>
+<div class="relative">
+<input class="w-full bg-slate-800/50 border-slate-700/50 rounded-lg py-3 px-4 text-slate-200 focus:border-cyan-500 focus:ring-cyan-500/20 transition-all outline-none" type="password" value="re_123456789abcdefghijk"/>
+<button class="absolute right-3 top-3 text-slate-500 hover:text-cyan-400 transition-colors">
+<span class="material-symbols-outlined text-sm">visibility</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- WhatsApp Section Card -->
+<section class="bg-slate-900/60 backdrop-blur-md border border-slate-800/60 rounded-xl p-8 space-y-6 shadow-xl relative overflow-hidden">
+<div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent"></div>
+<div class="flex items-center gap-4 mb-2">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-purple-400 border border-slate-700/50">
+<span class="material-symbols-outlined">forum</span>
+</div>
+<h3 class="text-xl font-headline font-semibold text-slate-200">WhatsApp Gateway</h3>
+<span class="ml-auto px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 text-[10px] font-bold uppercase tracking-wider animate-pulse">Integração AI</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
+<div class="space-y-2 md:col-span-2">
+<label class="text-sm font-label text-slate-400">URL da API</label>
+<div class="relative">
+<input class="w-full bg-slate-800/50 border-slate-700/50 rounded-lg py-3 px-4 text-slate-200 focus:border-cyan-500 focus:ring-cyan-500/20 transition-all outline-none" placeholder="https://api.whatsapp.provider.com/v1" type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-3 text-slate-500 text-sm">link</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-label text-slate-400">Token</label>
+<input class="w-full bg-slate-800/50 border-slate-700/50 rounded-lg py-3 px-4 text-slate-200 focus:border-cyan-500 focus:ring-cyan-500/20 transition-all outline-none" placeholder="Sua chave de acesso" type="password"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-label text-slate-400">Instância</label>
+<input class="w-full bg-slate-800/50 border-slate-700/50 rounded-lg py-3 px-4 text-slate-200 focus:border-cyan-500 focus:ring-cyan-500/20 transition-all outline-none" placeholder="ID da Instância" type="text"/>
+</div>
+<div class="space-y-2 md:col-span-2">
+<label class="text-sm font-label text-slate-400">Webhook Secret</label>
+<div class="relative">
+<input class="w-full bg-slate-800/50 border-slate-700/50 rounded-lg py-3 px-4 text-slate-200 focus:border-cyan-500 focus:ring-cyan-500/20 transition-all outline-none" type="text" value="whsec_9b2c3d4e5f6g7h8i9j0k"/>
+<span class="material-symbols-outlined absolute right-3 top-3 text-slate-500 text-sm">key</span>
+</div>
+<p class="text-[11px] text-slate-500 italic mt-1">Utilizado para validar as requisições recebidas do provedor.</p>
+</div>
+</div>
+</section>
+</div>
+<!-- Action Footer -->
+<div class="flex items-center justify-between pt-4 pb-12 border-t border-slate-800/50">
+<div class="text-sm text-slate-500">
+                    Última alteração em: <span class="text-slate-400">12 de Out, 2023</span>
+</div>
+<div class="flex gap-4">
+<button class="px-6 py-2.5 rounded-lg border border-slate-700 text-slate-300 hover:border-cyan-500/50 transition-colors font-medium">
+                        Descartar
+                    </button>
+<button class="px-8 py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold shadow-[0_0_15px_rgba(0,240,255,0.15)] hover:scale-[1.05] transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">save</span>
+                        Salvar Configurações
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Mobile Navigation (Authority: JSON/Guidelines) -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-xl border-t border-slate-800/50 flex justify-around items-center py-3 px-6 z-50">
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px]">Dashboard</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="text-[10px]">Events</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-cyan-400">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">settings</span>
+<span class="text-[10px]">Settings</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px]">Profile</span>
+</button>
+</nav>
+</body></html>

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Event Details | EnjoyFun</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-on-surface": "#2c303b",
+                    "secondary-fixed-dim": "#dcb8ff",
+                    "tertiary-fixed": "#ffe179",
+                    "outline-variant": "#3b494b",
+                    "surface-container-lowest": "#0a0e18",
+                    "inverse-primary": "#006970",
+                    "primary": "#dbfcff",
+                    "error-container": "#93000a",
+                    "error": "#ffb4ab",
+                    "surface-variant": "#313540",
+                    "secondary-fixed": "#efdbff",
+                    "inverse-surface": "#dfe2f1",
+                    "on-error-container": "#ffdad6",
+                    "secondary": "#dcb8ff",
+                    "outline": "#849495",
+                    "background": "#0f131d",
+                    "on-secondary-fixed": "#2c0051",
+                    "on-primary": "#00363a",
+                    "surface-container": "#1c1f2a",
+                    "surface-tint": "#00dbe9",
+                    "surface-dim": "#0f131d",
+                    "surface-bright": "#353944",
+                    "on-tertiary-fixed": "#231b00",
+                    "on-error": "#690005",
+                    "on-secondary": "#480081",
+                    "secondary-container": "#7701d0",
+                    "on-tertiary-container": "#715d00",
+                    "primary-fixed": "#7df4ff",
+                    "on-primary-fixed-variant": "#004f54",
+                    "on-tertiary": "#3b2f00",
+                    "on-surface-variant": "#b9cacb",
+                    "surface-container-high": "#262a35",
+                    "primary-fixed-dim": "#00dbe9",
+                    "tertiary-fixed-dim": "#eac324",
+                    "on-surface": "#dfe2f1",
+                    "tertiary": "#fff5de",
+                    "on-primary-container": "#006970",
+                    "primary-container": "#00f0ff",
+                    "tertiary-container": "#fed639",
+                    "on-tertiary-fixed-variant": "#554500",
+                    "surface-container-highest": "#313540",
+                    "on-secondary-fixed-variant": "#6700b5",
+                    "surface": "#0f131d",
+                    "on-secondary-container": "#dcb7ff",
+                    "surface-container-low": "#171b26",
+                    "on-primary-fixed": "#002022",
+                    "on-background": "#dfe2f1"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0e18;
+            color: #dfe2f1;
+        }
+        .headline-font { font-family: 'Space Grotesk', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface-container-lowest min-h-screen">
+<!-- SideNavBar Component -->
+<aside class="fixed left-0 top-0 h-full w-64 z-40 bg-slate-950/60 backdrop-blur-lg shadow-2xl flex flex-col p-6 space-y-4 bg-gradient-to-b from-slate-900/50 to-transparent font-['Space_Grotesk'] text-sm">
+<div class="mb-8">
+<h1 class="text-cyan-400 font-bold uppercase tracking-widest text-xl">EnjoyFun Panel</h1>
+<p class="text-slate-500 text-xs mt-1">System Operator</p>
+</div>
+<nav class="flex-1 space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/40 rounded-xl hover:translate-x-1 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-cyan-400 bg-cyan-500/10 border-r-4 border-cyan-500 rounded-l-xl transition-all duration-300" href="#">
+<span class="material-symbols-outlined">event</span>
+<span>Events</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/40 rounded-xl hover:translate-x-1 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span>Schedule</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/40 rounded-xl hover:translate-x-1 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined">group</span>
+<span>Users</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/40 rounded-xl hover:translate-x-1 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined">terminal</span>
+<span>Logs</span>
+</a>
+</nav>
+<div class="pt-6 border-t border-slate-800/50">
+<button class="w-full bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(0,240,255,0.2)] hover:scale-105 transition-all duration-300 mb-6">
+                Create Event
+            </button>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-cyan-300 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">help</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-red-400 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span>Logout</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen">
+<!-- TopAppBar Component -->
+<header class="fixed top-0 right-0 left-64 h-16 z-50 bg-slate-950/80 backdrop-blur-md shadow-[0_0_15px_rgba(0,240,255,0.1)] flex justify-between items-center px-8 font-['Space_Grotesk'] tracking-tight">
+<div class="flex items-center gap-4">
+<span class="text-slate-400 text-sm">Navigation /</span>
+<span class="text-cyan-400 font-medium">Event Details</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative group">
+<span class="material-symbols-outlined text-slate-400 cursor-pointer hover:text-cyan-400 transition-colors">notifications</span>
+<span class="absolute -top-1 -right-1 w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></span>
+</div>
+<div class="flex items-center gap-3 px-3 py-1.5 rounded-full bg-slate-800/40 border border-slate-700/50 cursor-pointer hover:border-cyan-500/30 transition-all">
+<div class="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-500 to-purple-500 flex items-center justify-center text-[10px] font-bold text-slate-950">AD</div>
+<span class="text-slate-200 text-sm font-medium">Admin</span>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="pt-24 pb-12 px-12 max-w-7xl mx-auto">
+<!-- Navigation Action Row -->
+<div class="flex justify-between items-center mb-8">
+<button class="flex items-center gap-2 text-slate-400 hover:text-cyan-400 transition-all group">
+<span class="material-symbols-outlined group-hover:-translate-x-1 transition-transform">arrow_back</span>
+<span class="font-medium">Back to Events</span>
+</button>
+<div class="flex gap-4">
+<button class="px-6 py-2 border border-slate-700 rounded-xl text-slate-300 font-medium hover:border-cyan-500/50 hover:text-cyan-400 transition-all duration-300">
+                        Edit Event
+                    </button>
+<button class="px-6 py-2 border border-red-500/30 rounded-xl text-red-400 font-medium hover:bg-red-500/10 transition-all duration-300">
+                        Delete
+                    </button>
+</div>
+</div>
+<!-- Hero Header -->
+<section class="relative overflow-hidden rounded-[2rem] bg-gradient-to-r from-slate-900 via-cyan-950/50 to-slate-900 border border-cyan-500/20 p-12 mb-8">
+<!-- Decorative Glows -->
+<div class="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/10 blur-[80px] rounded-full"></div>
+<div class="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-500/10 blur-[80px] rounded-full"></div>
+<div class="relative z-10 flex flex-col md:flex-row gap-10 items-center md:items-end">
+<div class="w-48 h-48 rounded-3xl bg-slate-800/60 backdrop-blur-md border border-cyan-500/30 flex items-center justify-center shadow-[0_0_30px_rgba(0,240,255,0.15)]">
+<span class="material-symbols-outlined text-7xl text-cyan-400" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+</div>
+<div class="flex-1 text-center md:text-left">
+<div class="flex flex-wrap gap-3 mb-4 justify-center md:justify-start">
+<span class="px-3 py-1 bg-cyan-400/10 text-cyan-400 text-xs font-bold uppercase tracking-wider rounded-full border border-cyan-500/20 animate-pulse">Live</span>
+<span class="px-3 py-1 bg-purple-500/10 text-purple-400 text-xs font-bold uppercase tracking-wider rounded-full border border-purple-500/20">AI Integrated</span>
+</div>
+<h2 class="headline-font text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-200 to-slate-400 tracking-tight leading-tight">
+                            Quantum Nebula Hackathon 2024
+                        </h2>
+<p class="mt-4 text-slate-400 max-w-2xl text-lg font-light leading-relaxed">
+                            Global developer convergence focused on decentralized cloud architectures and neural-net acceleration.
+                        </p>
+</div>
+</div>
+</section>
+<!-- Info Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+<!-- Venue Card -->
+<div class="bg-slate-800/40 backdrop-blur-sm p-6 rounded-2xl border border-slate-700/30 hover:border-cyan-500/20 transition-all group">
+<div class="flex items-start justify-between mb-4">
+<div class="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-400">location_on</span>
+</div>
+</div>
+<h4 class="text-slate-400 text-sm font-medium mb-1">Venue</h4>
+<p class="text-slate-200 font-semibold text-lg group-hover:text-cyan-400 transition-colors">Digital Horizon Plaza, Neo-Tokyo</p>
+<p class="text-slate-500 text-xs mt-2 uppercase tracking-tighter">Coordinates: 35.6895° N, 139.6917° E</p>
+</div>
+<!-- Date Card -->
+<div class="bg-slate-800/40 backdrop-blur-sm p-6 rounded-2xl border border-slate-700/30 hover:border-cyan-500/20 transition-all group">
+<div class="flex items-start justify-between mb-4">
+<div class="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-400">calendar_today</span>
+</div>
+</div>
+<h4 class="text-slate-400 text-sm font-medium mb-1">Schedule</h4>
+<p class="text-slate-200 font-semibold text-lg group-hover:text-cyan-400 transition-colors">Oct 12 - Oct 14, 2024</p>
+<p class="text-slate-500 text-xs mt-2 uppercase tracking-tighter">Status: registrations_open</p>
+</div>
+<!-- Capacity Card -->
+<div class="bg-slate-800/40 backdrop-blur-sm p-6 rounded-2xl border border-slate-700/30 hover:border-cyan-500/20 transition-all group">
+<div class="flex items-start justify-between mb-4">
+<div class="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-400">stadium</span>
+</div>
+</div>
+<h4 class="text-slate-400 text-sm font-medium mb-1">Total Capacity</h4>
+<p class="text-slate-200 font-semibold text-lg group-hover:text-cyan-400 transition-colors">1,200 Participants</p>
+<p class="text-slate-500 text-xs mt-2 uppercase tracking-tighter">Current: 842 confirmed</p>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Main Description Column -->
+<div class="lg:col-span-2 space-y-8">
+<div class="bg-slate-800/30 backdrop-blur-md rounded-3xl p-8 border border-slate-700/20">
+<h3 class="headline-font text-2xl font-bold text-slate-100 mb-6 flex items-center gap-3">
+<span class="w-8 h-[2px] bg-cyan-500"></span>
+                            Event Intel
+                        </h3>
+<div class="prose prose-invert max-w-none text-slate-300 leading-relaxed font-light space-y-4">
+<p>This session dives deep into the architecture of high-availability cloud systems operating within extreme latency constraints. Our team of curators has hand-picked speakers from leading research labs to showcase real-world implementations of auto-scaling neural workloads.</p>
+<p>Attendees will gain access to exclusive beta testing environments for the Nebula Core v4.0 and receive commemorative blockchain-validated participation tokens. Networking modules are integrated throughout the three-day sprint.</p>
+</div>
+<div class="mt-8 grid grid-cols-2 md:grid-cols-3 gap-4">
+<div class="p-4 bg-slate-900/50 rounded-xl border border-slate-800">
+<span class="material-symbols-outlined text-cyan-400 text-sm mb-2">code</span>
+<p class="text-xs text-slate-500 uppercase tracking-widest font-bold">Category</p>
+<p class="text-slate-200 text-sm">Web3 / Backend</p>
+</div>
+<div class="p-4 bg-slate-900/50 rounded-xl border border-slate-800">
+<span class="material-symbols-outlined text-cyan-400 text-sm mb-2">language</span>
+<p class="text-xs text-slate-500 uppercase tracking-widest font-bold">Language</p>
+<p class="text-slate-200 text-sm">English, Japanese</p>
+</div>
+<div class="p-4 bg-slate-900/50 rounded-xl border border-slate-800">
+<span class="material-symbols-outlined text-cyan-400 text-sm mb-2">confirmation_number</span>
+<p class="text-xs text-slate-500 uppercase tracking-widest font-bold">Tier</p>
+<p class="text-slate-200 text-sm">Professional</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Stat Cards Sidebar -->
+<div class="space-y-6">
+<!-- Glass Stat 1 -->
+<div class="bg-slate-900/60 backdrop-blur-xl rounded-3xl p-6 border border-slate-700/40 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl text-cyan-400">batch_prediction</span>
+</div>
+<p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">Processing Batches</p>
+<h4 class="headline-font text-4xl font-bold text-cyan-400 shadow-cyan-400/10">128<span class="text-lg text-cyan-500/50 ml-1">v/s</span></h4>
+<div class="mt-4 h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-cyan-500 w-3/4 rounded-full shadow-[0_0_8px_rgba(0,240,255,0.5)]"></div>
+</div>
+</div>
+<!-- Glass Stat 2 -->
+<div class="bg-slate-900/60 backdrop-blur-xl rounded-3xl p-6 border border-slate-700/40 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl text-purple-400">account_balance</span>
+</div>
+<p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">Commissioners</p>
+<h4 class="headline-font text-4xl font-bold text-secondary shadow-purple-400/10">24<span class="text-lg text-purple-500/50 ml-1">Nodes</span></h4>
+<p class="mt-2 text-xs text-slate-400 italic">Operational efficiency at 99.8%</p>
+</div>
+<!-- Glass Stat 3 -->
+<div class="bg-slate-900/60 backdrop-blur-xl rounded-3xl p-6 border border-slate-700/40 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl text-cyan-400">category</span>
+</div>
+<p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">Protocol Type</p>
+<h4 class="headline-font text-3xl font-bold text-cyan-400">Hyper-Grid</h4>
+<div class="flex gap-2 mt-4">
+<span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+<span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+<span class="w-2 h-2 rounded-full bg-cyan-400/20"></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Visual Polish: Background Light Leak -->
+<div class="fixed top-0 left-0 w-full h-full pointer-events-none z-[-1] overflow-hidden opacity-30">
+<div class="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-cyan-500/20 blur-[120px] rounded-full"></div>
+<div class="absolute top-[60%] left-[80%] w-[30%] h-[30%] bg-purple-500/20 blur-[100px] rounded-full"></div>
+</div>
+</body></html>

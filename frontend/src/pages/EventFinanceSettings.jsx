@@ -36,7 +36,7 @@ export default function EventFinanceSettings() {
       } else if (activeTab === "cost-centers") {
         setCostCenters([]);
       }
-    } catch (err) {
+    } catch {
       toast.error("Erro ao carregar dados.");
     } finally {
       setLoading(false);

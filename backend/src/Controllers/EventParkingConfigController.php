@@ -43,11 +43,13 @@ function createEventParkingConfig(array $body): void
     $db = Database::getInstance();
     $organizerId = resolveParkingConfigOrganizerId($user);
 
-    $eventId     = $body['event_id'] ?? null;
-    $vehicleType = trim((string)($body['vehicle_type'] ?? ''));
-    $price       = isset($body['price']) ? (float)$body['price'] : null;
-    $totalSpots  = isset($body['total_spots']) ? (int)$body['total_spots'] : null;
-    $vipSpots    = isset($body['vip_spots']) ? (int)$body['vip_spots'] : 0;
+    $eventId      = $body['event_id'] ?? null;
+    $vehicleType  = trim((string)($body['vehicle_type'] ?? ''));
+    $price        = isset($body['price']) ? (float)$body['price'] : null;
+    $totalSpots   = isset($body['total_spots']) ? (int)$body['total_spots'] : null;
+    $vipSpots     = isset($body['vip_spots']) ? (int)$body['vip_spots'] : 0;
+    $mapImageUrl  = trim((string)($body['map_image_url'] ?? ''));
+    $videoUrl     = trim((string)($body['video_url'] ?? ''));
 
     if (!$eventId || $vehicleType === '') {
         jsonError('Dados incompletos (event_id, vehicle_type).', 400);
@@ -67,11 +69,11 @@ function createEventParkingConfig(array $body): void
     }
 
     $stmt = $db->prepare("
-        INSERT INTO event_parking_config (event_id, vehicle_type, price, total_spots, vip_spots, created_at)
-        VALUES (?, ?, ?, ?, ?, NOW())
+        INSERT INTO event_parking_config (event_id, organizer_id, vehicle_type, price, total_spots, vip_spots, map_image_url, video_url, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
         RETURNING id
     ");
-    $stmt->execute([$eventId, $vehicleType, $price, $totalSpots, $vipSpots]);
+    $stmt->execute([$eventId, $organizerId, $vehicleType, $price, $totalSpots, $vipSpots, $mapImageUrl ?: null, $videoUrl ?: null]);
 
     jsonSuccess(['id' => $stmt->fetchColumn()], 'Configuracao de estacionamento criada com sucesso.', 201);
 }
@@ -93,10 +95,12 @@ function updateEventParkingConfig(int $id, array $body): void
         jsonError('Configuracao de estacionamento nao encontrada.', 404);
     }
 
-    $vehicleType = trim((string)($body['vehicle_type'] ?? ''));
-    $price       = isset($body['price']) ? (float)$body['price'] : null;
-    $totalSpots  = isset($body['total_spots']) ? (int)$body['total_spots'] : null;
-    $vipSpots    = isset($body['vip_spots']) ? (int)$body['vip_spots'] : 0;
+    $vehicleType  = trim((string)($body['vehicle_type'] ?? ''));
+    $price        = isset($body['price']) ? (float)$body['price'] : null;
+    $totalSpots   = isset($body['total_spots']) ? (int)$body['total_spots'] : null;
+    $vipSpots     = isset($body['vip_spots']) ? (int)$body['vip_spots'] : 0;
+    $mapImageUrl  = trim((string)($body['map_image_url'] ?? ''));
+    $videoUrl     = trim((string)($body['video_url'] ?? ''));
 
     if ($vehicleType === '') {
         jsonError('vehicle_type e obrigatorio.', 400);
@@ -111,10 +115,10 @@ function updateEventParkingConfig(int $id, array $body): void
 
     $stmt = $db->prepare("
         UPDATE event_parking_config
-        SET vehicle_type = ?, price = ?, total_spots = ?, vip_spots = ?
+        SET vehicle_type = ?, price = ?, total_spots = ?, vip_spots = ?, map_image_url = ?, video_url = ?
         WHERE id = ?
     ");
-    $stmt->execute([$vehicleType, $price, $totalSpots, $vipSpots, $id]);
+    $stmt->execute([$vehicleType, $price, $totalSpots, $vipSpots, $mapImageUrl ?: null, $videoUrl ?: null, $id]);
 
     jsonSuccess([], 'Configuracao de estacionamento atualizada com sucesso.');
 }

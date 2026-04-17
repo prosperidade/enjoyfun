@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-low": "#171b26",
+                        "on-background": "#dfe2f1",
+                        "tertiary-container": "#fed639",
+                        "secondary-container": "#7701d0",
+                        "outline": "#849495",
+                        "error": "#ffb4ab",
+                        "surface-tint": "#00dbe9",
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#eac324",
+                        "tertiary": "#fff5de",
+                        "on-secondary": "#480081",
+                        "on-secondary-fixed": "#2c0051",
+                        "surface-container-highest": "#313540",
+                        "on-secondary-container": "#dcb7ff",
+                        "primary": "#dbfcff",
+                        "outline-variant": "#3b494b",
+                        "surface-container": "#1c1f2a",
+                        "primary-container": "#00f0ff",
+                        "tertiary-fixed": "#ffe179",
+                        "surface-container-high": "#262a35",
+                        "on-primary": "#00363a",
+                        "on-error-container": "#ffdad6",
+                        "inverse-on-surface": "#2c303b",
+                        "on-tertiary-container": "#715d00",
+                        "secondary-fixed-dim": "#dcb8ff",
+                        "surface-bright": "#353944",
+                        "on-primary-container": "#006970",
+                        "on-tertiary-fixed": "#231b00",
+                        "on-error": "#690005",
+                        "inverse-surface": "#dfe2f1",
+                        "on-secondary-fixed-variant": "#6700b5",
+                        "secondary-fixed": "#efdbff",
+                        "primary-fixed": "#7df4ff",
+                        "on-tertiary-fixed-variant": "#554500",
+                        "on-surface-variant": "#b9cacb",
+                        "on-primary-fixed-variant": "#004f54",
+                        "surface-container-lowest": "#0a0e18",
+                        "inverse-primary": "#006970",
+                        "surface-dim": "#0f131d",
+                        "on-tertiary": "#3b2f00",
+                        "surface": "#0f131d",
+                        "surface-variant": "#313540",
+                        "on-primary-fixed": "#002022",
+                        "primary-fixed-dim": "#00dbe9",
+                        "background": "#0f131d",
+                        "secondary": "#dcb8ff",
+                        "on-surface": "#dfe2f1"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0B0F19;
+            color: #dfe2f1;
+            font-family: 'Inter', sans-serif;
+        }
+        .neon-glow-primary {
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+        }
+        .glass-card {
+            background: rgba(15, 19, 29, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(59, 73, 75, 0.3);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0B0F19] flex flex-col border-r border-slate-800/50 shadow-[4px_0_15px_rgba(0,0,0,0.3)] z-40 hidden md:flex">
+<div class="p-6 flex items-center gap-3">
+<div class="w-8 h-8 bg-primary-container rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary text-xl" data-icon="hub">hub</span>
+</div>
+<span class="font-headline font-black text-cyan-400 text-xl">OpsHub</span>
+</div>
+<nav class="flex-1 px-4 py-6 space-y-2">
+<a class="bg-gradient-to-r from-cyan-500/20 to-transparent text-cyan-400 border-l-4 border-cyan-500 px-4 py-3 flex items-center gap-3 transition-transform hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-headline font-medium">Participants</span>
+</a>
+<a class="text-slate-500 hover:text-slate-200 px-4 py-3 flex items-center gap-3 transition-colors duration-200 hover:bg-slate-800/40" href="#">
+<span class="material-symbols-outlined" data-icon="engineering">engineering</span>
+<span class="font-headline font-medium">Workforce</span>
+</a>
+<a class="text-slate-500 hover:text-slate-200 px-4 py-3 flex items-center gap-3 transition-colors duration-200 hover:bg-slate-800/40" href="#">
+<span class="material-symbols-outlined" data-icon="hail">hail</span>
+<span class="font-headline font-medium">Guest List</span>
+</a>
+<a class="text-slate-500 hover:text-slate-200 px-4 py-3 flex items-center gap-3 transition-colors duration-200 hover:bg-slate-800/40" href="#">
+<span class="material-symbols-outlined" data-icon="settings_input_component">settings_input_component</span>
+<span class="font-headline font-medium">Operations</span>
+</a>
+<a class="text-slate-500 hover:text-slate-200 px-4 py-3 flex items-center gap-3 transition-colors duration-200 hover:bg-slate-800/40" href="#">
+<span class="material-symbols-outlined" data-icon="verified_user">verified_user</span>
+<span class="font-headline font-medium">Roles</span>
+</a>
+</nav>
+<div class="mt-auto p-4 border-t border-slate-800/50 bg-slate-900/20">
+<div class="flex items-center gap-3 mb-4">
+<img alt="System Operator" class="w-10 h-10 rounded-full border border-cyan-500/30" data-alt="professional portrait of a system operator in a futuristic tech environment with cybernetic elements and neon blue lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAe4d_zX8j7pRhCMZWSUrwUG8fA5FsIWMB2h7ahqYauVoOWipOWD-b7bN2xdJpgrqrvsx1BKR4gdh0UOINsoU715Kg-nIDXFTNrX1pVX4txHnD_r3j8ren_1XvyyUSpij8xV7iN7CsPGpq43SXO1FvMvEuhyiKAg24W97TIowsthUTez3M7VMZeAM8Y-UsI3jg0r8o2AzIpH1U2Y_NZVORAhv2TVDircvUcuBLJ0QSkwwi5Lxb3AhTmWtvRwO5nZFkp_VTnYd2GlULY"/>
+<div class="overflow-hidden">
+<p class="text-sm font-headline font-bold text-cyan-400 truncate">Neon Curator</p>
+<p class="text-xs text-slate-500">Ops Level 4</p>
+</div>
+</div>
+<button class="w-full py-2 px-4 rounded bg-surface-container-highest border border-slate-700 text-slate-300 text-sm font-medium hover:border-cyan-500/50 transition-colors">
+                Bulk Actions
+            </button>
+</div>
+</aside>
+<header class="fixed top-0 right-0 left-0 md:left-64 bg-slate-950/80 backdrop-blur-md border-b border-cyan-500/10 z-30 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+<div class="flex justify-between items-center w-full px-6 py-4">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-cyan-400 text-3xl" data-icon="group">group</span>
+<h1 class="text-2xl font-headline font-bold tracking-tight text-on-background">Hub de Participantes</h1>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative hidden lg:block">
+<select class="bg-slate-900/50 border-none text-cyan-400 font-headline text-sm rounded-lg pr-10 focus:ring-1 focus:ring-cyan-500 appearance-none cursor-pointer px-4 py-2">
+<option>Aether Neon Festival 2024</option>
+<option>Cyber Summit Stage</option>
+<option>Underground Rave HQ</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2 pointer-events-none text-cyan-400" data-icon="expand_more">expand_more</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 text-slate-400 hover:text-cyan-400 hover:bg-white/5 rounded-full transition-all duration-300 active:scale-95">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-slate-400 hover:text-cyan-400 hover:bg-white/5 rounded-full transition-all duration-300 active:scale-95">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 px-4 md:px-10 lg:pl-72 lg:pr-10 min-h-screen">
+<div class="max-w-7xl mx-auto space-y-8">
+<div class="flex gap-8 border-b border-slate-800/50">
+<button class="pb-4 text-cyan-400 border-b-2 border-cyan-500/50 font-headline font-medium transition-all">Gestão de Convidados</button>
+<button class="pb-4 text-slate-500 hover:text-slate-300 font-headline font-medium transition-all">Operações de Staff</button>
+</div>
+<section class="p-6 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-64 h-64 bg-cyan-400/5 blur-3xl -mr-20 -mt-20"></div>
+<div class="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+<div>
+<h2 class="text-xl font-headline font-bold text-cyan-400 mb-1">Filtrar Base de Dados</h2>
+<p class="text-slate-400 text-sm">Visualize e gerencie os participantes ativos no ecossistema EnjoyFun.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-5 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700 text-slate-300 flex items-center gap-2 hover:border-cyan-500/50 transition-all font-medium">
+<span class="material-symbols-outlined text-sm" data-icon="upload_file">upload_file</span>
+                            Importar CSV
+                        </button>
+<button class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold flex items-center gap-2 neon-glow-primary hover:scale-[1.02] transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="person_add">person_add</span>
+                            Novo Convidado
+                        </button>
+</div>
+</div>
+</section>
+<div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+<div class="relative w-full md:w-96 group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors" data-icon="search">search</span>
+<input class="w-full bg-slate-800/30 border border-slate-700/50 rounded-xl py-3 pl-12 pr-4 text-slate-200 placeholder:text-slate-600 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all" placeholder="Buscar por nome ou email..." type="text"/>
+</div>
+<div class="flex items-center gap-4 text-sm text-slate-500">
+<span>Mostrando <span class="text-cyan-400 font-bold">128</span> participantes</span>
+</div>
+</div>
+<div class="glass-card rounded-2xl overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-slate-800/50 border-b border-slate-700/50">
+<tr>
+<th class="px-6 py-4">
+<input class="rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-cyan-500/20 accent-cyan-500" type="checkbox"/>
+</th>
+<th class="px-6 py-4 font-headline text-slate-400 font-medium text-xs uppercase tracking-widest">Participante</th>
+<th class="px-6 py-4 font-headline text-slate-400 font-medium text-xs uppercase tracking-widest">Email</th>
+<th class="px-6 py-4 font-headline text-slate-400 font-medium text-xs uppercase tracking-widest">Status</th>
+<th class="px-6 py-4 font-headline text-slate-400 font-medium text-xs uppercase tracking-widest text-right">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800/50">
+<tr class="hover:bg-cyan-500/5 transition-colors group">
+<td class="px-6 py-5">
+<input class="rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-cyan-500/20 accent-cyan-500" type="checkbox"/>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 font-bold">
+                                            RL
+                                        </div>
+<span class="font-headline font-bold text-slate-200">Ricardo Lemos</span>
+</div>
+</td>
+<td class="px-6 py-5 text-slate-400 text-sm">ricardo.lemos@email.com</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/15 text-purple-400 border border-purple-500/20 animate-pulse">Confirmado</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors" title="Copiar Link">
+<span class="material-symbols-outlined text-lg" data-icon="link">link</span>
+</button>
+<button class="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors" title="QR Code">
+<span class="material-symbols-outlined text-lg" data-icon="qr_code">qr_code</span>
+</button>
+<button class="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors" title="Editar">
+<span class="material-symbols-outlined text-lg" data-icon="edit">edit</span>
+</button>
+<button class="p-2 hover:bg-red-500/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors" title="Excluir">
+<span class="material-symbols-outlined text-lg" data-icon="delete">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-cyan-500/5 transition-colors group">
+<td class="px-6 py-5">
+<input checked="" class="rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-cyan-500/20 accent-cyan-500" type="checkbox"/>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 font-bold">
+                                            AS
+                                        </div>
+<span class="font-headline font-bold text-slate-200">Ana Souza</span>
+</div>
+</td>
+<td class="px-6 py-5 text-slate-400 text-sm">ana.souza@neon.com</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-700/30 text-slate-500 border border-slate-700/50">Pendente</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors" title="Copiar Link">
+<span class="material-symbols-outlined text-lg" data-icon="link">link</span>
+</button>
+<button class="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors" title="QR Code">
+<span class="material-symbols-outlined text-lg" data-icon="qr_code">qr_code</span>
+</button>
+<button class="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors" title="Editar">
+<span class="material-symbols-outlined text-lg" data-icon="edit">edit</span>
+</button>
+<button class="p-2 hover:bg-red-500/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors" title="Excluir">
+<span class="material-symbols-outlined text-lg" data-icon="delete">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-cyan-500/5 transition-colors group">
+<td class="px-6 py-5">
+<input checked="" class="rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-cyan-500/20 accent-cyan-500" type="checkbox"/>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 font-bold">
+                                            MG
+                                        </div>
+<span class="font-headline font-bold text-slate-200">Marcio Gouveia</span>
+</div>
+</td>
+<td class="px-6 py-5 text-slate-400 text-sm">marcio.g@agencia.com</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/15 text-purple-400 border border-purple-500/20 animate-pulse">Confirmado</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors" title="Copiar Link">
+<span class="material-symbols-outlined text-lg" data-icon="link">link</span>
+</button>
+<button class="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors" title="QR Code">
+<span class="material-symbols-outlined text-lg" data-icon="qr_code">qr_code</span>
+</button>
+<button class="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors" title="Editar">
+<span class="material-symbols-outlined text-lg" data-icon="edit">edit</span>
+</button>
+<button class="p-2 hover:bg-red-500/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors" title="Excluir">
+<span class="material-symbols-outlined text-lg" data-icon="delete">delete</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:w-fit glass-card rounded-2xl p-4 flex flex-col md:flex-row items-center gap-6 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] border-cyan-500/30 z-50">
+<div class="flex items-center gap-3 pr-6 md:border-r border-slate-700/50">
+<span class="bg-cyan-500 text-slate-950 text-xs font-black px-2 py-1 rounded">2</span>
+<span class="text-sm font-headline font-medium text-slate-300">Selecionados</span>
+</div>
+<div class="flex flex-wrap justify-center gap-3">
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/15 text-green-400 text-sm font-bold border border-green-500/20 hover:bg-green-500/25 transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="chat">chat</span>
+                WhatsApp
+            </button>
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700/50 text-slate-200 text-sm font-bold border border-slate-600/50 hover:bg-slate-600/50 transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="mail">mail</span>
+                E-mail
+            </button>
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/15 text-red-400 text-sm font-bold border border-red-500/20 hover:bg-red-500/25 transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="delete_sweep">delete_sweep</span>
+                Excluir
+            </button>
+</div>
+<button class="md:ml-2 p-2 text-slate-500 hover:text-slate-300 transition-colors">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+</body></html>

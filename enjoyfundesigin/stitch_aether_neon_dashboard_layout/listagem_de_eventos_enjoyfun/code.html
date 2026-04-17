@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EnjoyFun | Events Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#2c303b",
+                        "secondary-fixed-dim": "#dcb8ff",
+                        "tertiary-fixed": "#ffe179",
+                        "outline-variant": "#3b494b",
+                        "surface-container-lowest": "#0a0e18",
+                        "inverse-primary": "#006970",
+                        "primary": "#dbfcff",
+                        "error-container": "#93000a",
+                        "error": "#ffb4ab",
+                        "surface-variant": "#313540",
+                        "secondary-fixed": "#efdbff",
+                        "inverse-surface": "#dfe2f1",
+                        "on-error-container": "#ffdad6",
+                        "secondary": "#8A2BE2",
+                        "outline": "#849495",
+                        "background": "#0f131d",
+                        "on-secondary-fixed": "#2c0051",
+                        "on-primary": "#00363a",
+                        "surface-container": "#1c1f2a",
+                        "surface-tint": "#00dbe9",
+                        "surface-dim": "#0f131d",
+                        "surface-bright": "#353944",
+                        "on-tertiary-fixed": "#231b00",
+                        "on-error": "#690005",
+                        "on-secondary": "#480081",
+                        "secondary-container": "#7701d0",
+                        "on-secondary-container": "#dcb7ff",
+                        "primary-container": "#00f0ff",
+                        "surface": "#0f131d",
+                        "surface-container-low": "#171b26",
+                        "on-background": "#dfe2f1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .headline { font-family: 'Space Grotesk', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-background min-h-screen selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar (Shared Component) -->
+<header class="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-md shadow-[0_0_15px_rgba(0,240,255,0.1)] flex justify-between items-center px-8 h-16 font-['Space_Grotesk'] tracking-tight">
+<div class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500">EnjoyFun</div>
+<nav class="hidden md:flex items-center space-x-8">
+<a class="text-cyan-400 border-b-2 border-cyan-500 pb-1 hover:text-cyan-300 transition-all duration-300" href="#">Events</a>
+<a class="text-slate-400 hover:text-cyan-300 transition-all duration-300" href="#">Analytics</a>
+<a class="text-slate-400 hover:text-cyan-300 transition-all duration-300" href="#">Community</a>
+<a class="text-slate-400 hover:text-cyan-300 transition-all duration-300" href="#">Settings</a>
+</nav>
+<div class="flex items-center space-x-6">
+<div class="relative group">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-cyan-400 cursor-pointer transition-colors" data-icon="notifications">notifications</span>
+<span class="absolute -top-1 -right-1 w-2 h-2 bg-secondary rounded-full animate-pulse"></span>
+</div>
+<span class="material-symbols-outlined text-slate-400 hover:text-cyan-400 cursor-pointer transition-colors" data-icon="account_circle">account_circle</span>
+</div>
+</header>
+<!-- SideNavBar (Shared Component) -->
+<aside class="fixed left-0 top-0 h-full w-64 z-40 bg-slate-950/60 backdrop-blur-lg shadow-2xl flex flex-col p-6 space-y-4 pt-24 hidden md:flex">
+<div class="mb-8">
+<div class="text-cyan-400 font-bold uppercase tracking-widest text-sm mb-1">EnjoyFun Panel</div>
+<div class="text-slate-500 text-xs">System Operator</div>
+</div>
+<nav class="flex-1 space-y-2">
+<a class="flex items-center space-x-3 p-3 rounded-lg text-slate-400 hover:bg-slate-800/40 hover:translate-x-1 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-['Space_Grotesk'] text-sm">Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 p-3 rounded-lg text-cyan-400 bg-cyan-500/10 border-r-4 border-cyan-500" href="#">
+<span class="material-symbols-outlined" data-icon="event">event</span>
+<span class="font-['Space_Grotesk'] text-sm">Events</span>
+</a>
+<a class="flex items-center space-x-3 p-3 rounded-lg text-slate-400 hover:bg-slate-800/40 hover:translate-x-1 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_month">calendar_month</span>
+<span class="font-['Space_Grotesk'] text-sm">Schedule</span>
+</a>
+<a class="flex items-center space-x-3 p-3 rounded-lg text-slate-400 hover:bg-slate-800/40 hover:translate-x-1 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-['Space_Grotesk'] text-sm">Users</span>
+</a>
+<a class="flex items-center space-x-3 p-3 rounded-lg text-slate-400 hover:bg-slate-800/40 hover:translate-x-1 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+<span class="font-['Space_Grotesk'] text-sm">Logs</span>
+</a>
+</nav>
+<div class="pt-6 border-t border-slate-800/50 space-y-2">
+<a class="flex items-center space-x-3 p-3 rounded-lg text-slate-400 hover:bg-slate-800/40 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="font-['Space_Grotesk'] text-sm">Support</span>
+</a>
+<a class="flex items-center space-x-3 p-3 rounded-lg text-slate-400 hover:bg-slate-800/40 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-['Space_Grotesk'] text-sm">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="md:ml-64 pt-24 px-8 pb-12">
+<!-- Header Actions -->
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
+<div>
+<h1 class="text-4xl font-bold tracking-tight mb-2">Events Management</h1>
+<p class="text-slate-400">Curate and monitor your digital experiences.</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" data-icon="search">search</span>
+<input class="w-full md:w-72 bg-slate-800/50 border-slate-700 rounded-xl pl-12 py-3 text-slate-200 focus:border-cyan-500 focus:ring-cyan-500/20 transition-all outline-none" placeholder="Search events..." type="text"/>
+</div>
+<button class="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-semibold px-6 py-3 rounded-xl flex items-center gap-2 hover:scale-105 shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                    Novo Evento
+                </button>
+</div>
+</div>
+<!-- Events Grid (Bento Style Highlights) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+<div class="md:col-span-2 bg-slate-900/60 backdrop-blur-md border border-slate-800/60 rounded-2xl p-8 flex flex-col justify-between group overflow-hidden relative">
+<div class="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-cyan-500/20 transition-all duration-500"></div>
+<div class="relative z-10">
+<span class="inline-block bg-cyan-400/10 text-cyan-400 px-3 py-1 rounded-full text-xs font-bold tracking-widest uppercase mb-4">Featured Experience</span>
+<h2 class="text-3xl font-bold text-white mb-2">Neon Nights Festival</h2>
+<p class="text-slate-400 max-w-md mb-6">Electronic music immersive experience with spatial audio and interactive visual mapping.</p>
+<div class="flex items-center gap-6">
+<div class="flex -space-x-3">
+<img class="w-10 h-10 rounded-full border-2 border-slate-900" data-alt="Portrait of a young woman with neon lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuByxadMgA_6uyhIJYV2FZF3WlbjdD-T4-Qn2iDqWSxkIOycfeYDEh15zmKUzwZ6zlxnDofGIZvu60ow7pgikUF8FIy8fmqt8tk4JJ1wktHe4KbjpyjIJNyeWtqVVyI5Opm8QUGwuZ_rCnlxjk2Y9jaaN2mogYz4CMnFYHPga2wtZ4hmFYBxFdnv-HkT3ibgZXE6fhiZbRzCgNrJV2SaRqUkyC4QorIQECtP6CxZvWT_HJzEf_5X42yDbF9xnmqkjTp-YUkPbNqpZiwW"/>
+<img class="w-10 h-10 rounded-full border-2 border-slate-900" data-alt="Portrait of a man with dramatic blue lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCb3w_rtYDQFEQsQyphIQCLZCk720_UcBxvLUJl39nFxMzPhdjMWtDdioEMHa3a0BWh6EufMeralbV5-ES18WILVP902PAR6ElUHs8TgBRq5GCPYQv1YDwlKacjrETepGn1mnHA1cLekGoZSE6THMJT64SZIEqYOuEVdLBvnESJk-HuH3OYq849F1EA3ZaXjEzZLyfbWiw3akbiLdXSfeXFu8qWhKOIXxtmZ5_PmR-k5te95uq-ExIquzadzrrX7c2hRNpas2OHxDGR"/>
+<img class="w-10 h-10 rounded-full border-2 border-slate-900" data-alt="Close up of a person laughing at a concert" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDL5jFJ3HHkTMlp3GYsN9z9-si1zhnazojkUJrJxLXUsSA7fGvvd3xwLLB7Bl1FR7vaQKq9n4MUY_gNXmlDMyBXqrQXL8henGhNzRMubk3JMbb5Ux2ym7d7wT6TBRys0GeDLwPc4d42dhWTu4OroY00T22EcV5CUBs1lB__JePiRxMZ4Vj-oB2i55QeWeognBRA59RBBznuQzBEZG0ZqpcSzx_8a2U7eXwmfvYlqF7zIJ8MgnryJwXTcSDAAwnm5jafiklMX2RBJhMZ"/>
+<div class="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-xs text-slate-400">+1.2k</div>
+</div>
+<div class="text-cyan-400 font-bold">Sold Out</div>
+</div>
+</div>
+</div>
+<div class="bg-secondary/10 border border-secondary/20 rounded-2xl p-8 relative overflow-hidden group">
+<div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&amp;fit=crop&amp;q=80&amp;w=600')] opacity-10 bg-cover bg-center group-hover:scale-110 transition-transform duration-700" data-alt="Retro tech hardware and glowing screens in a dark room"></div>
+<div class="relative z-10 flex flex-col h-full justify-between">
+<div>
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined text-secondary text-4xl" data-icon="auto_awesome" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="bg-secondary/20 text-secondary text-xs px-2 py-1 rounded font-bold animate-pulse">AI CURATED</span>
+</div>
+<h3 class="text-xl font-bold mb-1">Cyber Analytics</h3>
+<p class="text-slate-400 text-sm">Engagement up by 24% this week.</p>
+</div>
+<button class="text-secondary font-bold text-sm flex items-center gap-2 hover:gap-3 transition-all">
+                        View Insight <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Event Table -->
+<div class="bg-slate-900/40 rounded-2xl overflow-hidden shadow-2xl">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-slate-800/50 border-b border-slate-800/80">
+<tr>
+<th class="px-8 py-5 font-['Space_Grotesk'] text-sm text-slate-400 uppercase tracking-widest">Event</th>
+<th class="px-8 py-5 font-['Space_Grotesk'] text-sm text-slate-400 uppercase tracking-widest">Status</th>
+<th class="px-8 py-5 font-['Space_Grotesk'] text-sm text-slate-400 uppercase tracking-widest">Capacity</th>
+<th class="px-8 py-5 font-['Space_Grotesk'] text-sm text-slate-400 uppercase tracking-widest">Revenue</th>
+<th class="px-8 py-5 font-['Space_Grotesk'] text-sm text-slate-400 uppercase tracking-widest">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800/30">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-800/30 transition-colors group">
+<td class="px-8 py-5">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-400" data-icon="music_note">music_note</span>
+</div>
+<div>
+<div class="font-bold text-slate-200">Aether Underground</div>
+<div class="text-xs text-slate-500">Oct 24, 2024 • Tokyo Sector 4</div>
+</div>
+</div>
+</td>
+<td class="px-8 py-5">
+<span class="bg-green-400/10 text-green-400 text-xs px-3 py-1 rounded-full font-bold">Active</span>
+</td>
+<td class="px-8 py-5 text-slate-300">850 / 1000</td>
+<td class="px-8 py-5 text-cyan-400 font-mono">$42,500</td>
+<td class="px-8 py-5">
+<button class="p-2 hover:bg-slate-700/50 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-cyan-400" data-icon="edit">edit</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-800/30 transition-colors group">
+<td class="px-8 py-5">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-purple-400" data-icon="movie">movie</span>
+</div>
+<div>
+<div class="font-bold text-slate-200">Neural Cinema Night</div>
+<div class="text-xs text-slate-500">Nov 02, 2024 • Virtual Reality Hub</div>
+</div>
+</div>
+</td>
+<td class="px-8 py-5">
+<span class="bg-cyan-400/10 text-cyan-400 text-xs px-3 py-1 rounded-full font-bold">Draft</span>
+</td>
+<td class="px-8 py-5 text-slate-300">-- / 250</td>
+<td class="px-8 py-5 text-slate-500 font-mono">$0.00</td>
+<td class="px-8 py-5">
+<button class="p-2 hover:bg-slate-700/50 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-cyan-400" data-icon="edit">edit</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-800/30 transition-colors group">
+<td class="px-8 py-5">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-red-400" data-icon="restaurant">restaurant</span>
+</div>
+<div>
+<div class="font-bold text-slate-200">Synthetix Gala</div>
+<div class="text-xs text-slate-500">Oct 15, 2024 • Sky Lounge</div>
+</div>
+</div>
+</td>
+<td class="px-8 py-5">
+<span class="bg-red-400/10 text-red-400 text-xs px-3 py-1 rounded-full font-bold">Cancelled</span>
+</td>
+<td class="px-8 py-5 text-slate-300">0 / 150</td>
+<td class="px-8 py-5 text-slate-500 font-mono">$0.00</td>
+<td class="px-8 py-5">
+<button class="p-2 hover:bg-slate-700/50 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-slate-500 group-hover:text-cyan-400" data-icon="edit">edit</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+<!-- Create Event Modal Overlay (Visible state mocked) -->
+<div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md px-4 py-8">
+<div class="bg-slate-900/95 border border-slate-700/50 w-full max-w-4xl max-h-[921px] rounded-3xl overflow-hidden flex flex-col shadow-2xl relative">
+<!-- Modal Header -->
+<div class="p-8 border-b border-slate-800/50 flex justify-between items-center">
+<div>
+<h2 class="text-2xl font-bold text-white tracking-tight">Novo Evento</h2>
+<p class="text-slate-400 text-sm">Follow the steps to launch your experience.</p>
+</div>
+<button class="text-slate-500 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-3xl" data-icon="close">close</span>
+</button>
+</div>
+<!-- Modal Content (Multi-step) -->
+<div class="flex flex-1 overflow-hidden">
+<!-- Step Navigation -->
+<nav class="w-64 bg-slate-950/40 border-r border-slate-800/50 p-6 hidden md:block">
+<ul class="space-y-4">
+<li class="flex items-center gap-3 text-cyan-400">
+<span class="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center text-xs font-bold border border-cyan-500/50">01</span>
+<span class="text-sm font-medium">Basic Info</span>
+</li>
+<li class="flex items-center gap-3 text-slate-500">
+<span class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold">02</span>
+<span class="text-sm font-medium">Commercial</span>
+</li>
+<li class="flex items-center gap-3 text-slate-500">
+<span class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold">03</span>
+<span class="text-sm font-medium">Commissioners</span>
+</li>
+</ul>
+</nav>
+<!-- Form Canvas -->
+<div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+<section class="space-y-8">
+<div>
+<h3 class="text-lg font-bold text-slate-200 mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="receipt_long">receipt_long</span>
+                                Commercial Batches &amp; Tickets
+                            </h3>
+<!-- Inline CRUD Component -->
+<div class="space-y-4">
+<div class="bg-slate-800/30 p-4 rounded-xl border border-slate-700/30 flex items-center justify-between">
+<div class="flex items-center gap-6">
+<div class="w-10 h-10 bg-cyan-500/10 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-400" data-icon="local_activity">local_activity</span>
+</div>
+<div>
+<div class="font-bold text-slate-200">Early Bird - Batch 1</div>
+<div class="text-xs text-slate-500">500 Tickets • $45.00 ea.</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="text-slate-500 hover:text-white"><span class="material-symbols-outlined text-sm" data-icon="settings">settings</span></button>
+<button class="text-slate-500 hover:text-red-400"><span class="material-symbols-outlined text-sm" data-icon="delete">delete</span></button>
+</div>
+</div>
+<button class="w-full py-4 border-2 border-dashed border-slate-800 rounded-xl text-slate-500 hover:border-cyan-500/50 hover:text-cyan-400 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span>
+                                    Add Ticket Type
+                                </button>
+</div>
+</div>
+<div>
+<h3 class="text-lg font-bold text-slate-200 mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="handshake">handshake</span>
+                                Commissioners
+                            </h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="bg-slate-800/30 p-4 rounded-xl border border-slate-700/30 flex items-center gap-4">
+<img class="w-10 h-10 rounded-full grayscale hover:grayscale-0 transition-all" data-alt="Portrait of a professional man with neutral expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-F5QH9OgOJms4RtZEfIi4kf5m8TYiYjppivL1foM644NwtDRN8YsLvnkqOiJK1rihD1upiUIgvNHZUwfcpD7YG4_YtERo27Aoz1fUBTp8dld3mcqIlQNRxY62bTAruL2UBrVRijqAg2JxOtT7-NAu4moTp6jDjK67ig9Qw1bw1gx9_Fqc95K5tH45TjGD6HRkGUhdx1aQv8ubVcteYwBjPOrS6R7WZGElunVimnkeVJNC7pRCmc6d_sMelIp3JAJ6fY-ClWd7tbbF"/>
+<div class="flex-1">
+<div class="text-sm font-bold text-slate-200">Alex Rivers</div>
+<div class="text-[10px] text-cyan-400 font-bold uppercase">15% Commission</div>
+</div>
+<span class="material-symbols-outlined text-slate-600" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="bg-slate-800/30 p-4 rounded-xl border border-slate-700/30 flex items-center gap-4 opacity-50">
+<div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="person_add">person_add</span>
+</div>
+<div class="flex-1">
+<div class="text-sm font-bold text-slate-400">Invite New</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+<!-- Modal Footer -->
+<div class="p-8 border-t border-slate-800/50 flex justify-between items-center bg-slate-950/20">
+<button class="text-slate-400 font-bold hover:text-white transition-colors">Save as Draft</button>
+<div class="flex gap-4">
+<button class="px-6 py-3 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors">Previous</button>
+<button class="px-8 py-3 rounded-xl bg-cyan-500 text-slate-950 font-bold shadow-[0_0_15px_rgba(0,240,255,0.3)] hover:scale-105 transition-all">Next Step</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Floating Action Button (FAB - Responsive) -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-cyan-500 text-slate-950 rounded-full shadow-[0_0_20px_rgba(0,240,255,0.4)] flex md:hidden items-center justify-center active:scale-95 transition-all z-[60]">
+<span class="material-symbols-outlined text-3xl" data-icon="add">add</span>
+</button>
+</body></html>
