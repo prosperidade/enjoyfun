@@ -570,7 +570,8 @@ REGRAS INVIOLÁVEIS:
 | `docs/progresso25.md` | Diário — Sprint AI v2 (Agent Registry, Skills Warehouse, Chat) |
 | `docs/progresso28.md` | Diário — Auditoria UI + Multi-Evento + SuperAdmin (71 commits) |
 | `docs/progresso29.md` | Diário — PDV Points + Componentes Visuais (MapBuilder, SeatingChart, AgendaBuilder) |
-| `docs/progresso30.md` | Diário ativo — App Participante Chat-First (B0-B10 + C1-C4) com 32 blocos tipados + 35 intents + welcome por event_type |
+| `docs/progresso30.md` | Diário — App Participante Chat-First (B0-B10 + C1-C4) com 32 blocos tipados + 35 intents + welcome por event_type |
+| `docs/progresso31.md` | Diário ativo — Sprint D: Media Upload Chain (migration 105, MediaUpload component, 8 secoes integradas, blocos RN com authImageSource) — problema em aberto: imagens nao renderizam no app |
 | `docs/backlog_executivo_ui_stitch.md` | Backlog B0-B10 original (Trilha B) com mapeamento 59 HTMLs → blocos RN |
 | `docs/auditoria_blocos_stitch.md` | Auditoria final: 35 telas ponta-a-ponta + 10 variantes + 8 em backlog |
 
