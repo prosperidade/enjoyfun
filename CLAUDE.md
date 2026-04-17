@@ -106,6 +106,8 @@ super_admin / admin (André)
 | **UI Simplificada (AI-first)** | `AIAssistants.jsx` + `UnifiedAIChat.jsx` | Chat flutuante global, cards amigaveis, zero jargao tecnico. Gated por `VITE_FEATURE_AI_V2_UI` |
 | **Adaptive UI Engine** | `AdaptiveResponseService.php` + `AdaptiveUIRenderer.{jsx,tsx}` | 10 tipos de bloco (insight/chart/table/card_grid/actions/text/timeline/lineup/map/image) retornados em `POST /ai/chat`. Gated por `FEATURE_ADAPTIVE_UI` |
 | **App nativo Expo (iOS+Android)** | `enjoyfun-app/` | Expo SDK 52 + TS, ChatScreen + 10 blocks RN, biometria real, EventContext com seletor de evento, EAS Build (TestFlight + APK) |
+| **App Participante Chat-First** | `enjoyfun-participant/` | Expo SDK 54 + TS strict, 32 blocos tipados Aether Neon, union discriminada, `/b2c/chat` com 35 intents, welcome customizado por event_type (wedding/graduation/festival/corporate/sports), QR 9x9 com position markers, holographic sheen animations, 1 tela pos-login, sem react-navigation |
+| **Backend /b2c/chat** | `B2CAppController.php::handleB2CChat` | 24 cases + 21 builders, detector de intent ordenado (especificos → genericos), fallback AI via curl interno com timeout 15s, sugestoes contextuais apos cada resposta |
 | **PWA instalavel** | `frontend/vite.config.js` + `Download.jsx` | Manifest endurecido, `/baixar` com deteccao de plataforma e 3 CTAs (App Store / Play / Install PWA) |
 | **Auth mobile (X-Client header)** | `AuthController.php` | Backend detecta `X-Client: mobile`, devolve JWT no body para mobile (SecureStore). Web continua HttpOnly |
 | **i18n global (pt/en/es)** | `lib/i18n.{ts,js}` + `aiResolveLocaleLanguage()` | Locale detectado via `Intl.DateTimeFormat`/`navigator.language`, enviado em `context.locale`, backend injeta system message forcando LLM a responder no idioma. 15 idiomas mapeados |
@@ -567,7 +569,10 @@ REGRAS INVIOLÁVEIS:
 | `docs/progresso24.md` | Diário — Readiness Sprint + Auditoria Pre-Evento Real |
 | `docs/progresso25.md` | Diário — Sprint AI v2 (Agent Registry, Skills Warehouse, Chat) |
 | `docs/progresso28.md` | Diário — Auditoria UI + Multi-Evento + SuperAdmin (71 commits) |
-| `docs/progresso29.md` | Diário ativo — PDV Points + Componentes Visuais (MapBuilder, SeatingChart, AgendaBuilder) |
+| `docs/progresso29.md` | Diário — PDV Points + Componentes Visuais (MapBuilder, SeatingChart, AgendaBuilder) |
+| `docs/progresso30.md` | Diário ativo — App Participante Chat-First (B0-B10 + C1-C4) com 32 blocos tipados + 35 intents + welcome por event_type |
+| `docs/backlog_executivo_ui_stitch.md` | Backlog B0-B10 original (Trilha B) com mapeamento 59 HTMLs → blocos RN |
+| `docs/auditoria_blocos_stitch.md` | Auditoria final: 35 telas ponta-a-ponta + 10 variantes + 8 em backlog |
 
 Auditorias técnicas entram por `docs/auditorias.md`; arquivos legados estão em `docs/archive/root_legacy/`.
 
@@ -624,4 +629,4 @@ EMAS (Embedded Multi-Agent System) foi refundado completamente em 2026-04-12. Pl
 ---
 
 *EnjoyFun Platform v2.0 — SaaS White Label Multi-tenant*
-*Atualizado: 2026-04-15 — PDV Points + Visuais + SuperAdmin fase 3 (billing self-service + MRR + invoices) + B2C 5 telas. Diarios em docs/progresso29.md*
+*Atualizado: 2026-04-17 — App Participante Chat-First completo: 32 blocos tipados Aether Neon + 35 intents no /b2c/chat + welcome customizado por event_type. Diario em docs/progresso30.md*
