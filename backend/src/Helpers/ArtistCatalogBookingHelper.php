@@ -39,6 +39,10 @@ function listArtists(array $query): void
                 a.default_contact_phone,
                 a.notes,
                 a.is_active,
+                a.photo_url,
+                a.performance_video_url,
+                a.bio,
+                a.genre,
                 a.created_at,
                 a.updated_at,
                 ea.id AS event_artist_id,
@@ -111,6 +115,10 @@ function listArtists(array $query): void
                 a.default_contact_phone,
                 a.notes,
                 a.is_active,
+                a.photo_url,
+                a.performance_video_url,
+                a.bio,
+                a.genre,
                 a.created_at,
                 a.updated_at,
                 COALESCE(stats.bookings_count, 0) AS bookings_count,
@@ -207,6 +215,10 @@ function createArtist(array $body): void
             default_contact_phone,
             notes,
             is_active,
+            photo_url,
+            performance_video_url,
+            bio,
+            genre,
             created_at,
             updated_at
         ) VALUES (
@@ -219,6 +231,10 @@ function createArtist(array $body): void
             :default_contact_phone,
             :notes,
             :is_active,
+            :photo_url,
+            :performance_video_url,
+            :bio,
+            :genre,
             NOW(),
             NOW()
         )
@@ -234,6 +250,10 @@ function createArtist(array $body): void
         ':default_contact_phone' => artistNormalizeOptionalText($body['default_contact_phone'] ?? null, 40),
         ':notes' => artistNormalizeOptionalText($body['notes'] ?? null),
         ':is_active' => artistNormalizeBoolean($body['is_active'] ?? null, true) ? 'true' : 'false',
+        ':photo_url' => artistNormalizeOptionalText($body['photo_url'] ?? null, 500),
+        ':performance_video_url' => artistNormalizeOptionalText($body['performance_video_url'] ?? null, 500),
+        ':bio' => artistNormalizeOptionalText($body['bio'] ?? null),
+        ':genre' => artistNormalizeOptionalText($body['genre'] ?? null, 120),
     ]);
 
     $artistId = (int)$stmt->fetchColumn();
@@ -295,6 +315,10 @@ function updateArtist(int $artistId, array $body): void
             default_contact_phone = :default_contact_phone,
             notes = :notes,
             is_active = :is_active,
+            photo_url = :photo_url,
+            performance_video_url = :performance_video_url,
+            bio = :bio,
+            genre = :genre,
             updated_at = NOW()
         WHERE id = :artist_id
           AND organizer_id = :organizer_id
@@ -308,6 +332,10 @@ function updateArtist(int $artistId, array $body): void
         ':default_contact_phone' => array_key_exists('default_contact_phone', $body) ? artistNormalizeOptionalText($body['default_contact_phone'], 40) : $current['default_contact_phone'],
         ':notes' => array_key_exists('notes', $body) ? artistNormalizeOptionalText($body['notes']) : $current['notes'],
         ':is_active' => (array_key_exists('is_active', $body) ? artistNormalizeBoolean($body['is_active'], (bool)$current['is_active']) : (bool)$current['is_active']) ? 'true' : 'false',
+        ':photo_url' => array_key_exists('photo_url', $body) ? artistNormalizeOptionalText($body['photo_url'], 500) : ($current['photo_url'] ?? null),
+        ':performance_video_url' => array_key_exists('performance_video_url', $body) ? artistNormalizeOptionalText($body['performance_video_url'], 500) : ($current['performance_video_url'] ?? null),
+        ':bio' => array_key_exists('bio', $body) ? artistNormalizeOptionalText($body['bio']) : ($current['bio'] ?? null),
+        ':genre' => array_key_exists('genre', $body) ? artistNormalizeOptionalText($body['genre'], 120) : ($current['genre'] ?? null),
         ':artist_id' => $artistId,
         ':organizer_id' => $organizerId,
     ]);

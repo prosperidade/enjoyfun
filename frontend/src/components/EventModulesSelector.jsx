@@ -31,6 +31,7 @@ import {
  */
 const CONFIG_MODULES = [
   { key: "stages", label: "Palcos / Salas", icon: "Music", description: "Palcos, salas, auditorios" },
+  { key: "artists", label: "Atracoes / Lineup", icon: "Mic", description: "Foto, video e bio dos artistas por palco" },
   { key: "sectors", label: "Setores", icon: "Layers", description: "Pista, VIP, Camarote, Backstage" },
   { key: "pdv_points", label: "PDV Distribuido", icon: "Store", description: "Bares e lojas por palco" },
   { key: "parking_config", label: "Estacionamento", icon: "ParkingSquare", description: "Precos e vagas por tipo" },
@@ -48,7 +49,6 @@ const CONFIG_MODULES = [
  * Group 2 — Modulos Operacionais: enable existing pages (toggle only, no inline form).
  */
 const OPERATIONAL_MODULES = [
-  { key: "artists", label: "Atracoes", icon: "Mic", description: "Lineup de artistas" },
   { key: "cashless", label: "Cashless", icon: "CreditCard", description: "Cartao digital" },
   { key: "tickets", label: "Ingressos", icon: "Ticket", description: "Tipos, lotes, setores" },
   { key: "workforce", label: "Equipe", icon: "Users", description: "Gestao de equipe" },

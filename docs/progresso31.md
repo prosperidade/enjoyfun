@@ -85,15 +85,37 @@ enjoyfun-participant/
 
 ## PROBLEMA EM ABERTO (prox sessao)
 
-### Sintoma
-App nao mostra as imagens subidas mesmo com backend retornando as URLs corretamente.
+### Sintoma atual (2026-04-17 fim do dia)
+App carrega URL publica certinha, browser do PC abre a imagem, mas no celular `<ImageBackground>` "fica rodando e nada" — nao renderiza.
 
-### Debug ja feito
-1. **Backend OK** — endpoint retorna `map_3d_url: "/api/organizer-files/23/download"` e similares
-2. **Download funciona** — `curl` com Bearer token baixa 9.4MB do PNG (HTTP 200)
-3. **Banco OK** — `events.map_3d_url = "file:23:plantabaixa.png"`
-4. **Helper funciona** — `b2cResolveFileUrl()` converte "file:23:..." em "/api/organizer-files/23/download"
-5. **App com auth header** — `authImageSource()` retorna `{ uri, headers: { Authorization: Bearer } }`
+### Progresso da sessao de debug (2026-04-17)
+1. **Bug do strip `/api/` em `media.ts`** — `resolveMediaUrl()` removia o prefixo `/api/` da URL. Fixado: agora preserva o path como veio do backend.
+2. **Endpoint publico criado** — `GET /api/organizer-files/{id}/public` em `OrganizerFileController.php`. Sem auth, so serve MIME `image/*` e `video/*`, Cache 24h, CORS `*`. Evita problema de header `Authorization` no `<Image>` do RN Android.
+3. **`b2cResolveFileUrl()` atualizado** — agora retorna `/public` em vez de `/download`.
+4. **`authImageSource()` simplificado** — sem headers (endpoint nao precisa mais).
+5. **Endpoint confirmado funcionando** — `http://192.168.1.42:8080/api/organizer-files/22/public` abre a imagem direto no browser do PC.
+6. **App tambem recebe URL certa** — log confirma `realMapSource: { "uri": "http://192.168.1.42:8080/api/organizer-files/22/public" }` sem headers.
+7. **PHP precisa subir com `0.0.0.0:8080`** — nao `localhost:8080`, senao celular nao acessa via LAN. Registrado no runbook.
+
+### Hipotese principal (nao confirmada)
+PNG de **9.4MB** e muito grande pro Fresco do Android decodificar em `<ImageBackground>`. Fica decodificando pra sempre e nunca exibe.
+
+### Proximos passos de investigacao (prox chat)
+1. Confirmar cenario: spinner infinito, tela vazia, ou splash? (perguntar ao Andre)
+2. Se for decode infinito:
+   - Testar com imagem menor (PNG de ~500KB)
+   - Se resolver, backend serve thumbnail reduzido automaticamente (GD/Imagick ou resize on-the-fly)
+   - Alternativa: campo `thumbnail_storage_path` em `organizer_files` gerado no upload
+3. Se nao for tamanho: talvez Content-Length errado ou PNG com perfil de cor exotico
+
+### Debug OLD (resolvido)
+- ~~Backend OK~~ (endpoint retorna URLs)
+- ~~Download funciona~~ (curl com Bearer → 200)
+- ~~Banco OK~~ (`events.map_3d_url = "file:23:plantabaixa.png"`)
+- ~~`b2cResolveFileUrl()`~~ converte refs corretamente
+- ~~`authImageSource()`~~ nao precisa mais de header (endpoint publico)
+- ~~Strip `/api/` no app~~ (removido)
+- ~~PHP bind errado~~ (usar `0.0.0.0:8080`)
 
 ### Log de debug adicionado em MapOverview.tsx
 ```typescript

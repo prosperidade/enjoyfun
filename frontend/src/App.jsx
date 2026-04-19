@@ -36,6 +36,7 @@ const ArtistsCatalog = lazy(() => import("./pages/ArtistsCatalog"));
 const ArtistDetail = lazy(() => import("./pages/ArtistDetail"));
 const ArtistImport = lazy(() => import("./pages/ArtistImport"));
 const OrganizerFiles = lazy(() => import("./pages/OrganizerFiles"));
+const MediaWorkspace = lazy(() => import("./pages/MediaWorkspace"));
 const CustomerLogin = lazy(() => import("./pages/CustomerApp/CustomerLogin"));
 const CustomerDashboard = lazy(() => import("./pages/CustomerApp/CustomerDashboard"));
 const CustomerRecharge = lazy(() => import("./pages/CustomerApp/CustomerRecharge"));
@@ -143,6 +144,7 @@ export default function App() {
                   import.meta.env.VITE_FEATURE_AI_V2_UI === 'true' ? <AIAssistants /> : <AIAgents />
                 } />
                 <Route path="/files" element={<OrganizerFiles />} />
+                <Route path="/media" element={<MediaWorkspace />} />
                 <Route path="/users" element={<Users />} />
                 <Route path="/guests" element={<Guests />} />
                 <Route path="/participants" element={<ParticipantsHub />} />

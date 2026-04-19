@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import api from "../lib/api";
 import EventTemplateSelector from "../components/EventTemplateSelector";
 import EventModulesSelector, { MODULE_PRESETS } from "../components/EventModulesSelector";
-import { StagesSection, SectorsSection, ParkingConfigSection, PdvPointsSection, LocationSection, ExhibitorsSection, InvitationsSection, CeremonySection, SubEventsSection, MapsSection, CertificatesSection } from "../components/EventModuleSections";
+import { StagesSection, SectorsSection, ParkingConfigSection, PdvPointsSection, LocationSection, ExhibitorsSection, InvitationsSection, CeremonySection, SubEventsSection, MapsSection, CertificatesSection, ArtistsLineupSection } from "../components/EventModuleSections";
 import MapBuilder from "../components/MapBuilder";
 import SeatingChart from "../components/SeatingChart";
 import AgendaBuilder from "../components/AgendaBuilder";
@@ -1193,6 +1193,9 @@ export default function Events() {
               )}
               {form.modules_enabled.includes("certificates") && (
                 <CertificatesSection eventId={editingEventId} />
+              )}
+              {form.modules_enabled.includes("artists") && (
+                <ArtistsLineupSection eventId={editingEventId} />
               )}
 
               <div className="flex items-end gap-3">

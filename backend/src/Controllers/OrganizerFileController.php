@@ -14,6 +14,7 @@ function dispatch(string $method, ?string $id, ?string $sub, ?string $subId, arr
         $method === 'GET' && is_numeric($id) && $sub === null => orgFileGet($db, (int)$id),
         $method === 'GET' && is_numeric($id) && $sub === 'parsed' => orgFileGetParsed($db, (int)$id),
         $method === 'GET' && is_numeric($id) && $sub === 'download' => orgFileDownload($db, (int)$id),
+        $method === 'GET' && is_numeric($id) && $sub === 'public' => orgFilePublicMedia($db, (int)$id),
         $method === 'POST' && is_numeric($id) && $sub === 'parse' => orgFileReparse($db, (int)$id),
         $method === 'POST' && is_numeric($id) && $sub === 'analyze' => orgFileAnalyzeWithGoogle($db, (int)$id),
         $method === 'DELETE' && is_numeric($id) => orgFileDelete($db, (int)$id),
@@ -364,6 +365,42 @@ function orgFileDownload(PDO $db, int $fileId): void
     header('Content-Disposition: inline; filename="' . $name . '"');
     header('Content-Length: ' . filesize($fullPath));
     header('Cache-Control: private, max-age=3600');
+    readfile($fullPath);
+    exit;
+}
+
+function orgFilePublicMedia(PDO $db, int $fileId): void
+{
+    $stmt = $db->prepare("
+        SELECT storage_path, mime_type, original_name
+        FROM public.organizer_files
+        WHERE id = :id
+        LIMIT 1
+    ");
+    $stmt->execute([':id' => $fileId]);
+    $file = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$file) {
+        jsonError('Arquivo nao encontrado.', 404);
+    }
+
+    $mime = (string)($file['mime_type'] ?? '');
+    if (!str_starts_with($mime, 'image/') && !str_starts_with($mime, 'video/')) {
+        jsonError('Arquivo nao e media publica.', 403);
+    }
+
+    $fullPath = BASE_PATH . '/public' . ($file['storage_path'] ?? '');
+    if (!file_exists($fullPath)) {
+        jsonError('Arquivo fisico nao encontrado no servidor.', 404);
+    }
+
+    $name = $file['original_name'] ?: 'media';
+
+    header('Content-Type: ' . $mime);
+    header('Content-Disposition: inline; filename="' . $name . '"');
+    header('Content-Length: ' . filesize($fullPath));
+    header('Cache-Control: public, max-age=86400');
+    header('Access-Control-Allow-Origin: *');
     readfile($fullPath);
     exit;
 }

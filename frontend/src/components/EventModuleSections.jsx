@@ -19,6 +19,7 @@ import {
   Heart,
   Map,
   Award,
+  Mic,
   Upload,
   ExternalLink,
   X,
@@ -1279,6 +1280,292 @@ export function CertificatesSection({ eventId }) {
           ))}
         </>
       )}
+    </SectionShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 14. ArtistsLineupSection (Atracoes — material de apresentacao)
+// Contexto: foto, video 360, bio, genero do artista que aparecem no app do participante.
+// Logistica/valores ficam na pagina dedicada /artists.
+// ---------------------------------------------------------------------------
+
+function ArtistMediaRow({ booking, stages = [], onDelete, onUpdateArtist, onUpdateBookingStage }) {
+  const [editing, setEditing] = useState(false);
+  const [local, setLocal] = useState({
+    photo_url: booking.photo_url || "",
+    performance_video_url: booking.performance_video_url || "",
+    genre: booking.genre || "",
+    bio: booking.bio || "",
+  });
+
+  useEffect(() => {
+    setLocal({
+      photo_url: booking.photo_url || "",
+      performance_video_url: booking.performance_video_url || "",
+      genre: booking.genre || "",
+      bio: booking.bio || "",
+    });
+  }, [booking.id, booking.photo_url, booking.performance_video_url, booking.genre, booking.bio]);
+
+  const mediaCount = (local.photo_url ? 1 : 0) + (local.performance_video_url ? 1 : 0);
+
+  const saveField = async (key, value) => {
+    const updated = { ...local, [key]: value };
+    setLocal(updated);
+    try {
+      await onUpdateArtist(updated);
+    } catch {
+      toast.error("Erro ao salvar");
+    }
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-lg">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setEditing((v) => !v)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setEditing((v) => !v); }}
+        className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-200 hover:bg-gray-700/50 transition-colors rounded-lg cursor-pointer select-none"
+      >
+        <span className="flex-1">
+          {booking.legal_name || booking.stage_name || "Artista sem nome"}
+          {(booking.booking_stage_name || booking.stage_name) && (
+            <span className="ml-2 text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded">
+              🎤 {booking.booking_stage_name || booking.stage_name}
+            </span>
+          )}
+          {local.genre && (
+            <span className="ml-2 text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">
+              {local.genre}
+            </span>
+          )}
+          {mediaCount > 0 && (
+            <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded">
+              {mediaCount} midia{mediaCount > 1 ? "s" : ""}
+            </span>
+          )}
+        </span>
+        <span className="text-gray-400 mr-2" title="Editar midia">
+          <ImageIcon className="w-4 h-4" />
+        </span>
+        <button
+          type="button"
+          className={btnDel}
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          title="Remover do evento"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+      {editing && (
+        <div className="p-3 border-t border-gray-700 space-y-3">
+          {stages.length > 0 && onUpdateBookingStage && (
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Palco vinculado neste evento</label>
+              <select
+                className={inputCls}
+                value={booking.booking_stage_name || ""}
+                onChange={(e) => onUpdateBookingStage(e.target.value)}
+              >
+                <option value="">(sem palco definido)</option>
+                {stages.map((st) => (
+                  <option key={st.id} value={st.name}>{st.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input
+              className={inputCls}
+              placeholder="Genero / Tipo (Rock, DJ, Stand-up...)"
+              value={local.genre}
+              onChange={(e) => setLocal({ ...local, genre: e.target.value })}
+              onBlur={() => saveField("genre", local.genre)}
+            />
+            <textarea
+              rows={2}
+              className={inputCls + " resize-none"}
+              placeholder="Biografia curta (aparece no detalhe do artista)"
+              value={local.bio}
+              onChange={(e) => setLocal({ ...local, bio: e.target.value })}
+              onBlur={() => saveField("bio", local.bio)}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <MediaUpload
+              label="Foto do artista"
+              description="Aparece no card do Line-up"
+              value={local.photo_url}
+              onChange={(v) => saveField("photo_url", v)}
+              mediaType="image"
+              category="general"
+            />
+            <MediaUpload
+              label="Video de apresentacao"
+              description="Abre em tela cheia ao tocar no card"
+              value={local.performance_video_url}
+              onChange={(v) => saveField("performance_video_url", v)}
+              mediaType="video"
+              category="general"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ArtistsLineupSection({ eventId }) {
+  const [items, setItems] = useState([]);
+  const [stages, setStages] = useState([]);
+  const [stageFilter, setStageFilter] = useState("all");
+  const [expanded, setExpanded] = useState(true);
+
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    console.log('[ArtistsLineupSection] loading event', eventId);
+
+    api.get("/artists/bookings", { params: { event_id: eventId } })
+      .then((r) => {
+        if (cancelled) return;
+        const data = r.data?.data || r.data?.rows || [];
+        console.log('[ArtistsLineupSection] bookings loaded:', data.length);
+        setItems(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('[ArtistsLineupSection] bookings failed', err?.response?.status, err?.response?.data);
+        setItems([]);
+      });
+
+    api.get(`/event-stages?event_id=${eventId}`)
+      .then((r) => {
+        if (cancelled) return;
+        const data = r.data?.data || [];
+        console.log('[ArtistsLineupSection] stages loaded:', data.length);
+        setStages(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('[ArtistsLineupSection] stages failed', err?.response?.status);
+        setStages([]);
+      });
+
+    return () => { cancelled = true; };
+  }, [eventId]);
+
+  const handleUpdateArtist = async (booking, partial) => {
+    // stage_name no artist master é obrigatório pelo backend. Se vier nulo,
+    // preserva o atual ou usa fallback pro legal_name (evita 422).
+    const safeStageName = booking.stage_name
+      || booking.legal_name
+      || booking.booking_stage_name
+      || "Sem palco";
+    const payload = {
+      stage_name: safeStageName,
+      photo_url: partial.photo_url || null,
+      performance_video_url: partial.performance_video_url || null,
+      bio: partial.bio || null,
+      genre: partial.genre || null,
+    };
+    try {
+      await api.patch(`/artists/${booking.id}`, payload);
+      setItems((prev) => prev.map((b) => (b.id === booking.id ? { ...b, ...partial } : b)));
+    } catch (err) {
+      console.error('[ArtistsLineup] PATCH /artists failed', err?.response?.status, err?.response?.data);
+      throw err;
+    }
+  };
+
+  const handleUpdateBookingStage = async (booking, newStageName) => {
+    if (!booking.event_artist_id) return;
+    try {
+      await api.patch(`/artists/bookings/${booking.event_artist_id}`, {
+        event_id: eventId,
+        artist_id: booking.id,
+        stage_name: newStageName || null,
+      });
+      setItems((prev) => prev.map((b) =>
+        b.event_artist_id === booking.event_artist_id
+          ? { ...b, booking_stage_name: newStageName || null }
+          : b
+      ));
+      toast.success("Palco atualizado");
+    } catch {
+      toast.error("Erro ao atualizar palco");
+    }
+  };
+
+  const handleRemoveBooking = async (booking) => {
+    if (!booking.event_artist_id) return;
+    if (!window.confirm(`Remover ${booking.stage_name} do evento?`)) return;
+    try {
+      await api.post(`/artists/bookings/${booking.event_artist_id}/cancel`, {});
+      setItems((prev) => prev.filter((b) => b.event_artist_id !== booking.event_artist_id));
+      toast.success("Artista removido do evento");
+    } catch {
+      toast.error("Erro ao remover");
+    }
+  };
+
+  const normalizeName = (v) => (v || "").trim().toLowerCase();
+  const resolveBookingStage = (b) => b.booking_stage_name || b.stage_name || "";
+  const filteredItems = stageFilter === "all"
+    ? items
+    : items.filter((b) => normalizeName(resolveBookingStage(b)) === normalizeName(stageFilter));
+
+  return (
+    <SectionShell icon={Mic} title="Atracoes / Lineup" count={items.length} expanded={expanded} toggle={() => setExpanded(!expanded)}>
+      {!eventId && <NoEventNotice />}
+      <p className="text-xs text-gray-500 mb-2">
+        Configure foto, video 360, biografia e genero dos artistas deste evento.
+        Logistica, valores e contratos ficam na <Link to="/artists" className="text-purple-400 hover:text-purple-300 underline">pagina dedicada</Link>.
+      </p>
+
+      {stages.length > 0 && (
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs text-gray-400">Palco:</span>
+          <select
+            className={inputCls + " w-auto"}
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value)}
+          >
+            <option value="all">Todos os palcos ({items.length})</option>
+            {stages.map((st) => {
+              const count = items.filter((b) => normalizeName(resolveBookingStage(b)) === normalizeName(st.name)).length;
+              return (
+                <option key={st.id} value={st.name}>
+                  {st.name} ({count})
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      )}
+
+      {items.length === 0 && eventId && (
+        <div className="text-sm text-gray-500 bg-gray-800 rounded-lg px-3 py-4 text-center">
+          Nenhum artista contratado ainda. Adicione pela <Link to="/artists" className="text-purple-400 hover:text-purple-300 underline">pagina dedicada</Link>.
+        </div>
+      )}
+      {items.length > 0 && filteredItems.length === 0 && (
+        <div className="text-sm text-gray-500 bg-gray-800 rounded-lg px-3 py-4 text-center">
+          Nenhum artista vinculado a este palco.
+        </div>
+      )}
+      {filteredItems.map((booking) => (
+        <ArtistMediaRow
+          key={booking.event_artist_id || booking.id}
+          booking={booking}
+          stages={stages}
+          onDelete={() => handleRemoveBooking(booking)}
+          onUpdateArtist={(partial) => handleUpdateArtist(booking, partial)}
+          onUpdateBookingStage={(newStage) => handleUpdateBookingStage(booking, newStage)}
+        />
+      ))}
     </SectionShell>
   );
 }

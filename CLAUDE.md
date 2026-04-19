@@ -1,6 +1,6 @@
 # CLAUDE.md — EnjoyFun Platform
 ## Guia Completo para IA: Arquitetura, Estado Real e Visão de Negócio
-### Atualizado: 2026-04-15 (PDV Points + MapBuilder/SeatingChart/AgendaBuilder + Migration 102)
+### Atualizado: 2026-04-18 (Lineup 3-niveis + VideoModal + voz ponta-a-ponta + MediaWorkspace + Migration 106)
 
 ---
 
@@ -130,6 +130,15 @@ super_admin / admin (André)
 | **Redis + MemPalace** | `docker-compose.services.yml` | Redis 7 na 6380 + MemPalace na 3100 via Docker |
 | **Voice proxy mobile** | `enjoyfun-app/src/lib/voice.ts` | Whisper via /ai/voice/transcribe (JWT), OPENAI_KEY removida do bundle |
 | **Smoke 8/8 surfaces** | Todas as surfaces | bar/dashboard/tickets/parking/workforce/platform_guide/artists/documents — todos PASS |
+| **Lineup navegacional 3-niveis** | `enjoyfun-participant/blocks/{StagesList,StageDetail,ArtistDetail}.tsx` + backend `build{StagesList,StageDetail,ArtistDetail}Blocks` | Intent `lineup` → palcos → artistas → detalhe com foto/video. `lineup` com 1 palco pula direto pro detalhe |
+| **VideoModal reutilizavel (expo-video)** | `enjoyfun-participant/components/VideoModal.tsx` | Fullscreen nativo com controles. Reutilizado em MapOverview, Lineup, StageDetail, ArtistDetail, EventSectors, SubEventsTimeline |
+| **Endpoint publico de media** | `OrganizerFileController.php::orgFilePublicMedia` | `/api/organizer-files/{id}/public` — sem auth, apenas MIME image/video, cache 24h, CORS *. Resolve bug do Fresco Android com Bearer header |
+| **Voz ponta-a-ponta no app participante** | `enjoyfun-participant/lib/voice.ts` + `ImmersiveChatScreen.tsx` | expo-audio + expo-speech. Mic state local (idle/listening/processing). TTS toggle. POST /ai/voice/transcribe via proxy |
+| **MediaWorkspace (D5)** | `frontend/pages/MediaWorkspace.jsx` + rota `/media` | Grid visual centralizado de todos os assets por evento: busca, filtros por tipo/categoria, lightbox fullscreen, copy link, delete |
+| **Midia em 8 blocos do app** | `blocks/{EventSectors,SubEventsTimeline,ParkingGrid,SeatingArena,SeatingBanquet,Itinerary,Lineup,StageDetail}.tsx` | Imagens + videos uploadados no painel aparecem como hero/background/overlay em cada bloco |
+| **ArtistsLineupSection inline no evento** | `EventModuleSections.jsx::ArtistsLineupSection` | Modulo `artists` virou config inline (nao mais pagina dedicada). Dropdown de palco, MediaUpload por artista, filtro por palco |
+| **Migration 106: midia de artistas** | `database/106_artists_media.sql` | `artists.photo_url`, `performance_video_url`, `bio`, `genre` — ja existiam no banco, migration documenta |
+| **PHP bind LAN obrigatorio** | runbook | `-S 0.0.0.0:8080` (nao `localhost:8080`) pra celular conectar. Documentado no runbook_local.md |
 
 ### 🟡 PENDÊNCIAS DE SEGURANÇA (pré-evento real ~2026-04-29)
 
@@ -159,7 +168,7 @@ super_admin / admin (André)
 
 **PostgreSQL 18.2 | DB: `enjoyfun` | host: 127.0.0.1:5432 | user: postgres**
 
-### Migrations versionadas até 104
+### Migrations versionadas até 106
 
 | Faixa | Conteúdo |
 |-------|---------|
@@ -191,6 +200,8 @@ super_admin / admin (André)
 | 102 | products.pdv_point_id (FK para event_pdv_points) |
 | 103 | users.status + plans table (3 tiers) + users.plan_id |
 | 104 | billing_invoices (faturas de plano por organizador) |
+| 105 | media URLs por entidade (image_url/video_url/video_360_url em 10 tabelas) |
+| 106 | artists media (photo_url, performance_video_url, bio, genre) — idempotente |
 
 **Pendências de banco:**
 - Migration `009`: não aplicada (escopo reduzido ao seguro)
@@ -630,4 +641,4 @@ EMAS (Embedded Multi-Agent System) foi refundado completamente em 2026-04-12. Pl
 ---
 
 *EnjoyFun Platform v2.0 — SaaS White Label Multi-tenant*
-*Atualizado: 2026-04-17 — App Participante Chat-First completo: 32 blocos tipados Aether Neon + 35 intents no /b2c/chat + welcome customizado por event_type. Diario em docs/progresso30.md*
+*Atualizado: 2026-04-18 — Lineup navegacional 3-niveis (palcos→artistas→detalhe com foto+video), VideoModal nativo (expo-video), endpoint publico de media (resolve bug Fresco Android), voz ponta-a-ponta no app participante (expo-audio+TTS), MediaWorkspace (grid visual centralizado), midia em 8 blocos. Diario em docs/progresso32.md*

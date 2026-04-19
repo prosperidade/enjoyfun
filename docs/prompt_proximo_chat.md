@@ -1,128 +1,88 @@
-# Prompt pro proximo chat — Debug renderizacao de imagens uploaded no app participante
+# Prompt pro proximo chat — Debug ArtistsLineupSection + continuar cobertura de midia
 
 **Cole isso no inicio do novo chat:**
 
 ---
 
-Leia `CLAUDE.md` e `docs/progresso31.md` antes de qualquer acao.
+Leia `CLAUDE.md`, `docs/progresso32.md` e `docs/runbook_local.md` antes de qualquer acao.
 
-## Contexto rapido
+Sessao anterior (2026-04-18) encerrou com 8 sprints completados (Lineup 3-niveis, VideoModal, endpoint publico, voz ponta-a-ponta, MediaWorkspace, e midia em 8 blocos do app). Detalhes completos em `progresso32.md`.
 
-Sessao anterior entregou **Sprint D — Media Upload Chain**:
-- Organizador sobe imagens/videos no painel web (componente `MediaUpload` com drag-and-drop + preview)
-- Backend salva em `organizer_files` + referencia `"file:{id}:{name}"` nos campos das 8 tabelas de evento (events, event_stages, event_sectors, event_pdv_points, event_tables, event_parking_config, event_ceremony_moments, event_sub_events, event_exhibitors)
-- Migration 105 aplicada com `image_url`, `video_url`, `video_360_url` em 10 tabelas
-- 8 controllers PHP atualizados + bug pre-existente de `organizer_id` ausente no INSERT corrigido
-- Helper `b2cResolveFileUrl()` no backend converte refs pra URLs absolutas
-- Helper `authImageSource()` no app participante monta `{ uri, headers: { Authorization: Bearer } }` pro `<Image>` do RN
-- MapOverview, Lineup e EventHub atualizados pra renderizar imagens uploaded
+---
 
-## Problema em aberto
+## Pendencias do dia — 2026-04-19
 
-O organizador **ja subiu** a planta baixa do evento 1 (EnjoyFun 2026):
-- `events.map_3d_url = "file:23:plantabaixa.png"` (confirmado no banco)
+### P0 — Bugs em aberto (prioritario, rapido)
 
-Backend **retorna corretamente** no `POST /b2c/chat` quando pede "mapa":
-```json
-{
-  "type": "map",
-  "map_3d_url": "/api/organizer-files/23/download",
-  "markers": [...]
-}
+1. **Dropdown de palco na `ArtistsLineupSection` nao salva**
+   - Arquivo: `frontend/src/components/EventModuleSections.jsx` — funcao `handleUpdateBookingStage`
+   - Comportamento: user escolhe "Main Stage" no select, mas o `event_artists.stage_name` no banco continua "principal"
+   - Diagnostico pendente: abrir DevTools Network, ver se o PATCH `/artists/bookings/{id}` dispara, qual payload vai, qual a resposta
+   - Possivel causa: o body tem `event_id` + `artist_id` que o backend rejeita se nao bater
+   - Fix provavel: confirmar que `booking.id` (artist master) esta certo; verificar se backend aceita `stage_name` sozinho no PATCH; ou mandar so o minimo
+
+2. **Artista "astrix" nao aparece no filtro Main Stage da ArtistsLineupSection**
+   - Banco: `event_artists.stage_name = "Main Stage"` (confirmado via psql), `legal_name = "astrix"`
+   - Logs: `[ArtistsLineupSection] bookings loaded: 1` — a API retornou
+   - Mas na UI, filtro "Main Stage" mostra "Nenhum artista vinculado" OU nao mostra o card
+   - Suspeita: comparacao case-sensitive, ou `resolveBookingStage` retornando outra string
+   - Acao: adicionar `console.log` por booking no filter pra ver o que esta vindo e comparar com stageFilter
+
+### P1 — Cobertura de midia pendente
+
+3. **Expositores / Exhibitors** — `event_exhibitors` ja tem `logo`, `booth_photo`, `presentation_video` no banco e backend envia. Componente `ExhibitorProfile.tsx` no app existe mas provavelmente nao renderiza as 3 midias. Verificar e adicionar.
+
+4. **PDVs** — `event_pdv_points.image_url` ja chega como marker no MapOverview (thumbnail pequena). Considerar: tela/bloco dedicado `pdv_detail` ou grid maior?
+
+5. **Galeria do casamento** — `PhotoGallery.tsx` existe mas nao temos ingestao de multiplas fotos por evento. Avaliar se vale adicionar um bloco visual com upload multiplo (seria nova feature, nao so plumbing).
+
+### P2 — Melhorias naturais
+
+6. **Mapa 3D interativo** — atualmente `ImageBackground` estatico. Com pan/zoom/rotate via `react-native-reanimated` ou `expo-image` com gestures viraria uma experiencia real de diorama.
+
+7. **EAS Build do app participante** — hoje roda via Expo Go, precisa ser TestFlight/APK pra distribuicao. Configurar `eas.json` + criar profile `preview`.
+
+8. **Reativar diagnostico de dropdown palco** — o log `[ArtistsLineupSection] PATCH /artists failed` esta no codigo mas precisa de teste real pra ver se dispara e com qual status.
+
+---
+
+## Contexto importante
+
+### PHP precisa bind em `0.0.0.0:8080` (nao `localhost`)
+Se Andre reiniciar o PHP e escolher `localhost:8080`, o celular nao conecta via LAN. Comando certo:
+```powershell
+cd C:\Users\Administrador\Desktop\enjoyfun\backend; C:\php84\php.exe -d upload_max_filesize=200M -d post_max_size=200M -d memory_limit=256M -S 0.0.0.0:8080 -t public
 ```
 
-`curl` com Bearer token baixa o PNG (HTTP 200, 9.4MB de imagem).
+### Voz exige `FEATURE_AI_VOICE_PROXY=1`
+No `backend/.env`. Sem isso o endpoint retorna 403.
 
-**Mas no app participante a imagem NAO aparece** — continua mostrando o grid isometrico fake com POIs antigos.
+### Endpoint publico de midia
+`GET /api/organizer-files/{id}/public` — sem auth, apenas MIME image/video. Usado pelo app participante em `<Image>` e `<VideoView>`. Mudar o MIME type do upload pode quebrar — usar sempre pelo `MediaUpload` do painel.
 
-## Debug ja feito (nao precisa refazer)
+### Booking stage_name mismatch
+O Andre ainda tem booking com `stage_name = "Main Stage"` no evento 1 (setei manual via `UPDATE event_artists ...`). Se ele apagar e recriar booking, o palco vai voltar ao que ele digitar — e pode nao bater com nenhum palco cadastrado. Corrigir o dropdown da ArtistsLineupSection e a validacao de match case-insensitive resolve.
 
-1. Backend OK — endpoint retorna URLs corretas
-2. Download funciona — `curl` com Bearer → 200
-3. Banco OK — `map_3d_url` preenchido
-4. `b2cResolveFileUrl()` converte `"file:23:..."` corretamente
-5. `authImageSource()` retorna source com headers
-6. App Expo rodando em `192.168.1.42:8082` (LAN acessivel)
-7. Backend em `localhost:8080` E `192.168.1.42:8080` ambos respondendo
+### Telas que funcionam sob stress
+- `/media` pagina completa do MediaWorkspace
+- Edicao de evento com modulo `artists` habilitado
+- `lineup` → detalhe direto (1 palco) ou lista (varios)
+- Voz 🎤 + TTS 🔊 no app
 
-## Log de debug ja instrumentado
+### Regra inviolavel
+1. `organizer_id` vem SEMPRE do JWT — nunca do body
+2. Backend PHP **8.4** (nao 8.5 que tem bug do dispatcher)
+3. App participante e chat-first — nao criar telas nativas, criar blocos
+4. Endpoint `/public` serve apenas `image/*` e `video/*` — nao vazar PDFs/CSVs
 
-Em `enjoyfun-participant/src/components/blocks/MapOverview.tsx` (linhas proximas a 65):
-```typescript
-if (__DEV__) {
-  console.log('[MapOverview] block:', JSON.stringify({
-    map_image_url: block.map_image_url,
-    map_3d_url: block.map_3d_url,
-    tour_video_url: block.tour_video_url,
-  }));
-  console.log('[MapOverview] realMapSource:', JSON.stringify(realMapSource));
-}
-```
+---
 
 ## Primeira acao no novo chat
 
-Pedir ao Andre pra:
-1. Rodar no PowerShell:
-   ```powershell
-   cd C:\Users\Administrador\Desktop\enjoyfun-participant
-   npx expo start --clear --port 8082 --lan
-   ```
-2. No celular (Expo Go): abre, faz login, digita **"mapa"**
-3. **Copia as 2 linhas** `[MapOverview]` que aparecem no terminal do Expo
+Abrir DevTools do browser (F12 → Network + Console), ir em Evento → Atracoes / Lineup → expandir card do artista → mudar dropdown de palco → coletar:
+1. Request PATCH que disparou (URL, payload, response)
+2. Erros no Console
 
-Com esses logs descobrimos:
-| Situacao | Diagnostico | Solucao |
-|---------|-------------|---------|
-| Nao aparece log | App nao pegou codigo novo | Deletar `node_modules/.cache` ou rebuildar bundle |
-| `block` sem URLs | Problema na serializacao do `/b2c/chat` | Verificar response direto com curl |
-| `realMapSource = null` | Cache do token vazio no boot (race condition) | Melhorar `App.tsx` pra aguardar token antes de renderizar |
-| Tem source mas nao renderiza | MIME/CORS no `<ImageBackground>` do RN | Endpoint publico fallback |
+Com isso resolve a pendencia P0-1 rapidamente. Depois testar se o artista aparece no filtro "Main Stage" (P0-2) adicionando log do booking no filter pra debug.
 
-## Solucao alternativa (fallback se tudo falhar)
-
-Criar endpoint publico `GET /organizer-files/{id}/public` que nao exige `requireAuth()`. Protege por ID dificil de adivinhar e escopo de evento. Elimina necessidade de Bearer no header da `<Image>`.
-
-## Arquivos chave
-
-- `docs/progresso31.md` — entregas da sessao + estado do banco
-- `enjoyfun-participant/src/lib/media.ts` — resolveMediaUrl + authImageSource + token cache
-- `enjoyfun-participant/src/components/blocks/MapOverview.tsx` — usa `authImageSource(block.map_3d_url)`
-- `enjoyfun-participant/App.tsx` — preload do token no boot
-- `backend/src/Controllers/OrganizerFileController.php` — `/organizer-files/{id}/download` com `requireAuth()`
-- `backend/src/Controllers/B2CAppController.php` — `b2cResolveFileUrl()` + `buildMapBlocks()`
-
-## Comandos de execucao
-
-### Backend (PHP 8.4, 200MB upload)
-```batch
-C:\php84\php.exe -d upload_max_filesize=200M -d post_max_size=200M -d memory_limit=256M -S localhost:8080 -t public
-```
-
-### Frontend admin web
-```batch
-cd C:\Users\Administrador\Desktop\enjoyfun\frontend
-npm run dev -- --port 3003
-```
-
-### App participante
-```powershell
-cd C:\Users\Administrador\Desktop\enjoyfun-participant
-npx expo start --clear --port 8082 --lan
-```
-
-Login: `admin@enjoyfun.com.br` / `123456`
-
-## Depois que resolver o problema de renderizacao
-
-1. **D5 — Workspace de Media dedicado**: pagina nova com grid visual centralizado de TODOS os assets do evento
-2. Mapa 3D interativo (pan/zoom/rotate com `react-native-reanimated`)
-3. Tecnica Stitch CSS 3D isometrico em mais blocos
-4. Voz nativa (EAS Build ou migrar pra `expo-audio` SDK 54)
-5. Upload de fotos de galeria (casamento)
-
-## Regras inviolaveis (do CLAUDE.md principal)
-
-1. `organizer_id` vem SEMPRE do JWT
-2. Backend PHP **8.4** (nao 8.5 que tem bug do dispatcher)
-3. Coluna de data e `starts_at` / `ends_at` (nao `start_date`)
-4. App participante e **chat-first** — nao criar telas, criar blocos
+Em paralelo, pode abrir `/media` pra confirmar que a pagina nova esta rodando e testar delete/copy link.

@@ -526,10 +526,33 @@ Definidas em `AIToolRuntimeService::allToolDefinitions()`. Cada tool tem:
 ### File Hub do Organizador
 
 **Tabela:** `organizer_files` (migration 056)
-**Rotas:** `GET/POST/DELETE /organizer-files`, `GET /organizer-files/{id}/parsed`, `POST /organizer-files/{id}/parse`
+**Rotas:** `GET/POST/DELETE /organizer-files`, `GET /organizer-files/{id}/parsed`, `POST /organizer-files/{id}/parse`, `GET /organizer-files/{id}/download`, `GET /organizer-files/{id}/public`
 **Auto-parse:** CSV (detecta delimitador, tipos de coluna) e JSON no upload
-**Limite:** 20MB por arquivo, 500 linhas max no parse
+**Limite:** 200MB por arquivo (upload via painel organizador), 500 linhas max no parse
 **Diretorio fisico:** `backend/public/uploads/organizer_files/{organizer_id}/`
+
+#### Endpoint publico `/public` (sem auth)
+`GET /api/organizer-files/{id}/public` — serve apenas MIME `image/*` e `video/*`. Cache-Control 24h + CORS `*`. Usado pelo app participante em `<Image>` e `<VideoView>` (resolve bug do Fresco Android com Bearer header em imagens grandes). PDFs/docs nao sao servidos por esse endpoint — apenas `/download` com auth.
+
+#### MediaWorkspace `/media`
+Grid visual centralizado de todos os assets do evento (filtros por tipo/categoria, busca, lightbox fullscreen, copy link, delete). `pages/MediaWorkspace.jsx`. Alimentado por `GET /organizer-files?event_id=X&per_page=100`.
+
+### Voz no app participante (expo-audio + Whisper proxy)
+
+**Requer `FEATURE_AI_VOICE_PROXY=1`** no `backend/.env`. Sem essa flag o endpoint retorna 403.
+
+**Endpoint:** `POST /api/ai/voice/transcribe`
+- Body: `multipart/form-data` com campo `audio` (arquivo .m4a) e `locale` (pt-BR default)
+- Response: `{ data: { transcript: "...", language: "pt" } }`
+- Auth: Bearer JWT (roles admin/organizer/manager/bartender/staff)
+- Limite: 25MB (Whisper)
+- Rate limit: via `AIRateLimitService`
+
+**No app participante:**
+- `src/lib/voice.ts` — `useVoiceRecorder()`, `transcribe(uri, locale)`, `speak(text, locale)`, `stopSpeaking()`
+- Usa `micState` local (idle/listening/processing) em vez de `recorder.isRecording` (que nao e reativo o suficiente)
+- Plugin `expo-audio` com `microphonePermission` PT-BR em `app.config.ts`
+- Suficiente pra rodar no Expo Go SDK 54 — nao precisa dev client
 
 ### Migrations de IA
 

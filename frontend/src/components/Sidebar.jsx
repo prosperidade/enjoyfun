@@ -27,6 +27,7 @@ import {
   Upload,
   Download,
   FileSpreadsheet,
+  Image as ImageIcon,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -54,6 +55,12 @@ const nav = [
     roles: ["admin"],
   },
   { to: "/events", icon: CalendarDays, label: "Eventos", roles: [] },
+  {
+    to: "/media",
+    icon: ImageIcon,
+    label: "Midia do Evento",
+    roles: ["admin", "organizer"],
+  },
   {
     to: "/tickets",
     icon: Ticket,

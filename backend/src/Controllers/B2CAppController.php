@@ -359,6 +359,25 @@ function handleB2CChat(int $userId, array $body): void
     // Detect intent from message
     $intent = detectB2CIntent($message, $isWelcome);
 
+    // Special: "palco {nome}" → stage detail com stageName extraido
+    $stageName = null;
+    $artistName = null;
+    if (!$isWelcome && $message !== '') {
+        if (preg_match('/^\s*palco\s+(.+?)\s*$/iu', $message, $mm)) {
+            $candidate = trim($mm[1]);
+            if ($candidate !== '' && mb_strtolower($candidate) !== 'palcos' && mb_strtolower($candidate) !== 'lista') {
+                $intent = 'stage_detail';
+                $stageName = $candidate;
+            }
+        } elseif (preg_match('/^\s*artista\s+(.+?)\s*$/iu', $message, $mm)) {
+            $candidate = trim($mm[1]);
+            if ($candidate !== '' && mb_strtolower($candidate) !== 'artistas') {
+                $intent = 'artist_detail';
+                $artistName = $candidate;
+            }
+        }
+    }
+
     $blocks = [];
 
     // Always: Event Hub on welcome — customized by event type
@@ -409,7 +428,21 @@ function handleB2CChat(int $userId, array $body): void
     $suggestions = [];
     switch ($intent) {
         case 'lineup':
-            $blocks = buildLineupBlocks($db, $eventId);
+            // Se o evento tem 1 palco so, pula a lista e vai direto pro detalhe dele
+            $stageCount = 0; $singleStageName = null;
+            if (b2cTableExists($db, 'event_stages')) {
+                $sc = $db->prepare("SELECT COUNT(*) AS c, MIN(name) AS only_name FROM event_stages WHERE event_id = ?");
+                $sc->execute([$eventId]);
+                if ($scRow = $sc->fetch(\PDO::FETCH_ASSOC)) {
+                    $stageCount = (int)$scRow['c'];
+                    $singleStageName = $scRow['only_name'];
+                }
+            }
+            if ($stageCount === 1 && !empty($singleStageName)) {
+                $blocks = buildStageDetailBlocks($db, $eventId, $singleStageName);
+            } else {
+                $blocks = buildStagesListBlocks($db, $eventId);
+            }
             $suggestions = ['Programação completa', 'Meu ingresso', 'Onde fica o bar?'];
             break;
         case 'map':
@@ -483,6 +516,18 @@ function handleB2CChat(int $userId, array $body): void
         case 'stage_zoom':
             $blocks = buildStageZoomBlocks($db, $eventId);
             $suggestions = ['Line-up', 'Programacao', 'Mapa'];
+            break;
+        case 'stages_list':
+            $blocks = buildStagesListBlocks($db, $eventId);
+            $suggestions = ['Line-up', 'Mapa do evento', 'Programacao'];
+            break;
+        case 'stage_detail':
+            $blocks = buildStageDetailBlocks($db, $eventId, (string)$stageName);
+            $suggestions = ['Outros palcos', 'Line-up', 'Programacao'];
+            break;
+        case 'artist_detail':
+            $blocks = buildArtistDetailBlocks($db, $eventId, (string)$artistName);
+            $suggestions = ['Outros artistas', 'Line-up', 'Programacao'];
             break;
         case 'buy_ticket':
             $blocks = buildBuyTicketBlocks($db, $eventId);
@@ -570,8 +615,9 @@ function detectB2CIntent(string $message, bool $isWelcome): string
         'sub_events'    => ['pré-festa', 'pre-festa', 'sub-evento', 'chá de', 'cha de', 'despedida', 'colação', 'colacao', 'baile'],
         'events'        => ['trocar evento', 'outros eventos', 'meus eventos'],
         'friends'       => ['amigo', 'amigos', 'quem está', 'quem esta', 'quem veio'],
+        'stages_list'   => ['palcos', 'lista de palcos', 'ver palcos', 'quais palcos', 'palco'],
         // Genericos (1 palavra) — vem por ultimo
-        'lineup'        => ['line-up', 'lineup', 'artista', 'quem toca', 'show', 'palco', 'atração', 'atracao', 'musica', 'banda', 'dj'],
+        'lineup'        => ['line-up', 'lineup', 'artista', 'quem toca', 'show', 'atração', 'atracao', 'musica', 'banda', 'dj'],
         'map'           => ['mapa', 'onde fica', 'localiz', 'como cheg'],
         'menu'          => ['cardápio', 'cardapio', 'menu', 'bebida', 'comida', 'drink', 'cerveja', 'comer', 'beber', 'food', 'loja'],
         'parking'       => ['estacionamento', 'vaga', 'carro', 'moto', 'parking'],
@@ -729,29 +775,66 @@ function buildLineupBlocks(\PDO $db, int $eventId): array
         }
     }
 
-    // Artists (legal_name + organizer_id + stage_name + photo_url)
+    // Artists — prioriza bookings (event_artists) deste evento; fallback pra artists master do organizer
     try {
-        $stmtEv = $db->prepare("SELECT organizer_id FROM events WHERE id = ? LIMIT 1");
-        $stmtEv->execute([$eventId]);
-        $orgId = (int)$stmtEv->fetchColumn();
-
-        $stmt = $db->prepare("SELECT legal_name, artist_type, stage_name, photo_url, performance_video_url, bio, genre FROM artists WHERE organizer_id = ? AND is_active = true ORDER BY stage_name ASC, legal_name ASC");
-        $stmt->execute([$orgId]);
-        $artists = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-
         $grouped = [];
-        foreach ($artists as $a) {
-            $sn = $a['stage_name'] ?: 'Principal';
-            if (!isset($grouped[$sn])) $grouped[$sn] = [];
-            $grouped[$sn][] = [
-                'artist_name' => $a['legal_name'],
-                'start_at' => '',
-                'end_at' => '',
-                'image_url' => b2cResolveFileUrl($a['photo_url'] ?? null),
-                'video_url' => b2cResolveFileUrl($a['performance_video_url'] ?? null),
-                'bio' => $a['bio'] ?? null,
-                'genre' => $a['genre'] ?? null,
-            ];
+
+        if (b2cTableExists($db, 'event_artists')) {
+            $stmt = $db->prepare("
+                SELECT
+                    a.legal_name, a.stage_name AS artist_default_stage, a.photo_url,
+                    a.performance_video_url, a.bio, a.genre,
+                    ea.stage_name AS booking_stage_name,
+                    ea.performance_start_at, ea.performance_duration_minutes,
+                    ea.booking_status
+                FROM event_artists ea
+                JOIN artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+                WHERE ea.event_id = ? AND COALESCE(ea.booking_status, '') <> 'cancelled'
+                ORDER BY COALESCE(ea.performance_start_at, ea.created_at) ASC, a.legal_name ASC
+            ");
+            $stmt->execute([$eventId]);
+            $bookings = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            foreach ($bookings as $b) {
+                $sn = $b['booking_stage_name'] ?: ($b['artist_default_stage'] ?: 'Principal');
+                $endAt = null;
+                if (!empty($b['performance_start_at']) && !empty($b['performance_duration_minutes'])) {
+                    $endAt = date('Y-m-d H:i:s', strtotime($b['performance_start_at']) + ((int)$b['performance_duration_minutes']) * 60);
+                }
+                if (!isset($grouped[$sn])) $grouped[$sn] = [];
+                $grouped[$sn][] = [
+                    'artist_name' => $b['legal_name'] ?: $b['artist_default_stage'],
+                    'start_at' => $b['performance_start_at'] ?? '',
+                    'end_at' => $endAt ?? '',
+                    'image_url' => b2cResolveFileUrl($b['photo_url'] ?? null),
+                    'video_url' => b2cResolveFileUrl($b['performance_video_url'] ?? null),
+                    'bio' => $b['bio'] ?? null,
+                    'genre' => $b['genre'] ?? null,
+                ];
+            }
+        }
+
+        // Fallback: sem bookings, usa artists do organizer (legacy)
+        if (empty($grouped)) {
+            $stmtEv = $db->prepare("SELECT organizer_id FROM events WHERE id = ? LIMIT 1");
+            $stmtEv->execute([$eventId]);
+            $orgId = (int)$stmtEv->fetchColumn();
+
+            $stmt = $db->prepare("SELECT legal_name, stage_name, photo_url, performance_video_url, bio, genre FROM artists WHERE organizer_id = ? AND is_active = true ORDER BY stage_name ASC, legal_name ASC");
+            $stmt->execute([$orgId]);
+            foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $a) {
+                $sn = $a['stage_name'] ?: 'Principal';
+                if (!isset($grouped[$sn])) $grouped[$sn] = [];
+                $grouped[$sn][] = [
+                    'artist_name' => $a['legal_name'] ?: $a['stage_name'],
+                    'start_at' => '',
+                    'end_at' => '',
+                    'image_url' => b2cResolveFileUrl($a['photo_url'] ?? null),
+                    'video_url' => b2cResolveFileUrl($a['performance_video_url'] ?? null),
+                    'bio' => $a['bio'] ?? null,
+                    'genre' => $a['genre'] ?? null,
+                ];
+            }
         }
 
         if (empty($stages) && !empty($grouped)) {
@@ -933,6 +1016,10 @@ function buildParkingBlocks(\PDO $db, int $eventId): array
         return [['id' => 'no-parking', 'type' => 'text', 'body' => 'Estacionamento nao configurado para este evento.']];
     }
 
+    $mapStmt = $db->prepare("SELECT map_parking_url FROM events WHERE id = ? LIMIT 1");
+    $mapStmt->execute([$eventId]);
+    $parkingMapUrl = b2cResolveFileUrl($mapStmt->fetchColumn() ?: null);
+
     $cards = [];
     $totalSpots = 0;
     foreach ($configs as $c) {
@@ -971,6 +1058,7 @@ function buildParkingBlocks(\PDO $db, int $eventId): array
             'columns' => 5,
             'tariff' => 'R$ ' . number_format((float)($configs[0]['price'] ?? 15), 2, ',', '.') . '/h',
             'safety_level' => 'A1',
+            'map_image_url' => $parkingMapUrl,
         ],
     ];
 }
@@ -1097,7 +1185,7 @@ function buildSubEventBlocks(\PDO $db, int $eventId): array
             'video_url' => b2cResolveFileUrl($r['video_url'] ?? null),
         ];
     }
-    return [['id' => 'sub-events', 'type' => 'timeline', 'title' => 'Pre-Festas e Sub-Eventos', 'events' => $events]];
+    return [['id' => 'sub-events', 'type' => 'sub_events_timeline', 'title' => 'Pre-Festas e Sub-Eventos', 'events' => $events]];
 }
 
 function buildFriendsBlocks(\PDO $db, int $eventId, int $userId): array
@@ -1201,6 +1289,183 @@ function buildStageZoomBlocks(\PDO $db, int $eventId): array
     ]];
 }
 
+function buildStagesListBlocks(\PDO $db, int $eventId): array
+{
+    if (!b2cTableExists($db, 'event_stages')) {
+        return [['id' => 'no-stages', 'type' => 'text', 'body' => 'Nenhum palco cadastrado para este evento.']];
+    }
+
+    $stmt = $db->prepare("SELECT name, stage_type, capacity, image_url, description FROM event_stages WHERE event_id = ? ORDER BY sort_order ASC");
+    $stmt->execute([$eventId]);
+    $stages = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+    if (empty($stages)) {
+        return [['id' => 'no-stages', 'type' => 'text', 'body' => 'Nenhum palco cadastrado para este evento.']];
+    }
+
+    $items = array_map(fn($s) => [
+        'name' => $s['name'],
+        'stage_type' => $s['stage_type'] ?? null,
+        'capacity' => isset($s['capacity']) ? (int)$s['capacity'] : null,
+        'description' => $s['description'] ?? null,
+        'image_url' => b2cResolveFileUrl($s['image_url'] ?? null),
+    ], $stages);
+
+    return [[
+        'id' => 'stages-list',
+        'type' => 'stages_list',
+        'title' => 'Palcos do Evento',
+        'stages' => $items,
+    ]];
+}
+
+function buildStageDetailBlocks(\PDO $db, int $eventId, string $stageName): array
+{
+    if (!b2cTableExists($db, 'event_stages')) {
+        return [['id' => 'no-stage', 'type' => 'text', 'body' => 'Nenhum palco cadastrado.']];
+    }
+
+    $stmt = $db->prepare("SELECT id, name, stage_type, capacity, image_url, video_url, video_360_url, description FROM event_stages WHERE event_id = ? AND LOWER(name) = LOWER(?) LIMIT 1");
+    $stmt->execute([$eventId, $stageName]);
+    $stage = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+    if (!$stage) {
+        // Fallback: LIKE
+        $stmt = $db->prepare("SELECT id, name, stage_type, capacity, image_url, video_url, video_360_url, description FROM event_stages WHERE event_id = ? AND LOWER(name) LIKE LOWER(?) LIMIT 1");
+        $stmt->execute([$eventId, '%' . $stageName . '%']);
+        $stage = $stmt->fetch(\PDO::FETCH_ASSOC);
+    }
+
+    if (!$stage) {
+        return [['id' => 'no-stage', 'type' => 'text', 'body' => "Palco \"{$stageName}\" nao encontrado. Digite 'palcos' para ver a lista."]];
+    }
+
+    // Sessoes/palestras deste palco (agenda formal)
+    $sessions = [];
+    if (b2cTableExists($db, 'event_sessions')) {
+        $st2 = $db->prepare("SELECT title, speaker_name, starts_at, ends_at FROM event_sessions WHERE stage_id = ? AND event_id = ? ORDER BY starts_at ASC LIMIT 10");
+        $st2->execute([$stage['id'], $eventId]);
+        foreach ($st2->fetchAll(\PDO::FETCH_ASSOC) as $s) {
+            $sessions[] = [
+                'title' => $s['title'] ?? null,
+                'speaker_name' => $s['speaker_name'] ?? null,
+                'starts_at' => $s['starts_at'] ?? null,
+                'ends_at' => $s['ends_at'] ?? null,
+            ];
+        }
+    }
+
+    // Artistas contratados pra este palco (event_artists + artists master)
+    $artists = [];
+    if (b2cTableExists($db, 'event_artists')) {
+        $st3 = $db->prepare("
+            SELECT a.legal_name, a.stage_name AS artist_default_stage, a.photo_url,
+                   a.performance_video_url, a.bio, a.genre,
+                   ea.stage_name AS booking_stage_name,
+                   ea.performance_start_at, ea.performance_duration_minutes
+            FROM event_artists ea
+            JOIN artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            WHERE ea.event_id = ?
+              AND COALESCE(ea.booking_status, '') <> 'cancelled'
+              AND (LOWER(COALESCE(ea.stage_name, '')) = LOWER(?)
+                   OR LOWER(COALESCE(a.stage_name, '')) = LOWER(?))
+            ORDER BY COALESCE(ea.performance_start_at, ea.created_at) ASC, a.legal_name ASC
+        ");
+        $st3->execute([$eventId, $stage['name'], $stage['name']]);
+        foreach ($st3->fetchAll(\PDO::FETCH_ASSOC) as $a) {
+            $endAt = null;
+            if (!empty($a['performance_start_at']) && !empty($a['performance_duration_minutes'])) {
+                $endAt = date('Y-m-d H:i:s', strtotime($a['performance_start_at']) + ((int)$a['performance_duration_minutes']) * 60);
+            }
+            $artists[] = [
+                'name' => $a['legal_name'] ?: $a['artist_default_stage'],
+                'genre' => $a['genre'] ?? null,
+                'bio' => $a['bio'] ?? null,
+                'image_url' => b2cResolveFileUrl($a['photo_url'] ?? null),
+                'video_url' => b2cResolveFileUrl($a['performance_video_url'] ?? null),
+                'starts_at' => $a['performance_start_at'] ?? null,
+                'ends_at' => $endAt,
+            ];
+        }
+    }
+
+    return [[
+        'id' => 'stage-detail',
+        'type' => 'stage_detail',
+        'name' => $stage['name'],
+        'stage_type' => $stage['stage_type'] ?? null,
+        'capacity' => isset($stage['capacity']) ? (int)$stage['capacity'] : null,
+        'description' => $stage['description'] ?? null,
+        'image_url' => b2cResolveFileUrl($stage['image_url'] ?? null),
+        'video_url' => b2cResolveFileUrl($stage['video_url'] ?? null),
+        'video_360_url' => b2cResolveFileUrl($stage['video_360_url'] ?? null),
+        'artists' => $artists,
+        'sessions' => $sessions,
+    ]];
+}
+
+function buildArtistDetailBlocks(\PDO $db, int $eventId, string $artistName): array
+{
+    if (!b2cTableExists($db, 'event_artists') || !b2cTableExists($db, 'artists')) {
+        return [['id' => 'no-artist', 'type' => 'text', 'body' => 'Artistas nao cadastrados para este evento.']];
+    }
+
+    // Busca por legal_name exato, depois por stage_name, depois LIKE
+    $stmt = $db->prepare("
+        SELECT a.id, a.legal_name, a.stage_name AS artist_default_stage, a.artist_type,
+               a.photo_url, a.performance_video_url, a.bio, a.genre,
+               ea.stage_name AS booking_stage_name, ea.performance_start_at, ea.performance_duration_minutes
+        FROM event_artists ea
+        JOIN artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+        WHERE ea.event_id = ?
+          AND COALESCE(ea.booking_status, '') <> 'cancelled'
+          AND (LOWER(a.legal_name) = LOWER(?) OR LOWER(COALESCE(a.stage_name, '')) = LOWER(?))
+        LIMIT 1
+    ");
+    $stmt->execute([$eventId, $artistName, $artistName]);
+    $a = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+    if (!$a) {
+        // LIKE fallback
+        $stmt = $db->prepare("
+            SELECT a.id, a.legal_name, a.stage_name AS artist_default_stage, a.artist_type,
+                   a.photo_url, a.performance_video_url, a.bio, a.genre,
+                   ea.stage_name AS booking_stage_name, ea.performance_start_at, ea.performance_duration_minutes
+            FROM event_artists ea
+            JOIN artists a ON a.id = ea.artist_id AND a.organizer_id = ea.organizer_id
+            WHERE ea.event_id = ?
+              AND COALESCE(ea.booking_status, '') <> 'cancelled'
+              AND (LOWER(a.legal_name) LIKE LOWER(?) OR LOWER(COALESCE(a.stage_name, '')) LIKE LOWER(?))
+            LIMIT 1
+        ");
+        $stmt->execute([$eventId, '%' . $artistName . '%', '%' . $artistName . '%']);
+        $a = $stmt->fetch(\PDO::FETCH_ASSOC);
+    }
+
+    if (!$a) {
+        return [['id' => 'no-artist', 'type' => 'text', 'body' => "Artista \"{$artistName}\" nao encontrado. Digite 'lineup' para ver a lista."]];
+    }
+
+    $endAt = null;
+    if (!empty($a['performance_start_at']) && !empty($a['performance_duration_minutes'])) {
+        $endAt = date('Y-m-d H:i:s', strtotime($a['performance_start_at']) + ((int)$a['performance_duration_minutes']) * 60);
+    }
+
+    return [[
+        'id' => 'artist-detail',
+        'type' => 'artist_detail',
+        'name' => $a['legal_name'] ?: $a['artist_default_stage'],
+        'stage_name' => $a['booking_stage_name'] ?: $a['artist_default_stage'],
+        'genre' => $a['genre'] ?? null,
+        'artist_type' => $a['artist_type'] ?? null,
+        'bio' => $a['bio'] ?? null,
+        'image_url' => b2cResolveFileUrl($a['photo_url'] ?? null),
+        'video_url' => b2cResolveFileUrl($a['performance_video_url'] ?? null),
+        'starts_at' => $a['performance_start_at'] ?? null,
+        'ends_at' => $endAt,
+    ]];
+}
+
 function buildBuyTicketBlocks(\PDO $db, int $eventId): array
 {
     $stmt = $db->prepare("SELECT id, name, CAST(price AS FLOAT) AS price, sector FROM ticket_types WHERE event_id = ? ORDER BY price ASC");
@@ -1272,11 +1537,13 @@ function buildSeatingBlocks(\PDO $db, int $eventId): array
     }
 
     $evName = '';
-    $stmt2 = $db->prepare("SELECT name FROM events WHERE id = ? LIMIT 1");
+    $stmt2 = $db->prepare("SELECT name, map_seating_url FROM events WHERE id = ? LIMIT 1");
     $stmt2->execute([$eventId]);
-    $evName = $stmt2->fetchColumn() ?: 'Evento';
+    $eventRow = $stmt2->fetch(\PDO::FETCH_ASSOC) ?: [];
+    $evName = $eventRow['name'] ?? 'Evento';
+    $seatingMapUrl = b2cResolveFileUrl($eventRow['map_seating_url'] ?? null);
 
-    return [['id' => 'seating', 'type' => 'seating_arena', 'venue_name' => $evName, 'sections' => $sections]];
+    return [['id' => 'seating', 'type' => 'seating_arena', 'venue_name' => $evName, 'sections' => $sections, 'map_image_url' => $seatingMapUrl]];
 }
 
 function buildRSVPBlocks(\PDO $db, int $eventId, array $event): array
@@ -1521,8 +1788,10 @@ function fallbackToAIChat(array $body): array
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve "file:{id}:{name}" refs para URL real de download.
- * - file:abc123:palco.jpg → /api/organizer-files/abc123/download
+ * Resolve "file:{id}:{name}" refs para URL real de media publica.
+ * App participante nao tem JWT de organizador, entao usa endpoint /public
+ * que serve apenas MIME image/* e video/* sem auth.
+ * - file:abc123:palco.jpg → /api/organizer-files/abc123/public
  * - https://... → inalterado
  * - null/empty → null
  */
@@ -1533,7 +1802,7 @@ function b2cResolveFileUrl(?string $ref): ?string
     if (str_starts_with($ref, 'file:')) {
         $parts = explode(':', $ref, 3);
         if (count($parts) >= 2 && $parts[1] !== '') {
-            return '/api/organizer-files/' . $parts[1] . '/download';
+            return '/api/organizer-files/' . $parts[1] . '/public';
         }
         return null;
     }

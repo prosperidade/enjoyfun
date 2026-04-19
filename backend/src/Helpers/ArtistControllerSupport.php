@@ -75,6 +75,10 @@ function artistRequireArtistById(PDO $db, int $organizerId, int $artistId): arra
             a.default_contact_phone,
             a.notes,
             a.is_active,
+            a.photo_url,
+            a.performance_video_url,
+            a.bio,
+            a.genre,
             a.created_at,
             a.updated_at,
             COALESCE(stats.bookings_count, 0) AS bookings_count

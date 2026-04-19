@@ -822,6 +822,20 @@ function transcribeVoice(): void
     $db = Database::getInstance();
     \EnjoyFun\Services\AIRateLimitService::enforce($db, $organizerId);
 
+    // Debug: logar estado do upload (remover depois)
+    error_log('[transcribeVoice] _FILES keys: ' . json_encode(array_keys($_FILES ?? [])));
+    error_log('[transcribeVoice] _POST keys: ' . json_encode(array_keys($_POST ?? [])));
+    error_log('[transcribeVoice] CONTENT_TYPE: ' . ($_SERVER['CONTENT_TYPE'] ?? 'NULL'));
+    error_log('[transcribeVoice] CONTENT_LENGTH: ' . ($_SERVER['CONTENT_LENGTH'] ?? 'NULL'));
+    if (!empty($_FILES['audio'])) {
+        error_log('[transcribeVoice] audio info: ' . json_encode([
+            'name' => $_FILES['audio']['name'] ?? null,
+            'type' => $_FILES['audio']['type'] ?? null,
+            'size' => $_FILES['audio']['size'] ?? null,
+            'error' => $_FILES['audio']['error'] ?? null,
+        ]));
+    }
+
     // Accept multipart audio file
     if (empty($_FILES['audio'])) {
         jsonError('Campo audio (file upload) é obrigatório.', 422);
@@ -829,7 +843,17 @@ function transcribeVoice(): void
 
     $audioFile = $_FILES['audio'];
     if ($audioFile['error'] !== UPLOAD_ERR_OK) {
-        jsonError('Erro no upload do áudio: ' . $audioFile['error'], 422);
+        $errMap = [
+            1 => 'UPLOAD_ERR_INI_SIZE (maior que upload_max_filesize)',
+            2 => 'UPLOAD_ERR_FORM_SIZE',
+            3 => 'UPLOAD_ERR_PARTIAL',
+            4 => 'UPLOAD_ERR_NO_FILE',
+            6 => 'UPLOAD_ERR_NO_TMP_DIR',
+            7 => 'UPLOAD_ERR_CANT_WRITE',
+            8 => 'UPLOAD_ERR_EXTENSION',
+        ];
+        $errReason = $errMap[$audioFile['error']] ?? "code {$audioFile['error']}";
+        jsonError('Erro no upload do áudio: ' . $errReason, 422);
     }
 
     // Max 25MB (Whisper limit)

@@ -19,6 +19,7 @@ import api from "../lib/api";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import EmbeddedAIChat from "../components/EmbeddedAIChat";
+import MediaUpload from "../components/MediaUpload";
 import { useEventScope } from "../context/EventScopeContext";
 import {
   ALERT_SEVERITY_META,
@@ -531,6 +532,10 @@ export default function ArtistDetail() {
         default_contact_phone: artist?.default_contact_phone || "",
         notes: artist?.notes || "",
         is_active: Boolean(artist?.is_active),
+        genre: artist?.genre || "",
+        bio: artist?.bio || "",
+        photo_url: artist?.photo_url || "",
+        performance_video_url: artist?.performance_video_url || "",
       },
     });
   }
@@ -843,6 +848,10 @@ export default function ArtistDetail() {
           default_contact_phone: emptyToNull(editor.form.default_contact_phone),
           notes: emptyToNull(editor.form.notes),
           is_active: Boolean(editor.form.is_active),
+          genre: emptyToNull(editor.form.genre),
+          bio: emptyToNull(editor.form.bio),
+          photo_url: emptyToNull(editor.form.photo_url),
+          performance_video_url: emptyToNull(editor.form.performance_video_url),
         });
         toast.success("Artista atualizado com sucesso.");
       }
@@ -1276,6 +1285,43 @@ export default function ArtistDetail() {
                     onChange={(event) => setEditorField("default_contact_phone", event.target.value)}
                   />
                 </label>
+                <label className="space-y-2">
+                  <span className="input-label">Genero / Tipo de atracao</span>
+                  <input
+                    className="input"
+                    placeholder="Rock, DJ, Stand-up..."
+                    value={editor.form.genre}
+                    onChange={(event) => setEditorField("genre", event.target.value)}
+                  />
+                </label>
+              </div>
+              <label className="block space-y-2">
+                <span className="input-label">Biografia</span>
+                <textarea
+                  rows={3}
+                  className="input resize-none"
+                  placeholder="Historia do artista, releases, conquistas..."
+                  value={editor.form.bio}
+                  onChange={(event) => setEditorField("bio", event.target.value)}
+                />
+              </label>
+              <div className="grid gap-4 md:grid-cols-2">
+                <MediaUpload
+                  label="Foto do artista"
+                  description="Aparece no card do Line-up no app"
+                  value={editor.form.photo_url}
+                  onChange={(v) => setEditorField("photo_url", v)}
+                  mediaType="image"
+                  category="artists"
+                />
+                <MediaUpload
+                  label="Video de apresentacao"
+                  description="Abre em tela cheia ao tocar no card"
+                  value={editor.form.performance_video_url}
+                  onChange={(v) => setEditorField("performance_video_url", v)}
+                  mediaType="video"
+                  category="artists"
+                />
               </div>
               <label className="block space-y-2">
                 <span className="input-label">Observacoes</span>
